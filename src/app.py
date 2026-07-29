@@ -1140,6 +1140,7 @@ def render_company_research_page() -> None:
         )
         st.caption(
             f"行情最后日期：{metrics['latest_date']}；前复权日线；"
+            f"来源：{market_frame.attrs.get('source', '公开行情适配器')}；"
             "所有指标由Python计算。历史表现不代表未来结果。"
         )
 
@@ -1343,6 +1344,7 @@ def render_market_page() -> None:
     st.caption(
         f"数据截至 {metrics['latest_date']}；{adjustment_label}日线；"
         f"有效观测 {metrics['observations']} 个交易日。"
+        f"来源：{market_frame.attrs.get('source', '公开行情适配器')}。"
         "红色表示收盘不低于开盘，绿色表示收盘低于开盘。"
     )
     st.warning(

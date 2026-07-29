@@ -302,6 +302,21 @@ def prepare_market_history(frame: pd.DataFrame) -> pd.DataFrame:
     ].reset_index(drop=True)
 
 
+def prepare_tencent_market_history(frame: pd.DataFrame) -> pd.DataFrame:
+    """Adapt AKShare's Tencent daily schema to the validated OHLCV schema."""
+    adapted = frame.copy()
+    normalised_columns = {
+        str(column).strip().lower(): column for column in adapted.columns
+    }
+    if "volume" not in normalised_columns and "amount" in normalised_columns:
+        # The Tencent adapter names its final field ``amount`` although the
+        # documented daily examples contain the traded-volume series there.
+        source_column = normalised_columns["amount"]
+        adapted["volume"] = adapted[source_column]
+        adapted = adapted.drop(columns=[source_column])
+    return prepare_market_history(adapted)
+
+
 def add_moving_averages(
     frame: pd.DataFrame,
     windows: tuple[int, ...] = (5, 20, 60),
@@ -574,10 +589,13 @@ def fetch_market_history(
     """Fetch daily A-share OHLCV history through the provider adapter."""
     if adjust not in {"", "qfq", "hfq"}:
         raise ValueError("复权方式必须是不复权、前复权或后复权。")
-    build_company_identity(code)
+    company = build_company_identity(code)
     try:
         import akshare as ak
+    except Exception as error:
+        raise DataSourceError("行情数据组件当前不可用，请稍后重试。") from error
 
+    try:
         frame = ak.stock_zh_a_hist(
             symbol=code,
             period="daily",
@@ -585,11 +603,32 @@ def fetch_market_history(
             end_date=end_date.strftime("%Y%m%d"),
             adjust=adjust,
         )
-        return prepare_market_history(frame)
-    except Exception as error:
-        raise DataSourceError(
-            "当前无法取得该公司的历史日线，请稍后重试。"
-        ) from error
+        prepared = prepare_market_history(frame)
+        if prepared.empty:
+            raise ValueError("东方财富返回了空行情。")
+        prepared.attrs["source"] = "东方财富公开日线"
+        return prepared
+    except Exception as primary_error:
+        try:
+            symbol = f"{company['exchange'].lower()}{code}"
+            fallback_frame = ak.stock_zh_a_hist_tx(
+                symbol=symbol,
+                start_date=start_date.strftime("%Y%m%d"),
+                end_date=end_date.strftime("%Y%m%d"),
+                adjust=adjust,
+            )
+            prepared = prepare_tencent_market_history(fallback_frame)
+            if prepared.empty:
+                raise ValueError("腾讯财经返回了空行情。")
+            prepared.attrs["source"] = "腾讯财经公开日线（备用源）"
+            return prepared
+        except Exception as fallback_error:
+            raise DataSourceError(
+                "当前无法从两个公开来源取得该公司的历史日线，请稍后重试。"
+            ) from ExceptionGroup(
+                "公开行情主源和备用源均不可用",
+                [primary_error, fallback_error],
+            )
 
 
 def fetch_announcements(
