@@ -606,7 +606,8 @@ def apply_product_theme() -> None:
         }
 
         .stButton > button,
-        .stDownloadButton > button {
+        .stDownloadButton > button,
+        .stFormSubmitButton > button {
             min-height: 2.85rem;
             border: 0;
             border-radius: 12px;
@@ -623,12 +624,34 @@ def apply_product_theme() -> None:
                 box-shadow 160ms ease;
         }
 
+        .stButton > button *,
+        .stDownloadButton > button *,
+        .stFormSubmitButton > button * {
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+            text-shadow: 0 1px 1px rgba(5, 20, 40, 0.18);
+        }
+
         .stButton > button:hover,
-        .stDownloadButton > button:hover {
+        .stDownloadButton > button:hover,
+        .stFormSubmitButton > button:hover {
             border: 0;
-            color: white;
+            color: #ffffff !important;
             transform: translateY(-1px);
             box-shadow: 0 12px 26px rgba(11, 101, 111, 0.25);
+        }
+
+        .stButton > button:focus-visible,
+        .stDownloadButton > button:focus-visible,
+        .stFormSubmitButton > button:focus-visible {
+            outline: 3px solid rgba(200, 164, 93, 0.72);
+            outline-offset: 3px;
+        }
+
+        .stButton > button:disabled,
+        .stDownloadButton > button:disabled,
+        .stFormSubmitButton > button:disabled {
+            opacity: 0.68;
         }
 
         [data-testid="stAlert"],
