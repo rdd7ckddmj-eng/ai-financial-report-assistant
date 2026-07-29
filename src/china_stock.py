@@ -12,7 +12,7 @@ import math
 import re
 from datetime import date
 from typing import TypedDict
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import parse_qs, urlparse
 from urllib.request import Request, urlopen
 
 import pandas as pd
@@ -411,7 +411,7 @@ def is_allowed_disclosure_url(url: str) -> bool:
 
 
 def build_cninfo_pdf_url(announcement_url: str) -> str:
-    """Convert one validated CNINFO detail link to its PDF download URL."""
+    """Convert one validated CNINFO detail link to its official static PDF."""
     clean_url = str(announcement_url).strip()
     if not is_allowed_disclosure_url(clean_url):
         raise ValueError("年度报告链接不是受信任的官方披露地址。")
@@ -442,15 +442,9 @@ def build_cninfo_pdf_url(announcement_url: str) -> str:
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", announcement_time):
         raise ValueError("官方公告日期格式无效。")
 
-    query_text = urlencode(
-        {
-            "bulletinId": announcement_id,
-            "announceTime": announcement_time,
-        }
-    )
     return (
-        "https://www.cninfo.com.cn/new/announcement/download?"
-        f"{query_text}"
+        "https://static.cninfo.com.cn/finalpage/"
+        f"{announcement_time}/{announcement_id}.PDF"
     )
 
 
