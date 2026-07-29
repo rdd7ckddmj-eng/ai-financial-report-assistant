@@ -1112,7 +1112,9 @@ def render_company_research_page() -> None:
 
     _show_company_banner(company)
     with st.spinner("正在同步公开市场数据与最新公告……"):
-        _, metrics, announcements = _load_company_research_data(company)
+        market_frame, metrics, announcements = _load_company_research_data(
+            company
+        )
 
     st.subheader("市场概览")
     if metrics is None:
