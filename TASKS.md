@@ -8,8 +8,8 @@
 - [x] Add daily K-lines, volume, moving averages, returns, volatility, and drawdown.
 - [x] Find the latest complete official annual report and exclude summaries.
 - [x] Add server-side official PDF loading with signature and size checks.
-- [ ] Validate the public data adapters in the deployed Render environment.
-- [ ] Deploy the multi-page version to the existing website.
+- [x] Validate the public data adapters in the deployed Render environment.
+- [x] Deploy the multi-page version to the existing website.
 - [x] Confirm operating system and preferred development setup.
 - [x] Install Python, Git, and a code editor.
 - [x] Create and activate a virtual environment.
