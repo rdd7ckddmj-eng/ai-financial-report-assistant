@@ -1,9 +1,11 @@
 pandas
 openpyxl
-streamlit
+streamlit>=1.40,<2
 pymupdf
 python-dotenv
 pytest
 fastembed
 openai>=2,<3
 pydantic>=2,<3
+akshare==1.18.72
+plotly==6.9.0

@@ -1,17 +1,21 @@
-# AI Financial Report Assistant
+# WFZ Chinese Listed Company Research Agent
 
-A beginner-friendly portfolio project combining finance, data analysis, and large-language-model applications.
+A Chinese-first portfolio product combining listed-company research,
+financial analysis, public market data, annual-report evidence, and auditable
+Agent workflows.
 
 ## Project objective
 
 Build a web application that can:
 
-1. analyse uploaded annual reports;
-2. extract and calculate key financial indicators;
-3. answer questions using retrieved report evidence;
-4. show source references;
-5. explain profitability, cash flow, liquidity, leverage, and risk;
-6. avoid presenting AI output as investment advice.
+1. identify a mainland listed company from its name or six-digit code;
+2. show source-linked official disclosures that refresh on demand;
+3. display validated daily K-lines and deterministic market-risk statistics;
+4. locate and temporarily load the latest official annual report;
+5. extract and calculate key financial indicators;
+6. answer questions using retrieved report evidence and PDF pages;
+7. show source references, limitations, and the Agent audit trail;
+8. avoid presenting AI output as investment advice.
 
 ## Development principles
 
@@ -48,6 +52,11 @@ Build a Streamlit interface, tests, documentation, evaluation cases, and a demo.
 4. Run tests with `pytest`.
 5. Run the application with `streamlit run src/app.py`.
 
+The company directory, official-disclosure wall, and K-line page use public
+data adapters and do not require an OpenAI API key. Public sources can be
+temporarily rate-limited or unavailable, so the product keeps official links
+and manual PDF upload as fallbacks.
+
 The OpenAI Platform API is billed separately from a ChatGPT subscription.
 Without available API quota, the product keeps the verified extractive answer
 and explains why the optional LLM step did not run.
@@ -63,10 +72,25 @@ secret environment settings. It must never be committed to the repository.
 
 ## Current working features
 
+- Provide a multi-page product structure: home, company research centre,
+  K-line and market evidence, annual-report evidence, and methodology/audit.
+- Resolve mainland listed-company names or six-digit stock codes to a
+  code-plus-exchange identity shared across all pages.
+- Synchronise official CNINFO disclosures on demand with a one-hour cache,
+  source links, topic classification, and a neutral attention level instead of
+  unsupported bullish/bearish labels.
+- Find the latest complete annual report while excluding summaries, inquiry
+  letters, cancellations, and replies.
+- Temporarily load a validated CNINFO annual-report PDF on the server and feed
+  it into the existing evidence workflow, with manual upload as a fallback.
+- Display daily candlesticks, volume, MA5/MA20/MA60, 20/60/250-trading-day
+  returns, annualised historical volatility, and maximum drawdown.
+- Validate company-directory fields, OHLC relationships, disclosure domains,
+  PDF signatures, and download size before showing or analysing data.
 - Present a branded portfolio interface for **WFZ Financial Intelligence**,
-  with clear developer attribution to **王方正 · Durham University** and a consistent
-  finance-and-technology visual system across upload, metrics, forms, alerts,
-  and audit results.
+  with clear developer attribution to **王方正 · Durham University** and a
+  consistent finance-and-technology visual system across research, upload,
+  metrics, forms, alerts, and audit results.
 - Provide a Chinese-first interface for domestic recruitment demonstrations,
   while preserving original annual-report wording for evidence verification.
 - Support **CNY (¥ 人民币)** as the default manual-analysis currency, alongside

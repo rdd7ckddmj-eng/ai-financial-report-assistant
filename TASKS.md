@@ -1,6 +1,15 @@
 # Current task board
 
 ## Now
+- [x] Reposition the product as a Chinese listed-company research Agent.
+- [x] Add a clean home page and separate research subpages.
+- [x] Add company-name and six-digit stock-code identification.
+- [x] Add a source-linked official disclosure wall with on-demand refresh.
+- [x] Add daily K-lines, volume, moving averages, returns, volatility, and drawdown.
+- [x] Find the latest complete official annual report and exclude summaries.
+- [x] Add server-side official PDF loading with signature and size checks.
+- [ ] Validate the public data adapters in the deployed Render environment.
+- [ ] Deploy the multi-page version to the existing website.
 - [x] Confirm operating system and preferred development setup.
 - [x] Install Python, Git, and a code editor.
 - [x] Create and activate a virtual environment.
@@ -56,5 +65,10 @@
 ## Later
 - [x] LLM integration with structured outputs and local guardrails.
 - [ ] Enable API billing/quota before the first live LLM answer.
-- [ ] GitHub publication and recruitment materials.
+- [ ] Add source-controlled media news only after source-quality evaluation.
+- [ ] Add scheduled background refresh only when traffic justifies the cost.
+- [ ] Adapt deterministic statement extraction to major Chinese A-share layouts.
+- [ ] Add cross-year financial trends and comparable-company research.
+- [x] GitHub publication and public Render website.
+- [ ] Complete recruitment materials.
 - [ ] Complete any remaining standalone Python exercises if useful.
