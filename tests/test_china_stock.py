@@ -10,6 +10,7 @@ from src.china_stock import (
     is_allowed_disclosure_url,
     prepare_announcements,
     prepare_market_history,
+    prepare_tencent_market_history,
     resolve_company,
     select_latest_annual_report,
 )
@@ -82,6 +83,24 @@ def test_invalid_ohlc_rows_are_removed() -> None:
     prepared = prepare_market_history(frame)
 
     assert len(prepared) == 1
+
+
+def test_tencent_daily_schema_maps_amount_to_volume() -> None:
+    frame = pd.DataFrame(
+        {
+            "date": ["2026-07-27"],
+            "open": [10.0],
+            "close": [10.2],
+            "high": [10.3],
+            "low": [9.9],
+            "amount": [1_234_567],
+        }
+    )
+
+    prepared = prepare_tencent_market_history(frame)
+
+    assert prepared.loc[0, "volume"] == 1_234_567
+    assert pd.isna(prepared.loc[0, "amount"])
 
 
 def test_announcement_classification_uses_attention_not_sentiment() -> None:
