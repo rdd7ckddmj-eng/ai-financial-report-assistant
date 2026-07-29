@@ -130,8 +130,8 @@ def test_cninfo_detail_link_builds_bounded_official_download_url() -> None:
     )
 
     assert build_cninfo_pdf_url(detail_url) == (
-        "https://www.cninfo.com.cn/new/announcement/download?"
-        "bulletinId=1212345678&announceTime=2025-03-15"
+        "https://static.cninfo.com.cn/finalpage/"
+        "2025-03-15/1212345678.PDF"
     )
 
 
