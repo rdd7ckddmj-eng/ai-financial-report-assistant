@@ -1,54 +1,75 @@
 import json
+import sys
+from datetime import date, timedelta
+from io import BytesIO
 from pathlib import Path
 
+import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 load_dotenv()
 
-from adaptive_escalation import (
+from src.adaptive_escalation import (
     EscalationDecision,
     decide_adaptive_escalation,
 )
-from agent_coordinator import (
+from src.agent_coordinator import (
     AgentTraceStep,
     AgentWorkflowRun,
     build_agent_audit_record,
     run_agent_workflow,
 )
-from agent_router import RouteDecision, route_question
-from answer_verifier import VerificationResult
-from balance_sheet_extractor import find_balance_sheet_figures
-from cash_flow_extractor import find_cash_flow_figures
-from financial_statement_extractor import find_income_statement_figures
-from financial_ratios import (
+from src.agent_router import RouteDecision, route_question
+from src.answer_verifier import VerificationResult
+from src.balance_sheet_extractor import find_balance_sheet_figures
+from src.cash_flow_extractor import find_cash_flow_figures
+from src.china_stock import (
+    CompanyIdentity,
+    DataSourceError,
+    MarketMetrics,
+    add_moving_averages,
+    calculate_market_metrics,
+    download_official_pdf,
+    fetch_announcements,
+    fetch_company_directory,
+    fetch_market_history,
+    resolve_company,
+    select_latest_annual_report,
+)
+from src.financial_statement_extractor import find_income_statement_figures
+from src.financial_ratios import (
     current_ratio,
     liabilities_to_assets_ratio,
     net_profit_margin,
     revenue_growth,
 )
-from llm_analyst import (
+from src.llm_analyst import (
     LLMAnalystRun,
     run_llm_analyst,
     serialise_llm_run,
 )
-from pdf_extractor import ExtractedPage, extract_pdf_pages
-from qa_benchmark import (
+from src.pdf_extractor import ExtractedPage, extract_pdf_pages
+from src.qa_benchmark import (
     BenchmarkCaseResult,
     BenchmarkSummary,
     evaluate_benchmark,
     load_benchmark_cases,
     summarise_benchmark,
 )
-from report_retriever import (
+from src.report_retriever import (
     ReportChunk,
     chunk_report_pages,
 )
-from report_metric_tool import MetricToolResult
+from src.report_metric_tool import MetricToolResult
 
 
 CHINESE_USER_GUIDE_PATH = (
-    Path(__file__).resolve().parents[1] / "docs" / "中文使用说明.md"
+    PROJECT_ROOT / "docs" / "中文使用说明.md"
 )
 
 
@@ -667,17 +688,20 @@ def show_product_identity() -> None:
         """
         <section class="wfz-hero">
             <div class="wfz-kicker">
-                WFZ 金融智能 · 国内求职演示版
+                WFZ FINANCIAL INTELLIGENCE · 国内求职演示版
             </div>
             <h1 class="wfz-title">
-                AI 财务报告<br><span>智能分析助手</span>
+                中国上市公司<br><span>自主研究 Agent</span>
             </h1>
             <p class="wfz-subtitle">
-                以证据为核心的财务智能产品：Python 负责透明计算，
-                PDF 页码保证结论可追溯，多 Agent 工作流负责检索、
-                质疑与验证。
+                输入公司名称或股票代码，统一查看官方公告、历史 K 线、
+                年报证据与 Agent 审计结果。Python 负责透明计算，
+                原始链接和 PDF 页码保证结论可追溯。
             </p>
             <div class="wfz-badges">
+                <span class="wfz-badge">中国上市公司</span>
+                <span class="wfz-badge">官方动态墙</span>
+                <span class="wfz-badge">K 线与风险指标</span>
                 <span class="wfz-badge">PYTHON 数值验证</span>
                 <span class="wfz-badge">PDF 页码溯源</span>
                 <span class="wfz-badge">多 AGENT 审计轨迹</span>
@@ -718,22 +742,735 @@ def show_chinese_user_guide() -> None:
         st.download_button(
             "下载中文使用说明书（Markdown）",
             data=guide_text,
-            file_name="WFZ_AI财报智能分析助手_中文使用说明.md",
+            file_name="WFZ_中国上市公司研究Agent_中文使用说明.md",
             mime="text/markdown",
             use_container_width=True,
         )
 
 
-def main() -> None:
-    st.set_page_config(
-        page_title="王方正｜AI财报智能分析助手",
-        page_icon="📊",
-        layout="wide",
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_a_share_directory() -> pd.DataFrame:
+    """Cache the public company directory for one hour."""
+    return fetch_company_directory()
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_a_share_history(
+    code: str,
+    start_date_text: str,
+    end_date_text: str,
+    adjust: str,
+) -> pd.DataFrame:
+    """Cache one validated K-line request for one hour."""
+    return fetch_market_history(
+        code=code,
+        start_date=date.fromisoformat(start_date_text),
+        end_date=date.fromisoformat(end_date_text),
+        adjust=adjust,
     )
 
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_company_announcements(
+    code: str,
+    start_date_text: str,
+    end_date_text: str,
+    category: str = "",
+) -> pd.DataFrame:
+    """Cache official disclosure metadata for one hour."""
+    return fetch_announcements(
+        code=code,
+        start_date=date.fromisoformat(start_date_text),
+        end_date=date.fromisoformat(end_date_text),
+        category=category,
+    )
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_official_annual_report(announcement_url: str) -> bytes:
+    """Temporarily cache a validated official annual-report PDF."""
+    return download_official_pdf(announcement_url)
+
+
+def show_compact_page_header(
+    section: str,
+    title: str,
+    description: str,
+) -> None:
+    """Render a consistent subpage heading without repeating the home hero."""
+    st.markdown(
+        f'<div class="wfz-section-label">{section}</div>',
+        unsafe_allow_html=True,
+    )
+    st.title(title)
+    st.write(description)
+
+
+def show_product_footer() -> None:
+    """Render the common developer attribution and product boundary."""
+    st.markdown(
+        """
+        <div class="wfz-footer">
+            <strong>WFZ 中国上市公司自主研究 Agent</strong> · 产品设计与研发：
+            <strong>王方正 · Durham University</strong><br>
+            以证据为核心的上市公司研究，用于教育、求职演示与作品集展示；
+            不构成投资建议。
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _page_target(name: str) -> object | None:
+    """Return a page object registered by the main navigation."""
+    registry = st.session_state.get("_wfz_page_registry", {})
+    return registry.get(name) if isinstance(registry, dict) else None
+
+
+def _switch_page(name: str) -> None:
+    """Navigate between function-backed Streamlit pages when available."""
+    target = _page_target(name)
+    if target is not None:
+        st.switch_page(target)
+
+
+def _store_selected_company(company: CompanyIdentity) -> None:
+    """Keep one company identity across every research subpage."""
+    st.session_state["selected_company"] = dict(company)
+
+
+def _selected_company() -> CompanyIdentity | None:
+    """Return the selected company if its stored shape is still valid."""
+    stored = st.session_state.get("selected_company")
+    if not isinstance(stored, dict):
+        return None
+    required = {
+        "code",
+        "name",
+        "exchange",
+        "exchange_name",
+        "canonical_code",
+    }
+    if not required.issubset(stored):
+        return None
+    return stored  # type: ignore[return-value]
+
+
+def _render_company_search(
+    *,
+    key_prefix: str,
+    navigate_on_success: bool,
+) -> CompanyIdentity | None:
+    """Resolve a company code/name with a live directory and safe fallback."""
+    matches_key = f"{key_prefix}_company_matches"
+    with st.form(f"{key_prefix}_company_search_form"):
+        query = st.text_input(
+            "输入A股公司名称或6位股票代码",
+            placeholder="例如：贵州茅台、600519、宁德时代、300750",
+            key=f"{key_prefix}_company_query",
+        )
+        submitted = st.form_submit_button(
+            "开始研究",
+            type="primary",
+            use_container_width=True,
+        )
+
+    if submitted:
+        directory: pd.DataFrame | None
+        try:
+            with st.spinner("正在核验上市公司身份……"):
+                directory = load_a_share_directory()
+        except (DataSourceError, ValueError):
+            directory = None
+            st.info(
+                "实时公司目录暂时不可用，系统正在使用本地核验名单；"
+                "直接输入6位股票代码仍可继续。"
+            )
+
+        matches = resolve_company(query, directory)
+        st.session_state[matches_key] = matches
+        if not matches:
+            st.warning(
+                "暂时没有找到匹配的沪、深或北交所上市公司。"
+                "请检查名称，或直接输入6位股票代码。"
+            )
+            return None
+
+        if len(matches) == 1:
+            company = matches[0]
+            _store_selected_company(company)
+            if navigate_on_success:
+                _switch_page("company")
+            return company
+
+    matches = st.session_state.get(matches_key, [])
+    if isinstance(matches, list) and len(matches) > 1:
+        options = {
+            (
+                f"{item['name']}｜{item['canonical_code']}｜"
+                f"{item['exchange_name']}"
+            ): item
+            for item in matches
+        }
+        selection = st.selectbox(
+            "找到多个结果，请确认研究对象",
+            options=list(options),
+            key=f"{key_prefix}_company_choice",
+        )
+        if st.button(
+            "确认公司",
+            type="primary",
+            use_container_width=True,
+            key=f"{key_prefix}_confirm_company",
+        ):
+            company = options[selection]
+            _store_selected_company(company)
+            if navigate_on_success:
+                _switch_page("company")
+            return company
+    return _selected_company()
+
+
+def _show_company_banner(company: CompanyIdentity) -> None:
+    """Keep company, code, exchange, and research scope visible."""
+    st.info(
+        f"当前研究对象：**{company['name']}**｜"
+        f"**{company['canonical_code']}**｜"
+        f"{company['exchange_name']}。"
+    )
+    if company["name"] == "待核验公司":
+        st.warning(
+            "当前只根据6位代码识别了交易所，公司名称尚未通过实时目录核验。"
+            "请在数据源恢复后重新搜索，核验前不要据此形成结论。"
+        )
+    if st.button(
+        "更换研究公司",
+        key=f"change_company_{company['canonical_code']}",
+    ):
+        st.session_state.pop("selected_company", None)
+        _switch_page("home")
+
+
+def _format_percent(value: float | None) -> str:
+    """Format an optional ratio without disguising missing evidence as zero."""
+    return "数据不足" if value is None else f"{value:.1%}"
+
+
+def _load_company_research_data(
+    company: CompanyIdentity,
+) -> tuple[pd.DataFrame | None, MarketMetrics | None, pd.DataFrame | None]:
+    """Load market history and announcements independently and safely."""
+    end_date = date.today()
+    market_start = end_date - timedelta(days=550)
+    # Eighteen months keeps the latest full annual report in scope even late
+    # in the calendar year, while the wall still shows only the newest items.
+    announcement_start = end_date - timedelta(days=550)
+    market_frame: pd.DataFrame | None = None
+    metrics: MarketMetrics | None = None
+    announcements: pd.DataFrame | None = None
+
+    try:
+        market_frame = load_a_share_history(
+            company["code"],
+            market_start.isoformat(),
+            end_date.isoformat(),
+            "qfq",
+        )
+        if not market_frame.empty:
+            metrics = calculate_market_metrics(market_frame)
+    except (DataSourceError, ValueError):
+        pass
+
+    try:
+        announcements = load_company_announcements(
+            company["code"],
+            announcement_start.isoformat(),
+            end_date.isoformat(),
+        )
+    except (DataSourceError, ValueError):
+        pass
+    return market_frame, metrics, announcements
+
+
+def render_home_page() -> None:
+    """Render the single-entry home page for the research product."""
     apply_product_theme()
     show_product_identity()
     show_chinese_user_guide()
+
+    st.markdown(
+        '<div class="wfz-section-label">'
+        "开始研究 · START RESEARCH"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    st.header("输入公司名称或股票代码")
+    st.write(
+        "系统将核验上市公司身份，并逐步连接官方披露、年报证据与"
+        "历史市场数据。普通功能不依赖付费AI额度。"
+    )
+    _render_company_search(
+        key_prefix="home",
+        navigate_on_success=True,
+    )
+
+    st.divider()
+    columns = st.columns(3)
+    with columns[0]:
+        with st.container(border=True):
+            st.subheader("官方披露优先")
+            st.write(
+                "以巨潮资讯和交易所公开信息为主要来源，保留公告日期、"
+                "标题和原始链接。"
+            )
+    with columns[1]:
+        with st.container(border=True):
+            st.subheader("Python透明计算")
+            st.write(
+                "财务比率、收益率、波动率和最大回撤均由确定性代码计算，"
+                "不会交给AI猜测。"
+            )
+    with columns[2]:
+        with st.container(border=True):
+            st.subheader("证据可追溯")
+            st.write(
+                "研究结果保留年报页码、数据来源和验证状态，"
+                "并明确展示证据不足之处。"
+            )
+
+    st.markdown(
+        '<div class="wfz-section-label">'
+        "研究流程 · RESEARCH WORKFLOW"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "**识别公司 → 获取官方资料 → 核验数据 → Python计算 → "
+        "Agent质疑 → 结合市场表现 → 生成研究结果**"
+    )
+    st.caption(
+        "第一阶段覆盖中国沪、深、北交所上市公司；"
+        "本产品不预测短期涨跌，也不提供买卖建议。"
+    )
+    show_product_footer()
+
+
+def _show_announcement_wall(announcements: pd.DataFrame) -> None:
+    """Render a concise, source-linked official disclosure wall."""
+    st.subheader("最新官方动态")
+    st.caption(
+        "系统按需同步公开公告并最多缓存1小时，不需要开发者每天更新；"
+        "“关注程度”表示需要阅读的优先级，不代表利好或利空。"
+    )
+    if announcements.empty:
+        st.info("查询范围内暂未取得可展示的官方公告。")
+        return
+
+    category_filter = st.multiselect(
+        "筛选公告类别",
+        options=sorted(announcements["category"].unique()),
+        placeholder="默认显示全部类别",
+    )
+    display_frame = announcements
+    if category_filter:
+        display_frame = display_frame.loc[
+            display_frame["category"].isin(category_filter)
+        ]
+
+    for item in display_frame.head(12).itertuples(index=False):
+        with st.container(border=True):
+            metadata_column, link_column = st.columns([5, 1])
+            with metadata_column:
+                st.markdown(f"**{item.title}**")
+                st.caption(
+                    f"{item.date.isoformat()}｜{item.category}｜"
+                    f"关注程度：{item.attention}｜来源：巨潮资讯"
+                )
+            with link_column:
+                st.markdown(
+                    f"[查看原文 ↗]({item.url})",
+                )
+
+
+def render_company_research_page() -> None:
+    """Render company overview, market metrics, and official dynamics."""
+    apply_product_theme()
+    show_compact_page_header(
+        "01 / 公司研究中心 · COMPANY RESEARCH",
+        "公司研究中心",
+        "一个页面查看上市公司身份、市场概览、官方动态和最新年报入口。",
+    )
+    company = _selected_company()
+    if company is None:
+        st.warning("请先选择研究对象。")
+        _render_company_search(
+            key_prefix="company",
+            navigate_on_success=False,
+        )
+        show_product_footer()
+        return
+
+    _show_company_banner(company)
+    with st.spinner("正在同步公开市场数据与最新公告……"):
+        _, metrics, announcements = _load_company_research_data(company)
+
+    st.subheader("市场概览")
+    if metrics is None:
+        st.warning(
+            "历史行情数据源暂时不可用。年报分析和手工上传功能仍可使用。"
+        )
+    else:
+        columns = st.columns(4)
+        columns[0].metric(
+            "最新收盘价",
+            f"¥{metrics['latest_close']:,.2f}",
+            _format_percent(metrics["daily_change"]),
+        )
+        columns[1].metric(
+            "近20交易日",
+            _format_percent(metrics["return_20d"]),
+        )
+        columns[2].metric(
+            "年化历史波动率",
+            _format_percent(metrics["annualised_volatility"]),
+        )
+        columns[3].metric(
+            "区间最大回撤",
+            _format_percent(metrics["max_drawdown"]),
+        )
+        st.caption(
+            f"行情最后日期：{metrics['latest_date']}；前复权日线；"
+            "所有指标由Python计算。历史表现不代表未来结果。"
+        )
+
+    action_columns = st.columns(2)
+    if action_columns[0].button(
+        "查看完整K线与市场表现",
+        use_container_width=True,
+        type="primary",
+    ):
+        _switch_page("market")
+    if action_columns[1].button(
+        "进入年报与证据分析",
+        use_container_width=True,
+    ):
+        _switch_page("annual")
+
+    st.divider()
+    if announcements is None:
+        st.warning(
+            "官方公告源暂时无法访问。系统不会使用未经核验的内容替代。"
+        )
+    else:
+        latest_report = select_latest_annual_report(announcements)
+        if latest_report is not None:
+            with st.container(border=True):
+                st.markdown("#### 最近完整年度报告")
+                st.write(latest_report["title"])
+                st.caption(
+                    f"公告日期：{latest_report['date'].isoformat()}｜"
+                    "来源：巨潮资讯"
+                )
+                st.link_button(
+                    "查看官方年度报告",
+                    str(latest_report["url"]),
+                )
+        _show_announcement_wall(announcements)
+    show_product_footer()
+
+
+def _build_kline_figure(frame: pd.DataFrame, company: CompanyIdentity) -> object:
+    """Build a Chinese-market candlestick and volume figure."""
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
+    prepared = add_moving_averages(frame)
+    figure = make_subplots(
+        rows=2,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.04,
+        row_heights=[0.72, 0.28],
+    )
+    figure.add_trace(
+        go.Candlestick(
+            x=prepared["date"],
+            open=prepared["open"],
+            high=prepared["high"],
+            low=prepared["low"],
+            close=prepared["close"],
+            name="日K",
+            increasing_line_color="#d94841",
+            decreasing_line_color="#159c74",
+        ),
+        row=1,
+        col=1,
+    )
+    average_colours = {
+        5: "#c28a24",
+        20: "#3577a8",
+        60: "#7c5aa6",
+    }
+    for window, colour in average_colours.items():
+        figure.add_trace(
+            go.Scatter(
+                x=prepared["date"],
+                y=prepared[f"ma_{window}"],
+                mode="lines",
+                line={"width": 1.4, "color": colour},
+                name=f"MA{window}",
+            ),
+            row=1,
+            col=1,
+        )
+
+    volume_colours = [
+        "#d94841" if close >= open_price else "#159c74"
+        for open_price, close in zip(
+            prepared["open"],
+            prepared["close"],
+            strict=True,
+        )
+    ]
+    figure.add_trace(
+        go.Bar(
+            x=prepared["date"],
+            y=prepared["volume"],
+            marker_color=volume_colours,
+            name="成交量",
+        ),
+        row=2,
+        col=1,
+    )
+    figure.update_layout(
+        title=f"{company['name']}｜{company['canonical_code']}",
+        height=680,
+        margin={"l": 20, "r": 20, "t": 58, "b": 20},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(255,255,255,0.72)",
+        hovermode="x unified",
+        legend={"orientation": "h", "y": 1.04, "x": 0},
+        xaxis_rangeslider_visible=False,
+    )
+    figure.update_yaxes(title_text="价格（元）", row=1, col=1)
+    figure.update_yaxes(title_text="成交量", row=2, col=1)
+    return figure
+
+
+def render_market_page() -> None:
+    """Render validated daily K-line data and deterministic risk metrics."""
+    apply_product_theme()
+    show_compact_page_header(
+        "02 / K线与市场表现 · MARKET EVIDENCE",
+        "K线与市场表现",
+        "用日线、成交量和透明统计指标观察历史市场表现，不预测未来涨跌。",
+    )
+    company = _selected_company()
+    if company is None:
+        st.warning("请先在首页选择一家中国上市公司。")
+        _render_company_search(
+            key_prefix="market",
+            navigate_on_success=False,
+        )
+        show_product_footer()
+        return
+
+    _show_company_banner(company)
+    control_columns = st.columns(2)
+    period_label = control_columns[0].selectbox(
+        "时间范围",
+        options=["近1年", "近3年", "近5年"],
+        index=1,
+    )
+    adjustment_label = control_columns[1].selectbox(
+        "价格口径",
+        options=["前复权", "不复权", "后复权"],
+        index=0,
+        help=(
+            "前复权适合观察连续历史趋势；不复权显示当时真实成交价格；"
+            "不同口径不能混合比较。"
+        ),
+    )
+    period_days = {
+        "近1年": 370,
+        "近3年": 1_100,
+        "近5年": 1_840,
+    }
+    adjustment = {
+        "前复权": "qfq",
+        "不复权": "",
+        "后复权": "hfq",
+    }
+    end_date = date.today()
+    start_date = end_date - timedelta(days=period_days[period_label])
+
+    try:
+        with st.spinner("正在读取并校验历史日线……"):
+            market_frame = load_a_share_history(
+                company["code"],
+                start_date.isoformat(),
+                end_date.isoformat(),
+                adjustment[adjustment_label],
+            )
+            metrics = calculate_market_metrics(market_frame)
+    except (DataSourceError, ValueError) as error:
+        st.error(str(error))
+        st.info(
+            "公开数据源恢复后可直接重试；该故障不会影响年报PDF分析。"
+        )
+        show_product_footer()
+        return
+
+    columns = st.columns(5)
+    columns[0].metric("最新收盘", f"¥{metrics['latest_close']:,.2f}")
+    columns[1].metric("20日收益率", _format_percent(metrics["return_20d"]))
+    columns[2].metric("60日收益率", _format_percent(metrics["return_60d"]))
+    columns[3].metric(
+        "年化波动率",
+        _format_percent(metrics["annualised_volatility"]),
+    )
+    columns[4].metric(
+        "最大回撤",
+        _format_percent(metrics["max_drawdown"]),
+    )
+
+    figure = _build_kline_figure(market_frame, company)
+    st.plotly_chart(
+        figure,
+        use_container_width=True,
+        config={"displaylogo": False},
+    )
+    st.caption(
+        f"数据截至 {metrics['latest_date']}；{adjustment_label}日线；"
+        f"有效观测 {metrics['observations']} 个交易日。"
+        "红色表示收盘不低于开盘，绿色表示收盘低于开盘。"
+    )
+    st.warning(
+        "K线和历史统计只描述已经发生的市场表现，不能单独证明公司价值，"
+        "也不构成买入、卖出或持有建议。"
+    )
+    show_product_footer()
+
+
+def render_methodology_page() -> None:
+    """Explain source priority, calculation boundaries, and known limits."""
+    apply_product_theme()
+    show_compact_page_header(
+        "04 / 方法与审计 · METHODOLOGY",
+        "方法、证据与产品边界",
+        "公开说明系统如何获取资料、计算指标、使用AI以及处理不确定性。",
+    )
+    with st.container(border=True):
+        st.subheader("数据来源优先级")
+        st.markdown(
+            "1. 巨潮资讯、上交所、深交所、北交所等官方披露；\n"
+            "2. 经过字段校验的公开历史行情；\n"
+            "3. 公司投资者关系页面；\n"
+            "4. 媒体新闻仅作为后续补充，不替代官方公告。"
+        )
+    with st.container(border=True):
+        st.subheader("确定性计算与AI分工")
+        st.write(
+            "财务比率、收益率、波动率、最大回撤和移动平均线全部由"
+            "Python计算。AI只允许基于已经核验的数字和原文证据生成解释，"
+            "不得自行补充财务数字。"
+        )
+    with st.container(border=True):
+        st.subheader("已知限制")
+        st.write(
+            "公开数据源可能出现限速、暂时不可访问或字段变化；"
+            "扫描版年报可能需要OCR；银行、保险与普通工业企业的报表结构"
+            "不同，需要分行业验证。数据不足时系统应明确提示，而不是返回0。"
+        )
+    with st.container(border=True):
+        st.subheader("产品用途")
+        st.write(
+            "本产品面向上市公司基本面研究、教育和求职作品集展示。"
+            "所有结论均需结合原始公告、行业背景和个人风险承受能力判断，"
+            "不提供个性化投资建议。"
+        )
+    show_chinese_user_guide()
+    show_product_footer()
+
+
+def render_annual_report_page() -> None:
+    """Render the existing PDF evidence workflow as a dedicated subpage."""
+    apply_product_theme()
+    show_compact_page_header(
+        "03 / 年报与证据 · ANNUAL REPORT",
+        "年报与证据分析",
+        "上传公开年度报告，按页提取文字、计算财务指标并生成可追溯答案。",
+    )
+    company = _selected_company()
+    if company is not None:
+        _show_company_banner(company)
+    show_chinese_user_guide()
+
+    automatic_report_bytes: bytes | None = None
+    if company is not None:
+        end_date = date.today()
+        start_date = end_date - timedelta(days=550)
+        latest_report = None
+        try:
+            announcements = load_company_announcements(
+                company["code"],
+                start_date.isoformat(),
+                end_date.isoformat(),
+            )
+            latest_report = select_latest_annual_report(announcements)
+        except (DataSourceError, ValueError):
+            st.warning(
+                "官方年报目录暂时无法同步，手工上传公开年报仍可正常使用。"
+            )
+
+        if latest_report is not None:
+            with st.container(border=True):
+                st.markdown("#### 已核验的最新完整年度报告")
+                st.write(str(latest_report["title"]))
+                st.caption(
+                    f"公告日期：{latest_report['date'].isoformat()}｜"
+                    "来源：巨潮资讯。自动载入为测试版，原文链接始终保留。"
+                )
+                report_columns = st.columns(2)
+                report_columns[0].link_button(
+                    "查看官方原文",
+                    str(latest_report["url"]),
+                    use_container_width=True,
+                )
+                auto_load_requested = report_columns[1].button(
+                    "自动载入并分析",
+                    type="primary",
+                    use_container_width=True,
+                    key=f"auto_load_{company['canonical_code']}",
+                )
+
+            if auto_load_requested:
+                try:
+                    with st.spinner("正在从官方披露地址临时载入年报……"):
+                        automatic_report_bytes = load_official_annual_report(
+                            str(latest_report["url"])
+                        )
+                except (DataSourceError, ValueError) as error:
+                    st.error(str(error))
+                    st.info("请打开官方原文下载PDF，再使用下方上传入口。")
+                else:
+                    report_title = str(latest_report["title"]).replace(
+                        "/",
+                        "_",
+                    )
+                    st.session_state["automatic_annual_report"] = {
+                        "company_code": company["code"],
+                        "name": f"{company['code']}_{report_title}.pdf",
+                        "url": str(latest_report["url"]),
+                    }
+                    st.success(
+                        "官方年报已临时载入，正在进入原有证据分析流程。"
+                    )
+        else:
+            st.info(
+                "当前没有找到可自动载入的完整年度报告，"
+                "你仍可使用下方手工上传入口。"
+            )
 
     st.markdown(
         (
@@ -753,6 +1490,29 @@ def main() -> None:
         type=["pdf"],
         help="请使用公开年度报告，不要上传个人或机密财务资料。",
     )
+
+    automatic_report = st.session_state.get("automatic_annual_report")
+    if (
+        uploaded_report is None
+        and company is not None
+        and isinstance(automatic_report, dict)
+        and automatic_report.get("company_code") == company["code"]
+    ):
+        try:
+            if automatic_report_bytes is None:
+                automatic_report_bytes = load_official_annual_report(
+                    str(automatic_report["url"])
+                )
+        except (DataSourceError, ValueError) as error:
+            st.error(str(error))
+        else:
+            in_memory_report = BytesIO(automatic_report_bytes)
+            in_memory_report.name = str(automatic_report["name"])
+            uploaded_report = in_memory_report
+            st.caption(
+                "当前使用服务器临时载入的官方年报；"
+                "你也可以上传PDF来替换本次分析对象。"
+            )
 
     if uploaded_report is not None:
         try:
@@ -1376,8 +2136,8 @@ def main() -> None:
                 )
     else:
         st.info(
-            "准备好后请上传 PDF。文件只在本地应用中处理，"
-            "不会自动离开你的电脑。"
+            "准备好后请上传公开年度报告 PDF。上传内容只用于本次分析，"
+            "不会写入公开代码仓库；请勿上传个人或机密资料。"
         )
 
     st.divider()
@@ -1630,16 +2390,64 @@ def main() -> None:
         )
         st.caption(f"当前显示货币：{currency}")
 
-    st.markdown(
-        """
-        <div class="wfz-footer">
-            <strong>WFZ 金融智能</strong> · 产品设计与研发：
-            <strong>王方正 · Durham University</strong><br>
-            以证据为核心的财务分析，用于教育、求职演示与作品集展示。
-        </div>
-        """,
-        unsafe_allow_html=True,
+    show_product_footer()
+
+
+def main() -> None:
+    """Configure and run the product's multi-page navigation."""
+    st.set_page_config(
+        page_title="王方正｜中国上市公司研究Agent",
+        page_icon="📊",
+        layout="wide",
+        initial_sidebar_state="expanded",
     )
+
+    home_page = st.Page(
+        render_home_page,
+        title="首页",
+        icon="🏠",
+        default=True,
+    )
+    company_page = st.Page(
+        render_company_research_page,
+        title="公司研究中心",
+        icon="🏢",
+    )
+    market_page = st.Page(
+        render_market_page,
+        title="K线与市场表现",
+        icon="📈",
+    )
+    annual_page = st.Page(
+        render_annual_report_page,
+        title="年报与证据",
+        icon="📄",
+    )
+    methodology_page = st.Page(
+        render_methodology_page,
+        title="方法与审计",
+        icon="🧭",
+    )
+    st.session_state["_wfz_page_registry"] = {
+        "home": home_page,
+        "company": company_page,
+        "market": market_page,
+        "annual": annual_page,
+        "methodology": methodology_page,
+    }
+
+    navigation = st.navigation(
+        {
+            "开始": [home_page],
+            "上市公司研究": [
+                company_page,
+                market_page,
+                annual_page,
+            ],
+            "产品说明": [methodology_page],
+        }
+    )
+    navigation.run()
 
 
 if __name__ == "__main__":
