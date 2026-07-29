@@ -1,0 +1,11 @@
+case_id,question,expected_mode,expected_tool,expected_metric,expected_metric_page,required_retrieval_page,expected_concept,expected_supported,expected_escalated,expected_has_challenge,required_challenge_page,expected_verification,notes
+net_margin_zh,净利率是多少？,deterministic_metric,net_profit_margin,2.4%,123,123,profitability,true,false,false,,approved,Current-period reported net margin
+revenue_growth_en,What is revenue growth?,deterministic_metric,revenue_growth,5.4%,123,221,revenue and sales,true,true,false,,approved,Reported growth requires 53 versus 52 week escalation
+current_ratio_zh,流动比率是多少？,deterministic_metric,current_ratio,0.59x,125,125,liquidity,true,false,false,,approved,Current resources include assets held for sale
+liabilities_assets_zh,资产负债率是多少？,deterministic_metric,liabilities_to_assets,71.0%,125,125,leverage,true,false,false,,approved,Reported balance-sheet structure
+operating_cash_flow_zh,经营现金流为什么增长？,skeptical_analysis,none,none,,29,operating cash flow,true,true,true,29,approved_with_caveats,Driver and offset must both be cited
+operating_cash_flow_en,Why did operating cash flow increase?,skeptical_analysis,none,none,,29,operating cash flow,true,true,true,29,approved_with_caveats,English version of the causal question
+revenue_lookup_en,What was revenue?,quick_evidence,none,none,,221,revenue and sales,true,false,false,,approved,Direct lookup should remain at low cost
+liquidity_cover_en,Can the company cover its short-term obligations?,skeptical_analysis,none,none,,125,liquidity,true,true,true,220,approved_with_caveats,Liquidity answer needs balance-sheet evidence and limitations
+out_of_scope_refusal,football sponsorship details,quick_evidence,none,none,,,none,false,true,false,,rejected,Weak word overlap must not produce a financial conclusion
+total_liabilities_en,What are total liabilities?,deterministic_metric,total_liabilities,"28,017 £m",125,125,leverage,true,false,false,,approved,Requires the reconciled total and the group balance-sheet source page

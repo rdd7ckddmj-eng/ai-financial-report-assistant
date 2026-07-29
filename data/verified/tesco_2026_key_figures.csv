@@ -1,0 +1,21 @@
+company,report_year,statement,metric_key,metric_label,current_value,previous_value,unit,source_pdf_page,source_row,verification_status,notes
+Tesco PLC,2026,Income statement,revenue,Revenue,73712,69916,£m,123,Revenue,Verified,Uses the statutory Total columns
+Tesco PLC,2026,Income statement,net_profit,Profit for the year,1787,1630,£m,123,Profit/(loss) for the year,Verified,Uses the statutory Total columns
+Tesco PLC,2026,Balance sheet,current_assets_subtotal,Current assets subtotal,8369,8806,£m,125,Current assets,Verified,Excludes assets held for sale
+Tesco PLC,2026,Balance sheet,assets_held_for_sale,Assets held for sale,114,50,£m,125,Non-current assets classified as held for sale,Verified,Included in current resources for the ratio
+Tesco PLC,2026,Balance sheet,current_resources,Current resources including held for sale,8483,8856,£m,125,Current assets plus assets held for sale,Verified,Reconciled subtotal
+Tesco PLC,2026,Balance sheet,current_liabilities,Current liabilities,14329,13820,£m,125,Current liabilities,Verified,Stored as a positive denominator
+Tesco PLC,2026,Balance sheet,net_current_liabilities,Net current liabilities,-5846,-4964,£m,125,Net current liabilities,Verified,Current resources less current liabilities
+Tesco PLC,2026,Balance sheet,noncurrent_assets,Non-current assets,30991,30034,£m,125,Non-current assets,Verified,Published subtotal
+Tesco PLC,2026,Balance sheet,total_assets,Total assets,39474,38890,£m,125,Non-current assets plus current resources,Verified,Derived and reconciled
+Tesco PLC,2026,Balance sheet,noncurrent_liabilities,Non-current liabilities,13688,13408,£m,125,Non-current liabilities,Verified,Stored as a positive amount
+Tesco PLC,2026,Balance sheet,total_liabilities,Total liabilities,28017,27228,£m,125,Current plus non-current liabilities,Verified,Derived and reconciled
+Tesco PLC,2026,Balance sheet,net_assets,Net assets,11457,11662,£m,125,Net assets,Verified,Total assets less total liabilities
+Tesco PLC,2026,Cash flow statement,operating_cash_flow,Net cash from operating activities,3906,2919,£m,128,Net cash generated from/(used in) operating activities,Verified,Published total
+Tesco PLC,2026,Cash flow statement,investing_cash_flow,Net cash from investing activities,-706,-441,£m,128,Net cash generated from/(used in) investing activities,Verified,Negative means a net cash outflow
+Tesco PLC,2026,Cash flow statement,financing_cash_flow,Net cash from financing activities,-3086,-2940,£m,128,Net cash generated from/(used in) financing activities,Verified,Negative means a net cash outflow
+Tesco PLC,2026,Cash flow statement,net_cash_change,Net change in cash and cash equivalents,114,-462,£m,128,Net increase/(decrease) in cash and cash equivalents,Verified,Operating plus investing plus financing
+Tesco PLC,2026,Cash flow statement,opening_cash,Opening cash and cash equivalents,1399,1874,£m,128,Cash and cash equivalents at the beginning of the year,Verified,Opening balance
+Tesco PLC,2026,Cash flow statement,exchange_effect,Foreign exchange effect,-2,-13,£m,128,Effect of foreign exchange rate changes,Verified,Included in the cash roll-forward
+Tesco PLC,2026,Cash flow statement,ending_cash,Ending cash and cash equivalents,1511,1399,£m,128,Cash and cash equivalents at the end of the year,Verified,Reconciled ending balance
+Tesco PLC,2026,Cross-statement,reporting_period_weeks,Reporting period length,53,52,weeks,123,Statement period headings,Verified,Also confirmed on cash flow PDF page 128

@@ -1,0 +1,60 @@
+# Current task board
+
+## Now
+- [x] Confirm operating system and preferred development setup.
+- [x] Install Python, Git, and a code editor.
+- [x] Create and activate a virtual environment.
+- [x] Run `src/app.py`.
+- [x] Run `pytest`.
+- [x] Implement and test the first financial-ratio function.
+- [x] Build the first Streamlit product interface.
+- [x] Test profitable, loss-making, and zero-revenue scenarios.
+- [x] Build and test the revenue growth calculator.
+- [ ] Try the product with user-selected figures.
+- [x] Confirm the revenue growth formula with the project owner.
+- [x] Build and test the current ratio calculator.
+- [x] Confirm the current ratio formula with the project owner.
+- [x] Build and test the liabilities-to-assets calculator.
+- [x] Confirm the liabilities-to-assets formula with the project owner.
+- [x] Build and test PDF upload with page-level text extraction.
+- [x] Test PDF extraction with the first real annual report.
+- [x] Automatically find the income statement and extract revenue and profit totals.
+- [x] Compare current and previous income-statement figures with period warnings.
+- [x] Extract and reconcile balance-sheet liquidity figures.
+- [x] Calculate current and previous current ratios from the annual report.
+- [x] Reconcile total assets, total liabilities, and net assets.
+- [x] Calculate liabilities-to-assets ratios from the annual report.
+- [x] Extract and reconcile the group cash flow statement.
+- [x] Compare operating, investing, and financing cash flows.
+
+## Next
+- [x] Choose the first annual report: Tesco PLC 2026.
+- [x] Define the initial financial indicators.
+- [x] Create a small, manually checked sample dataset.
+- [x] Compare live PDF extraction with the verified answer key.
+- [x] Split report text into searchable chunks that preserve PDF pages.
+- [x] Add keyword evidence search with PDF-page citations.
+- [x] Add concept-aware retrieval for differently worded finance questions.
+- [x] Draft extractive answers using only cited report evidence.
+- [x] Structure answers as conclusion, evidence, and limitation.
+- [x] Refuse to answer when retrieved evidence is too weak.
+- [x] Add the rule-based, page-cited foundation for Skeptic Mode.
+- [x] Add a deterministic Verifier Agent for provenance and disclosure checks.
+- [x] Add an Agent Router that controls evidence and challenge depth.
+- [x] Route four supported report metrics to deterministic Python tools.
+- [x] Add deterministic, explainable dynamic escalation between Agent depths.
+- [x] Coordinate Agent handoffs and export a structured JSON audit trail.
+- [x] Add a human-defined Q&A evaluation benchmark and quality dashboard.
+- [x] Add local embedding-based semantic retrieval beyond the concept dictionary.
+- [x] Add a portfolio-quality branded interface and developer attribution.
+- [x] Add a Chinese-first domestic recruitment demonstration interface.
+- [x] Add CNY as the default manual-analysis currency.
+- [x] Add a downloadable Chinese user guide and interview-demo script.
+- [x] Show the full **Durham University** attribution across the product.
+- [x] Add public-hosting configuration with a health check and custom-domain support.
+
+## Later
+- [x] LLM integration with structured outputs and local guardrails.
+- [ ] Enable API billing/quota before the first live LLM answer.
+- [ ] GitHub publication and recruitment materials.
+- [ ] Complete any remaining standalone Python exercises if useful.
