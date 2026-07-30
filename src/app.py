@@ -1296,6 +1296,10 @@ def _show_anomaly_event_research(
         evidence_chain,
         market_source=market_source,
         turnover_source=turnover_source,
+        analogs=analogs,
+        historical_lens_url=(
+            "https://fangzhengai.wang/render_historical_lens_page"
+        ),
     )
     st.markdown("#### 保存本次研究")
     st.caption(

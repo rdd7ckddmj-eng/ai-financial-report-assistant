@@ -5,6 +5,7 @@ from __future__ import annotations
 from html import escape
 from urllib.parse import urlparse
 
+from src.anomaly_analogs import AnomalyAnalog
 from src.china_stock import CompanyIdentity, MarketActivityEvent
 from src.historical_lens import EventEvidenceChain
 
@@ -77,6 +78,70 @@ def _evidence_html(chain: EventEvidenceChain | None) -> str:
     return "".join(items)
 
 
+def _analogs_html(
+    analogs: list[AnomalyAnalog],
+    historical_lens_url: str | None,
+) -> str:
+    """Format already-computed analogs without fetching later outcomes."""
+    if not analogs:
+        return """
+        <div class="empty">
+          当前扫描范围内没有达到最低门槛的更早相似异动。
+        </div>
+        """
+
+    safe_lens_url = (
+        _safe_http_url(historical_lens_url)
+        if historical_lens_url is not None
+        else None
+    )
+    items: list[str] = []
+    for rank, analog in enumerate(analogs, start=1):
+        shared_signals = (
+            "、".join(analog["shared_signals"])
+            if analog["shared_signals"]
+            else "无完全相同信号"
+        )
+        replay_link = (
+            f'<a class="replay-link" href="{safe_lens_url}" '
+            'target="_blank" rel="noopener noreferrer">'
+            f"打开 Historical Lens 后选择 {_text(analog['date'])} ↗</a>"
+            if safe_lens_url
+            else '<span class="muted">Historical Lens 链接暂未配置</span>'
+        )
+        items.append(
+            """
+            <article class="analog-item">
+              <div class="analog-heading">
+                <strong>{rank}. {date}｜{event_type}</strong>
+                <span class="score">规则相似度 {similarity}</span>
+              </div>
+              <p>{summary}</p>
+              <p>日涨跌幅 {daily_return}｜成交量 / 前20日中位数
+              {volume_ratio}｜普通换手率历史分位
+              {turnover_percentile}｜可比维度 {dimension_count} 项。</p>
+              <p>共同触发：{shared_signals}。</p>
+              {replay_link}
+            </article>
+            """.format(
+                rank=rank,
+                date=_text(analog["date"]),
+                event_type=_text(analog["event_type"]),
+                similarity=_format_percent(analog["similarity_score"]),
+                summary=_text(analog["comparison_summary"]),
+                daily_return=_format_percent(analog["daily_return"]),
+                volume_ratio=_format_multiple(analog["volume_ratio_20d"]),
+                turnover_percentile=_format_percent(
+                    analog["turnover_percentile_250d"]
+                ),
+                dimension_count=analog["comparable_dimension_count"],
+                shared_signals=_text(shared_signals),
+                replay_link=replay_link,
+            )
+        )
+    return "".join(items)
+
+
 def build_anomaly_report_card_html(
     company: CompanyIdentity,
     event: MarketActivityEvent,
@@ -84,6 +149,8 @@ def build_anomaly_report_card_html(
     *,
     market_source: str,
     turnover_source: str,
+    analogs: list[AnomalyAnalog] | None = None,
+    historical_lens_url: str | None = None,
 ) -> str:
     """Return a portable HTML report using only already-verified page data."""
     evidence_status = (
@@ -113,6 +180,10 @@ def build_anomaly_report_card_html(
         "达到历史高位候选门槛"
         if event["turnover_high_candidate"]
         else "未达到历史高位候选门槛"
+    )
+    analog_items = _analogs_html(
+        analogs or [],
+        historical_lens_url,
     )
 
     return """<!doctype html>
@@ -213,6 +284,40 @@ def build_anomaly_report_card_html(
       font-weight: 700;
       text-decoration: none;
     }}
+    .analog-item {{
+      margin-bottom: 12px;
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fbfdfe;
+    }}
+    .analog-heading {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }}
+    .analog-item p {{
+      margin: 6px 0;
+      color: var(--muted);
+      font-size: 14px;
+    }}
+    .score {{
+      flex: 0 0 auto;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: #dff3ef;
+      color: #087f75;
+      font-size: 12px;
+      font-weight: 800;
+    }}
+    .replay-link {{
+      display: inline-block;
+      margin-top: 7px;
+      color: #087f75;
+      font-weight: 700;
+      text-decoration: none;
+    }}
     .empty {{
       padding: 17px;
       border: 1px dashed #9fb0be;
@@ -231,6 +336,11 @@ def build_anomaly_report_card_html(
       header, main, footer {{ padding-left: 24px; padding-right: 24px; }}
       .grid, .audit {{ grid-template-columns: 1fr; }}
       .evidence-item {{ align-items: flex-start; flex-direction: column; gap: 8px; }}
+      .analog-heading {{
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 6px;
+      }}
     }}
     @media print {{
       @page {{ size: A4; margin: 12mm; }}
@@ -287,6 +397,14 @@ def build_anomaly_report_card_html(
       {evidence_items}
       <p class="muted">时间隔离审计：{future_excluded}。</p>
 
+      <h2>历史相似异动</h2>
+      <p>以下案例只来自研究日期以前，并按确定性规则比较信号组合、
+      日涨跌幅、成交量倍数和普通换手率历史分位。缺失维度已退出计算，
+      后来收益没有进入本报告。</p>
+      {analog_items}
+      <p class="muted">相似度只描述历史形态接近程度，不是股价预测，
+      也不构成投资建议。</p>
+
       <h2>数据来源</h2>
       <section class="source">
         <strong>行情</strong>
@@ -334,6 +452,7 @@ def build_anomaly_report_card_html(
         evidence_status=_text(evidence_status),
         evidence_items=_evidence_html(evidence_chain),
         future_excluded=_text(future_excluded),
+        analog_items=analog_items,
         market_source=_text(market_source),
         turnover_source=_text(turnover_source),
         evidence_limitation=_text(evidence_limitation),
