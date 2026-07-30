@@ -1915,6 +1915,84 @@ def render_limit_up_board_page() -> None:
         f"来源：{snapshot['source']}。"
     )
 
+    review = snapshot["review"]
+    st.subheader("盘后市场结构复盘")
+    st.caption(
+        "以下内容由 Python 按固定规则汇总，只描述当日涨停池的"
+        "梯队、行业、封板节奏和回封记录，不生成涨跌预测。"
+    )
+    review_metrics = st.columns(4)
+    valid_first_times = review["valid_first_limit_time_count"]
+    review_metrics[0].metric(
+        "10点前首次封板",
+        (
+            "数据不足"
+            if valid_first_times == 0
+            else f"{review['early_seal_count']}/{valid_first_times} 家"
+        ),
+    )
+    valid_break_counts = review["valid_break_count_count"]
+    review_metrics[1].metric(
+        "开板后回封",
+        (
+            "数据不足"
+            if valid_break_counts == 0
+            else f"{review['resealed_count']}/{valid_break_counts} 家"
+        ),
+    )
+    review_metrics[2].metric(
+        "头部行业占比",
+        _format_percent(review["leading_industry_share"]),
+    )
+    review_metrics[3].metric(
+        "涨停梯队层数",
+        f"{len(review['ladder'])} 层",
+    )
+
+    structure_columns = st.columns([1, 2])
+    with structure_columns[0]:
+        st.markdown("#### 涨停梯队")
+        ladder_rows = [
+            {
+                "梯队": f"{row['boards']}板",
+                "公司数": row["company_count"],
+                "占当日涨停": _format_percent(row["share"]),
+            }
+            for row in review["ladder"]
+        ]
+        st.dataframe(
+            pd.DataFrame(ladder_rows),
+            hide_index=True,
+            use_container_width=True,
+        )
+
+    with structure_columns[1]:
+        st.markdown("#### 行业结构（前五）")
+        industry_rows = [
+            {
+                "行业": row["industry"],
+                "涨停家数": row["company_count"],
+                "连板家数": row["consecutive_count"],
+                "合计成交额": _format_optional_cny_100m(
+                    row["total_amount"]
+                ),
+                "普通换手率中位数": _format_percent(
+                    row["median_turnover"]
+                ),
+            }
+            for row in review["industries"][:5]
+        ]
+        st.dataframe(
+            pd.DataFrame(industry_rows),
+            hide_index=True,
+            use_container_width=True,
+        )
+
+    with st.container(border=True):
+        st.markdown("**规则化观察**")
+        for observation in review["observations"]:
+            st.write(f"- {observation}")
+
     st.subheader("头部涨停观察")
     st.caption(
         "默认依次按连板数、炸板次数、首次封板时间、封板资金和"

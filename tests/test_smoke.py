@@ -301,6 +301,12 @@ def test_limit_up_board_page_builds_daily_wall(monkeypatch) -> None:
     assert snapshot["consecutive_board_count"] == 1
     assert snapshot["rows"][0]["code"] == "600519"
     assert snapshot["rows"][0]["first_limit_time"] == "10:05:01"
+    assert snapshot["review"]["ladder"] == [
+        {"boards": 2, "company_count": 1, "share": 0.5},
+        {"boards": 1, "company_count": 1, "share": 0.5},
+    ]
+    assert snapshot["review"]["early_seal_count"] == 1
+    assert snapshot["review"]["resealed_count"] == 0
 
 
 def test_market_anomaly_page_builds_report_and_evidence_chain(

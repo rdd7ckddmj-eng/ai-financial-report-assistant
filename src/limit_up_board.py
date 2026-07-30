@@ -32,6 +32,39 @@ class LimitUpBoardRow(TypedDict):
     industry: str
 
 
+class LimitUpLadderRow(TypedDict):
+    """One visible level in the daily consecutive-board ladder."""
+
+    boards: int
+    company_count: int
+    share: float
+
+
+class LimitUpIndustryRow(TypedDict):
+    """One industry's deterministic contribution to the daily pool."""
+
+    industry: str
+    company_count: int
+    consecutive_count: int
+    total_amount: float | None
+    median_turnover: float | None
+
+
+class LimitUpBoardReview(TypedDict):
+    """A deterministic post-market structure review, not a forecast."""
+
+    ladder: list[LimitUpLadderRow]
+    industries: list[LimitUpIndustryRow]
+    valid_first_limit_time_count: int
+    early_seal_count: int
+    early_seal_ratio: float | None
+    valid_break_count_count: int
+    resealed_count: int
+    resealed_ratio: float | None
+    leading_industry_share: float | None
+    observations: list[str]
+
+
 class LimitUpBoardSnapshot(TypedDict):
     """A compact daily wall plus transparent descriptive statistics."""
 
@@ -43,6 +76,7 @@ class LimitUpBoardSnapshot(TypedDict):
     median_turnover: float | None
     leading_industry: str
     leading_industry_count: int
+    review: LimitUpBoardReview
     rows: list[LimitUpBoardRow]
     source: str
 
@@ -232,6 +266,171 @@ def rank_limit_up_rows(
     return sorted(rows, key=sort_key)
 
 
+def build_limit_up_board_review(
+    rows: list[LimitUpBoardRow],
+) -> LimitUpBoardReview:
+    """Summarise the day's structure using only validated pool fields."""
+    total_count = len(rows)
+    board_counts = Counter(
+        row["consecutive_boards"]
+        for row in rows
+        if row["consecutive_boards"] is not None
+    )
+    ladder = [
+        {
+            "boards": boards,
+            "company_count": company_count,
+            "share": company_count / total_count,
+        }
+        for boards, company_count in sorted(
+            board_counts.items(),
+            reverse=True,
+        )
+        if total_count > 0
+    ]
+
+    industry_groups: dict[str, list[LimitUpBoardRow]] = {}
+    for row in rows:
+        if row["industry"] == "未分类":
+            continue
+        industry_groups.setdefault(row["industry"], []).append(row)
+
+    industries: list[LimitUpIndustryRow] = []
+    for industry, industry_rows in industry_groups.items():
+        amounts = [
+            row["amount"]
+            for row in industry_rows
+            if row["amount"] is not None
+        ]
+        turnovers = [
+            row["turnover"]
+            for row in industry_rows
+            if row["turnover"] is not None
+        ]
+        industries.append(
+            {
+                "industry": industry,
+                "company_count": len(industry_rows),
+                "consecutive_count": sum(
+                    (
+                        row["consecutive_boards"] is not None
+                        and row["consecutive_boards"] >= 2
+                    )
+                    for row in industry_rows
+                ),
+                "total_amount": sum(amounts) if amounts else None,
+                "median_turnover": (
+                    float(pd.Series(turnovers).median())
+                    if turnovers
+                    else None
+                ),
+            }
+        )
+    industries.sort(
+        key=lambda row: (
+            -row["company_count"],
+            -row["consecutive_count"],
+            -(
+                row["total_amount"]
+                if row["total_amount"] is not None
+                else -1
+            ),
+            row["industry"],
+        )
+    )
+
+    valid_first_times = [
+        row["first_limit_time"]
+        for row in rows
+        if row["first_limit_time"] is not None
+    ]
+    early_seal_count = sum(
+        first_time <= "10:00:00" for first_time in valid_first_times
+    )
+    early_seal_ratio = (
+        early_seal_count / len(valid_first_times)
+        if valid_first_times
+        else None
+    )
+
+    valid_break_counts = [
+        row["break_count"]
+        for row in rows
+        if row["break_count"] is not None
+    ]
+    resealed_count = sum(
+        break_count > 0 for break_count in valid_break_counts
+    )
+    resealed_ratio = (
+        resealed_count / len(valid_break_counts)
+        if valid_break_counts
+        else None
+    )
+
+    leading_industry_share = (
+        industries[0]["company_count"] / total_count
+        if industries and total_count > 0
+        else None
+    )
+    first_board_count = board_counts.get(1, 0)
+    consecutive_board_count = sum(
+        company_count
+        for boards, company_count in board_counts.items()
+        if boards >= 2
+    )
+    maximum_boards = max(board_counts) if board_counts else None
+    observations = [
+        (
+            f"梯队结构：首板 {first_board_count} 家，连板 "
+            f"{consecutive_board_count} 家，最高"
+            f"{'数据不足' if maximum_boards is None else f'{maximum_boards} 板'}。"
+        )
+    ]
+    if industries and leading_industry_share is not None:
+        if leading_industry_share >= 0.25:
+            concentration_text = "头部行业集中度较高"
+        elif leading_industry_share >= 0.15:
+            concentration_text = "存在一定行业集中"
+        else:
+            concentration_text = "行业分布相对分散"
+        observations.append(
+            f"行业结构：{industries[0]['industry']}有 "
+            f"{industries[0]['company_count']} 家，占当日涨停 "
+            f"{leading_industry_share:.1%}，{concentration_text}。"
+        )
+    else:
+        observations.append("行业结构：有效行业分类数据不足。")
+
+    if early_seal_ratio is None:
+        observations.append("封板节奏：有效首次封板时间数据不足。")
+    else:
+        observations.append(
+            f"封板节奏：{early_seal_count}/{len(valid_first_times)} 家"
+            f"在 10:00 前首次封板，占有效记录 {early_seal_ratio:.1%}。"
+        )
+
+    if resealed_ratio is None:
+        observations.append("回封记录：有效炸板次数数据不足。")
+    else:
+        observations.append(
+            f"回封记录：{resealed_count}/{len(valid_break_counts)} 家"
+            f"存在至少一次开板后回封，占有效记录 {resealed_ratio:.1%}。"
+        )
+
+    return {
+        "ladder": ladder,
+        "industries": industries,
+        "valid_first_limit_time_count": len(valid_first_times),
+        "early_seal_count": early_seal_count,
+        "early_seal_ratio": early_seal_ratio,
+        "valid_break_count_count": len(valid_break_counts),
+        "resealed_count": resealed_count,
+        "resealed_ratio": resealed_ratio,
+        "leading_industry_share": leading_industry_share,
+        "observations": observations,
+    }
+
+
 def build_limit_up_board_snapshot(
     frame: pd.DataFrame,
     trade_date: date,
@@ -283,6 +482,7 @@ def build_limit_up_board_snapshot(
         ),
         "leading_industry": leading_industry,
         "leading_industry_count": leading_industry_count,
+        "review": build_limit_up_board_review(rows),
         "rows": ranked[:max_rows],
         "source": "东方财富涨停板行情公开涨停股池",
     }

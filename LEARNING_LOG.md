@@ -413,3 +413,32 @@ source.
 The page makes one bounded pool request only after the user chooses a date. A
 ten-minute cache holds at most two dates, the interface shows at most thirty
 table rows, and no full-market history or persistent Render file is created.
+
+## 2026-07-31 — Post-market limit-up structure review
+
+### What I built or changed
+
+Extended the Daily Limit-Up Board with a deterministic post-market review:
+the complete board ladder, top-five industry structure, early first-seal
+coverage, reseal coverage, leading-industry share, and plain-language
+observations.
+
+### One concept I can now explain
+
+A useful market review separates observable structure from prediction. Board
+height, industry breadth, first-seal time, and reseal records describe what
+happened during the selected session; they do not say what the next return
+will be.
+
+### How missing data is handled
+
+The early-seal and reseal ratios show their valid-record denominators.
+Companies with missing times or break counts are excluded from that specific
+ratio instead of being counted as zero. Industry rows exclude only unclassified
+records and preserve missing amount or turnover as unavailable.
+
+### Why this design fits the current deployment
+
+Every new result reuses the single validated daily pool already in memory.
+The feature adds no provider request, paid API, background job, persistent
+database, or large server-side file.
