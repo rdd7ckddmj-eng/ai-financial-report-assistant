@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from src.limit_up_board import (
+    build_limit_up_board_review,
     build_limit_up_board_snapshot,
     prepare_limit_up_pool,
     rank_limit_up_rows,
@@ -69,7 +70,49 @@ def test_limit_up_snapshot_builds_transparent_summary() -> None:
     assert snapshot["median_turnover"] == pytest.approx(0.045)
     assert snapshot["leading_industry"] == "软件开发"
     assert snapshot["leading_industry_count"] == 2
+    assert snapshot["review"]["early_seal_count"] == 2
     assert len(snapshot["rows"]) == 2
+
+
+def test_limit_up_review_builds_ladder_industry_and_timing_evidence() -> None:
+    rows = prepare_limit_up_pool(_pool_frame())
+
+    review = build_limit_up_board_review(rows)
+
+    assert review["ladder"] == [
+        {"boards": 2, "company_count": 2, "share": pytest.approx(2 / 3)},
+        {"boards": 1, "company_count": 1, "share": pytest.approx(1 / 3)},
+    ]
+    assert review["industries"][0]["industry"] == "软件开发"
+    assert review["industries"][0]["company_count"] == 2
+    assert review["industries"][0]["consecutive_count"] == 1
+    assert review["industries"][0]["total_amount"] == pytest.approx(
+        6_800_000_000
+    )
+    assert review["industries"][0]["median_turnover"] == pytest.approx(
+        0.0825
+    )
+    assert review["early_seal_count"] == 2
+    assert review["early_seal_ratio"] == pytest.approx(2 / 3)
+    assert review["resealed_count"] == 1
+    assert review["resealed_ratio"] == pytest.approx(1 / 3)
+    assert review["leading_industry_share"] == pytest.approx(2 / 3)
+    assert len(review["observations"]) == 4
+
+
+def test_limit_up_review_preserves_missing_structure_as_unavailable() -> None:
+    rows = prepare_limit_up_pool(
+        pd.DataFrame({"代码": ["600519"], "名称": ["贵州茅台"]})
+    )
+
+    review = build_limit_up_board_review(rows)
+
+    assert review["ladder"] == []
+    assert review["industries"] == []
+    assert review["early_seal_ratio"] is None
+    assert review["resealed_ratio"] is None
+    assert review["leading_industry_share"] is None
+    assert "数据不足" in review["observations"][1]
 
 
 def test_limit_up_pool_drops_invalid_and_duplicate_codes() -> None:
