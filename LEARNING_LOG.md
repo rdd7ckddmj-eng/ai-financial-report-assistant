@@ -357,3 +357,30 @@ the date after the user changes it.
 
 The feature uses a short URL and deterministic validation. It requires no paid
 API, database, persistent Render storage, or extra market-data request.
+
+## 2026-07-30 — Bounded watchlist market radar
+
+### What I built or changed
+
+Added a dedicated page that accepts up to five A-share codes, retrieves each
+company's latest public daily history on demand, and compares limit-up
+candidacy, volume expansion, and ordinary-turnover historical position.
+
+### One concept I can now explain
+
+A market radar does not need to predict prices. It can rank the strength and
+completeness of observable anomaly evidence so the user knows what to research
+next.
+
+### How missing data and failures are handled
+
+Each company is isolated: one failed source does not cancel the others.
+Missing volume or turnover evidence stays unavailable instead of becoming
+zero. The ranking uses triggered-signal count and visible deterministic
+tie-breakers, not an opaque AI score.
+
+### Why this design fits the current deployment
+
+The scan is user-triggered and limited to five companies. Only compact results
+remain in the session; the product does not preload or permanently store a
+full-market dataset, and it needs no paid API.

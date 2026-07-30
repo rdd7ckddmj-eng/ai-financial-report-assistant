@@ -29,6 +29,9 @@ Build a web application that can:
 - [Market Anomaly Agent](docs/MARKET_ANOMALY_AGENT_SPEC.md) defines the
   deterministic anomaly rules, official-evidence link, and non-predictive
   product boundary.
+- [Watchlist Market Radar](docs/MARKET_RADAR_SPEC.md) defines the bounded
+  five-company scan, three independent activity triggers, transparent ranking,
+  and free-server operating boundary.
 - [Historical Lens](docs/HISTORICAL_LENS_SPEC.md) defines the point-in-time
   boundary, publication-date filtering, and separate later-outcome reveal.
 
@@ -88,8 +91,8 @@ secret environment settings. It must never be committed to the repository.
 ## Current working features
 
 - Provide a multi-page product structure: home, company research centre,
-  K-line and market evidence, Market Anomaly Agent, Historical Lens,
-  annual-report evidence, and methodology/audit.
+  K-line and market evidence, Watchlist Market Radar, Market Anomaly Agent,
+  Historical Lens, annual-report evidence, and methodology/audit.
 - Resolve mainland listed-company names or six-digit stock codes to a
   code-plus-exchange identity shared across all pages.
 - Synchronise official CNINFO disclosures on demand with a one-hour cache,
@@ -111,6 +114,11 @@ secret environment settings. It must never be committed to the repository.
   Sina's documented traded-volume divided by circulating-share fields.
   Effective turnover remains unavailable until a verified point-in-time
   investable free-float denominator is connected.
+- Scan up to five user-entered A-share codes on demand and rank the latest
+  evidence by triggered-signal count, then limit-up candidacy, volume multiple,
+  and ordinary-turnover percentile. Each company fails independently, only
+  compact results remain in session state, and no paid API or persistent
+  full-market dataset is required.
 - Scan the latest 250 trading sessions for limit-up candidates, days whose
   volume is at least twice the preceding 20-session median, and days whose
   ordinary turnover reaches the 90th percentile of prior observations.
