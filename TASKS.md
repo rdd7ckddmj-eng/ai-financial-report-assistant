@@ -8,6 +8,7 @@
 - [x] Add daily K-lines, volume, moving averages, returns, volatility, and drawdown.
 - [x] Add latest-session market-activity evidence with explicit data limits.
 - [x] Add point-in-time volume and ordinary-turnover historical percentiles.
+- [x] Add an on-demand daily limit-up board with transparent ranking.
 - [x] Add a bounded five-company watchlist anomaly radar.
 - [x] Add abnormal-trading-day replay into Historical Lens.
 - [x] Add point-in-time activity percentiles to abnormal-day replay.

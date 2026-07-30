@@ -11,15 +11,16 @@ Build a web application that can:
 1. identify a mainland listed company from its name or six-digit code;
 2. show source-linked official disclosures that refresh on demand;
 3. display validated daily K-lines and deterministic market-risk statistics;
-4. screen price, volume, and ordinary-turnover anomaly candidates;
-5. connect a selected candidate to point-in-time official disclosures;
-6. locate and temporarily load the latest official annual report;
-7. extract and calculate key financial indicators;
-8. answer questions using retrieved report evidence and PDF pages;
-9. show source references, limitations, and the Agent audit trail;
-10. revisit a past date without leaking later information into the snapshot;
-11. export a selected anomaly date as an auditable offline research report;
-12. avoid presenting AI output as investment advice.
+4. organise one recent public limit-up pool into a daily research wall;
+5. screen price, volume, and ordinary-turnover anomaly candidates;
+6. connect a selected candidate to point-in-time official disclosures;
+7. locate and temporarily load the latest official annual report;
+8. extract and calculate key financial indicators;
+9. answer questions using retrieved report evidence and PDF pages;
+10. show source references, limitations, and the Agent audit trail;
+11. revisit a past date without leaking later information into the snapshot;
+12. export a selected anomaly date as an auditable offline research report;
+13. avoid presenting AI output as investment advice.
 
 ## Product specifications
 
@@ -29,6 +30,9 @@ Build a web application that can:
 - [Market Anomaly Agent](docs/MARKET_ANOMALY_AGENT_SPEC.md) defines the
   deterministic anomaly rules, official-evidence link, and non-predictive
   product boundary.
+- [Daily Limit-Up Board](docs/LIMIT_UP_BOARD_SPEC.md) defines the recent
+  public pool, validation, descriptive summary, deterministic ranking, and
+  ordinary-versus-effective-turnover boundary.
 - [Watchlist Market Radar](docs/MARKET_RADAR_SPEC.md) defines the bounded
   five-company scan, three independent activity triggers, transparent ranking,
   and free-server operating boundary.
@@ -91,8 +95,9 @@ secret environment settings. It must never be committed to the repository.
 ## Current working features
 
 - Provide a multi-page product structure: home, company research centre,
-  K-line and market evidence, Watchlist Market Radar, Market Anomaly Agent,
-  Historical Lens, annual-report evidence, and methodology/audit.
+  K-line and market evidence, Daily Limit-Up Board, Watchlist Market Radar,
+  Market Anomaly Agent, Historical Lens, annual-report evidence, and
+  methodology/audit.
 - Resolve mainland listed-company names or six-digit stock codes to a
   code-plus-exchange identity shared across all pages.
 - Synchronise official CNINFO disclosures on demand with a one-hour cache,
@@ -105,6 +110,12 @@ secret environment settings. It must never be committed to the repository.
   it into the existing evidence workflow, with manual upload as a fallback.
 - Display daily candlesticks, volume, MA5/MA20/MA60, 20/60/250-trading-day
   returns, annualised historical volatility, and maximum drawdown.
+- Retrieve one recent Eastmoney public limit-up pool on demand and show daily
+  limit-up count, first-board and consecutive-board counts, maximum streak,
+  ordinary-turnover median, leading industry, amount, seal funds, first seal
+  time, break count, and a deterministic research order. The page makes one
+  bounded pool request, needs no paid API, and does not persist a full-market
+  history.
 - Show a deterministic market-activity evidence panel with the latest daily
   return, volume versus the preceding 20-session median, ordinary turnover
   availability, point-in-time volume and turnover percentiles versus up to

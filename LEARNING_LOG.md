@@ -384,3 +384,32 @@ tie-breakers, not an opaque AI score.
 The scan is user-triggered and limited to five companies. Only compact results
 remain in the session; the product does not preload or permanently store a
 full-market dataset, and it needs no paid API.
+
+## 2026-07-30 — Daily limit-up board
+
+### What I built or changed
+
+Added a dedicated page that retrieves one recent Eastmoney public limit-up
+pool on demand and displays limit-up count, first-board and consecutive-board
+counts, maximum streak, amount, ordinary turnover, seal time, break count,
+seal funds, and industry concentration.
+
+### One concept I can now explain
+
+A useful market wall can organise already-published trading facts without
+predicting tomorrow's price. Deterministic ranking tells the user what evidence
+was prioritised and makes the research order reproducible.
+
+### How data quality is handled
+
+Codes, percentages, non-negative amounts, board counts, and seal times are
+validated independently. Missing values remain unavailable. Ordinary turnover
+is explicitly kept separate from effective turnover because a verified
+point-in-time investable free-float denominator is not available in the free
+source.
+
+### Why this design fits the current deployment
+
+The page makes one bounded pool request only after the user chooses a date. A
+ten-minute cache holds at most two dates, the interface shows at most thirty
+table rows, and no full-market history or persistent Render file is created.
