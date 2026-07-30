@@ -79,6 +79,12 @@ from src.market_anomaly_agent import (
     MarketAnomalyReport,
     build_market_anomaly_report,
 )
+from src.market_radar import (
+    MarketRadarRow,
+    build_market_radar_row,
+    parse_watchlist_codes,
+    rank_market_radar,
+)
 from src.pdf_extractor import ExtractedPage, extract_pdf_pages
 from src.qa_benchmark import (
     BenchmarkCaseResult,
@@ -1415,6 +1421,16 @@ def render_home_page() -> None:
         key_prefix="home",
         navigate_on_success=True,
     )
+    if st.button(
+        "打开自选股异动雷达",
+        use_container_width=True,
+        key="home_to_market_radar",
+    ):
+        _switch_page("radar")
+    st.caption(
+        "还没有确定单一研究对象？可输入最多5个股票代码，"
+        "先比较涨停候选、成交量和普通换手率的最新异动证据。"
+    )
 
     st.divider()
     columns = st.columns(3)
@@ -1778,11 +1794,222 @@ def render_market_page() -> None:
     show_product_footer()
 
 
+def _scan_market_radar(
+    codes: list[str],
+) -> tuple[list[MarketRadarRow], list[str]]:
+    """Fetch a bounded watchlist and keep failures isolated by company."""
+    try:
+        directory: pd.DataFrame | None = load_a_share_directory()
+    except (DataSourceError, ValueError):
+        directory = None
+
+    end_date = date.today()
+    start_date = end_date - timedelta(days=430)
+    rows: list[MarketRadarRow] = []
+    failures: list[str] = []
+    for code in codes:
+        companies = resolve_company(code, directory)
+        if not companies:
+            failures.append(f"{code}：无法识别为当前支持的A股代码。")
+            continue
+        company = companies[0]
+        try:
+            market_frame = load_a_share_history(
+                company["code"],
+                start_date.isoformat(),
+                end_date.isoformat(),
+                "qfq",
+            )
+            activity = calculate_market_activity(market_frame, company)
+        except (DataSourceError, ValueError) as error:
+            failures.append(f"{company['canonical_code']}：{error}")
+            continue
+
+        rows.append(
+            build_market_radar_row(
+                company,
+                activity,
+                market_source=str(
+                    market_frame.attrs.get(
+                        "source",
+                        "公开行情适配器",
+                    )
+                ),
+                turnover_source=str(
+                    market_frame.attrs.get(
+                        "turnover_source",
+                        "公开行情字段或暂未取得",
+                    )
+                ),
+            )
+        )
+    return rank_market_radar(rows), failures
+
+
+def render_market_radar_page() -> None:
+    """Render an on-demand, bounded watchlist anomaly wall."""
+    apply_product_theme()
+    show_compact_page_header(
+        "03 / 自选股异动雷达 · WATCHLIST RADAR",
+        "自选股异动雷达",
+        "一次比较最多5家A股的涨停候选、成交量放大和普通换手率"
+        "历史位置，把值得进一步复盘的公司排在前面。",
+    )
+    st.info(
+        "这是按需扫描，不会提前下载或永久保存全市场资料。"
+        "排序只表示触发了多少项异动证据，不代表上涨概率或投资价值。"
+    )
+
+    with st.form("market_radar_form"):
+        watchlist_text = st.text_area(
+            "输入最多5个六位股票代码",
+            value="600519, 300750, 000001",
+            height=90,
+            placeholder="例如：600519, 300750, 000001",
+            help="可使用逗号、空格、分号或顿号分隔。",
+        )
+        submitted = st.form_submit_button(
+            "开始扫描自选股",
+            type="primary",
+            use_container_width=True,
+        )
+
+    if submitted:
+        parsed = parse_watchlist_codes(watchlist_text)
+        if parsed["invalid_tokens"]:
+            st.warning(
+                "以下内容不是六位股票代码，已跳过："
+                + "、".join(parsed["invalid_tokens"])
+            )
+        if parsed["duplicate_count"]:
+            st.caption(
+                f"已自动去除 {parsed['duplicate_count']} 个重复代码。"
+            )
+        if parsed["omitted_count"]:
+            st.warning(
+                f"为保护免费服务器，本次只扫描前5家公司；"
+                f"另有 {parsed['omitted_count']} 家未进入本次扫描。"
+            )
+
+        if parsed["codes"]:
+            with st.spinner(
+                f"正在逐家核验 {len(parsed['codes'])} 家公司的公开行情……"
+            ):
+                rows, failures = _scan_market_radar(parsed["codes"])
+            st.session_state["market_radar_rows"] = rows
+            st.session_state["market_radar_failures"] = failures
+        else:
+            st.session_state["market_radar_rows"] = []
+            st.session_state["market_radar_failures"] = []
+            st.error("请至少输入一个有效的六位股票代码。")
+
+    rows = st.session_state.get("market_radar_rows", [])
+    failures = st.session_state.get("market_radar_failures", [])
+    if not isinstance(rows, list):
+        rows = []
+    if not isinstance(failures, list):
+        failures = []
+
+    if failures:
+        with st.expander("查看未完成扫描的公司", expanded=False):
+            for failure in failures:
+                st.write(f"- {failure}")
+
+    if not rows:
+        st.caption(
+            "输入代码并点击扫描后，这里会生成当日自选股异动信息墙。"
+        )
+        show_product_footer()
+        return
+
+    compound_count = sum(
+        row["radar_status"] == "复合异动" for row in rows
+    )
+    triggered_company_count = sum(
+        row["trigger_count"] > 0 for row in rows
+    )
+    latest_dates = sorted({row["latest_date"] for row in rows})
+    summary_columns = st.columns(3)
+    summary_columns[0].metric("成功扫描", f"{len(rows)} 家")
+    summary_columns[1].metric(
+        "至少触发一项",
+        f"{triggered_company_count} 家",
+    )
+    summary_columns[2].metric("复合异动", f"{compound_count} 家")
+    st.caption(
+        "行情日期："
+        + "、".join(latest_dates)
+        + "。先按触发项数量排序，再依次比较涨停候选、成交量倍数和"
+        "普通换手率历史分位；这不是投资评分。"
+    )
+
+    for rank, row in enumerate(rows, start=1):
+        company = row["company"]
+        with st.container(border=True):
+            title_column, status_column = st.columns([3, 1])
+            title_column.markdown(
+                f"### {rank}. {company['name']}｜"
+                f"{company['canonical_code']}"
+            )
+            status_column.markdown(f"**{row['radar_status']}**")
+
+            metric_columns = st.columns(4)
+            metric_columns[0].metric(
+                "最新日涨跌幅",
+                _format_percent(row["daily_return"]),
+            )
+            volume_ratio = row["volume_ratio_20d"]
+            metric_columns[1].metric(
+                "成交量 / 前20日",
+                (
+                    "数据不足"
+                    if volume_ratio is None
+                    else f"{volume_ratio:.2f}倍"
+                ),
+            )
+            metric_columns[2].metric(
+                "普通换手率",
+                _format_percent(row["turnover"]),
+            )
+            metric_columns[3].metric(
+                "换手率历史分位",
+                _format_percent(row["turnover_percentile_250d"]),
+            )
+
+            signal_text = (
+                "、".join(row["triggered_signals"])
+                if row["triggered_signals"]
+                else "未触发三项门槛"
+            )
+            st.write(
+                f"**触发证据：{signal_text}**｜"
+                f"可用证据 {row['available_signal_count']}/3 项。"
+            )
+            st.caption(
+                f"行情来源：{row['market_source']}｜"
+                f"换手率来源：{row['turnover_source']}。"
+                "普通换手率不等同于有效换手率。"
+            )
+            if st.button(
+                "进入该公司市场异动 Agent",
+                use_container_width=True,
+                key=f"radar_to_anomaly_{company['canonical_code']}",
+            ):
+                _store_selected_company(company)
+                _switch_page("anomaly")
+
+    st.warning(
+        "雷达只整理已经发生的公开行情。涨停候选仍需核验交易所例外规则，"
+        "放量和高换手也不等于利好、利空或买卖信号。"
+    )
+    show_product_footer()
+
+
 def render_market_anomaly_page() -> None:
     """Render a deterministic anomaly-to-official-evidence workflow."""
     apply_product_theme()
     show_compact_page_header(
-        "03 / 市场异动研究 · MARKET ANOMALY AGENT",
+        "04 / 市场异动研究 · MARKET ANOMALY AGENT",
         "市场异动研究 Agent",
         "自动核验涨停候选、成交量和普通换手率的历史位置，"
         "再把候选日期连接到当时已经公开的官方公告。",
@@ -2151,7 +2378,7 @@ def render_historical_lens_page() -> None:
     """Render a point-in-time research view without look-ahead information."""
     apply_product_theme()
     show_compact_page_header(
-        "04 / 历史回看 · HISTORICAL LENS",
+        "05 / 历史回看 · HISTORICAL LENS",
         "Historical Lens｜回到当时再研究",
         "冻结历史信息截止线，先查看当时已经公开的证据，"
         "再单独揭示后来1、3、6个月的市场表现。",
@@ -2561,7 +2788,7 @@ def render_methodology_page() -> None:
     """Explain source priority, calculation boundaries, and known limits."""
     apply_product_theme()
     show_compact_page_header(
-        "06 / 方法与审计 · METHODOLOGY",
+        "07 / 方法与审计 · METHODOLOGY",
         "方法、证据与产品边界",
         "公开说明系统如何获取资料、计算指标、使用AI以及处理不确定性。",
     )
@@ -2612,7 +2839,7 @@ def render_annual_report_page() -> None:
     """Render the existing PDF evidence workflow as a dedicated subpage."""
     apply_product_theme()
     show_compact_page_header(
-        "05 / 年报与证据 · ANNUAL REPORT",
+        "06 / 年报与证据 · ANNUAL REPORT",
         "年报与证据分析",
         "上传公开年度报告，按页提取文字、计算财务指标并生成可追溯答案。",
     )
@@ -3742,6 +3969,11 @@ def main() -> None:
         title="K线与市场表现",
         icon="📈",
     )
+    radar_page = st.Page(
+        render_market_radar_page,
+        title="自选股异动雷达",
+        icon="🛰️",
+    )
     anomaly_page = st.Page(
         render_market_anomaly_page,
         title="市场异动 Agent",
@@ -3766,6 +3998,7 @@ def main() -> None:
         "home": home_page,
         "company": company_page,
         "market": market_page,
+        "radar": radar_page,
         "anomaly": anomaly_page,
         "historical": historical_page,
         "annual": annual_page,
@@ -3778,6 +4011,7 @@ def main() -> None:
             "上市公司研究": [
                 company_page,
                 market_page,
+                radar_page,
                 anomaly_page,
                 historical_page,
                 annual_page,

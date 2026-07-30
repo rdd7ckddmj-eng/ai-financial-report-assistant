@@ -174,6 +174,81 @@ def test_market_page_passes_activity_evidence_to_the_renderer(
     assert rendered_activity[0]["effective_turnover"] is None
 
 
+def test_market_radar_page_scans_and_ranks_a_bounded_watchlist(
+    monkeypatch,
+) -> None:
+    """Cover the watchlist wall without calling live market providers."""
+    from src import app
+
+    dates = pd.date_range("2026-05-01", periods=30, freq="B")
+    close = pd.Series([100 + index * 0.1 for index in range(len(dates))])
+
+    def fake_history(
+        code: str,
+        start_date_text: str,
+        end_date_text: str,
+        adjust: str,
+    ) -> pd.DataFrame:
+        volume = [1_000_000.0] * len(dates)
+        turnover = [1.0] * len(dates)
+        if code == "600519":
+            volume[-1] = 2_500_000.0
+            turnover[-1] = 4.0
+        frame = pd.DataFrame(
+            {
+                "date": dates,
+                "open": close - 0.2,
+                "high": close + 0.6,
+                "low": close - 0.8,
+                "close": close,
+                "volume": volume,
+                "amount": 100_000_000.0,
+                "turnover": turnover,
+            }
+        )
+        frame.attrs["source"] = "测试公开行情"
+        frame.attrs["turnover_source"] = "测试换手率"
+        return frame
+
+    monkeypatch.setattr(app, "apply_product_theme", lambda: None)
+    monkeypatch.setattr(app, "show_compact_page_header", lambda *args: None)
+    monkeypatch.setattr(app, "show_product_footer", lambda: None)
+    monkeypatch.setattr(
+        app,
+        "load_a_share_directory",
+        lambda: pd.DataFrame(
+            {
+                "code": ["600519", "300750"],
+                "name": ["贵州茅台", "宁德时代"],
+            }
+        ),
+    )
+    monkeypatch.setattr(app, "load_a_share_history", fake_history)
+    monkeypatch.setattr(
+        app.st,
+        "text_area",
+        lambda *args, **kwargs: "600519, 300750",
+    )
+    monkeypatch.setattr(
+        app.st,
+        "form_submit_button",
+        lambda *args, **kwargs: True,
+    )
+    app.st.session_state.pop("market_radar_rows", None)
+    app.st.session_state.pop("market_radar_failures", None)
+
+    app.render_market_radar_page()
+
+    rows = app.st.session_state["market_radar_rows"]
+    assert len(rows) == 2
+    assert rows[0]["company"]["code"] == "600519"
+    assert rows[0]["triggered_signals"] == [
+        "明显放量",
+        "普通换手率历史高位",
+    ]
+    assert app.st.session_state["market_radar_failures"] == []
+
+
 def test_market_anomaly_page_builds_report_and_evidence_chain(
     monkeypatch,
 ) -> None:
