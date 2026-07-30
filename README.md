@@ -15,7 +15,16 @@ Build a web application that can:
 5. extract and calculate key financial indicators;
 6. answer questions using retrieved report evidence and PDF pages;
 7. show source references, limitations, and the Agent audit trail;
-8. avoid presenting AI output as investment advice.
+8. revisit a past date without leaking later information into the snapshot;
+9. avoid presenting AI output as investment advice.
+
+## Product specifications
+
+- [Company Research Engine](docs/COMPANY_RESEARCH_ENGINE_SPEC.md) defines the
+  current-company research scope, evidence grades, verification states, and
+  division between Python and AI.
+- [Historical Lens](docs/HISTORICAL_LENS_SPEC.md) defines the point-in-time
+  boundary, publication-date filtering, and separate later-outcome reveal.
 
 ## Development principles
 
@@ -73,7 +82,8 @@ secret environment settings. It must never be committed to the repository.
 ## Current working features
 
 - Provide a multi-page product structure: home, company research centre,
-  K-line and market evidence, annual-report evidence, and methodology/audit.
+  K-line and market evidence, Historical Lens, annual-report evidence, and
+  methodology/audit.
 - Resolve mainland listed-company names or six-digit stock codes to a
   code-plus-exchange identity shared across all pages.
 - Synchronise official CNINFO disclosures on demand with a one-hour cache,
@@ -85,6 +95,12 @@ secret environment settings. It must never be committed to the repository.
   it into the existing evidence workflow, with manual upload as a fallback.
 - Display daily candlesticks, volume, MA5/MA20/MA60, 20/60/250-trading-day
   returns, annualised historical volatility, and maximum drawdown.
+- Rebuild a historical market snapshot at a user-selected cut-off, using only
+  earlier observations and disclosures, then reveal the subsequent 20/60/120
+  trading-day outcomes in a separate user-controlled step.
+- Record the requested date and effective trading date, use unadjusted prices
+  to avoid current adjustment-factor leakage, and audit disclosures excluded
+  because they were published after the historical cut-off.
 - Validate company-directory fields, OHLC relationships, disclosure domains,
   PDF signatures, and download size before showing or analysing data.
 - Present a branded portfolio interface for **WFZ Financial Intelligence**,

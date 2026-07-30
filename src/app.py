@@ -48,6 +48,13 @@ from src.financial_ratios import (
     net_profit_margin,
     revenue_growth,
 )
+from src.historical_lens import (
+    EvidenceRecord,
+    calculate_historical_snapshot,
+    calculate_later_outcomes,
+    filter_evidence_as_of,
+    slice_market_as_of,
+)
 from src.llm_analyst import (
     LLMAnalystRun,
     run_llm_analyst,
@@ -1169,7 +1176,7 @@ def render_company_research_page() -> None:
             "所有指标由Python计算。历史表现不代表未来结果。"
         )
 
-    action_columns = st.columns(2)
+    action_columns = st.columns(3)
     if action_columns[0].button(
         "查看完整K线与市场表现",
         use_container_width=True,
@@ -1177,6 +1184,11 @@ def render_company_research_page() -> None:
     ):
         _switch_page("market")
     if action_columns[1].button(
+        "进入 Historical Lens",
+        use_container_width=True,
+    ):
+        _switch_page("historical")
+    if action_columns[2].button(
         "进入年报与证据分析",
         use_container_width=True,
     ):
@@ -1379,11 +1391,289 @@ def render_market_page() -> None:
     show_product_footer()
 
 
+def _announcement_evidence_records(
+    announcements: pd.DataFrame,
+) -> list[EvidenceRecord]:
+    """Convert validated announcements to the shared evidence time schema."""
+    records: list[EvidenceRecord] = []
+    for item in announcements.itertuples(index=False):
+        source_url = str(item.url)
+        records.append(
+            {
+                "source_id": source_url,
+                "source_type": str(item.category),
+                "title": str(item.title),
+                "published_date": item.date,
+                "period_end": None,
+                "source_url": source_url,
+                "page_number": None,
+                "evidence_grade": "A",
+                "verification_status": "verified",
+            }
+        )
+    return records
+
+
+def render_historical_lens_page() -> None:
+    """Render a point-in-time research view without look-ahead information."""
+    apply_product_theme()
+    show_compact_page_header(
+        "03 / 历史回看 · HISTORICAL LENS",
+        "Historical Lens｜回到当时再研究",
+        "冻结历史信息截止线，先查看当时已经公开的证据，"
+        "再单独揭示后来1、3、6个月的市场表现。",
+    )
+    company = _selected_company()
+    if company is None:
+        # The verified offline identity keeps the flagship demonstration usable
+        # when the live company directory is temporarily unavailable.
+        company = resolve_company("600519")[0]
+        _store_selected_company(company)
+        st.info("尚未选择公司，已载入首个演示对象：贵州茅台。")
+
+    _show_company_banner(company)
+    st.info(
+        "时间隔离规则：只有发布日期不晚于所选日期的信息，"
+        "才允许进入“当时已知”。后来行情在点击前不会显示。"
+    )
+
+    today = date.today()
+    default_date = today - timedelta(days=365)
+    selected_date = st.date_input(
+        "选择历史研究截止日",
+        value=default_date,
+        min_value=today - timedelta(days=365 * 5),
+        max_value=today,
+        help=(
+            "若所选日期不是交易日，系统会使用该日期之前最近一个交易日，"
+            "并同时显示两个日期。"
+        ),
+    )
+    if isinstance(selected_date, tuple):
+        selected_date = selected_date[0]
+
+    history_start = selected_date - timedelta(days=550)
+    history_end = min(today, selected_date + timedelta(days=250))
+    try:
+        with st.spinner("正在建立历史信息快照……"):
+            # Unadjusted prices prevent today's adjustment factor from leaking
+            # later corporate actions into an earlier point-in-time view.
+            market_frame = load_a_share_history(
+                company["code"],
+                history_start.isoformat(),
+                history_end.isoformat(),
+                "",
+            )
+            market_source = market_frame.attrs.get(
+                "source",
+                "公开行情适配器",
+            )
+            snapshot = calculate_historical_snapshot(
+                market_frame,
+                selected_date,
+                source=str(market_source),
+                adjustment="不复权",
+            )
+    except (DataSourceError, ValueError) as error:
+        st.error(str(error))
+        st.info(
+            "公开行情源恢复后可直接重试。系统不会用今天的数据"
+            "替代所选历史日期。"
+        )
+        show_product_footer()
+        return
+
+    st.subheader("当时的市场状态")
+    first_row = st.columns(4)
+    first_row[0].metric(
+        "当时收盘价",
+        f"¥{snapshot['latest_close']:,.2f}",
+    )
+    first_row[1].metric(
+        "当日成交量",
+        f"{snapshot['volume']:,.0f}",
+    )
+    first_row[2].metric(
+        "当日换手率",
+        _format_percent(snapshot["turnover"]),
+    )
+    first_row[3].metric(
+        "近20交易日",
+        _format_percent(snapshot["return_20d"]),
+    )
+    second_row = st.columns(4)
+    second_row[0].metric(
+        "近60交易日",
+        _format_percent(snapshot["return_60d"]),
+    )
+    second_row[1].metric(
+        "近250交易日",
+        _format_percent(snapshot["return_250d"]),
+    )
+    second_row[2].metric(
+        "年化历史波动率",
+        _format_percent(snapshot["annualised_volatility"]),
+    )
+    second_row[3].metric(
+        "近250日最大回撤",
+        _format_percent(snapshot["max_drawdown"]),
+    )
+    st.caption(
+        f"用户选择：{snapshot['requested_date']}｜实际采用交易日："
+        f"{snapshot['effective_market_date']}｜{snapshot['adjustment']}日线｜"
+        f"最多使用此前250个交易日计算｜来源：{snapshot['source']}。"
+    )
+
+    historical_chart_frame = slice_market_as_of(
+        market_frame,
+        selected_date,
+    ).tail(180)
+    figure = _build_kline_figure(historical_chart_frame, company)
+    st.plotly_chart(
+        figure,
+        use_container_width=True,
+        config={"displaylogo": False},
+    )
+    st.caption(
+        "图表在历史截止线处结束，不包含截止日之后的价格。"
+        "Historical Lens 默认使用不复权价格，避免后来复权因子进入过去。"
+    )
+
+    st.divider()
+    st.subheader("当时已经公开的官方证据")
+    announcement_start = selected_date - timedelta(days=550)
+    announcement_end = min(today, selected_date + timedelta(days=180))
+    try:
+        announcements = load_company_announcements(
+            company["code"],
+            announcement_start.isoformat(),
+            announcement_end.isoformat(),
+        )
+    except (DataSourceError, ValueError):
+        announcements = None
+
+    if announcements is None:
+        st.warning(
+            "官方公告源暂时不可访问。市场快照仍然有效，"
+            "公告证据不会由其他未经核验的内容替代。"
+        )
+    else:
+        evidence_result = filter_evidence_as_of(
+            _announcement_evidence_records(announcements),
+            selected_date,
+        )
+        accepted = evidence_result["accepted"]
+        if not accepted:
+            st.info("当前查询范围内，没有取得截止日前可展示的官方公告。")
+        for record in accepted[:8]:
+            with st.container(border=True):
+                text_column, link_column = st.columns([5, 1])
+                with text_column:
+                    st.markdown(f"**{record['title']}**")
+                    published = record["published_date"]
+                    published_text = (
+                        published.isoformat()
+                        if isinstance(published, date)
+                        else str(published)
+                    )
+                    st.caption(
+                        f"{published_text}｜{record['source_type']}｜"
+                        "证据等级 A｜来源：巨潮资讯"
+                    )
+                with link_column:
+                    st.markdown(
+                        f"[查看原文 ↗]({record['source_url']})"
+                    )
+
+        known_announcements = announcements.loc[
+            announcements["date"] <= selected_date
+        ].copy()
+        latest_known_report = select_latest_annual_report(
+            known_announcements
+        )
+        if latest_known_report is not None:
+            st.success(
+                "当时最新可用的完整年度报告："
+                f"{latest_known_report['title']}（发布于 "
+                f"{latest_known_report['date'].isoformat()}）"
+            )
+
+        with st.expander("查看时间过滤审计"):
+            st.write(
+                f"取得证据 {evidence_result['input_count']} 条；"
+                f"截止日内保留 {evidence_result['accepted_count']} 条；"
+                f"因发布日期在截止日后排除 "
+                f"{evidence_result['excluded_count']} 条。"
+            )
+            st.caption(
+                "报告期早于截止日并不代表当时已经知道；"
+                "系统以公开发布日期作为准入条件。"
+            )
+
+    st.divider()
+    st.subheader("历史快照边界")
+    st.markdown(
+        "- **已确认：** 上方行情只使用历史截止日前的数据；\n"
+        "- **可追溯：** 公告保留发布日期、类别和官方原文链接；\n"
+        "- **仍未知：** 页面不把截止日后的价格或公告写进当时判断；\n"
+        "- **解释限制：** 同期涨跌不能自动证明由某一公告造成。"
+    )
+
+    reveal_key = (
+        f"historical_reveal_{company['code']}_{selected_date.isoformat()}"
+    )
+    if st.button(
+        "揭示后来1、3、6个月的市场表现",
+        type="primary",
+        use_container_width=True,
+        key=f"{reveal_key}_button",
+    ):
+        st.session_state[reveal_key] = True
+
+    if st.session_state.get(reveal_key, False):
+        outcomes = calculate_later_outcomes(
+            market_frame,
+            selected_date,
+        )
+        outcome_columns = st.columns(3)
+        for column, outcome in zip(
+            outcome_columns,
+            outcomes,
+            strict=True,
+        ):
+            with column:
+                with st.container(border=True):
+                    st.markdown(f"#### {outcome['label']}")
+                    if outcome["status"] == "insufficient_future_data":
+                        st.info("后来行情数据尚不足。")
+                        continue
+                    st.metric(
+                        "区间收益",
+                        _format_percent(outcome["return_since_base"]),
+                    )
+                    st.write(
+                        f"结果日：{outcome['outcome_date']}  "
+                        f"收盘：¥{outcome['outcome_close']:,.2f}"
+                    )
+                    st.caption(
+                        "期间最高相对收益："
+                        f"{_format_percent(outcome['maximum_gain'])}｜"
+                        "期间最大回撤："
+                        f"{_format_percent(outcome['maximum_drawdown'])}"
+                    )
+        st.warning(
+            "后来表现只用于检验和复盘，不证明此前信息与涨跌存在因果关系，"
+            "也不构成买入、卖出或持有建议。"
+        )
+
+    show_product_footer()
+
+
 def render_methodology_page() -> None:
     """Explain source priority, calculation boundaries, and known limits."""
     apply_product_theme()
     show_compact_page_header(
-        "04 / 方法与审计 · METHODOLOGY",
+        "05 / 方法与审计 · METHODOLOGY",
         "方法、证据与产品边界",
         "公开说明系统如何获取资料、计算指标、使用AI以及处理不确定性。",
     )
@@ -1401,6 +1691,13 @@ def render_methodology_page() -> None:
             "财务比率、收益率、波动率、最大回撤和移动平均线全部由"
             "Python计算。AI只允许基于已经核验的数字和原文证据生成解释，"
             "不得自行补充财务数字。"
+        )
+    with st.container(border=True):
+        st.subheader("Historical Lens 时间隔离")
+        st.write(
+            "历史回看只允许使用发布日期不晚于所选截止日的证据。"
+            "当时可见信息与后来1、3、6个月表现由不同函数计算，"
+            "防止把未来数据带回过去。"
         )
     with st.container(border=True):
         st.subheader("已知限制")
@@ -1424,7 +1721,7 @@ def render_annual_report_page() -> None:
     """Render the existing PDF evidence workflow as a dedicated subpage."""
     apply_product_theme()
     show_compact_page_header(
-        "03 / 年报与证据 · ANNUAL REPORT",
+        "04 / 年报与证据 · ANNUAL REPORT",
         "年报与证据分析",
         "上传公开年度报告，按页提取文字、计算财务指标并生成可追溯答案。",
     )
@@ -2445,6 +2742,11 @@ def main() -> None:
         title="K线与市场表现",
         icon="📈",
     )
+    historical_page = st.Page(
+        render_historical_lens_page,
+        title="Historical Lens",
+        icon="🕰️",
+    )
     annual_page = st.Page(
         render_annual_report_page,
         title="年报与证据",
@@ -2459,6 +2761,7 @@ def main() -> None:
         "home": home_page,
         "company": company_page,
         "market": market_page,
+        "historical": historical_page,
         "annual": annual_page,
         "methodology": methodology_page,
     }
@@ -2469,6 +2772,7 @@ def main() -> None:
             "上市公司研究": [
                 company_page,
                 market_page,
+                historical_page,
                 annual_page,
             ],
             "产品说明": [methodology_page],
