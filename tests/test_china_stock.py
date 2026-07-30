@@ -84,6 +84,7 @@ def test_market_activity_uses_previous_20_day_median_volume() -> None:
     frame = _market_rows(21)
     frame.loc[:19, "成交量"] = 1_000_000
     frame.loc[20, "成交量"] = 2_500_000
+    frame.loc[:19, "换手率"] = 1.0
     frame.loc[20, "换手率"] = 3.2
     company = build_company_identity("600519", "贵州茅台")
 
@@ -91,8 +92,37 @@ def test_market_activity_uses_previous_20_day_median_volume() -> None:
 
     assert activity["volume_ratio_20d"] == pytest.approx(2.5)
     assert activity["volume_signal"] == "明显放量"
+    assert activity["volume_percentile_250d"] == pytest.approx(1.0)
+    assert activity["volume_percentile_sessions"] == 20
     assert activity["turnover"] == pytest.approx(0.032)
+    assert activity["turnover_percentile_250d"] == pytest.approx(1.0)
+    assert activity["turnover_percentile_sessions"] == 20
     assert activity["effective_turnover"] is None
+
+
+def test_market_activity_percentile_uses_midrank_for_ties() -> None:
+    frame = _market_rows(21)
+    frame.loc[:, "成交量"] = 1_000_000
+    frame.loc[:, "换手率"] = 2.0
+    company = build_company_identity("600519", "贵州茅台")
+
+    activity = calculate_market_activity(frame, company)
+
+    assert activity["volume_percentile_250d"] == pytest.approx(0.5)
+    assert activity["turnover_percentile_250d"] == pytest.approx(0.5)
+
+
+def test_market_activity_percentile_requires_twenty_prior_sessions() -> None:
+    frame = _market_rows(20)
+    frame.loc[:, "换手率"] = 2.0
+    company = build_company_identity("600519", "贵州茅台")
+
+    activity = calculate_market_activity(frame, company)
+
+    assert activity["volume_percentile_250d"] is None
+    assert activity["volume_percentile_sessions"] == 19
+    assert activity["turnover_percentile_250d"] is None
+    assert activity["turnover_percentile_sessions"] == 19
 
 
 def test_market_activity_marks_limit_up_only_as_candidate() -> None:

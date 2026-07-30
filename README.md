@@ -97,9 +97,10 @@ secret environment settings. It must never be committed to the repository.
   returns, annualised historical volatility, and maximum drawdown.
 - Show a deterministic market-activity evidence panel with the latest daily
   return, volume versus the preceding 20-session median, ordinary turnover
-  availability, and a board-rule-based limit-up candidate label.  Effective
-  turnover remains unavailable until a verified point-in-time free-float
-  denominator is connected.
+  availability, point-in-time volume and turnover percentiles versus up to
+  250 preceding sessions, and a board-rule-based limit-up candidate label.
+  Effective turnover remains unavailable until a verified point-in-time
+  free-float denominator is connected.
 - Scan the latest 250 trading sessions for limit-up candidates and days whose
   volume is at least twice the preceding 20-session median, then carry a
   selected date into Historical Lens without weakening its publication-date

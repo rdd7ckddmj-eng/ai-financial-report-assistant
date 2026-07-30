@@ -49,8 +49,12 @@ class MarketActivityEvidence(TypedDict):
     daily_return: float | None
     volume_ratio_20d: float | None
     volume_signal: str
+    volume_percentile_250d: float | None
+    volume_percentile_sessions: int
     turnover: float | None
     turnover_status: str
+    turnover_percentile_250d: float | None
+    turnover_percentile_sessions: int
     effective_turnover: float | None
     effective_turnover_status: str
     limit_up_reference: float
@@ -430,6 +434,36 @@ def reference_price_limit_ratio(
     return 0.10
 
 
+def _prior_session_percentile(
+    current_value: float,
+    prior_values: pd.Series,
+    *,
+    lookback_sessions: int = 250,
+    minimum_sessions: int = 20,
+) -> tuple[float | None, int]:
+    """Compare one observation only with valid sessions available before it.
+
+    A mid-rank percentile avoids labelling a value as the 100th percentile
+    when every prior observation is tied with it.
+    """
+    history = pd.to_numeric(
+        prior_values.tail(lookback_sessions),
+        errors="coerce",
+    ).dropna()
+    history = history.loc[history.map(math.isfinite)]
+    comparison_sessions = len(history)
+    if (
+        not math.isfinite(float(current_value))
+        or comparison_sessions < minimum_sessions
+    ):
+        return None, comparison_sessions
+
+    below = int((history < current_value).sum())
+    tied = int((history == current_value).sum())
+    percentile = (below + 0.5 * tied) / comparison_sessions
+    return float(percentile), comparison_sessions
+
+
 def calculate_market_activity(
     frame: pd.DataFrame,
     company: CompanyIdentity,
@@ -467,9 +501,25 @@ def calculate_market_activity(
     else:
         volume_signal = "接近前20日常态"
 
+    volume_percentile, volume_percentile_sessions = (
+        _prior_session_percentile(
+            float(latest["volume"]),
+            prepared["volume"].iloc[:-1],
+        )
+    )
     turnover_value = latest["turnover"]
     turnover = (
         None if pd.isna(turnover_value) else float(turnover_value) / 100
+    )
+    turnover_percentile, turnover_percentile_sessions = (
+        _prior_session_percentile(
+            (
+                float("nan")
+                if turnover is None
+                else float(turnover_value)
+            ),
+            prepared["turnover"].iloc[:-1],
+        )
     )
     turnover_status = (
         "公开日线已提供普通换手率"
@@ -490,8 +540,12 @@ def calculate_market_activity(
         "daily_return": daily_return,
         "volume_ratio_20d": volume_ratio,
         "volume_signal": volume_signal,
+        "volume_percentile_250d": volume_percentile,
+        "volume_percentile_sessions": volume_percentile_sessions,
         "turnover": turnover,
         "turnover_status": turnover_status,
+        "turnover_percentile_250d": turnover_percentile,
+        "turnover_percentile_sessions": turnover_percentile_sessions,
         "effective_turnover": None,
         "effective_turnover_status": (
             "缺少可核验的时点自由流通股本，暂不计算"

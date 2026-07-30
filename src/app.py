@@ -1046,6 +1046,34 @@ def _show_market_activity_evidence(
         f"普通换手率：{activity['turnover_status']}。"
         f"有效换手率：{activity['effective_turnover_status']}。"
     )
+    with st.expander(
+        "查看成交量与换手率的历史位置",
+        expanded=True,
+    ):
+        percentile_columns = st.columns(2)
+        percentile_columns[0].metric(
+            "成交量历史分位",
+            _format_percent(activity["volume_percentile_250d"]),
+            (
+                f"比较前{activity['volume_percentile_sessions']}个有效交易日"
+            ),
+            delta_color="off",
+        )
+        percentile_columns[1].metric(
+            "普通换手率历史分位",
+            _format_percent(activity["turnover_percentile_250d"]),
+            (
+                "比较前"
+                f"{activity['turnover_percentile_sessions']}个有效交易日"
+            ),
+            delta_color="off",
+        )
+        st.caption(
+            "分位只使用当前交易日之前最多250个有效交易日，"
+            "至少需要20个样本；50%表示接近历史样本中间位置，"
+            "数值越高只代表相对更活跃，不代表未来涨跌。"
+            "换手率分位仍基于普通换手率，不等同于有效换手率。"
+        )
     with st.expander("查看涨停候选与有效换手率的严谨边界"):
         st.write(activity["limit_up_note"])
         st.write(

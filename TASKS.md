@@ -7,6 +7,7 @@
 - [x] Add a source-linked official disclosure wall with on-demand refresh.
 - [x] Add daily K-lines, volume, moving averages, returns, volatility, and drawdown.
 - [x] Add latest-session market-activity evidence with explicit data limits.
+- [x] Add point-in-time volume and ordinary-turnover historical percentiles.
 - [x] Add abnormal-trading-day replay into Historical Lens.
 - [x] Link selected abnormal days to nearby point-in-time official evidence.
 - [x] Define Company Research Engine and Historical Lens product specifications.
