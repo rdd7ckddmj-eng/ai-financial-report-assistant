@@ -550,7 +550,7 @@ def select_latest_annual_report(
         return None
     titles = prepared["title"]
     mask = titles.str.contains("年度报告", na=False) & ~titles.str.contains(
-        "摘要|取消|问询|回复",
+        "半年度报告|摘要|取消|问询|回复",
         regex=True,
         na=False,
     )

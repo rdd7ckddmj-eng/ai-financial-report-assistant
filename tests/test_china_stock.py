@@ -172,3 +172,26 @@ def test_select_latest_annual_report_excludes_summary() -> None:
 
     assert latest is not None
     assert latest["title"] == "贵州茅台2025年年度报告"
+
+
+def test_select_latest_annual_report_excludes_half_year_report() -> None:
+    frame = pd.DataFrame(
+        {
+            "代码": ["600519", "600519"],
+            "简称": ["贵州茅台", "贵州茅台"],
+            "公告标题": [
+                "贵州茅台2024年半年度报告",
+                "贵州茅台2023年年度报告",
+            ],
+            "公告时间": ["2024-08-09", "2024-04-03"],
+            "公告链接": [
+                "https://static.cninfo.com.cn/half-year.pdf",
+                "https://static.cninfo.com.cn/annual.pdf",
+            ],
+        }
+    )
+
+    latest = select_latest_annual_report(prepare_announcements(frame))
+
+    assert latest is not None
+    assert latest["title"] == "贵州茅台2023年年度报告"
