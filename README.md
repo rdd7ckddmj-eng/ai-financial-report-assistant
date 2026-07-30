@@ -18,7 +18,8 @@ Build a web application that can:
 8. answer questions using retrieved report evidence and PDF pages;
 9. show source references, limitations, and the Agent audit trail;
 10. revisit a past date without leaking later information into the snapshot;
-11. avoid presenting AI output as investment advice.
+11. export a selected anomaly date as an auditable offline research report;
+12. avoid presenting AI output as investment advice.
 
 ## Product specifications
 
@@ -120,6 +121,10 @@ secret environment settings. It must never be committed to the repository.
   published on the selected date or within the preceding six calendar days.
   Later disclosures are excluded, links and date gaps remain visible, and
   time proximity is never presented as proof of market causation.
+- Export the selected anomaly date as a self-contained Chinese HTML research
+  report. The file retains calculated metrics, source labels, official links,
+  excluded-future-evidence counts, and limitations; it can be opened offline
+  or printed to PDF without adding server-side document dependencies.
 - Rebuild a historical market snapshot at a user-selected cut-off, using only
   earlier observations and disclosures, then reveal the subsequent 20/60/120
   trading-day outcomes in a separate user-controlled step.

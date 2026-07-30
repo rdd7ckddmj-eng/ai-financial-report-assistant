@@ -260,3 +260,22 @@ provide historical turnover, leaving the third anomaly signal unavailable.
 The program requests only the selected company's bounded date range, calculates
 ordinary turnover in Python, merges it by trading date, and keeps the rest of
 the product available if the supplemental source also fails.
+
+## 2026-07-30 — Downloadable anomaly research report
+
+### What I built or changed
+
+Added a self-contained Chinese HTML report for the anomaly date selected by
+the user. It preserves deterministic market metrics, ordinary-turnover labels,
+official-disclosure links, excluded future evidence, sources, and limitations.
+
+### One concept I can now explain
+
+An export should reuse the evidence already verified on the page. It should not
+silently fetch different data or ask an LLM to recreate financial facts.
+
+### Why this design fits the current deployment
+
+The browser can open the file offline and print it to PDF. The Render service
+does not need a PDF-generation package, persistent file storage, or a second
+copy of the market data, so the feature adds little memory pressure.
