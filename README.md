@@ -162,7 +162,7 @@ secret environment settings. It must never be committed to the repository.
 - Split the report into searchable text segments without losing PDF-page
   provenance.
 - Search for report evidence with transparent hybrid ranking: direct
-  keywords, common Chinese-to-English mappings, auditable financial
+  keywords, bilingual Chinese-report and English-report terms, auditable financial
   concept groups, and an optional small local sentence-embedding model.
   The memory-safe lexical/concept path is the default. Local embeddings require
   `ENABLE_LOCAL_EMBEDDINGS=true`, should only be used on a server with enough

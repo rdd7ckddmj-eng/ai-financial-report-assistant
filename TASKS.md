@@ -79,6 +79,7 @@
 - [x] Show the full **Durham University** attribution across the product.
 - [x] Add public-hosting configuration with a health check and custom-domain support.
 - [x] Bound report caches and disable memory-heavy local embeddings on the free server.
+- [x] Retrieve Chinese annual-report evidence directly from Chinese questions.
 
 ## Later
 - [x] LLM integration with structured outputs and local guardrails.

@@ -31,6 +31,7 @@ class SearchResult(TypedDict):
 
 
 ENGLISH_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+CJK_PATTERN = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 WHITESPACE_PATTERN = re.compile(r"\s+")
 STOP_WORDS = {
     "a",
@@ -65,30 +66,70 @@ STOP_WORDS = {
 # The report is English, so common Chinese finance questions are mapped to
 # the English vocabulary that is likely to appear in the source document.
 CHINESE_FINANCE_TERMS = {
-    "收入": {"revenue", "sales"},
-    "营收": {"revenue", "sales"},
-    "净利润率": {"net", "profit", "margin", "revenue"},
-    "净利率": {"net", "profit", "margin", "revenue"},
-    "净利润": {"net", "profit"},
-    "利润": {"profit"},
-    "盈利": {"profit"},
-    "经营现金流": {"operating", "cash", "flow"},
-    "投资现金流": {"investing", "cash", "flow"},
-    "融资现金流": {"financing", "cash", "flow"},
-    "现金流": {"cash", "flow"},
-    "现金": {"cash"},
-    "流动比率": {"current", "assets", "liabilities", "ratio"},
-    "流动资产": {"current", "assets"},
-    "总资产": {"total", "assets"},
-    "资产": {"assets"},
-    "流动负债": {"current", "liabilities"},
-    "总负债": {"total", "liabilities"},
-    "负债": {"liabilities"},
-    "借款": {"borrowings"},
-    "债务": {"debt", "borrowings"},
-    "增长": {"growth", "increase"},
-    "下降": {"decrease", "decline"},
-    "风险": {"risk"},
+    "营业收入": {"营业收入", "营业总收入", "revenue", "sales"},
+    "收入": {"营业收入", "营业总收入", "revenue", "sales"},
+    "营收": {"营业收入", "营业总收入", "revenue", "sales"},
+    "净利润率": {
+        "净利润",
+        "归属于母公司股东的净利润",
+        "营业收入",
+        "net",
+        "profit",
+        "margin",
+        "revenue",
+    },
+    "净利率": {
+        "净利润",
+        "归属于母公司股东的净利润",
+        "营业收入",
+        "net",
+        "profit",
+        "margin",
+        "revenue",
+    },
+    "净利润": {"净利润", "归属于母公司股东的净利润", "net", "profit"},
+    "利润": {"利润总额", "净利润", "profit"},
+    "盈利": {"利润总额", "净利润", "profit"},
+    "经营现金流": {
+        "经营活动产生的现金流量净额",
+        "经营活动现金流量净额",
+        "operating",
+        "cash",
+        "flow",
+    },
+    "投资现金流": {
+        "投资活动产生的现金流量净额",
+        "investing",
+        "cash",
+        "flow",
+    },
+    "融资现金流": {
+        "筹资活动产生的现金流量净额",
+        "financing",
+        "cash",
+        "flow",
+    },
+    "现金流": {"现金流量净额", "cash", "flow"},
+    "现金": {"现金及现金等价物", "cash"},
+    "流动比率": {
+        "流动资产合计",
+        "流动负债合计",
+        "current",
+        "assets",
+        "liabilities",
+        "ratio",
+    },
+    "流动资产": {"流动资产合计", "current", "assets"},
+    "总资产": {"资产总计", "资产合计", "total", "assets"},
+    "资产": {"资产总计", "assets"},
+    "流动负债": {"流动负债合计", "current", "liabilities"},
+    "总负债": {"负债合计", "负债总计", "total", "liabilities"},
+    "负债": {"负债合计", "liabilities"},
+    "借款": {"借款", "borrowings"},
+    "债务": {"债务", "借款", "debt", "borrowings"},
+    "增长": {"增加", "增长", "growth", "increase"},
+    "下降": {"减少", "下降", "decrease", "decline"},
+    "风险": {"风险", "risk"},
 }
 
 # These concept groups allow differently worded questions to find the same
@@ -104,7 +145,13 @@ FINANCIAL_CONCEPTS = {
             "收入",
             "营收",
         ),
-        "terms": ("revenue", "sales", "growth"),
+        "terms": (
+            "revenue",
+            "sales",
+            "growth",
+            "营业收入",
+            "营业总收入",
+        ),
     },
     "profitability": {
         "triggers": (
@@ -117,7 +164,15 @@ FINANCIAL_CONCEPTS = {
             "净利率",
             "净利润",
         ),
-        "terms": ("profit", "earnings", "margin", "revenue"),
+        "terms": (
+            "profit",
+            "earnings",
+            "margin",
+            "revenue",
+            "净利润",
+            "归属于母公司股东的净利润",
+            "营业收入",
+        ),
     },
     "operating cash flow": {
         "triggers": (
@@ -137,6 +192,8 @@ FINANCIAL_CONCEPTS = {
             "generated",
             "working",
             "capital",
+            "经营活动产生的现金流量净额",
+            "经营活动现金流量净额",
         ),
     },
     "liquidity": {
@@ -158,6 +215,8 @@ FINANCIAL_CONCEPTS = {
             "working",
             "capital",
             "liquidity",
+            "流动资产合计",
+            "流动负债合计",
         ),
     },
     "leverage": {
@@ -179,6 +238,9 @@ FINANCIAL_CONCEPTS = {
             "liabilities",
             "borrowings",
             "debt",
+            "资产总计",
+            "负债合计",
+            "所有者权益合计",
         ),
     },
     "capital expenditure": {
@@ -197,6 +259,7 @@ FINANCIAL_CONCEPTS = {
             "property",
             "plant",
             "equipment",
+            "购建固定资产",
         ),
     },
 }
@@ -330,7 +393,11 @@ def _score_chunk(
         for token in ENGLISH_TOKEN_PATTERN.findall(normalised_text)
     ]
     token_counts = {
-        term: text_tokens.count(term)
+        term: (
+            normalised_text.count(term)
+            if CJK_PATTERN.search(term)
+            else text_tokens.count(term)
+        )
         for term in query_term_weights
     }
     matched_terms = sorted(
@@ -369,8 +436,12 @@ def _financial_statement_bonus(query: str, chunk_text: str) -> float:
     """Prefer the full balance sheet over notes about one liability subtype."""
     normalised_query = _normalise_line(query).lower()
     normalised_text = _normalise_line(chunk_text).lower()
-    asks_for_total_liabilities = "total liabilities" in normalised_query
-    has_full_statement_scope = all(
+    asks_for_total_liabilities = (
+        "total liabilities" in normalised_query
+        or "总负债" in normalised_query
+        or "资产负债率" in normalised_query
+    )
+    has_english_statement_scope = all(
         phrase in normalised_text
         for phrase in (
             "non-current liabilities",
@@ -378,7 +449,20 @@ def _financial_statement_bonus(query: str, chunk_text: str) -> float:
             "group balance sheet",
         )
     )
-    return 0.25 if asks_for_total_liabilities and has_full_statement_scope else 0
+    has_chinese_statement_scope = all(
+        phrase in normalised_text
+        for phrase in (
+            "非流动负债合计",
+            "负债合计",
+            "所有者权益合计",
+        )
+    )
+    return (
+        0.25
+        if asks_for_total_liabilities
+        and (has_english_statement_scope or has_chinese_statement_scope)
+        else 0
+    )
 
 
 def search_report_chunks(

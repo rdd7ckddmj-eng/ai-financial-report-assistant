@@ -92,6 +92,92 @@ def test_search_report_chunks_maps_chinese_finance_terms() -> None:
     assert "operating cash flow" in results[0]["matched_concepts"]
 
 
+def test_chinese_question_finds_chinese_income_statement() -> None:
+    chunks = chunk_report_pages(
+        [
+            {
+                "page_number": 61,
+                "text": (
+                    "合并利润表\n"
+                    "一、营业总收入 172,054,171,890.91\n"
+                    "其中：营业收入 168,838,102,514.79"
+                ),
+            },
+            {
+                "page_number": 65,
+                "text": (
+                    "经营活动产生的现金流量净额 "
+                    "61,522,204,989.08"
+                ),
+            },
+        ]
+    )
+
+    results = search_report_chunks(chunks, query="营业收入是多少？")
+
+    assert results
+    assert results[0]["page_number"] == 61
+    assert "营业收入" in results[0]["matched_terms"]
+    assert results[0]["matched_concepts"] == ["revenue and sales"]
+
+
+def test_chinese_question_finds_chinese_balance_sheet() -> None:
+    chunks = chunk_report_pages(
+        [
+            {
+                "page_number": 59,
+                "text": (
+                    "资产总计 303,834,844,020.66\n"
+                    "非流动负债合计 265,113,293.91\n"
+                    "负债合计 49,875,590,111.74\n"
+                    "所有者权益合计 253,959,253,908.92"
+                ),
+            },
+            {
+                "page_number": 102,
+                "text": "租赁负债合计 120,000,000.00",
+            },
+        ]
+    )
+
+    results = search_report_chunks(chunks, query="资产负债率是多少？")
+
+    assert results
+    assert results[0]["page_number"] == 59
+    assert {"资产总计", "负债合计"}.issubset(
+        results[0]["matched_terms"]
+    )
+    assert results[0]["matched_concepts"] == ["leverage"]
+
+
+def test_chinese_question_finds_chinese_cash_flow_explanation() -> None:
+    chunks = chunk_report_pages(
+        [
+            {
+                "page_number": 20,
+                "text": (
+                    "经营活动产生的现金流量净额同比下降，"
+                    "主要由于客户存款和同业存放款项净增加额减少。"
+                ),
+            },
+            {
+                "page_number": 61,
+                "text": "营业收入 168,838,102,514.79",
+            },
+        ]
+    )
+
+    results = search_report_chunks(
+        chunks,
+        query="经营现金流为什么下降？",
+    )
+
+    assert results
+    assert results[0]["page_number"] == 20
+    assert "经营活动产生的现金流量净额" in results[0]["matched_terms"]
+    assert results[0]["matched_concepts"] == ["operating cash flow"]
+
+
 def test_search_report_chunks_maps_chinese_net_margin_short_name() -> None:
     chunks = chunk_report_pages(
         [

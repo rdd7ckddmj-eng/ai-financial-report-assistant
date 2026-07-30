@@ -220,3 +220,18 @@ index sizes, and limited PDF and report-text caches to the latest report for
 thirty minutes. The default lexical/concept retriever, deterministic financial
 calculations, statement checks, evidence citations, and optional OpenAI
 synthesis remain available.
+
+## 2026-07-30 — Chinese-to-Chinese evidence retrieval
+
+### Error I encountered
+
+The live product extracted and reconciled all three Guizhou Moutai statements,
+but a Chinese question such as “营业收入是多少？” found no evidence because
+the original retriever translated Chinese questions only into English terms.
+
+### How I fixed it
+
+Added auditable Chinese statement labels and financial phrases to the same
+deterministic ranking path. Chinese questions can now retrieve Chinese income
+statement, balance-sheet, cash-flow, and narrative evidence without loading an
+embedding model.
