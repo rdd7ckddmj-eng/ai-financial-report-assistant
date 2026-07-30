@@ -74,6 +74,7 @@ class MarketActivityEvent(TypedDict):
     volume_percentile_250d: float | None
     turnover: float | None
     turnover_percentile_250d: float | None
+    turnover_high_candidate: bool
     limit_up_reference: float
     limit_up_candidate: bool
 
@@ -568,9 +569,10 @@ def scan_market_activity_events(
     *,
     lookback_sessions: int = 250,
     volume_ratio_threshold: float = 2.0,
+    turnover_percentile_threshold: float = 0.90,
     max_results: int = 8,
 ) -> list[MarketActivityEvent]:
-    """Find recent high-volume days and board-rule limit-up candidates.
+    """Find recent price, volume, and ordinary-turnover anomaly candidates.
 
     The rolling volume baseline excludes the day being tested.  Results are
     screening candidates for point-in-time research, not trading signals or
@@ -580,6 +582,8 @@ def scan_market_activity_events(
         raise ValueError("扫描交易日数量必须大于零。")
     if volume_ratio_threshold <= 0:
         raise ValueError("成交量倍数阈值必须大于零。")
+    if not 0 < turnover_percentile_threshold <= 1:
+        raise ValueError("换手率历史分位阈值必须在0到1之间。")
     if max_results < 1:
         raise ValueError("最多展示数量必须大于零。")
 
@@ -636,14 +640,6 @@ def scan_market_activity_events(
             volume_ratio is not None
             and volume_ratio >= volume_ratio_threshold
         )
-        if not (limit_candidate or high_volume):
-            continue
-
-        event_labels = []
-        if limit_candidate:
-            event_labels.append("涨停候选")
-        if high_volume:
-            event_labels.append("明显放量")
         turnover_value = row["turnover"]
         turnover = (
             None
@@ -662,6 +658,24 @@ def scan_market_activity_events(
             ),
             prepared["turnover"].iloc[:position],
         )
+        turnover_high_candidate = (
+            turnover_percentile is not None
+            and turnover_percentile >= turnover_percentile_threshold
+        )
+        if not (
+            limit_candidate
+            or high_volume
+            or turnover_high_candidate
+        ):
+            continue
+
+        event_labels = []
+        if limit_candidate:
+            event_labels.append("涨停候选")
+        if high_volume:
+            event_labels.append("明显放量")
+        if turnover_high_candidate:
+            event_labels.append("普通换手率高位")
         events.append(
             {
                 "date": market_date.isoformat(),
@@ -673,6 +687,7 @@ def scan_market_activity_events(
                 "volume_percentile_250d": volume_percentile,
                 "turnover": turnover,
                 "turnover_percentile_250d": turnover_percentile,
+                "turnover_high_candidate": turnover_high_candidate,
                 "limit_up_reference": limit_reference,
                 "limit_up_candidate": limit_candidate,
             }

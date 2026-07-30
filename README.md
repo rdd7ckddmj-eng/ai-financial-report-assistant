@@ -11,18 +11,23 @@ Build a web application that can:
 1. identify a mainland listed company from its name or six-digit code;
 2. show source-linked official disclosures that refresh on demand;
 3. display validated daily K-lines and deterministic market-risk statistics;
-4. locate and temporarily load the latest official annual report;
-5. extract and calculate key financial indicators;
-6. answer questions using retrieved report evidence and PDF pages;
-7. show source references, limitations, and the Agent audit trail;
-8. revisit a past date without leaking later information into the snapshot;
-9. avoid presenting AI output as investment advice.
+4. screen price, volume, and ordinary-turnover anomaly candidates;
+5. connect a selected candidate to point-in-time official disclosures;
+6. locate and temporarily load the latest official annual report;
+7. extract and calculate key financial indicators;
+8. answer questions using retrieved report evidence and PDF pages;
+9. show source references, limitations, and the Agent audit trail;
+10. revisit a past date without leaking later information into the snapshot;
+11. avoid presenting AI output as investment advice.
 
 ## Product specifications
 
 - [Company Research Engine](docs/COMPANY_RESEARCH_ENGINE_SPEC.md) defines the
   current-company research scope, evidence grades, verification states, and
   division between Python and AI.
+- [Market Anomaly Agent](docs/MARKET_ANOMALY_AGENT_SPEC.md) defines the
+  deterministic anomaly rules, official-evidence link, and non-predictive
+  product boundary.
 - [Historical Lens](docs/HISTORICAL_LENS_SPEC.md) defines the point-in-time
   boundary, publication-date filtering, and separate later-outcome reveal.
 
@@ -82,8 +87,8 @@ secret environment settings. It must never be committed to the repository.
 ## Current working features
 
 - Provide a multi-page product structure: home, company research centre,
-  K-line and market evidence, Historical Lens, annual-report evidence, and
-  methodology/audit.
+  K-line and market evidence, Market Anomaly Agent, Historical Lens,
+  annual-report evidence, and methodology/audit.
 - Resolve mainland listed-company names or six-digit stock codes to a
   code-plus-exchange identity shared across all pages.
 - Synchronise official CNINFO disclosures on demand with a one-hour cache,
@@ -102,11 +107,12 @@ secret environment settings. It must never be committed to the repository.
   250 preceding sessions, and a board-rule-based limit-up candidate label.
   Effective turnover remains unavailable until a verified point-in-time
   free-float denominator is connected.
-- Scan the latest 250 trading sessions for limit-up candidates and days whose
-  volume is at least twice the preceding 20-session median, then carry a
-  selected date into Historical Lens without weakening its publication-date
-  boundary. Each candidate retains the volume and ordinary-turnover
-  percentiles that could have been calculated on that date.
+- Scan the latest 250 trading sessions for limit-up candidates, days whose
+  volume is at least twice the preceding 20-session median, and days whose
+  ordinary turnover reaches the 90th percentile of prior observations.
+  A dedicated Market Anomaly Agent synthesises the three checks, connects a
+  selected date to official disclosures, and can carry it into Historical Lens
+  without weakening its publication-date boundary.
 - Build an auditable abnormal-day evidence chain from official disclosures
   published on the selected date or within the preceding six calendar days.
   Later disclosures are excluded, links and date gaps remain visible, and

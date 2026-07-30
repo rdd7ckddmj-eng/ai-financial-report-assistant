@@ -149,11 +149,28 @@ def test_activity_scanner_excludes_event_day_from_volume_baseline() -> None:
     events = scan_market_activity_events(frame, company)
 
     assert events[0]["date"] == frame.loc[40, "日期"].date().isoformat()
-    assert events[0]["event_type"] == "明显放量"
+    assert events[0]["event_type"] == "明显放量 + 普通换手率高位"
     assert events[0]["volume_ratio_20d"] == pytest.approx(2.5)
     assert events[0]["volume_percentile_250d"] == pytest.approx(1.0)
     assert events[0]["turnover"] == pytest.approx(0.032)
     assert events[0]["turnover_percentile_250d"] == pytest.approx(1.0)
+    assert events[0]["turnover_high_candidate"] is True
+
+
+def test_activity_scanner_includes_high_ordinary_turnover_day() -> None:
+    frame = _market_rows(45)
+    frame.loc[:, "成交量"] = 1_000_000
+    frame.loc[:, "换手率"] = 1.0
+    frame.loc[40, "换手率"] = 4.0
+    company = build_company_identity("600519", "贵州茅台")
+
+    events = scan_market_activity_events(frame, company)
+    target_date = frame.loc[40, "日期"].date().isoformat()
+    event = next(item for item in events if item["date"] == target_date)
+
+    assert event["event_type"] == "普通换手率高位"
+    assert event["turnover_high_candidate"] is True
+    assert event["turnover_percentile_250d"] == pytest.approx(1.0)
 
 
 def test_activity_scanner_marks_board_rule_limit_candidate() -> None:

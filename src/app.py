@@ -72,6 +72,10 @@ from src.llm_analyst import (
     run_llm_analyst,
     serialise_llm_run,
 )
+from src.market_anomaly_agent import (
+    MarketAnomalyReport,
+    build_market_anomaly_report,
+)
 from src.pdf_extractor import ExtractedPage, extract_pdf_pages
 from src.qa_benchmark import (
     BenchmarkCaseResult,
@@ -803,13 +807,13 @@ def show_chinese_user_guide() -> None:
         )
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=3600, max_entries=1, show_spinner=False)
 def load_a_share_directory() -> pd.DataFrame:
     """Cache the public company directory for one hour."""
     return fetch_company_directory()
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=3600, max_entries=4, show_spinner=False)
 def load_a_share_history(
     code: str,
     start_date_text: str,
@@ -825,7 +829,7 @@ def load_a_share_history(
     )
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=3600, max_entries=4, show_spinner=False)
 def load_company_announcements(
     code: str,
     start_date_text: str,
@@ -1108,64 +1112,139 @@ def _show_market_activity_evidence(
         )
 
 
-def _show_activity_event_replay(
+def _show_market_anomaly_report(
+    report: MarketAnomalyReport,
+) -> None:
+    """Render the Agent synthesis without turning anomalies into advice."""
+    st.subheader("Agent 综合结论")
+    if report["status"] == "compound_anomaly":
+        st.warning(f"**{report['headline']}**\n\n{report['conclusion']}")
+    elif report["status"] == "single_anomaly":
+        st.info(f"**{report['headline']}**\n\n{report['conclusion']}")
+    elif report["status"] == "insufficient_data":
+        st.warning(f"**{report['headline']}**\n\n{report['conclusion']}")
+    else:
+        st.info(f"**{report['headline']}**\n\n{report['conclusion']}")
+
+    status_labels = {
+        "triggered": "触发",
+        "not_triggered": "未触发",
+        "unavailable": "证据不足",
+    }
+    columns = st.columns(3)
+    for column, signal in zip(
+        columns,
+        report["signals"],
+        strict=True,
+    ):
+        with column:
+            with st.container(border=True):
+                st.markdown(f"#### {signal['name']}")
+                st.markdown(
+                    f"**状态：{status_labels[signal['status']]}**"
+                )
+                st.write(signal["evidence"])
+                st.caption(signal["limitation"])
+
+    st.info(report["next_step"])
+    st.caption(
+        f"数据截止：{report['as_of_date']}｜"
+        f"可判断 {report['available_signal_count']}/3 项｜"
+        f"触发 {report['triggered_signal_count']} 项｜"
+        f"最近候选日期 {report['recent_event_count']} 个。"
+    )
+    st.warning(report["limitation"])
+
+
+def _show_anomaly_event_research(
     events: list[MarketActivityEvent],
     company: CompanyIdentity,
+    announcements: pd.DataFrame | None,
 ) -> None:
-    """Render recent activity candidates with one-click historical review."""
-    st.subheader("异常交易日回看 Agent")
+    """Connect one selected anomaly candidate to point-in-time evidence."""
+    st.subheader("候选日期与官方证据链")
     st.caption(
         "自动扫描最近250个交易日：成交量达到此前20日中位数2倍，"
-        "或日涨幅达到板块规则参考阈值时进入列表。"
-        "结果只用于选择研究日期，不是买卖信号。"
+        "日涨幅达到板块规则参考阈值，或普通换手率达到此前历史"
+        "90%分位时进入列表。结果只用于选择研究日期，不是买卖信号。"
     )
     if not events:
         st.info("最近扫描范围内没有发现符合当前门槛的异常交易日。")
         return
 
-    for event in events:
-        with st.container(border=True):
-            date_column, type_column, return_column, volume_column, action = (
-                st.columns([1.15, 1.45, 1, 1, 1.25])
-            )
-            date_column.markdown(f"**{event['date']}**")
-            date_column.caption(f"收盘 ¥{event['close']:,.2f}")
-            type_column.markdown(f"**{event['event_type']}**")
-            type_column.caption(event["daily_return_basis"])
-            return_column.markdown(
-                _format_percent(event["daily_return"])
-            )
-            return_column.caption(
-                f"日涨跌幅｜参考 {event['limit_up_reference']:.0%}"
-            )
-            volume_ratio = event["volume_ratio_20d"]
-            volume_column.markdown(
-                "数据不足"
-                if volume_ratio is None
-                else f"{volume_ratio:.2f}倍"
-            )
-            volume_column.caption("成交量 / 前20日中位数")
-            if action.button(
-                "回到当天研究",
-                key=(
-                    f"replay_activity_{company['code']}_"
-                    f"{event['date']}"
-                ),
-                use_container_width=True,
-            ):
-                st.session_state["historical_prefill_date"] = event["date"]
-                st.session_state["historical_prefill_context"] = (
-                    event["event_type"]
-                )
-                _switch_page("historical")
-            st.caption(
-                "当时历史位置：成交量 "
-                f"{_format_percent(event['volume_percentile_250d'])}｜"
-                "普通换手率 "
-                f"{_format_percent(event['turnover'])}｜"
-                "换手率历史分位 "
-                f"{_format_percent(event['turnover_percentile_250d'])}。"
-            )
+    event_options = {
+        f"{event['date']}｜{event['event_type']}": event
+        for event in events
+    }
+    selected_label = st.selectbox(
+        "选择一个候选日期",
+        options=list(event_options),
+        key=f"anomaly_event_{company['canonical_code']}",
+    )
+    selected = event_options[selected_label]
+
+    with st.container(border=True):
+        st.markdown(
+            f"#### {selected['date']}｜{selected['event_type']}"
+        )
+        columns = st.columns(4)
+        columns[0].metric("当日收盘", f"¥{selected['close']:,.2f}")
+        columns[1].metric(
+            "日涨跌幅",
+            _format_percent(selected["daily_return"]),
+        )
+        volume_ratio = selected["volume_ratio_20d"]
+        columns[2].metric(
+            "成交量 / 前20日中位数",
+            "数据不足" if volume_ratio is None else f"{volume_ratio:.2f}倍",
+        )
+        columns[3].metric(
+            "普通换手率",
+            _format_percent(selected["turnover"]),
+        )
+        st.caption(
+            f"涨跌幅口径：{selected['daily_return_basis']}｜"
+            "成交量历史分位："
+            f"{_format_percent(selected['volume_percentile_250d'])}｜"
+            "普通换手率历史分位："
+            f"{_format_percent(selected['turnover_percentile_250d'])}。"
+        )
+
+    if announcements is None:
+        st.warning(
+            "官方公告源暂时不可访问。异动数字仍可核验，"
+            "但系统不会使用新闻或未经核验内容替代官方公告。"
+        )
+    else:
+        evidence_chain = build_event_evidence_chain(
+            _announcement_evidence_records(announcements),
+            selected["date"],
+        )
+        _show_event_evidence_chain(
+            evidence_chain,
+            event_context=selected["event_type"],
+        )
+
+    action_columns = st.columns(2)
+    if action_columns[0].button(
+        "进入 Historical Lens 完整复盘",
+        type="primary",
+        use_container_width=True,
+        key=(
+            f"anomaly_historical_{company['code']}_{selected['date']}"
+        ),
+    ):
+        st.session_state["historical_prefill_date"] = selected["date"]
+        st.session_state["historical_prefill_context"] = (
+            selected["event_type"]
+        )
+        _switch_page("historical")
+    if action_columns[1].button(
+        "查看完整K线",
+        use_container_width=True,
+        key=f"anomaly_market_{company['code']}",
+    ):
+        _switch_page("market")
 
     with st.expander("查看扫描方法与限制"):
         st.write(
@@ -1176,7 +1255,8 @@ def _show_activity_event_replay(
         st.write(
             "历史分位只使用每个异常日之前最多250个有效交易日，"
             "至少需要20个样本；不会把目标日自身或未来交易日放入比较。"
-            "换手率历史分位仍基于普通换手率，不等同于有效换手率。"
+            "普通换手率达到历史90%分位才进入候选；"
+            "它仍不等同于有效换手率。"
         )
         st.write(
             "新股上市初期、重新上市、退市整理首日和其他无涨跌幅限制"
@@ -1375,7 +1455,7 @@ def render_company_research_page() -> None:
             "所有指标由Python计算。历史表现不代表未来结果。"
         )
 
-    action_columns = st.columns(3)
+    action_columns = st.columns(4)
     if action_columns[0].button(
         "查看完整K线与市场表现",
         use_container_width=True,
@@ -1383,11 +1463,16 @@ def render_company_research_page() -> None:
     ):
         _switch_page("market")
     if action_columns[1].button(
+        "进入市场异动 Agent",
+        use_container_width=True,
+    ):
+        _switch_page("anomaly")
+    if action_columns[2].button(
         "进入 Historical Lens",
         use_container_width=True,
     ):
         _switch_page("historical")
-    if action_columns[2].button(
+    if action_columns[3].button(
         "进入年报与证据分析",
         use_container_width=True,
     ):
@@ -1551,10 +1636,6 @@ def render_market_page() -> None:
             )
             metrics = calculate_market_metrics(market_frame)
             activity = calculate_market_activity(market_frame, company)
-            activity_events = scan_market_activity_events(
-                market_frame,
-                company,
-            )
     except (DataSourceError, ValueError) as error:
         st.error(str(error))
         st.info(
@@ -1577,7 +1658,13 @@ def render_market_page() -> None:
     )
 
     _show_market_activity_evidence(activity)
-    _show_activity_event_replay(activity_events, company)
+    if st.button(
+        "进入市场异动 Agent 查看候选日期与官方证据",
+        type="primary",
+        use_container_width=True,
+        key=f"market_to_anomaly_{company['canonical_code']}",
+    ):
+        _switch_page("anomaly")
 
     figure = _build_kline_figure(market_frame, company)
     st.plotly_chart(
@@ -1594,6 +1681,80 @@ def render_market_page() -> None:
     st.warning(
         "K线和历史统计只描述已经发生的市场表现，不能单独证明公司价值，"
         "也不构成买入、卖出或持有建议。"
+    )
+    show_product_footer()
+
+
+def render_market_anomaly_page() -> None:
+    """Render a deterministic anomaly-to-official-evidence workflow."""
+    apply_product_theme()
+    show_compact_page_header(
+        "03 / 市场异动研究 · MARKET ANOMALY AGENT",
+        "市场异动研究 Agent",
+        "自动核验涨停候选、成交量和普通换手率的历史位置，"
+        "再把候选日期连接到当时已经公开的官方公告。",
+    )
+    company = _selected_company()
+    if company is None:
+        st.warning("请先在首页选择一家中国上市公司。")
+        _render_company_search(
+            key_prefix="anomaly",
+            navigate_on_success=False,
+        )
+        show_product_footer()
+        return
+
+    _show_company_banner(company)
+    st.markdown(
+        "**行情核验 → Python规则筛选 → 异动分型 → "
+        "公告时间隔离 → Historical Lens复盘**"
+    )
+    st.caption(
+        "筛选和关键数字全部由确定性Python完成；"
+        "Agent负责组织步骤和证据，不负责预测价格。"
+    )
+
+    end_date = date.today()
+    start_date = end_date - timedelta(days=550)
+    try:
+        with st.spinner("正在扫描市场异动候选……"):
+            market_frame = load_a_share_history(
+                company["code"],
+                start_date.isoformat(),
+                end_date.isoformat(),
+                "qfq",
+            )
+            activity = calculate_market_activity(market_frame, company)
+            events = scan_market_activity_events(market_frame, company)
+            report = build_market_anomaly_report(activity, events)
+    except (DataSourceError, ValueError) as error:
+        st.error(str(error))
+        st.info(
+            "公开行情源恢复后可直接重试；"
+            "系统不会用过期样例或AI猜测替代真实行情。"
+        )
+        show_product_footer()
+        return
+
+    try:
+        announcements = load_company_announcements(
+            company["code"],
+            start_date.isoformat(),
+            end_date.isoformat(),
+        )
+    except (DataSourceError, ValueError):
+        announcements = None
+
+    _show_market_anomaly_report(report)
+    st.divider()
+    _show_market_activity_evidence(activity)
+    st.divider()
+    _show_anomaly_event_research(events, company, announcements)
+
+    st.caption(
+        f"行情来源：{market_frame.attrs.get('source', '公开行情适配器')}｜"
+        "前复权日线仅用于连续趋势与异动筛选；"
+        "完整历史复盘会切换为不复权口径并重新计算。"
     )
     show_product_footer()
 
@@ -1878,7 +2039,7 @@ def render_historical_lens_page() -> None:
     """Render a point-in-time research view without look-ahead information."""
     apply_product_theme()
     show_compact_page_header(
-        "03 / 历史回看 · HISTORICAL LENS",
+        "04 / 历史回看 · HISTORICAL LENS",
         "Historical Lens｜回到当时再研究",
         "冻结历史信息截止线，先查看当时已经公开的证据，"
         "再单独揭示后来1、3、6个月的市场表现。",
@@ -2256,7 +2417,7 @@ def render_methodology_page() -> None:
     """Explain source priority, calculation boundaries, and known limits."""
     apply_product_theme()
     show_compact_page_header(
-        "05 / 方法与审计 · METHODOLOGY",
+        "06 / 方法与审计 · METHODOLOGY",
         "方法、证据与产品边界",
         "公开说明系统如何获取资料、计算指标、使用AI以及处理不确定性。",
     )
@@ -2307,7 +2468,7 @@ def render_annual_report_page() -> None:
     """Render the existing PDF evidence workflow as a dedicated subpage."""
     apply_product_theme()
     show_compact_page_header(
-        "04 / 年报与证据 · ANNUAL REPORT",
+        "05 / 年报与证据 · ANNUAL REPORT",
         "年报与证据分析",
         "上传公开年度报告，按页提取文字、计算财务指标并生成可追溯答案。",
     )
@@ -3437,6 +3598,11 @@ def main() -> None:
         title="K线与市场表现",
         icon="📈",
     )
+    anomaly_page = st.Page(
+        render_market_anomaly_page,
+        title="市场异动 Agent",
+        icon="📡",
+    )
     historical_page = st.Page(
         render_historical_lens_page,
         title="Historical Lens",
@@ -3456,6 +3622,7 @@ def main() -> None:
         "home": home_page,
         "company": company_page,
         "market": market_page,
+        "anomaly": anomaly_page,
         "historical": historical_page,
         "annual": annual_page,
         "methodology": methodology_page,
@@ -3467,6 +3634,7 @@ def main() -> None:
             "上市公司研究": [
                 company_page,
                 market_page,
+                anomaly_page,
                 historical_page,
                 annual_page,
             ],
