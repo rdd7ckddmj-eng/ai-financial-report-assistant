@@ -279,3 +279,30 @@ silently fetch different data or ask an LLM to recreate financial facts.
 The browser can open the file offline and print it to PDF. The Render service
 does not need a PDF-generation package, persistent file storage, or a second
 copy of the market data, so the feature adds little memory pressure.
+
+## 2026-07-30 — Rule-based historical anomaly analogs
+
+### What I built or changed
+
+Added a historical-analog layer to the Market Anomaly Agent. A selected event
+can now be compared with strictly earlier anomaly candidates using signal
+overlap, daily return, volume multiple, and ordinary-turnover percentile.
+
+### One concept I can now explain
+
+Similarity is not prediction. It can help select a disciplined comparison
+date, but the later outcome must remain hidden until Historical Lens reveals
+it through a separate point-in-time workflow.
+
+### How missing data is handled
+
+Missing dimensions are excluded and the remaining weights are renormalised.
+The program does not silently convert missing turnover or volume evidence to
+zero. Very weak matches are rejected instead of being presented as useful
+analogs.
+
+### Why this design fits the current deployment
+
+The comparison reuses the bounded market-event list already in memory. It
+does not call a paid API, download a second dataset, or create persistent
+files on the Render server.
