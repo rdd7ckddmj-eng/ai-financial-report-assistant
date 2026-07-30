@@ -28,6 +28,17 @@ Profit/(loss) for the year
 Attributable to:
 """
 
+CHINESE_INCOME_STATEMENT_TEXT = """
+贵州茅台酒股份有限公司2025年度合并利润表
+单位：元 币种：人民币
+项目 附注 2025年度 2024年度
+一、营业总收入 168,838,102,514.79 170,899,152,276.34
+其中：营业收入 168,838,102,514.79 170,899,152,276.34
+五、净利润 82,330,000,000.00 86,240,000,000.00
+归属于母公司股东的净利润 82,320,067,101.68 86,228,146,421.62
+少数股东损益 9,932,898.32 11,853,578.38
+"""
+
 
 def test_extract_income_statement_figures_uses_total_columns() -> None:
     figures = extract_income_statement_figures(
@@ -98,3 +109,61 @@ def test_extract_income_statement_figures_allows_missing_week_counts() -> None:
     assert figures is not None
     assert figures["current_period_weeks"] is None
     assert figures["previous_period_weeks"] is None
+
+
+def test_extract_chinese_a_share_income_statement_prefers_parent_profit() -> None:
+    figures = extract_income_statement_figures(
+        page_number=194,
+        page_text=CHINESE_INCOME_STATEMENT_TEXT,
+    )
+
+    assert figures is not None
+    assert figures["current_revenue"] == 168_838_102_514.79
+    assert figures["previous_revenue"] == 170_899_152_276.34
+    assert figures["current_net_profit"] == 82_320_067_101.68
+    assert figures["previous_net_profit"] == 86_228_146_421.62
+    assert figures["unit"] == "人民币元"
+    assert figures["page_number"] == 194
+    assert figures["current_period_weeks"] is None
+    assert figures["previous_period_weeks"] is None
+
+
+def test_extract_chinese_a_share_vertical_rows_preserves_loss_sign() -> None:
+    page_text = """
+    合并利润表
+    单位：万元
+    营业收入
+    120,000.50
+    110,000.25
+    净利润
+    （1,200.50）
+    800.25
+    """
+
+    figures = extract_income_statement_figures(
+        page_number=88,
+        page_text=page_text,
+    )
+
+    assert figures is not None
+    assert figures["current_revenue"] == 120_000.50
+    assert figures["previous_revenue"] == 110_000.25
+    assert figures["current_net_profit"] == -1_200.50
+    assert figures["previous_net_profit"] == 800.25
+    assert figures["unit"] == "万元"
+
+
+def test_chinese_income_statement_does_not_guess_missing_profit() -> None:
+    page_text = CHINESE_INCOME_STATEMENT_TEXT.replace(
+        "五、净利润 82,330,000,000.00 86,240,000,000.00\n"
+        "归属于母公司股东的净利润 "
+        "82,320,067,101.68 86,228,146,421.62\n",
+        "",
+    )
+
+    figures = extract_income_statement_figures(
+        page_number=194,
+        page_text=page_text,
+    )
+
+    assert figures is None

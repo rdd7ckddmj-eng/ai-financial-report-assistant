@@ -138,8 +138,9 @@ secret environment settings. It must never be committed to the repository.
   three-minute interview-demo script, safety boundaries, and troubleshooting.
 - Upload a public annual-report PDF and preview page-level text.
 - Preserve the PDF filename and page number as evidence.
-- Automatically extract revenue and profit totals from a supported group
-  income-statement layout.
+- Automatically extract revenue and profit totals from the verified Tesco
+  six-column layout and common Chinese A-share consolidated income statements,
+  including RMB units and attributable net profit.
 - Compare current and previous reported results and flag unequal period lengths.
 - Reconcile balance-sheet current resources and liabilities before calculating
   current ratios.

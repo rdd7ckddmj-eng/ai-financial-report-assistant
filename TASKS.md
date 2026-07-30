@@ -38,6 +38,7 @@
 - [x] Build and test PDF upload with page-level text extraction.
 - [x] Test PDF extraction with the first real annual report.
 - [x] Automatically find the income statement and extract revenue and profit totals.
+- [x] Add deterministic extraction for common Chinese A-share consolidated income statements.
 - [x] Compare current and previous income-statement figures with period warnings.
 - [x] Extract and reconcile balance-sheet liquidity figures.
 - [x] Calculate current and previous current ratios from the annual report.
