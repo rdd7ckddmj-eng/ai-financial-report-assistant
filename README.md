@@ -128,8 +128,10 @@ secret environment settings. It must never be committed to the repository.
   time proximity is never presented as proof of market causation.
 - Export the selected anomaly date as a self-contained Chinese HTML research
   report. The file retains calculated metrics, source labels, official links,
-  excluded-future-evidence counts, and limitations; it can be opened offline
-  or printed to PDF without adding server-side document dependencies.
+  excluded-future-evidence counts, historical analog scores, shared signals,
+  comparable-dimension counts, Historical Lens replay links, and limitations.
+  It can be opened offline or printed to PDF without adding server-side
+  document dependencies.
 - Rebuild a historical market snapshot at a user-selected cut-off, using only
   earlier observations and disclosures, then reveal the subsequent 20/60/120
   trading-day outcomes in a separate user-controlled step.
