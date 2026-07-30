@@ -7,6 +7,62 @@ def test_project_smoke() -> None:
     assert 1 + 1 == 2
 
 
+def test_event_evidence_chain_renderer_shows_auditable_limits() -> None:
+    """Render the evidence chain as real Streamlit components."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src.app import _show_event_evidence_chain
+
+chain = {
+    "event_date": "2026-07-20",
+    "window_days": 7,
+    "status": "matched",
+    "matches": [{
+        "source_id": "official-1",
+        "title": "贵州茅台重大事项公告",
+        "published_date": "2026-07-18",
+        "source_type": "其他公告",
+        "source_url": "https://static.cninfo.com.cn/example.pdf",
+        "evidence_grade": "A",
+        "days_before_event": 2,
+        "relation": "此前2天公开",
+    }],
+    "matched_count": 1,
+    "same_day_count": 0,
+    "nearest_gap_days": 2,
+    "future_excluded_count": 4,
+    "conclusion": (
+        "所选日期此前 6 天内匹配 1 条官方公告；"
+        "最近一条相隔 2 天。"
+    ),
+    "limitation": (
+        "公告与异常交易日时间接近，只能作为复盘线索，"
+        "不能据此认定公告导致了价格或成交量变化。"
+    ),
+}
+_show_event_evidence_chain(chain, event_context="明显放量")
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    assert any(
+        "异动—公告证据链" in item.value for item in app_test.markdown
+    )
+    assert any(
+        "异动类型：明显放量" in item.value for item in app_test.caption
+    )
+    assert any(
+        "最近一条相隔 2 天" in item.value for item in app_test.success
+    )
+    assert any(
+        "不能据此认定" in item.value for item in app_test.warning
+    )
+    assert any(
+        "截止日后公告未进入" in item.value for item in app_test.caption
+    )
+
+
 def test_company_research_page_renders_a_successful_market_result(
     monkeypatch,
 ) -> None:

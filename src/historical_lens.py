@@ -8,7 +8,7 @@ using future information in a historical snapshot.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Iterable, Literal, TypedDict
 
 import pandas as pd
@@ -48,6 +48,34 @@ class EvidenceFilterResult(TypedDict):
     input_count: int
     accepted_count: int
     excluded_count: int
+
+
+class EventEvidenceItem(TypedDict):
+    """One official disclosure near, but never after, a selected event date."""
+
+    source_id: str
+    title: str
+    published_date: str
+    source_type: str
+    source_url: str
+    evidence_grade: str
+    days_before_event: int
+    relation: str
+
+
+class EventEvidenceChain(TypedDict):
+    """Auditable time-proximity evidence around a selected market date."""
+
+    event_date: str
+    window_days: int
+    status: Literal["matched", "none"]
+    matches: list[EventEvidenceItem]
+    matched_count: int
+    same_day_count: int
+    nearest_gap_days: int | None
+    future_excluded_count: int
+    conclusion: str
+    limitation: str
 
 
 class HistoricalMarketSnapshot(TypedDict):
@@ -128,6 +156,98 @@ def filter_evidence_as_of(
         "input_count": len(accepted) + len(excluded),
         "accepted_count": len(accepted),
         "excluded_count": len(excluded),
+    }
+
+
+def build_event_evidence_chain(
+    records: Iterable[EvidenceRecord],
+    event_date: date | str,
+    *,
+    window_days: int = 7,
+    max_items: int = 5,
+) -> EventEvidenceChain:
+    """Match nearby official evidence without leaking later publications.
+
+    The window includes the selected date and the preceding calendar days.
+    Proximity is an evidence-discovery aid only; it is never treated as proof
+    that a disclosure caused the market move.
+    """
+    if window_days < 1:
+        raise ValueError("公告匹配窗口必须至少为1天。")
+    if max_items < 1:
+        raise ValueError("证据链最多展示数量必须大于零。")
+
+    cutoff = _as_date(event_date, "事件日期")
+    filter_result = filter_evidence_as_of(records, cutoff)
+    window_start = cutoff - timedelta(days=window_days - 1)
+    candidates: list[EventEvidenceItem] = []
+
+    for record in filter_result["accepted"]:
+        published = _as_date(record["published_date"], "证据发布日期")
+        if published < window_start:
+            continue
+        gap = (cutoff - published).days
+        relation = "同日公开" if gap == 0 else f"此前{gap}天公开"
+        candidates.append(
+            {
+                "source_id": record["source_id"],
+                "title": record["title"],
+                "published_date": published.isoformat(),
+                "source_type": record["source_type"],
+                "source_url": record["source_url"],
+                "evidence_grade": record["evidence_grade"],
+                "days_before_event": gap,
+                "relation": relation,
+            }
+        )
+
+    candidates.sort(
+        key=lambda item: (
+            item["days_before_event"],
+            item["title"],
+        )
+    )
+    matches = candidates[:max_items]
+    same_day_count = sum(
+        item["days_before_event"] == 0 for item in candidates
+    )
+    nearest_gap = (
+        min(item["days_before_event"] for item in candidates)
+        if candidates
+        else None
+    )
+
+    if same_day_count:
+        conclusion = (
+            f"所选日期有 {same_day_count} 条官方公告同日公开；"
+            f"当前窗口共匹配 {len(candidates)} 条。"
+        )
+    elif candidates:
+        conclusion = (
+            f"所选日期此前 {window_days - 1} 天内匹配 "
+            f"{len(candidates)} 条官方公告；"
+            f"最近一条相隔 {nearest_gap} 天。"
+        )
+    else:
+        conclusion = (
+            f"所选日期及此前 {window_days - 1} 天内，"
+            "未匹配到可核验的官方公告。"
+        )
+
+    return {
+        "event_date": cutoff.isoformat(),
+        "window_days": window_days,
+        "status": "matched" if candidates else "none",
+        "matches": matches,
+        "matched_count": len(candidates),
+        "same_day_count": same_day_count,
+        "nearest_gap_days": nearest_gap,
+        "future_excluded_count": filter_result["excluded_count"],
+        "conclusion": conclusion,
+        "limitation": (
+            "公告与异常交易日时间接近，只能作为复盘线索，"
+            "不能据此认定公告导致了价格或成交量变化。"
+        ),
     }
 
 

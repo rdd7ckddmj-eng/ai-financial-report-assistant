@@ -5,6 +5,7 @@ import pytest
 
 from src.historical_lens import (
     EvidenceRecord,
+    build_event_evidence_chain,
     calculate_historical_snapshot,
     calculate_later_outcomes,
     filter_evidence_as_of,
@@ -75,6 +76,68 @@ def test_period_end_does_not_override_late_publication_date() -> None:
 
     assert result["accepted"] == []
     assert result["excluded_count"] == 1
+
+
+def test_event_evidence_chain_matches_only_same_day_and_recent_past() -> None:
+    records = [
+        _evidence("same-day", "同日公告", "2025-04-10"),
+        _evidence("recent", "三日前公告", "2025-04-07"),
+        _evidence("old", "窗口外公告", "2025-04-03"),
+        _evidence("future", "次日公告", "2025-04-11"),
+    ]
+
+    chain = build_event_evidence_chain(
+        records,
+        "2025-04-10",
+        window_days=7,
+    )
+
+    assert chain["status"] == "matched"
+    assert [item["source_id"] for item in chain["matches"]] == [
+        "same-day",
+        "recent",
+    ]
+    assert chain["matches"][0]["relation"] == "同日公开"
+    assert chain["matches"][1]["days_before_event"] == 3
+    assert chain["matched_count"] == 2
+    assert chain["same_day_count"] == 1
+    assert chain["nearest_gap_days"] == 0
+    assert chain["future_excluded_count"] == 1
+    assert "不能据此认定" in chain["limitation"]
+
+
+def test_event_evidence_chain_reports_no_verified_nearby_disclosure() -> None:
+    chain = build_event_evidence_chain(
+        [_evidence("old", "较早公告", "2025-03-01")],
+        "2025-04-10",
+    )
+
+    assert chain["status"] == "none"
+    assert chain["matches"] == []
+    assert chain["matched_count"] == 0
+    assert chain["nearest_gap_days"] is None
+    assert "未匹配到" in chain["conclusion"]
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("window_days", 0, "公告匹配窗口必须至少为1天"),
+        ("max_items", 0, "证据链最多展示数量必须大于零"),
+    ],
+)
+def test_event_evidence_chain_rejects_invalid_limits(
+    field: str,
+    value: int,
+    message: str,
+) -> None:
+    kwargs = {field: value}
+    with pytest.raises(ValueError, match=message):
+        build_event_evidence_chain(
+            [_evidence("same-day", "同日公告", "2025-04-10")],
+            "2025-04-10",
+            **kwargs,
+        )
 
 
 def test_market_slice_never_contains_future_rows() -> None:

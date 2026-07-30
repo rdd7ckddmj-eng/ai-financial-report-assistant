@@ -55,6 +55,8 @@ from src.financial_ratios import (
 from src.flagship_cases import load_moutai_flagship_events
 from src.historical_lens import (
     EvidenceRecord,
+    EventEvidenceChain,
+    build_event_evidence_chain,
     calculate_historical_snapshot,
     calculate_later_outcomes,
     filter_evidence_as_of,
@@ -1549,6 +1551,54 @@ def _announcement_evidence_records(
     return records
 
 
+def _show_event_evidence_chain(
+    chain: EventEvidenceChain,
+    *,
+    event_context: str | None = None,
+) -> None:
+    """Show official disclosures near a selected date without causal claims."""
+    chain_title = (
+        "异动—公告证据链"
+        if event_context
+        else "所选日期—公告证据链"
+    )
+    st.markdown(f"#### {chain_title}")
+    context_text = f"｜异动类型：{event_context}" if event_context else ""
+    st.caption(
+        f"研究日期：{chain['event_date']}{context_text}｜"
+        f"只检查含当日在内的最近 {chain['window_days']} 个自然日，"
+        "且只允许使用当时已经公开的官方信息。"
+    )
+
+    if chain["status"] == "none":
+        st.info(chain["conclusion"])
+    else:
+        st.success(chain["conclusion"])
+        for item in chain["matches"]:
+            with st.container(border=True):
+                text_column, link_column = st.columns([5, 1])
+                with text_column:
+                    st.markdown(f"**{item['title']}**")
+                    st.caption(
+                        f"{item['relation']}｜{item['published_date']}｜"
+                        f"{item['source_type']}｜证据等级 "
+                        f"{item['evidence_grade']}"
+                    )
+                with link_column:
+                    st.markdown(f"[查看原文 ↗]({item['source_url']})")
+        if chain["matched_count"] > len(chain["matches"]):
+            st.caption(
+                f"当前窗口共匹配 {chain['matched_count']} 条，"
+                f"按时间接近程度展示前 {len(chain['matches'])} 条。"
+            )
+
+    st.warning(chain["limitation"])
+    st.caption(
+        f"时间隔离审计：另有 {chain['future_excluded_count']} 条"
+        "截止日后公告未进入本证据链。"
+    )
+
+
 def render_historical_lens_page() -> None:
     """Render a point-in-time research view without look-ahead information."""
     apply_product_theme()
@@ -1788,14 +1838,38 @@ def render_historical_lens_page() -> None:
             "公告证据不会由其他未经核验的内容替代。"
         )
     else:
+        evidence_records = _announcement_evidence_records(announcements)
         evidence_result = filter_evidence_as_of(
-            _announcement_evidence_records(announcements),
+            evidence_records,
             selected_date,
         )
+        evidence_chain = build_event_evidence_chain(
+            evidence_records,
+            selected_date,
+        )
+        _show_event_evidence_chain(
+            evidence_chain,
+            event_context=(
+                prefill_context
+                if isinstance(prefill_context, str)
+                else None
+            ),
+        )
+        st.markdown("#### 其他当时已知的官方证据")
         accepted = evidence_result["accepted"]
+        matched_source_ids = {
+            item["source_id"] for item in evidence_chain["matches"]
+        }
+        other_accepted = [
+            record
+            for record in accepted
+            if record["source_id"] not in matched_source_ids
+        ]
         if not accepted:
             st.info("当前查询范围内，没有取得截止日前可展示的官方公告。")
-        for record in accepted[:8]:
+        elif not other_accepted:
+            st.info("当前可展示的官方公告已全部列入上方证据链。")
+        for record in other_accepted[:8]:
             with st.container(border=True):
                 text_column, link_column = st.columns([5, 1])
                 with text_column:
@@ -1928,7 +2002,9 @@ def render_methodology_page() -> None:
         st.write(
             "历史回看只允许使用发布日期不晚于所选截止日的证据。"
             "当时可见信息与后来1、3、6个月表现由不同函数计算，"
-            "防止把未来数据带回过去。"
+            "防止把未来数据带回过去。异动—公告证据链只检查所选日期"
+            "及此前六个自然日的官方披露，并保留日期间隔；"
+            "时间接近不会被解释为股价变化的原因。"
         )
     with st.container(border=True):
         st.subheader("已知限制")

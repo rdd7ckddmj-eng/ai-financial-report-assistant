@@ -104,6 +104,10 @@ secret environment settings. It must never be committed to the repository.
   volume is at least twice the preceding 20-session median, then carry a
   selected date into Historical Lens without weakening its publication-date
   boundary.
+- Build an auditable abnormal-day evidence chain from official disclosures
+  published on the selected date or within the preceding six calendar days.
+  Later disclosures are excluded, links and date gaps remain visible, and
+  time proximity is never presented as proof of market causation.
 - Rebuild a historical market snapshot at a user-selected cut-off, using only
   earlier observations and disclosures, then reveal the subsequent 20/60/120
   trading-day outcomes in a separate user-controlled step.
