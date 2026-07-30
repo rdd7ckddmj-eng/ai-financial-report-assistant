@@ -246,8 +246,9 @@ def resolve_company(
 
 def prepare_market_history(frame: pd.DataFrame) -> pd.DataFrame:
     """Validate and standardise daily OHLCV history from a provider."""
+    source_attributes = dict(frame.attrs)
     if frame.empty:
-        return pd.DataFrame(
+        empty = pd.DataFrame(
             columns=[
                 "date",
                 "open",
@@ -260,6 +261,8 @@ def prepare_market_history(frame: pd.DataFrame) -> pd.DataFrame:
                 "turnover",
             ]
         )
+        empty.attrs.update(source_attributes)
+        return empty
 
     aliases = {
         "日期": "date",
@@ -323,7 +326,7 @@ def prepare_market_history(frame: pd.DataFrame) -> pd.DataFrame:
         keep="last",
     )
     result["date"] = result["date"].dt.date
-    return result.loc[
+    prepared = result.loc[
         :,
         [
             "date",
@@ -337,6 +340,8 @@ def prepare_market_history(frame: pd.DataFrame) -> pd.DataFrame:
             "turnover",
         ],
     ].reset_index(drop=True)
+    prepared.attrs.update(source_attributes)
+    return prepared
 
 
 def prepare_tencent_market_history(frame: pd.DataFrame) -> pd.DataFrame:
@@ -352,6 +357,124 @@ def prepare_tencent_market_history(frame: pd.DataFrame) -> pd.DataFrame:
         adapted["volume"] = adapted[source_column]
         adapted = adapted.drop(columns=[source_column])
     return prepare_market_history(adapted)
+
+
+def prepare_sina_turnover_history(frame: pd.DataFrame) -> pd.DataFrame:
+    """Convert Sina circulating-share data into ordinary turnover percentages.
+
+    AKShare's Sina adapter defines turnover as traded shares divided by
+    circulating shares and returns it as a decimal fraction.  The application's
+    standard market-history schema stores turnover in percentage points, so a
+    value such as ``0.0047`` becomes ``0.47`` before it is merged by date.
+    """
+    empty = pd.DataFrame(columns=["date", "turnover"])
+    if frame.empty:
+        return empty
+
+    aliases = {
+        "日期": "date",
+        "date": "date",
+        "成交量": "volume",
+        "volume": "volume",
+        "流通股本": "outstanding_share",
+        "outstanding_share": "outstanding_share",
+        "换手率": "turnover",
+        "turnover": "turnover",
+    }
+    renamed = frame.rename(
+        columns={
+            column: aliases.get(str(column).strip(), str(column).strip())
+            for column in frame.columns
+        }
+    )
+    if "date" not in renamed.columns:
+        raise ValueError("新浪换手率数据缺少交易日期。")
+
+    result = pd.DataFrame(index=renamed.index)
+    result["date"] = pd.to_datetime(renamed["date"], errors="coerce")
+    provider_turnover = pd.to_numeric(
+        renamed.get(
+            "turnover",
+            pd.Series(math.nan, index=renamed.index),
+        ),
+        errors="coerce",
+    )
+    volume = pd.to_numeric(
+        renamed.get(
+            "volume",
+            pd.Series(math.nan, index=renamed.index),
+        ),
+        errors="coerce",
+    )
+    outstanding_share = pd.to_numeric(
+        renamed.get(
+            "outstanding_share",
+            pd.Series(math.nan, index=renamed.index),
+        ),
+        errors="coerce",
+    )
+
+    # Prefer the transparent formula documented by the source.  The provider's
+    # own turnover field is retained as a fallback when either input is absent.
+    calculated_fraction = volume / outstanding_share.where(
+        outstanding_share > 0
+    )
+    turnover_fraction = calculated_fraction.where(
+        calculated_fraction.notna(),
+        provider_turnover,
+    )
+    result["turnover"] = turnover_fraction * 100
+    result = result.dropna(subset=["date", "turnover"])
+    result = result.loc[
+        result["turnover"].map(math.isfinite) & (result["turnover"] >= 0)
+    ]
+    result = result.sort_values("date").drop_duplicates(
+        subset=["date"],
+        keep="last",
+    )
+    result["date"] = result["date"].dt.date
+    prepared = result.loc[:, ["date", "turnover"]].reset_index(drop=True)
+    prepared.attrs["turnover_source"] = (
+        "新浪财经流通股本计算（成交量÷流通股本）"
+    )
+    return prepared
+
+
+def merge_turnover_history(
+    market_history: pd.DataFrame,
+    turnover_history: pd.DataFrame,
+) -> pd.DataFrame:
+    """Fill missing ordinary turnover without replacing primary-source values."""
+    prepared_market = prepare_market_history(market_history)
+    source_attributes = dict(prepared_market.attrs)
+    prepared_turnover = prepare_sina_turnover_history(turnover_history)
+    if prepared_market.empty or prepared_turnover.empty:
+        return prepared_market
+
+    merged = prepared_market.merge(
+        prepared_turnover.rename(
+            columns={"turnover": "supplemental_turnover"}
+        ),
+        on="date",
+        how="left",
+        validate="one_to_one",
+    )
+    missing_before = merged["turnover"].isna()
+    merged["turnover"] = merged["turnover"].where(
+        ~missing_before,
+        merged["supplemental_turnover"],
+    )
+    filled_rows = int(
+        (missing_before & merged["turnover"].notna()).sum()
+    )
+    merged = merged.drop(columns=["supplemental_turnover"])
+    merged.attrs.update(source_attributes)
+    if filled_rows:
+        merged.attrs["turnover_source"] = prepared_turnover.attrs[
+            "turnover_source"
+        ]
+        merged.attrs["turnover_rows_filled"] = filled_rows
+    return merged
 
 
 def add_moving_averages(
@@ -524,11 +647,13 @@ def calculate_market_activity(
             prepared["turnover"].iloc[:-1],
         )
     )
-    turnover_status = (
-        "公开日线已提供普通换手率"
-        if turnover is not None
-        else "当前公开日线未提供换手率"
-    )
+    turnover_source = str(prepared.attrs.get("turnover_source", "")).strip()
+    if turnover is None:
+        turnover_status = "当前公开日线未提供换手率"
+    elif turnover_source:
+        turnover_status = f"已取得普通换手率；来源：{turnover_source}"
+    else:
+        turnover_status = "公开日线已提供普通换手率"
 
     limit_reference = reference_price_limit_ratio(company, latest_date)
     if daily_return is None:
@@ -950,6 +1075,7 @@ def fetch_market_history(
         if prepared.empty:
             raise ValueError("东方财富返回了空行情。")
         prepared.attrs["source"] = "东方财富公开日线"
+        prepared.attrs["turnover_source"] = "东方财富公开日线直接字段"
         return prepared
     except Exception as primary_error:
         try:
@@ -964,6 +1090,24 @@ def fetch_market_history(
             if prepared.empty:
                 raise ValueError("腾讯财经返回了空行情。")
             prepared.attrs["source"] = "腾讯财经公开日线（备用源）"
+            try:
+                turnover_frame = ak.stock_zh_a_daily(
+                    symbol=symbol,
+                    start_date=start_date.strftime("%Y%m%d"),
+                    end_date=end_date.strftime("%Y%m%d"),
+                    adjust="",
+                )
+                prepared = merge_turnover_history(
+                    prepared,
+                    turnover_frame,
+                )
+                prepared.attrs["source"] = (
+                    "腾讯财经公开日线（备用源）"
+                )
+            except Exception:
+                # Turnover is supplementary evidence.  A temporary Sina
+                # failure must not discard already validated OHLCV history.
+                prepared.attrs["turnover_source"] = "暂未取得"
             return prepared
         except Exception as fallback_error:
             raise DataSourceError(

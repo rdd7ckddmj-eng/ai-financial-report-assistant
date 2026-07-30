@@ -1,3 +1,6 @@
+import sys
+from types import SimpleNamespace
+
 import pandas as pd
 import pytest
 
@@ -8,10 +11,13 @@ from src.china_stock import (
     calculate_market_activity,
     calculate_market_metrics,
     classify_announcement,
+    fetch_market_history,
     infer_exchange,
     is_allowed_disclosure_url,
+    merge_turnover_history,
     prepare_announcements,
     prepare_market_history,
+    prepare_sina_turnover_history,
     prepare_tencent_market_history,
     reference_price_limit_ratio,
     resolve_company,
@@ -276,6 +282,108 @@ def test_tencent_daily_schema_maps_amount_to_volume() -> None:
 
     assert prepared.loc[0, "volume"] == 1_234_567
     assert pd.isna(prepared.loc[0, "amount"])
+
+
+def test_sina_turnover_uses_volume_divided_by_circulating_shares() -> None:
+    frame = pd.DataFrame(
+        {
+            "date": ["2026-07-27"],
+            "volume": [4_740_000],
+            "outstanding_share": [1_000_000_000],
+            "turnover": [0.99],
+        }
+    )
+
+    prepared = prepare_sina_turnover_history(frame)
+
+    assert prepared.loc[0, "turnover"] == pytest.approx(0.474)
+    assert "成交量÷流通股本" in prepared.attrs["turnover_source"]
+
+
+def test_turnover_merge_only_fills_missing_market_values() -> None:
+    market = _market_rows(2)
+    market["换手率"] = [1.5, float("nan")]
+    market.attrs["source"] = "腾讯财经公开日线（备用源）"
+    supplement = pd.DataFrame(
+        {
+            "date": market["日期"],
+            "volume": [10_000_000, 20_000_000],
+            "outstanding_share": [1_000_000_000, 1_000_000_000],
+        }
+    )
+
+    merged = merge_turnover_history(market, supplement)
+
+    assert merged.loc[0, "turnover"] == pytest.approx(1.5)
+    assert merged.loc[1, "turnover"] == pytest.approx(2.0)
+    assert merged.attrs["source"] == "腾讯财经公开日线（备用源）"
+    assert merged.attrs["turnover_rows_filled"] == 1
+
+
+def test_market_activity_reports_supplemental_turnover_source() -> None:
+    frame = _market_rows(21)
+    frame["换手率"] = 2.0
+    frame.attrs["turnover_source"] = (
+        "新浪财经流通股本计算（成交量÷流通股本）"
+    )
+    company = build_company_identity("600519", "贵州茅台")
+
+    activity = calculate_market_activity(frame, company)
+
+    assert "新浪财经" in activity["turnover_status"]
+    assert activity["turnover"] == pytest.approx(0.02)
+
+
+def test_market_history_fallback_supplements_turnover(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dates = pd.date_range("2026-06-01", periods=25, freq="B")
+
+    def fail_eastmoney(**_: object) -> pd.DataFrame:
+        raise RuntimeError("primary source unavailable")
+
+    def tencent_history(**_: object) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "date": dates,
+                "open": 100.0,
+                "close": 101.0,
+                "high": 102.0,
+                "low": 99.0,
+                "amount": 2_000_000,
+            }
+        )
+
+    def sina_turnover(**_: object) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "date": dates,
+                "volume": 2_000_000,
+                "outstanding_share": 1_000_000_000,
+            }
+        )
+
+    fake_akshare = SimpleNamespace(
+        stock_zh_a_hist=fail_eastmoney,
+        stock_zh_a_hist_tx=tencent_history,
+        stock_zh_a_daily=sina_turnover,
+    )
+    monkeypatch.setitem(sys.modules, "akshare", fake_akshare)
+
+    prepared = fetch_market_history(
+        code="600519",
+        start_date=dates[0].date(),
+        end_date=dates[-1].date(),
+    )
+    activity = calculate_market_activity(
+        prepared,
+        build_company_identity("600519", "贵州茅台"),
+    )
+
+    assert prepared.attrs["source"] == "腾讯财经公开日线（备用源）"
+    assert prepared["turnover"].notna().all()
+    assert activity["turnover"] == pytest.approx(0.002)
+    assert "新浪财经" in activity["turnover_status"]
 
 
 def test_announcement_classification_uses_attention_not_sentiment() -> None:

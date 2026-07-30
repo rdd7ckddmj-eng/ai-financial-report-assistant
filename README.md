@@ -105,8 +105,11 @@ secret environment settings. It must never be committed to the repository.
   return, volume versus the preceding 20-session median, ordinary turnover
   availability, point-in-time volume and turnover percentiles versus up to
   250 preceding sessions, and a board-rule-based limit-up candidate label.
+  When the primary Eastmoney history is unavailable and Tencent becomes the
+  price/volume fallback, ordinary turnover is supplemented on demand from
+  Sina's documented traded-volume divided by circulating-share fields.
   Effective turnover remains unavailable until a verified point-in-time
-  free-float denominator is connected.
+  investable free-float denominator is connected.
 - Scan the latest 250 trading sessions for limit-up candidates, days whose
   volume is at least twice the preceding 20-session median, and days whose
   ordinary turnover reaches the 90th percentile of prior observations.

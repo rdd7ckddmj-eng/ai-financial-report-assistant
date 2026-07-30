@@ -13,6 +13,7 @@
 - [x] Link selected abnormal days to nearby point-in-time official evidence.
 - [x] Add a dedicated Market Anomaly Agent page.
 - [x] Include high ordinary-turnover percentile days in anomaly screening.
+- [x] Supplement ordinary turnover when Tencent is the fallback price source.
 - [x] Synthesize independent price, volume, and turnover checks without predictions.
 - [x] Define Company Research Engine and Historical Lens product specifications.
 - [x] Add a tested point-in-time evidence engine that excludes future disclosures.

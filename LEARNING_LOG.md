@@ -235,3 +235,28 @@ Added auditable Chinese statement labels and financial phrases to the same
 deterministic ranking path. Chinese questions can now retrieve Chinese income
 statement, balance-sheet, cash-flow, and narrative evidence without loading an
 embedding model.
+
+## 2026-07-30 — Ordinary-turnover fallback
+
+### What I built or changed
+
+Added a small fallback that fills missing ordinary turnover from Sina's
+documented daily traded-volume and circulating-share fields when Tencent is
+already serving as the backup price source.
+
+### One concept I can now explain
+
+Ordinary turnover is traded shares divided by circulating shares. Effective
+turnover uses a narrower investable free-float denominator, so the two figures
+must not be presented as interchangeable.
+
+### Error I encountered
+
+The Tencent daily-history fallback kept price and volume available but did not
+provide historical turnover, leaving the third anomaly signal unavailable.
+
+### How I fixed it
+
+The program requests only the selected company's bounded date range, calculates
+ordinary turnover in Python, merges it by trading date, and keeps the rest of
+the product available if the supplemental source also fails.
