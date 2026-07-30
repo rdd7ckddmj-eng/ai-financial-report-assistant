@@ -114,6 +114,10 @@ secret environment settings. It must never be committed to the repository.
 - Offer three manually verified Guizhou Moutai flagship dates with direct
   Shanghai Stock Exchange or company-source links, while keeping free date
   selection available.
+- Show a verified Guizhou Moutai multi-year financial trend with revenue,
+  attributable net profit, operating cash flow, assets, liabilities, annual
+  report pages, and publication vintages. A later restatement replaces the
+  original figure only after the restatement has actually been published.
 - Record the requested date and effective trading date, use unadjusted prices
   to avoid current adjustment-factor leakage, and audit disclosures excluded
   because they were published after the historical cut-off.
@@ -210,3 +214,8 @@ The first Historical Lens flagship dates are stored separately in
 `data/verified/moutai_historical_events.csv`. They provide official event
 anchors only; later market outcomes are recalculated from validated history
 rather than stored as conclusions.
+
+The first point-in-time A-share financial benchmark is stored in
+`data/verified/moutai_financial_history.csv`. It records both the original
+2022 figures and the later restated vintage, so a historical cut-off never sees
+an accounting revision before its publication date.

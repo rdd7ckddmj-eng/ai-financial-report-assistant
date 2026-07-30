@@ -52,6 +52,10 @@ from src.financial_ratios import (
     net_profit_margin,
     revenue_growth,
 )
+from src.financial_history import (
+    load_moutai_financial_history,
+    select_financial_history_as_of,
+)
 from src.flagship_cases import load_moutai_flagship_events
 from src.historical_lens import (
     EvidenceRecord,
@@ -1603,6 +1607,169 @@ def _show_event_evidence_chain(
     )
 
 
+def _format_cny_100m(value: float) -> str:
+    """Display audited RMB amounts in a compact Chinese reporting unit."""
+    return f"¥{value / 100_000_000:,.2f}亿"
+
+
+def _show_verified_financial_history(
+    company: CompanyIdentity,
+    selected_date: date,
+) -> None:
+    """Show publication-date-filtered audited history for the flagship case."""
+    st.divider()
+    st.subheader("当时已公开的多年财务趋势")
+    st.caption(
+        "每个年度只采用历史截止日前已经发布的官方年报版本；"
+        "若后来发生追溯调整，系统从调整公告日开始切换版本。"
+    )
+
+    if company["code"] != "600519":
+        st.info(
+            "多年财务页码基准目前先覆盖贵州茅台旗舰案例。"
+            "其他A股公司仍可使用行情、公告和年报原文分析。"
+        )
+        return
+
+    try:
+        result = select_financial_history_as_of(
+            load_moutai_financial_history(),
+            selected_date,
+        )
+    except ValueError as error:
+        st.warning(str(error))
+        return
+
+    points = result["points"]
+    if not points:
+        st.info(
+            "截至所选日期，旗舰基准中尚无已经公开的完整年度财务数据。"
+        )
+        return
+
+    latest = points[-1]
+    metric_columns = st.columns(4)
+    metric_columns[0].metric(
+        f"{latest['period_year']}年营业收入",
+        _format_cny_100m(latest["revenue"]),
+        _format_percent(latest["revenue_growth"]),
+    )
+    metric_columns[1].metric(
+        "归母净利润",
+        _format_cny_100m(latest["net_profit"]),
+        _format_percent(latest["net_profit_growth"]),
+    )
+    metric_columns[2].metric(
+        "经营现金流净额",
+        _format_cny_100m(latest["operating_cash_flow"]),
+        _format_percent(latest["operating_cash_flow_growth"]),
+    )
+    metric_columns[3].metric(
+        "负债占总资产",
+        _format_percent(latest["liabilities_to_assets"]),
+        help="总负债 ÷ 总资产，由Python确定性计算。",
+    )
+
+    if len(points) >= 2:
+        try:
+            import plotly.graph_objects as go
+        except ModuleNotFoundError:
+            st.caption(
+                "当前环境未加载交互式图表组件；"
+                "下方核验数据和年报证据仍可正常使用。"
+            )
+        else:
+            years = [str(point["period_year"]) for point in points]
+            figure = go.Figure()
+            series = (
+                ("营业收入", "revenue"),
+                ("归母净利润", "net_profit"),
+                ("经营现金流净额", "operating_cash_flow"),
+            )
+            for label, field_name in series:
+                values = [
+                    point[field_name] / 100_000_000
+                    for point in points
+                ]
+                figure.add_trace(
+                    go.Scatter(
+                        x=years,
+                        y=values,
+                        mode="lines+markers",
+                        name=label,
+                        hovertemplate=(
+                            f"{label}：%{{y:,.2f}}亿元"
+                            "<extra></extra>"
+                        ),
+                    )
+                )
+            figure.update_layout(
+                height=390,
+                margin={"l": 15, "r": 15, "t": 20, "b": 20},
+                hovermode="x unified",
+                xaxis_title="财务年度",
+                yaxis_title="人民币亿元",
+                legend={"orientation": "h", "y": 1.12},
+            )
+            st.plotly_chart(
+                figure,
+                use_container_width=True,
+                config={"displaylogo": False},
+            )
+    else:
+        st.info("当前截止日只有一个完整年度，尚不能形成跨年趋势。")
+
+    latest_growths = (
+        latest["revenue_growth"],
+        latest["net_profit_growth"],
+        latest["operating_cash_flow_growth"],
+    )
+    if all(value is not None for value in latest_growths):
+        st.info(
+            f"{latest['period_year']}年相较上一已核验年度："
+            f"营业收入 {_format_percent(latest['revenue_growth'])}，"
+            f"归母净利润 {_format_percent(latest['net_profit_growth'])}，"
+            "经营现金流净额 "
+            f"{_format_percent(latest['operating_cash_flow_growth'])}。"
+            "这里只描述年报数字变化，不解释为股价信号。"
+        )
+
+    st.markdown("#### 年报页码与版本")
+    for point in reversed(points):
+        basis_text = {
+            "original": "首次披露",
+            "restated": "追溯调整后",
+            "reported": "本期披露",
+        }[point["accounting_basis"]]
+        with st.container(border=True):
+            text_column, link_column = st.columns([5, 1])
+            with text_column:
+                st.markdown(
+                    f"**{point['period_year']}年度｜{basis_text}**"
+                )
+                st.caption(
+                    f"{point['report_title']}｜公开日期 "
+                    f"{point['published_date'].isoformat()}｜"
+                    f"主要数据第 {point['summary_page']} 页｜"
+                    f"合并负债第 {point['balance_sheet_page']} 页｜"
+                    "证据等级 A"
+                )
+                if point["notes"]:
+                    st.caption(point["notes"])
+            with link_column:
+                st.link_button(
+                    "查看年报 ↗",
+                    point["source_url"],
+                    use_container_width=True,
+                )
+
+    st.caption(
+        f"时间隔离审计：截止 {result['as_of_date']}，"
+        f"纳入 {len(points)} 个财务年度；另有 "
+        f"{result['future_vintage_count']} 个尚未公开的报告版本被排除。"
+    )
+
+
 def render_historical_lens_page() -> None:
     """Render a point-in-time research view without look-ahead information."""
     apply_product_theme()
@@ -1822,6 +1989,8 @@ def render_historical_lens_page() -> None:
         "图表在历史截止线处结束，不包含截止日之后的价格。"
         "Historical Lens 默认使用不复权价格，避免后来复权因子进入过去。"
     )
+
+    _show_verified_financial_history(company, selected_date)
 
     st.divider()
     st.subheader("当时已经公开的官方证据")
