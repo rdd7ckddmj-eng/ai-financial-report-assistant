@@ -332,3 +332,28 @@ boundary beside the comparison results.
 The extra section is plain self-contained HTML. It adds no paid API call,
 server-side PDF dependency, persistent file storage, or second market-data
 request.
+
+## 2026-07-30 — Historical Lens deep links
+
+### What I built or changed
+
+Each analog in the downloadable anomaly report now has a dedicated replay
+link carrying its six-digit company code and historical date. Historical Lens
+validates the parameters and applies them only on the first page load.
+
+### One concept I can now explain
+
+A deep link stores the minimum page state needed to reproduce a view. Here it
+removes repeated company and date selection without changing the underlying
+research calculation.
+
+### How safety and user control are preserved
+
+The page accepts only a six-digit code and an ISO date inside its five-year
+window. The same link is consumed once, so later Streamlit reruns do not reset
+the date after the user changes it.
+
+### Why this design fits the current deployment
+
+The feature uses a short URL and deterministic validation. It requires no paid
+API, database, persistent Render storage, or extra market-data request.
