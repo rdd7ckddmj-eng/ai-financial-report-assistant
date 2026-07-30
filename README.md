@@ -129,8 +129,10 @@ secret environment settings. It must never be committed to the repository.
 - Export the selected anomaly date as a self-contained Chinese HTML research
   report. The file retains calculated metrics, source labels, official links,
   excluded-future-evidence counts, historical analog scores, shared signals,
-  comparable-dimension counts, Historical Lens replay links, and limitations.
-  It can be opened offline or printed to PDF without adding server-side
+  comparable-dimension counts, company-and-date Historical Lens deep links,
+  and limitations. Each replay link is validated and loads its earlier analog
+  only once, so later page interaction remains under the user's control. The
+  report can be opened offline or printed to PDF without adding server-side
   document dependencies.
 - Rebuild a historical market snapshot at a user-selected cut-off, using only
   earlier observations and disclosures, then reveal the subsequent 20/60/120

@@ -18,6 +18,7 @@
 - [x] Export a selected anomaly date as an auditable offline research report.
 - [x] Match a selected anomaly to strictly earlier rule-based historical analogs.
 - [x] Include historical analog evidence and replay links in the offline report.
+- [x] Deep-link each exported analog to its company and Historical Lens date.
 - [x] Define Company Research Engine and Historical Lens product specifications.
 - [x] Add a tested point-in-time evidence engine that excludes future disclosures.
 - [x] Add a Historical Lens page with a separate 1/3/6-month outcome reveal.
