@@ -2,8 +2,16 @@
 
 from __future__ import annotations
 
+import re
+from datetime import date
 from html import escape
-from urllib.parse import urlparse
+from urllib.parse import (
+    parse_qsl,
+    urlencode,
+    urlparse,
+    urlsplit,
+    urlunsplit,
+)
 
 from src.anomaly_analogs import AnomalyAnalog
 from src.china_stock import CompanyIdentity, MarketActivityEvent
@@ -22,6 +30,49 @@ def _safe_http_url(value: object) -> str | None:
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         return None
     return escape(candidate, quote=True)
+
+
+def _historical_lens_link(
+    base_url: object,
+    company_code: object,
+    event_date: object,
+) -> str | None:
+    """Build one safe replay link without trusting report data as URL text."""
+    candidate_url = str(base_url).strip()
+    code = str(company_code).strip()
+    event_date_text = str(event_date).strip()
+    parsed = urlsplit(candidate_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+    if re.fullmatch(r"\d{6}", code) is None:
+        return None
+    try:
+        date.fromisoformat(event_date_text)
+    except ValueError:
+        return None
+
+    query_items = [
+        (key, value)
+        for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+        if key not in {"code", "date", "source"}
+    ]
+    query_items.extend(
+        [
+            ("code", code),
+            ("date", event_date_text),
+            ("source", "anomaly-report"),
+        ]
+    )
+    linked_url = urlunsplit(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            urlencode(query_items),
+            parsed.fragment,
+        )
+    )
+    return escape(linked_url, quote=True)
 
 
 def _format_percent(value: float | None) -> str:
@@ -81,6 +132,7 @@ def _evidence_html(chain: EventEvidenceChain | None) -> str:
 def _analogs_html(
     analogs: list[AnomalyAnalog],
     historical_lens_url: str | None,
+    company_code: str,
 ) -> str:
     """Format already-computed analogs without fetching later outcomes."""
     if not analogs:
@@ -90,11 +142,6 @@ def _analogs_html(
         </div>
         """
 
-    safe_lens_url = (
-        _safe_http_url(historical_lens_url)
-        if historical_lens_url is not None
-        else None
-    )
     items: list[str] = []
     for rank, analog in enumerate(analogs, start=1):
         comparison_note = (
@@ -102,11 +149,20 @@ def _analogs_html(
             if analog["shared_signals"]
             else analog["comparison_summary"]
         )
+        replay_url = (
+            _historical_lens_link(
+                historical_lens_url,
+                company_code,
+                analog["date"],
+            )
+            if historical_lens_url is not None
+            else None
+        )
         replay_link = (
-            f'<a class="replay-link" href="{safe_lens_url}" '
+            f'<a class="replay-link" href="{replay_url}" '
             'target="_blank" rel="noopener noreferrer">'
-            f"打开 Historical Lens 后选择 {_text(analog['date'])} ↗</a>"
-            if safe_lens_url
+            f"直接复盘 {_text(analog['date'])} ↗</a>"
+            if replay_url
             else '<span class="muted">Historical Lens 链接暂未配置</span>'
         )
         items.append(
@@ -182,6 +238,7 @@ def build_anomaly_report_card_html(
     analog_items = _analogs_html(
         analogs or [],
         historical_lens_url,
+        company["code"],
     )
 
     return """<!doctype html>

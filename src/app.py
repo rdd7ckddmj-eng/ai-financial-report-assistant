@@ -69,6 +69,7 @@ from src.historical_lens import (
     filter_evidence_as_of,
     slice_market_as_of,
 )
+from src.historical_deep_link import parse_historical_deep_link
 from src.llm_analyst import (
     LLMAnalystRun,
     run_llm_analyst,
@@ -2155,6 +2156,33 @@ def render_historical_lens_page() -> None:
         "冻结历史信息截止线，先查看当时已经公开的证据，"
         "再单独揭示后来1、3、6个月的市场表现。",
     )
+    today = date.today()
+    deep_link = parse_historical_deep_link(
+        st.query_params,
+        today=today,
+    )
+    deep_link_prefill = None
+    deep_link_context = None
+    if deep_link is not None:
+        deep_link_token = (
+            f"{deep_link['code']}|{deep_link['event_date'].isoformat()}|"
+            f"{deep_link['source'] or 'direct'}"
+        )
+        if (
+            st.session_state.get("_historical_deep_link_token")
+            != deep_link_token
+        ):
+            resolved_companies = resolve_company(deep_link["code"])
+            if resolved_companies:
+                _store_selected_company(resolved_companies[0])
+                deep_link_prefill = deep_link["event_date"].isoformat()
+                deep_link_context = (
+                    "来自下载版异动研究报告"
+                    if deep_link["source"] == "anomaly-report"
+                    else "来自分享链接"
+                )
+            st.session_state["_historical_deep_link_token"] = deep_link_token
+
     company = _selected_company()
     if company is None:
         # The verified offline identity keeps the flagship demonstration usable
@@ -2169,12 +2197,17 @@ def render_historical_lens_page() -> None:
         "才允许进入“当时已知”。后来行情在点击前不会显示。"
     )
 
-    today = date.today()
-    prefill_raw = st.session_state.pop("historical_prefill_date", None)
-    prefill_context = st.session_state.pop(
-        "historical_prefill_context",
-        None,
-    )
+    prefill_raw = deep_link_prefill
+    prefill_context = deep_link_context
+    if prefill_raw is None:
+        prefill_raw = st.session_state.pop(
+            "historical_prefill_date",
+            None,
+        )
+        prefill_context = st.session_state.pop(
+            "historical_prefill_context",
+            None,
+        )
     prefill_date = None
     if prefill_raw is not None:
         try:
