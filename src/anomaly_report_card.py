@@ -97,10 +97,10 @@ def _analogs_html(
     )
     items: list[str] = []
     for rank, analog in enumerate(analogs, start=1):
-        shared_signals = (
-            "、".join(analog["shared_signals"])
+        comparison_note = (
+            f"共同信号：{'、'.join(analog['shared_signals'])}。"
             if analog["shared_signals"]
-            else "无完全相同信号"
+            else analog["comparison_summary"]
         )
         replay_link = (
             f'<a class="replay-link" href="{safe_lens_url}" '
@@ -116,11 +116,10 @@ def _analogs_html(
                 <strong>{rank}. {date}｜{event_type}</strong>
                 <span class="score">规则相似度 {similarity}</span>
               </div>
-              <p>{summary}</p>
+              <p>{comparison_note}</p>
               <p>日涨跌幅 {daily_return}｜成交量 / 前20日中位数
               {volume_ratio}｜普通换手率历史分位
               {turnover_percentile}｜可比维度 {dimension_count} 项。</p>
-              <p>共同触发：{shared_signals}。</p>
               {replay_link}
             </article>
             """.format(
@@ -128,14 +127,13 @@ def _analogs_html(
                 date=_text(analog["date"]),
                 event_type=_text(analog["event_type"]),
                 similarity=_format_percent(analog["similarity_score"]),
-                summary=_text(analog["comparison_summary"]),
+                comparison_note=_text(comparison_note),
                 daily_return=_format_percent(analog["daily_return"]),
                 volume_ratio=_format_multiple(analog["volume_ratio_20d"]),
                 turnover_percentile=_format_percent(
                     analog["turnover_percentile_250d"]
                 ),
                 dimension_count=analog["comparable_dimension_count"],
-                shared_signals=_text(shared_signals),
                 replay_link=replay_link,
             )
         )
