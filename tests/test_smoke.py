@@ -241,7 +241,9 @@ def test_market_anomaly_page_builds_report_and_evidence_chain(
     monkeypatch.setattr(
         app,
         "_show_anomaly_event_research",
-        lambda events, selected, disclosures: rendered_events.extend(events),
+        lambda events, selected, disclosures, **kwargs: rendered_events.extend(
+            events
+        ),
     )
     monkeypatch.setattr(app, "show_product_footer", lambda: None)
 
