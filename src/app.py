@@ -1130,10 +1130,7 @@ def _show_activity_event_replay(
                 if volume_ratio is None
                 else f"{volume_ratio:.2f}倍"
             )
-            volume_column.caption(
-                "成交量 / 前20日中位数｜"
-                f"换手 {_format_percent(event['turnover'])}"
-            )
+            volume_column.caption("成交量 / 前20日中位数")
             if action.button(
                 "回到当天研究",
                 key=(
@@ -1147,12 +1144,25 @@ def _show_activity_event_replay(
                     event["event_type"]
                 )
                 _switch_page("historical")
+            st.caption(
+                "当时历史位置：成交量 "
+                f"{_format_percent(event['volume_percentile_250d'])}｜"
+                "普通换手率 "
+                f"{_format_percent(event['turnover'])}｜"
+                "换手率历史分位 "
+                f"{_format_percent(event['turnover_percentile_250d'])}。"
+            )
 
     with st.expander("查看扫描方法与限制"):
         st.write(
             "成交量基准只使用目标日期之前20个交易日，不把目标日自身"
             "放进中位数。涨停候选优先使用公开行情源的涨跌幅字段；"
             "字段缺失时才用页面所选价格口径的相邻收盘价计算。"
+        )
+        st.write(
+            "历史分位只使用每个异常日之前最多250个有效交易日，"
+            "至少需要20个样本；不会把目标日自身或未来交易日放入比较。"
+            "换手率历史分位仍基于普通换手率，不等同于有效换手率。"
         )
         st.write(
             "新股上市初期、重新上市、退市整理首日和其他无涨跌幅限制"

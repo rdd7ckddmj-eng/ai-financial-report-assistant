@@ -142,6 +142,7 @@ def test_activity_scanner_excludes_event_day_from_volume_baseline() -> None:
     frame = _market_rows(45)
     frame.loc[:, "成交量"] = 1_000_000
     frame.loc[40, "成交量"] = 2_500_000
+    frame.loc[:39, "换手率"] = 1.0
     frame.loc[40, "换手率"] = 3.2
     company = build_company_identity("600519", "贵州茅台")
 
@@ -150,7 +151,9 @@ def test_activity_scanner_excludes_event_day_from_volume_baseline() -> None:
     assert events[0]["date"] == frame.loc[40, "日期"].date().isoformat()
     assert events[0]["event_type"] == "明显放量"
     assert events[0]["volume_ratio_20d"] == pytest.approx(2.5)
+    assert events[0]["volume_percentile_250d"] == pytest.approx(1.0)
     assert events[0]["turnover"] == pytest.approx(0.032)
+    assert events[0]["turnover_percentile_250d"] == pytest.approx(1.0)
 
 
 def test_activity_scanner_marks_board_rule_limit_candidate() -> None:
@@ -166,6 +169,8 @@ def test_activity_scanner_marks_board_rule_limit_candidate() -> None:
     assert event["limit_up_reference"] == pytest.approx(0.20)
     assert event["limit_up_candidate"] is True
     assert "涨停候选" in event["event_type"]
+    assert event["volume_percentile_250d"] == pytest.approx(0.5)
+    assert event["turnover_percentile_250d"] is None
 
 
 def test_activity_scanner_prefers_provider_daily_change() -> None:

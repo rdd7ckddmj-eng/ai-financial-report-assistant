@@ -9,6 +9,7 @@
 - [x] Add latest-session market-activity evidence with explicit data limits.
 - [x] Add point-in-time volume and ordinary-turnover historical percentiles.
 - [x] Add abnormal-trading-day replay into Historical Lens.
+- [x] Add point-in-time activity percentiles to abnormal-day replay.
 - [x] Link selected abnormal days to nearby point-in-time official evidence.
 - [x] Define Company Research Engine and Historical Lens product specifications.
 - [x] Add a tested point-in-time evidence engine that excludes future disclosures.

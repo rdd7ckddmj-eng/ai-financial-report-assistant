@@ -104,7 +104,8 @@ secret environment settings. It must never be committed to the repository.
 - Scan the latest 250 trading sessions for limit-up candidates and days whose
   volume is at least twice the preceding 20-session median, then carry a
   selected date into Historical Lens without weakening its publication-date
-  boundary.
+  boundary. Each candidate retains the volume and ordinary-turnover
+  percentiles that could have been calculated on that date.
 - Build an auditable abnormal-day evidence chain from official disclosures
   published on the selected date or within the preceding six calendar days.
   Later disclosures are excluded, links and date gaps remain visible, and

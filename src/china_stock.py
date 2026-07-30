@@ -71,7 +71,9 @@ class MarketActivityEvent(TypedDict):
     daily_return: float | None
     daily_return_basis: str
     volume_ratio_20d: float | None
+    volume_percentile_250d: float | None
     turnover: float | None
+    turnover_percentile_250d: float | None
     limit_up_reference: float
     limit_up_candidate: bool
 
@@ -648,6 +650,18 @@ def scan_market_activity_events(
             if pd.isna(turnover_value)
             else float(turnover_value) / 100
         )
+        volume_percentile, _ = _prior_session_percentile(
+            float(row["volume"]),
+            prepared["volume"].iloc[:position],
+        )
+        turnover_percentile, _ = _prior_session_percentile(
+            (
+                float("nan")
+                if turnover is None
+                else float(turnover_value)
+            ),
+            prepared["turnover"].iloc[:position],
+        )
         events.append(
             {
                 "date": market_date.isoformat(),
@@ -656,7 +670,9 @@ def scan_market_activity_events(
                 "daily_return": daily_return,
                 "daily_return_basis": str(return_basis.iloc[position]),
                 "volume_ratio_20d": volume_ratio,
+                "volume_percentile_250d": volume_percentile,
                 "turnover": turnover,
+                "turnover_percentile_250d": turnover_percentile,
                 "limit_up_reference": limit_reference,
                 "limit_up_candidate": limit_candidate,
             }
