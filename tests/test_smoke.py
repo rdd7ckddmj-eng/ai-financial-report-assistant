@@ -249,6 +249,60 @@ def test_market_radar_page_scans_and_ranks_a_bounded_watchlist(
     assert app.st.session_state["market_radar_failures"] == []
 
 
+def test_limit_up_board_page_builds_daily_wall(monkeypatch) -> None:
+    """Cover the new daily wall without calling the public provider."""
+    from src import app
+
+    pool_frame = pd.DataFrame(
+        {
+            "代码": ["600519", "300750"],
+            "名称": ["贵州茅台", "宁德时代"],
+            "涨跌幅": [10.0, 20.0],
+            "最新价": [1321.0, 310.0],
+            "成交额": [4_500_000_000, 6_000_000_000],
+            "流通市值": [1_600_000_000_000, 1_200_000_000_000],
+            "总市值": [1_700_000_000_000, 1_300_000_000_000],
+            "换手率": [1.5, 4.5],
+            "封板资金": [500_000_000, 300_000_000],
+            "首次封板时间": [100501, 94530],
+            "最后封板时间": [100501, 145000],
+            "炸板次数": [0, 0],
+            "涨停统计": ["2/2", "1/1"],
+            "连板数": [2, 1],
+            "所属行业": ["酿酒行业", "电池"],
+        }
+    )
+
+    monkeypatch.setattr(app, "apply_product_theme", lambda: None)
+    monkeypatch.setattr(app, "show_compact_page_header", lambda *args: None)
+    monkeypatch.setattr(app, "show_product_footer", lambda: None)
+    monkeypatch.setattr(app, "load_limit_up_pool", lambda *args: pool_frame)
+    monkeypatch.setattr(
+        app.st,
+        "date_input",
+        lambda *args, **kwargs: date(2026, 7, 30),
+    )
+    monkeypatch.setattr(
+        app.st,
+        "form_submit_button",
+        lambda *args, **kwargs: True,
+    )
+    monkeypatch.setattr(
+        app.st,
+        "dataframe",
+        lambda *args, **kwargs: None,
+    )
+    app.st.session_state.pop("limit_up_board_snapshot", None)
+
+    app.render_limit_up_board_page()
+
+    snapshot = app.st.session_state["limit_up_board_snapshot"]
+    assert snapshot["total_count"] == 2
+    assert snapshot["consecutive_board_count"] == 1
+    assert snapshot["rows"][0]["code"] == "600519"
+    assert snapshot["rows"][0]["first_limit_time"] == "10:05:01"
+
+
 def test_market_anomaly_page_builds_report_and_evidence_chain(
     monkeypatch,
 ) -> None:

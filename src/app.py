@@ -38,6 +38,7 @@ from src.china_stock import (
     MarketActivityEvent,
     MarketMetrics,
     add_moving_averages,
+    build_company_identity,
     calculate_market_activity,
     calculate_market_metrics,
     download_official_pdf,
@@ -74,6 +75,11 @@ from src.llm_analyst import (
     LLMAnalystRun,
     run_llm_analyst,
     serialise_llm_run,
+)
+from src.limit_up_board import (
+    LimitUpBoardSnapshot,
+    build_limit_up_board_snapshot,
+    fetch_limit_up_pool,
 )
 from src.market_anomaly_agent import (
     MarketAnomalyReport,
@@ -838,6 +844,12 @@ def load_a_share_history(
     )
 
 
+@st.cache_data(ttl=600, max_entries=2, show_spinner=False)
+def load_limit_up_pool(trade_date_text: str) -> pd.DataFrame:
+    """Cache one recent daily limit-up pool for ten minutes."""
+    return fetch_limit_up_pool(date.fromisoformat(trade_date_text))
+
+
 @st.cache_data(ttl=3600, max_entries=4, show_spinner=False)
 def load_company_announcements(
     code: str,
@@ -1022,6 +1034,11 @@ def _show_company_banner(company: CompanyIdentity) -> None:
 def _format_percent(value: float | None) -> str:
     """Format an optional ratio without disguising missing evidence as zero."""
     return "数据不足" if value is None else f"{value:.1%}"
+
+
+def _format_optional_cny_100m(value: float | None) -> str:
+    """Format one optional RMB amount without turning missing data into zero."""
+    return "数据不足" if value is None else f"¥{value / 100_000_000:,.2f}亿"
 
 
 def _format_percentage_point_change(value: float | None) -> str | None:
@@ -1421,15 +1438,23 @@ def render_home_page() -> None:
         key_prefix="home",
         navigate_on_success=True,
     )
-    if st.button(
+    discovery_columns = st.columns(2)
+    if discovery_columns[0].button(
+        "打开每日涨停板观察台",
+        type="primary",
+        use_container_width=True,
+        key="home_to_limit_up_board",
+    ):
+        _switch_page("limit_up")
+    if discovery_columns[1].button(
         "打开自选股异动雷达",
         use_container_width=True,
         key="home_to_market_radar",
     ):
         _switch_page("radar")
     st.caption(
-        "还没有确定单一研究对象？可输入最多5个股票代码，"
-        "先比较涨停候选、成交量和普通换手率的最新异动证据。"
+        "还没有确定单一研究对象？先查看公开涨停股池，"
+        "或输入最多5个股票代码比较成交量和普通换手率异动证据。"
     )
 
     st.divider()
@@ -1794,6 +1819,216 @@ def render_market_page() -> None:
     show_product_footer()
 
 
+def render_limit_up_board_page() -> None:
+    """Render one recent public limit-up pool as a research-first wall."""
+    apply_product_theme()
+    show_compact_page_header(
+        "03 / 每日涨停板观察台 · LIMIT-UP BOARD",
+        "每日涨停板观察台",
+        "按交易日查看涨停家数、连板、成交额、普通换手率、"
+        "封板时间和行业集中度，再选择需要深入研究的公司。",
+    )
+    st.info(
+        "这是按需读取的公开涨停股池，不需要开发者每天手工更新。"
+        "页面只描述已经发生的交易事实，不预测次日表现。"
+    )
+
+    with st.form("limit_up_board_form"):
+        selected_date = st.date_input(
+            "选择近期交易日",
+            value=date.today(),
+            max_value=date.today(),
+            help=(
+                "公开接口只提供近期数据；周末、休市日或数据尚未更新时，"
+                "可选择前一个交易日。"
+            ),
+        )
+        submitted = st.form_submit_button(
+            "读取该日涨停板",
+            type="primary",
+            use_container_width=True,
+        )
+
+    if submitted:
+        if not isinstance(selected_date, date):
+            st.session_state.pop("limit_up_board_snapshot", None)
+            st.error("请选择一个有效日期。")
+        else:
+            try:
+                with st.spinner("正在读取并校验公开涨停股池……"):
+                    pool_frame = load_limit_up_pool(
+                        selected_date.isoformat()
+                    )
+                    snapshot = build_limit_up_board_snapshot(
+                        pool_frame,
+                        selected_date,
+                    )
+                st.session_state["limit_up_board_snapshot"] = snapshot
+            except (DataSourceError, ValueError) as error:
+                st.session_state.pop("limit_up_board_snapshot", None)
+                st.error(str(error))
+
+    stored_snapshot = st.session_state.get("limit_up_board_snapshot")
+    snapshot: LimitUpBoardSnapshot | None = (
+        stored_snapshot if isinstance(stored_snapshot, dict) else None
+    )
+    if snapshot is None:
+        st.caption(
+            "选择日期并点击读取后，这里会生成当日涨停板信息墙。"
+        )
+        show_product_footer()
+        return
+
+    rows = snapshot["rows"]
+    if not rows:
+        st.warning(
+            f"{snapshot['trade_date']} 未取得涨停股池。"
+            "该日可能休市、没有涨停公司，或公开源尚未更新；"
+            "请尝试前一个交易日。"
+        )
+        show_product_footer()
+        return
+
+    summary_columns = st.columns(4)
+    summary_columns[0].metric(
+        "涨停家数",
+        f"{snapshot['total_count']} 家",
+    )
+    summary_columns[1].metric(
+        "连板家数",
+        f"{snapshot['consecutive_board_count']} 家",
+    )
+    max_boards = snapshot["max_consecutive_boards"]
+    summary_columns[2].metric(
+        "最高连板",
+        "数据不足" if max_boards is None else f"{max_boards} 板",
+    )
+    summary_columns[3].metric(
+        "普通换手率中位数",
+        _format_percent(snapshot["median_turnover"]),
+    )
+    st.caption(
+        f"交易日：{snapshot['trade_date']}｜"
+        f"首板 {snapshot['first_board_count']} 家｜"
+        f"行业数量最多：{snapshot['leading_industry']}"
+        f"（{snapshot['leading_industry_count']} 家）｜"
+        f"来源：{snapshot['source']}。"
+    )
+
+    st.subheader("头部涨停观察")
+    st.caption(
+        "默认依次按连板数、炸板次数、首次封板时间、封板资金和"
+        "普通换手率排序；这是研究顺序，不是买入评分。"
+    )
+    for rank, row in enumerate(rows[:5], start=1):
+        company = build_company_identity(row["code"], row["name"])
+        with st.container(border=True):
+            title_column, status_column = st.columns([3, 1])
+            title_column.markdown(
+                f"### {rank}. {row['name']}｜"
+                f"{company['canonical_code']}"
+            )
+            boards = row["consecutive_boards"]
+            status_column.markdown(
+                "**连板数据不足**"
+                if boards is None
+                else f"**{boards} 板**"
+            )
+
+            metric_columns = st.columns(4)
+            metric_columns[0].metric(
+                "涨跌幅",
+                _format_percent(row["daily_change"]),
+            )
+            metric_columns[1].metric(
+                "普通换手率",
+                _format_percent(row["turnover"]),
+            )
+            metric_columns[2].metric(
+                "成交额",
+                _format_optional_cny_100m(row["amount"]),
+            )
+            metric_columns[3].metric(
+                "首次封板",
+                row["first_limit_time"] or "数据不足",
+            )
+            break_count = row["break_count"]
+            st.caption(
+                f"行业：{row['industry']}｜"
+                f"炸板次数："
+                f"{'数据不足' if break_count is None else break_count}｜"
+                f"封板资金：{_format_optional_cny_100m(row['sealed_funds'])}｜"
+                f"涨停统计：{row['limit_statistics'] or '数据不足'}。"
+            )
+            if st.button(
+                "进入该公司研究中心",
+                use_container_width=True,
+                key=(
+                    f"limit_up_to_company_{snapshot['trade_date']}_"
+                    f"{row['code']}"
+                ),
+            ):
+                _store_selected_company(company)
+                _switch_page("company")
+
+    st.subheader("完整观察表")
+    table_rows = []
+    for rank, row in enumerate(rows[:30], start=1):
+        table_rows.append(
+            {
+                "排名": rank,
+                "代码": row["code"],
+                "名称": row["name"],
+                "连板数": row["consecutive_boards"],
+                "普通换手率": _format_percent(row["turnover"]),
+                "成交额": _format_optional_cny_100m(row["amount"]),
+                "封板资金": _format_optional_cny_100m(
+                    row["sealed_funds"]
+                ),
+                "首次封板": row["first_limit_time"] or "数据不足",
+                "炸板次数": row["break_count"],
+                "所属行业": row["industry"],
+            }
+        )
+    st.dataframe(
+        pd.DataFrame(table_rows),
+        hide_index=True,
+        use_container_width=True,
+    )
+    if snapshot["total_count"] > len(table_rows):
+        st.caption(
+            f"为保持页面清晰，表格展示排序后的前 {len(table_rows)} 家；"
+            f"当日涨停股池共 {snapshot['total_count']} 家。"
+        )
+
+    action_columns = st.columns(2)
+    action_columns[0].link_button(
+        "查看东方财富涨停板原始页面",
+        "https://quote.eastmoney.com/ztb/detail#type=ztgc",
+        use_container_width=True,
+    )
+    if action_columns[1].button(
+        "用股票代码进入自选股雷达",
+        use_container_width=True,
+        key=f"limit_up_to_radar_{snapshot['trade_date']}",
+    ):
+        _switch_page("radar")
+
+    with st.expander("为什么这里仍标注普通换手率"):
+        st.write(
+            "公开涨停股池提供的是成交量相对于普通流通股本的换手率。"
+            "真正的有效换手率还需要可核验的时点自由流通股本，"
+            "目前可靠接口需要额外数据权限，因此本产品不会自行估算或"
+            "把普通换手率改名为有效换手率。"
+        )
+    st.warning(
+        "涨停、连板、高成交额或高换手都不等于公司基本面改善，"
+        "也不构成买入、卖出或持有建议。首次与最后封板时间、"
+        "炸板次数和封板资金均为公开源的当日快照。"
+    )
+    show_product_footer()
+
+
 def _scan_market_radar(
     codes: list[str],
 ) -> tuple[list[MarketRadarRow], list[str]]:
@@ -1850,7 +2085,7 @@ def render_market_radar_page() -> None:
     """Render an on-demand, bounded watchlist anomaly wall."""
     apply_product_theme()
     show_compact_page_header(
-        "03 / 自选股异动雷达 · WATCHLIST RADAR",
+        "04 / 自选股异动雷达 · WATCHLIST RADAR",
         "自选股异动雷达",
         "一次比较最多5家A股的涨停候选、成交量放大和普通换手率"
         "历史位置，把值得进一步复盘的公司排在前面。",
@@ -2009,7 +2244,7 @@ def render_market_anomaly_page() -> None:
     """Render a deterministic anomaly-to-official-evidence workflow."""
     apply_product_theme()
     show_compact_page_header(
-        "04 / 市场异动研究 · MARKET ANOMALY AGENT",
+        "05 / 市场异动研究 · MARKET ANOMALY AGENT",
         "市场异动研究 Agent",
         "自动核验涨停候选、成交量和普通换手率的历史位置，"
         "再把候选日期连接到当时已经公开的官方公告。",
@@ -2378,7 +2613,7 @@ def render_historical_lens_page() -> None:
     """Render a point-in-time research view without look-ahead information."""
     apply_product_theme()
     show_compact_page_header(
-        "05 / 历史回看 · HISTORICAL LENS",
+        "06 / 历史回看 · HISTORICAL LENS",
         "Historical Lens｜回到当时再研究",
         "冻结历史信息截止线，先查看当时已经公开的证据，"
         "再单独揭示后来1、3、6个月的市场表现。",
@@ -2788,7 +3023,7 @@ def render_methodology_page() -> None:
     """Explain source priority, calculation boundaries, and known limits."""
     apply_product_theme()
     show_compact_page_header(
-        "07 / 方法与审计 · METHODOLOGY",
+        "08 / 方法与审计 · METHODOLOGY",
         "方法、证据与产品边界",
         "公开说明系统如何获取资料、计算指标、使用AI以及处理不确定性。",
     )
@@ -2839,7 +3074,7 @@ def render_annual_report_page() -> None:
     """Render the existing PDF evidence workflow as a dedicated subpage."""
     apply_product_theme()
     show_compact_page_header(
-        "06 / 年报与证据 · ANNUAL REPORT",
+        "07 / 年报与证据 · ANNUAL REPORT",
         "年报与证据分析",
         "上传公开年度报告，按页提取文字、计算财务指标并生成可追溯答案。",
     )
@@ -3969,6 +4204,11 @@ def main() -> None:
         title="K线与市场表现",
         icon="📈",
     )
+    limit_up_page = st.Page(
+        render_limit_up_board_page,
+        title="每日涨停板观察台",
+        icon="🔥",
+    )
     radar_page = st.Page(
         render_market_radar_page,
         title="自选股异动雷达",
@@ -3998,6 +4238,7 @@ def main() -> None:
         "home": home_page,
         "company": company_page,
         "market": market_page,
+        "limit_up": limit_up_page,
         "radar": radar_page,
         "anomaly": anomaly_page,
         "historical": historical_page,
@@ -4011,6 +4252,7 @@ def main() -> None:
             "上市公司研究": [
                 company_page,
                 market_page,
+                limit_up_page,
                 radar_page,
                 anomaly_page,
                 historical_page,
