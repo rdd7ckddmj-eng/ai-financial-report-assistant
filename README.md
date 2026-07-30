@@ -148,8 +148,9 @@ secret environment settings. It must never be committed to the repository.
 - Reconcile current plus non-current subtotals to published totals, then verify
   assets equal liabilities plus equity before calculating liquidity and
   leverage ratios.
-- Reconcile operating, investing, and financing cash flows to opening and
-  ending cash.
+- Extract and reconcile common Chinese A-share consolidated cash-flow
+  statements, including the different treatment of foreign-exchange effects,
+  opening cash, and ending cash.
 - Calculate net profit margin, revenue growth, current ratio, and
   liabilities-to-assets ratio with deterministic Python functions.
 - Check 20 extracted figures against a manually verified Tesco 2026 answer

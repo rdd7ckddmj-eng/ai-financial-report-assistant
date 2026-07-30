@@ -40,6 +40,7 @@
 - [x] Automatically find the income statement and extract revenue and profit totals.
 - [x] Add deterministic extraction for common Chinese A-share consolidated income statements.
 - [x] Add reconciled extraction for common Chinese A-share consolidated balance sheets.
+- [x] Add reconciled extraction for common Chinese A-share consolidated cash-flow statements.
 - [x] Compare current and previous income-statement figures with period warnings.
 - [x] Extract and reconcile balance-sheet liquidity figures.
 - [x] Calculate current and previous current ratios from the annual report.

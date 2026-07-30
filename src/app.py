@@ -3014,6 +3014,10 @@ def render_annual_report_page() -> None:
                 opening_cash = cash_flow_figures["current_opening_cash"]
                 exchange_effect = cash_flow_figures["current_exchange_effect"]
                 ending_cash = cash_flow_figures["current_ending_cash"]
+                is_chinese_cash_flow = (
+                    cash_flow_figures.get("statement_format")
+                    == "chinese_a_share"
+                )
 
                 st.subheader("自动提取：现金流")
                 st.caption(
@@ -3036,23 +3040,49 @@ def render_annual_report_page() -> None:
                 )
                 financing_column, ending_cash_column = st.columns(2)
                 financing_column.metric(
-                    f"融资活动现金流 ({cash_flow_unit})",
+                    (
+                        f"筹资活动现金流 ({cash_flow_unit})"
+                        if is_chinese_cash_flow
+                        else f"融资活动现金流 ({cash_flow_unit})"
+                    ),
                     f"{financing_cash:,.0f}",
                 )
                 ending_cash_column.metric(
-                    f"期末现金 ({cash_flow_unit})",
+                    (
+                        f"期末现金及现金等价物 ({cash_flow_unit})"
+                        if is_chinese_cash_flow
+                        else f"期末现金 ({cash_flow_unit})"
+                    ),
                     f"{ending_cash:,.0f}",
                 )
-                st.caption(
-                    f"现金流勾稽：{operating_cash:,.0f} + "
-                    f"({investing_cash:,.0f}) + ({financing_cash:,.0f}) = "
-                    f"{net_cash_change:,.0f} {cash_flow_unit} 净现金变动。"
-                )
-                st.caption(
-                    f"现金余额勾稽：{opening_cash:,.0f} + "
-                    f"{net_cash_change:,.0f} + ({exchange_effect:,.0f}) = "
-                    f"{ending_cash:,.0f} {cash_flow_unit}。"
-                )
+                if is_chinese_cash_flow:
+                    st.caption(
+                        f"现金流勾稽：{operating_cash:,.0f} + "
+                        f"({investing_cash:,.0f}) + "
+                        f"({financing_cash:,.0f}) + "
+                        f"({exchange_effect:,.0f}) = "
+                        f"{net_cash_change:,.0f} {cash_flow_unit} "
+                        "现金及现金等价物净增加额。"
+                    )
+                    st.caption(
+                        f"现金余额勾稽：{opening_cash:,.0f} + "
+                        f"{net_cash_change:,.0f} = "
+                        f"{ending_cash:,.0f} {cash_flow_unit}。"
+                    )
+                else:
+                    st.caption(
+                        f"现金流勾稽：{operating_cash:,.0f} + "
+                        f"({investing_cash:,.0f}) + "
+                        f"({financing_cash:,.0f}) = "
+                        f"{net_cash_change:,.0f} {cash_flow_unit} "
+                        "净现金变动。"
+                    )
+                    st.caption(
+                        f"现金余额勾稽：{opening_cash:,.0f} + "
+                        f"{net_cash_change:,.0f} + "
+                        f"({exchange_effect:,.0f}) = "
+                        f"{ending_cash:,.0f} {cash_flow_unit}。"
+                    )
                 current_cash_weeks = cash_flow_figures["current_period_weeks"]
                 previous_cash_weeks = cash_flow_figures[
                     "previous_period_weeks"
@@ -3070,11 +3100,19 @@ def render_annual_report_page() -> None:
                     "经营现金流为正是重要信号，但其质量仍需结合营运资金、"
                     "经常性经营、资本开支和融资需求判断。"
                 )
-                st.caption(
-                    "证据行：经营、投资和融资净现金流；净现金变动；"
-                    "期初与期末现金，PDF 第 "
-                    f"{cash_flow_figures['page_number']} 页。"
-                )
+                if is_chinese_cash_flow:
+                    st.caption(
+                        "证据行：经营、投资和筹资活动现金流量净额；"
+                        "汇率影响；现金及现金等价物净增加额；期初与"
+                        "期末余额，PDF 第 "
+                        f"{cash_flow_figures['page_number']} 页。"
+                    )
+                else:
+                    st.caption(
+                        "证据行：经营、投资和融资净现金流；净现金变动；"
+                        "期初与期末现金，PDF 第 "
+                        f"{cash_flow_figures['page_number']} 页。"
+                    )
     else:
         st.info(
             "准备好后请上传公开年度报告 PDF。上传内容只用于本次分析，"

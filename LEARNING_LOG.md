@@ -91,3 +91,40 @@ reports.
 
 Validate the extractor against a real Chinese annual-report PDF, then adapt the
 cash-flow statement without weakening the reconciliation rules.
+
+## 2026-07-30 — Cash-flow extension
+
+### What I studied
+
+The presentation difference between an English cash-flow statement and a
+Chinese A-share cash-flow statement.
+
+### What I built or changed
+
+Added deterministic extraction for a common Chinese consolidated cash-flow
+statement and updated the interface to show the Chinese reconciliation.
+
+### One concept I can now explain
+
+The Chinese row “现金及现金等价物净增加额” normally already includes the
+foreign-exchange effect. Adding that effect again when reconciling opening and
+ending cash would double count it.
+
+### Error I encountered
+
+The existing Tesco formula treated the foreign-exchange effect as separate from
+the reported net cash change.
+
+### How I fixed it
+
+The extractor records the statement format and applies a dedicated
+reconciliation formula to each format for both the current and prior year.
+
+### What I still do not understand
+
+How reliably image-only annual reports can be processed without adding OCR.
+
+### Next action
+
+Run a complete Chinese annual-report case through all three statement
+extractors and record any unsupported layout differences.
