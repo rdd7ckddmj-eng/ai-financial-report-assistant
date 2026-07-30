@@ -100,6 +100,10 @@ secret environment settings. It must never be committed to the repository.
   availability, and a board-rule-based limit-up candidate label.  Effective
   turnover remains unavailable until a verified point-in-time free-float
   denominator is connected.
+- Scan the latest 250 trading sessions for limit-up candidates and days whose
+  volume is at least twice the preceding 20-session median, then carry a
+  selected date into Historical Lens without weakening its publication-date
+  boundary.
 - Rebuild a historical market snapshot at a user-selected cut-off, using only
   earlier observations and disclosures, then reveal the subsequent 20/60/120
   trading-day outcomes in a separate user-controlled step.

@@ -87,6 +87,7 @@ def test_market_page_passes_activity_evidence_to_the_renderer(
     )
     market_frame.attrs["source"] = "测试公开行情"
     rendered_activity = []
+    rendered_events = []
 
     monkeypatch.setattr(app, "apply_product_theme", lambda: None)
     monkeypatch.setattr(app, "show_compact_page_header", lambda *args: None)
@@ -102,6 +103,11 @@ def test_market_page_passes_activity_evidence_to_the_renderer(
         "_show_market_activity_evidence",
         lambda activity: rendered_activity.append(activity),
     )
+    monkeypatch.setattr(
+        app,
+        "_show_activity_event_replay",
+        lambda events, selected: rendered_events.extend(events),
+    )
     monkeypatch.setattr(app, "_build_kline_figure", lambda *args: object())
     monkeypatch.setattr(app.st, "plotly_chart", lambda *args, **kwargs: None)
     monkeypatch.setattr(app, "show_product_footer", lambda: None)
@@ -110,6 +116,7 @@ def test_market_page_passes_activity_evidence_to_the_renderer(
 
     assert rendered_activity[0]["volume_ratio_20d"] == 2
     assert rendered_activity[0]["effective_turnover"] is None
+    assert rendered_events[0]["event_type"] == "明显放量"
 
 
 def test_historical_lens_page_renders_a_point_in_time_snapshot(

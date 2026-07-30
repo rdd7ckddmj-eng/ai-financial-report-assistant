@@ -32,6 +32,7 @@ from src.china_stock import (
     CompanyIdentity,
     DataSourceError,
     MarketActivityEvidence,
+    MarketActivityEvent,
     MarketMetrics,
     add_moving_averages,
     calculate_market_activity,
@@ -41,6 +42,7 @@ from src.china_stock import (
     fetch_company_directory,
     fetch_market_history,
     resolve_company,
+    scan_market_activity_events,
     select_latest_annual_report,
 )
 from src.financial_statement_extractor import find_income_statement_figures
@@ -1044,6 +1046,73 @@ def _show_market_activity_evidence(
         )
 
 
+def _show_activity_event_replay(
+    events: list[MarketActivityEvent],
+    company: CompanyIdentity,
+) -> None:
+    """Render recent activity candidates with one-click historical review."""
+    st.subheader("异常交易日回看 Agent")
+    st.caption(
+        "自动扫描最近250个交易日：成交量达到此前20日中位数2倍，"
+        "或日涨幅达到板块规则参考阈值时进入列表。"
+        "结果只用于选择研究日期，不是买卖信号。"
+    )
+    if not events:
+        st.info("最近扫描范围内没有发现符合当前门槛的异常交易日。")
+        return
+
+    for event in events:
+        with st.container(border=True):
+            date_column, type_column, return_column, volume_column, action = (
+                st.columns([1.15, 1.45, 1, 1, 1.25])
+            )
+            date_column.markdown(f"**{event['date']}**")
+            date_column.caption(f"收盘 ¥{event['close']:,.2f}")
+            type_column.markdown(f"**{event['event_type']}**")
+            type_column.caption(event["daily_return_basis"])
+            return_column.markdown(
+                _format_percent(event["daily_return"])
+            )
+            return_column.caption(
+                f"日涨跌幅｜参考 {event['limit_up_reference']:.0%}"
+            )
+            volume_ratio = event["volume_ratio_20d"]
+            volume_column.markdown(
+                "数据不足"
+                if volume_ratio is None
+                else f"{volume_ratio:.2f}倍"
+            )
+            volume_column.caption(
+                "成交量 / 前20日中位数｜"
+                f"换手 {_format_percent(event['turnover'])}"
+            )
+            if action.button(
+                "回到当天研究",
+                key=(
+                    f"replay_activity_{company['code']}_"
+                    f"{event['date']}"
+                ),
+                use_container_width=True,
+            ):
+                st.session_state["historical_prefill_date"] = event["date"]
+                st.session_state["historical_prefill_context"] = (
+                    event["event_type"]
+                )
+                _switch_page("historical")
+
+    with st.expander("查看扫描方法与限制"):
+        st.write(
+            "成交量基准只使用目标日期之前20个交易日，不把目标日自身"
+            "放进中位数。涨停候选优先使用公开行情源的涨跌幅字段；"
+            "字段缺失时才用页面所选价格口径的相邻收盘价计算。"
+        )
+        st.write(
+            "新股上市初期、重新上市、退市整理首日和其他无涨跌幅限制"
+            "情形仍需交易所数据复核。进入 Historical Lens 后，公告仍按"
+            "公开日期过滤，扫描结果不会绕过时间隔离。"
+        )
+
+
 def _load_company_research_data(
     company: CompanyIdentity,
 ) -> tuple[pd.DataFrame | None, MarketMetrics | None, pd.DataFrame | None]:
@@ -1410,6 +1479,10 @@ def render_market_page() -> None:
             )
             metrics = calculate_market_metrics(market_frame)
             activity = calculate_market_activity(market_frame, company)
+            activity_events = scan_market_activity_events(
+                market_frame,
+                company,
+            )
     except (DataSourceError, ValueError) as error:
         st.error(str(error))
         st.info(
@@ -1432,6 +1505,7 @@ def render_market_page() -> None:
     )
 
     _show_market_activity_evidence(activity)
+    _show_activity_event_replay(activity_events, company)
 
     figure = _build_kline_figure(market_frame, company)
     st.plotly_chart(
@@ -1499,7 +1573,26 @@ def render_historical_lens_page() -> None:
     )
 
     today = date.today()
-    default_date = today - timedelta(days=365)
+    prefill_raw = st.session_state.pop("historical_prefill_date", None)
+    prefill_context = st.session_state.pop(
+        "historical_prefill_context",
+        None,
+    )
+    prefill_date = None
+    if prefill_raw is not None:
+        try:
+            candidate_date = date.fromisoformat(str(prefill_raw))
+        except ValueError:
+            candidate_date = None
+        if (
+            candidate_date is not None
+            and today - timedelta(days=365 * 5)
+            <= candidate_date
+            <= today
+        ):
+            prefill_date = candidate_date
+
+    default_date = prefill_date or today - timedelta(days=365)
     selected_event = None
     if company["code"] == "600519":
         try:
@@ -1516,10 +1609,20 @@ def render_historical_lens_page() -> None:
                     f"{event['title']}"
                 )
                 event_options[label] = event
+            event_select_key = (
+                f"historical_flagship_event_{company['code']}"
+            )
+            if prefill_date is not None:
+                st.session_state.pop(event_select_key, None)
             event_label = st.selectbox(
                 "快速选择已核验的重要日期",
                 options=list(event_options),
-                index=len(event_options) - 1,
+                index=(
+                    0
+                    if prefill_date is not None
+                    else len(event_options) - 1
+                ),
+                key=event_select_key,
                 help=(
                     "这些日期只提供官方事件入口和时间锚点，"
                     "不会预设事件对股价的影响。"
@@ -1529,17 +1632,33 @@ def render_historical_lens_page() -> None:
             if selected_event is not None:
                 default_date = selected_event["event_date"]
 
+    if prefill_date is not None:
+        context_text = (
+            f"（{prefill_context}）"
+            if isinstance(prefill_context, str)
+            else ""
+        )
+        st.success(
+            f"已从异常交易日回看 Agent 带入 {prefill_date.isoformat()}"
+            f"{context_text}；以下内容仍严格按该日的信息截止线过滤。"
+        )
+
     date_key_suffix = (
         selected_event["event_id"]
         if selected_event is not None
         else "custom"
     )
+    date_input_key = (
+        f"historical_date_{company['code']}_{date_key_suffix}"
+    )
+    if prefill_date is not None:
+        st.session_state.pop(date_input_key, None)
     selected_date = st.date_input(
         "选择历史研究截止日",
         value=default_date,
         min_value=today - timedelta(days=365 * 5),
         max_value=today,
-        key=f"historical_date_{company['code']}_{date_key_suffix}",
+        key=date_input_key,
         help=(
             "若所选日期不是交易日，系统会使用该日期之前最近一个交易日，"
             "并同时显示两个日期。"
@@ -1800,8 +1919,9 @@ def render_methodology_page() -> None:
         st.subheader("确定性计算与AI分工")
         st.write(
             "财务比率、收益率、波动率、最大回撤和移动平均线全部由"
-            "Python计算。AI只允许基于已经核验的数字和原文证据生成解释，"
-            "不得自行补充财务数字。"
+            "Python计算；异常交易日扫描同样由固定规则完成。"
+            "AI只允许基于已经核验的数字和原文证据生成解释，"
+            "不得自行补充财务数字或把异常日改写成买卖信号。"
         )
     with st.container(border=True):
         st.subheader("Historical Lens 时间隔离")

@@ -58,6 +58,20 @@ class MarketActivityEvidence(TypedDict):
     limit_up_note: str
 
 
+class MarketActivityEvent(TypedDict):
+    """One deterministically screened trading day for historical review."""
+
+    date: str
+    event_type: str
+    close: float
+    daily_return: float | None
+    daily_return_basis: str
+    volume_ratio_20d: float | None
+    turnover: float | None
+    limit_up_reference: float
+    limit_up_candidate: bool
+
+
 class DataSourceError(RuntimeError):
     """Raised when a public market-data source cannot be used safely."""
 
@@ -490,6 +504,111 @@ def calculate_market_activity(
             "价格最小变动单位及其他例外仍需交易所数据复核。"
         ),
     }
+
+
+def scan_market_activity_events(
+    frame: pd.DataFrame,
+    company: CompanyIdentity,
+    *,
+    lookback_sessions: int = 250,
+    volume_ratio_threshold: float = 2.0,
+    max_results: int = 8,
+) -> list[MarketActivityEvent]:
+    """Find recent high-volume days and board-rule limit-up candidates.
+
+    The rolling volume baseline excludes the day being tested.  Results are
+    screening candidates for point-in-time research, not trading signals or
+    definitive exchange classifications.
+    """
+    if lookback_sessions < 1:
+        raise ValueError("扫描交易日数量必须大于零。")
+    if volume_ratio_threshold <= 0:
+        raise ValueError("成交量倍数阈值必须大于零。")
+    if max_results < 1:
+        raise ValueError("最多展示数量必须大于零。")
+
+    prepared = prepare_market_history(frame)
+    if prepared.empty:
+        return []
+
+    calculated_returns = prepared["close"].astype(float).pct_change()
+    provider_returns = prepared["pct_change"].astype(float) / 100
+    daily_returns = provider_returns.where(
+        provider_returns.notna(),
+        calculated_returns,
+    )
+    return_basis = pd.Series(
+        "页面收盘价计算",
+        index=prepared.index,
+        dtype="object",
+    )
+    return_basis.loc[provider_returns.notna()] = "公开行情源涨跌幅"
+
+    volume = prepared["volume"].astype(float)
+    previous_20_median = volume.shift(1).rolling(
+        window=20,
+        min_periods=20,
+    ).median()
+    volume_ratios = volume / previous_20_median.where(
+        previous_20_median > 0
+    )
+
+    first_position = max(0, len(prepared) - lookback_sessions)
+    events: list[MarketActivityEvent] = []
+    for position in range(first_position, len(prepared)):
+        row = prepared.iloc[position]
+        market_date = row["date"]
+        return_value = daily_returns.iloc[position]
+        daily_return = (
+            None if pd.isna(return_value) else float(return_value)
+        )
+        volume_ratio_value = volume_ratios.iloc[position]
+        volume_ratio = (
+            None
+            if pd.isna(volume_ratio_value)
+            else float(volume_ratio_value)
+        )
+        limit_reference = reference_price_limit_ratio(
+            company,
+            market_date,
+        )
+        limit_candidate = (
+            daily_return is not None
+            and daily_return >= limit_reference - 0.003
+        )
+        high_volume = (
+            volume_ratio is not None
+            and volume_ratio >= volume_ratio_threshold
+        )
+        if not (limit_candidate or high_volume):
+            continue
+
+        event_labels = []
+        if limit_candidate:
+            event_labels.append("涨停候选")
+        if high_volume:
+            event_labels.append("明显放量")
+        turnover_value = row["turnover"]
+        turnover = (
+            None
+            if pd.isna(turnover_value)
+            else float(turnover_value) / 100
+        )
+        events.append(
+            {
+                "date": market_date.isoformat(),
+                "event_type": " + ".join(event_labels),
+                "close": float(row["close"]),
+                "daily_return": daily_return,
+                "daily_return_basis": str(return_basis.iloc[position]),
+                "volume_ratio_20d": volume_ratio,
+                "turnover": turnover,
+                "limit_up_reference": limit_reference,
+                "limit_up_candidate": limit_candidate,
+            }
+        )
+
+    return list(reversed(events))[:max_results]
 
 
 def classify_announcement(title: str) -> tuple[str, str]:

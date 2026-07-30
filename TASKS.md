@@ -6,6 +6,8 @@
 - [x] Add company-name and six-digit stock-code identification.
 - [x] Add a source-linked official disclosure wall with on-demand refresh.
 - [x] Add daily K-lines, volume, moving averages, returns, volatility, and drawdown.
+- [x] Add latest-session market-activity evidence with explicit data limits.
+- [x] Add abnormal-trading-day replay into Historical Lens.
 - [x] Define Company Research Engine and Historical Lens product specifications.
 - [x] Add a tested point-in-time evidence engine that excludes future disclosures.
 - [x] Add a Historical Lens page with a separate 1/3/6-month outcome reveal.

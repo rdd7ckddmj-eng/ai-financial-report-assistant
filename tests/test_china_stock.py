@@ -15,6 +15,7 @@ from src.china_stock import (
     prepare_tencent_market_history,
     reference_price_limit_ratio,
     resolve_company,
+    scan_market_activity_events,
     select_latest_annual_report,
 )
 
@@ -105,6 +106,69 @@ def test_market_activity_marks_limit_up_only_as_candidate() -> None:
     assert activity["limit_up_reference"] == pytest.approx(0.10)
     assert activity["limit_up_status"] == "涨停候选"
     assert "仍需交易所数据复核" in activity["limit_up_note"]
+
+
+def test_activity_scanner_excludes_event_day_from_volume_baseline() -> None:
+    frame = _market_rows(45)
+    frame.loc[:, "成交量"] = 1_000_000
+    frame.loc[40, "成交量"] = 2_500_000
+    frame.loc[40, "换手率"] = 3.2
+    company = build_company_identity("600519", "贵州茅台")
+
+    events = scan_market_activity_events(frame, company)
+
+    assert events[0]["date"] == frame.loc[40, "日期"].date().isoformat()
+    assert events[0]["event_type"] == "明显放量"
+    assert events[0]["volume_ratio_20d"] == pytest.approx(2.5)
+    assert events[0]["turnover"] == pytest.approx(0.032)
+
+
+def test_activity_scanner_marks_board_rule_limit_candidate() -> None:
+    frame = _market_rows(30)
+    frame.loc[25, "收盘"] = frame.loc[24, "收盘"] * 1.20
+    frame.loc[25, "最高"] = frame.loc[25, "收盘"]
+    company = build_company_identity("300750", "宁德时代")
+
+    events = scan_market_activity_events(frame, company)
+    target_date = frame.loc[25, "日期"].date().isoformat()
+    event = next(item for item in events if item["date"] == target_date)
+
+    assert event["limit_up_reference"] == pytest.approx(0.20)
+    assert event["limit_up_candidate"] is True
+    assert "涨停候选" in event["event_type"]
+
+
+def test_activity_scanner_prefers_provider_daily_change() -> None:
+    frame = _market_rows(30)
+    frame["涨跌幅"] = float("nan")
+    frame.loc[25, "涨跌幅"] = 10.0
+    company = build_company_identity("600519", "贵州茅台")
+
+    events = scan_market_activity_events(frame, company)
+    target_date = frame.loc[25, "日期"].date().isoformat()
+    event = next(item for item in events if item["date"] == target_date)
+
+    assert event["daily_return"] == pytest.approx(0.10)
+    assert event["daily_return_basis"] == "公开行情源涨跌幅"
+    assert event["limit_up_candidate"] is True
+
+
+def test_activity_scanner_returns_newest_candidates_first() -> None:
+    frame = _market_rows(50)
+    frame.loc[:, "成交量"] = 1_000_000
+    frame.loc[25, "成交量"] = 2_100_000
+    frame.loc[45, "成交量"] = 3_000_000
+    company = build_company_identity("600519", "贵州茅台")
+
+    events = scan_market_activity_events(
+        frame,
+        company,
+        max_results=1,
+    )
+
+    assert [item["date"] for item in events] == [
+        frame.loc[45, "日期"].date().isoformat()
+    ]
 
 
 @pytest.mark.parametrize(
