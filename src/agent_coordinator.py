@@ -106,11 +106,9 @@ def run_agent_workflow(
                 income_figures=income_figures,
                 balance_figures=balance_figures,
             )
-        metric_page = (
-            [metric_result["source_page"]]
-            if metric_result["source_page"] is not None
-            else []
-        )
+        metric_pages = metric_result.get("source_pages", [])
+        if not metric_pages and metric_result["source_page"] is not None:
+            metric_pages = [metric_result["source_page"]]
         _trace_step(
             trace=trace,
             role="Python Finance Tool",
@@ -130,7 +128,7 @@ def run_agent_workflow(
                 if metric_result["is_available"]
                 else metric_result["messages"][0]
             ),
-            source_pages=metric_page,
+            source_pages=metric_pages,
         )
 
     results = search_report_chunks(

@@ -42,6 +42,9 @@
 - [x] Add deterministic extraction for common Chinese A-share consolidated income statements.
 - [x] Add reconciled extraction for common Chinese A-share consolidated balance sheets.
 - [x] Add reconciled extraction for common Chinese A-share consolidated cash-flow statements.
+- [x] Support multi-page Chinese statements and retain their PDF page ranges.
+- [x] Validate all three extractors against the real Guizhou Moutai 2025 statement layout.
+- [x] Use a lightweight Chinese evidence-retrieval path on the free server.
 - [x] Compare current and previous income-statement figures with period warnings.
 - [x] Extract and reconcile balance-sheet liquidity figures.
 - [x] Calculate current and previous current ratios from the annual report.
@@ -81,7 +84,7 @@
 - [ ] Enable API billing/quota before the first live LLM answer.
 - [ ] Add source-controlled media news only after source-quality evaluation.
 - [ ] Add scheduled background refresh only when traffic justifies the cost.
-- [ ] Adapt deterministic statement extraction to major Chinese A-share layouts.
+- [ ] Extend deterministic statement extraction to bank, insurer, and other special-industry layouts.
 - [ ] Add cross-year financial trends and comparable-company research.
 - [ ] Expand the 贵州茅台 flagship set from three to five events after review.
 - [x] GitHub publication and public Render website.

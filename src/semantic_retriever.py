@@ -2,6 +2,7 @@
 
 import hashlib
 import os
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -12,6 +13,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODEL_NAME = "BAAI/bge-small-en-v1.5"
 MODEL_CACHE_DIR = PROJECT_ROOT / ".cache" / "fastembed"
 INDEX_CACHE_DIR = PROJECT_ROOT / ".cache" / "semantic_indexes"
+MAX_SEMANTIC_PASSAGES = 240
+CJK_PATTERN = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 
 # Keep all model files inside the project instead of writing to a user's
 # system-level cache. This also avoids Hugging Face Xet log permission issues.
@@ -82,6 +85,11 @@ def semantic_similarity_scores(
     """Return local cosine similarities, or None if embeddings are unavailable."""
     if not query.strip() or not texts:
         return []
+    if CJK_PATTERN.search(query) or len(texts) > MAX_SEMANTIC_PASSAGES:
+        # The bundled model is English-only. Chinese A-share questions are
+        # served more accurately and with much lower memory use by the
+        # transparent Chinese term/concept retriever.
+        return None
 
     try:
         model = _load_model()

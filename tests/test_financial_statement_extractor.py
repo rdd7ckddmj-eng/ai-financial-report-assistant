@@ -167,3 +167,39 @@ def test_chinese_income_statement_does_not_guess_missing_profit() -> None:
     )
 
     assert figures is None
+
+
+def test_find_chinese_income_statement_across_realistic_pages() -> None:
+    figures = find_income_statement_figures(
+        [
+            (
+                61,
+                """
+                合并利润表
+                2025 年 1—12 月
+                单位：元 币种：人民币
+                其中：营业收入 44
+                168,838,102,514.79 170,899,152,276.34
+                贵州茅台酒股份有限公司2025 年年度报告
+                """,
+            ),
+            (
+                62,
+                """
+                62 / 143
+                五、净利润（净亏损以“－”号填列）
+                85,310,324,833.67 89,334,728,025.90
+                1.归属于母公司股东的净利润
+                （净亏损以“-”号填列）
+                82,320,067,101.68 86,228,146,421.62
+                母公司利润表
+                """,
+            ),
+        ]
+    )
+
+    assert figures is not None
+    assert figures["current_revenue"] == 168_838_102_514.79
+    assert figures["current_net_profit"] == 82_320_067_101.68
+    assert figures["page_number"] == 61
+    assert figures["end_page_number"] == 62

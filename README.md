@@ -141,7 +141,8 @@ secret environment settings. It must never be committed to the repository.
 - Preserve the PDF filename and page number as evidence.
 - Automatically extract revenue and profit totals from the verified Tesco
   six-column layout and common Chinese A-share consolidated income statements,
-  including RMB units and attributable net profit.
+  including RMB units and attributable net profit. Chinese statement windows
+  can span adjacent PDF pages without losing the inclusive source-page range.
 - Extract current and non-current assets and liabilities, total assets, total
   liabilities, and total equity from common Chinese A-share consolidated
   balance sheets.
@@ -152,6 +153,8 @@ secret environment settings. It must never be committed to the repository.
 - Extract and reconcile common Chinese A-share consolidated cash-flow
   statements, including the different treatment of foreign-exchange effects,
   opening cash, and ending cash.
+- Show an immediate three-statement verification panel. A statement is marked
+  as verified only after its required rows and arithmetic reconciliations pass.
 - Calculate net profit margin, revenue growth, current ratio, and
   liabilities-to-assets ratio with deterministic Python functions.
 - Check 20 extracted figures against a manually verified Tesco 2026 answer
@@ -162,7 +165,9 @@ secret environment settings. It must never be committed to the repository.
   keywords, common Chinese-to-English mappings, auditable financial
   concept groups, and a small local sentence-embedding model. Report vectors
   are cached locally and the interface shows the retrieval method and semantic
-  similarity score.
+  similarity score. Chinese queries and very large reports use the transparent
+  lexical/concept path to avoid loading an unsuitable English embedding model
+  into a resource-constrained server.
 - Draft concise extractive answers using only retrieved report wording, with
   an inline PDF-page citation for every evidence extract.
 - Present supported answers as a conclusion plus evidence-backed points, and

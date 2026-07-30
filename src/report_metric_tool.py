@@ -21,7 +21,7 @@ class MetricInput(TypedDict):
 
 
 class MetricToolResult(TypedDict):
-    """A deterministic result with its formula, inputs, and source page."""
+    """A deterministic result with its formula, inputs, and source pages."""
 
     is_available: bool
     tool_name: str
@@ -30,6 +30,7 @@ class MetricToolResult(TypedDict):
     formula: str
     inputs: list[MetricInput]
     source_page: int | None
+    source_pages: list[int]
     messages: list[str]
 
 
@@ -50,6 +51,15 @@ def _format_report_value(value: float, unit: str) -> str:
     return f"{value:,.0f}{unit_text}"
 
 
+def _figure_source_pages(
+    figures: IncomeStatementFigures | BalanceSheetFigures,
+) -> list[int]:
+    """Return every page covered by a single- or multi-page statement."""
+    start_page = figures["page_number"]
+    end_page = figures.get("end_page_number", start_page)
+    return list(range(start_page, end_page + 1))
+
+
 def _unavailable_result(tool_name: str, message: str) -> MetricToolResult:
     """Return a safe result when the required statement was not extracted."""
     return {
@@ -60,6 +70,7 @@ def _unavailable_result(tool_name: str, message: str) -> MetricToolResult:
         "formula": "",
         "inputs": [],
         "source_page": None,
+        "source_pages": [],
         "messages": [message],
     }
 
@@ -83,6 +94,7 @@ def run_report_metric_tool(
 
         unit = income_figures["unit"]
         source_page = income_figures["page_number"]
+        source_pages = _figure_source_pages(income_figures)
         if tool_name == "net_profit_margin":
             revenue = income_figures["current_revenue"]
             net_profit = income_figures["current_net_profit"]
@@ -114,6 +126,7 @@ def run_report_metric_tool(
                     },
                 ],
                 "source_page": source_page,
+                "source_pages": source_pages,
                 "messages": [
                     "Calculated by Python from the reported current-period "
                     "totals."
@@ -169,6 +182,7 @@ def run_report_metric_tool(
                 },
             ],
             "source_page": source_page,
+            "source_pages": source_pages,
             "messages": messages,
         }
 
@@ -181,6 +195,7 @@ def run_report_metric_tool(
 
     unit = balance_figures["unit"]
     source_page = balance_figures["page_number"]
+    source_pages = _figure_source_pages(balance_figures)
     if tool_name == "total_liabilities":
         current_liabilities = balance_figures["current_liabilities"]
         total_liabilities = balance_figures["current_total_liabilities"]
@@ -217,6 +232,7 @@ def run_report_metric_tool(
                 },
             ],
             "source_page": source_page,
+            "source_pages": source_pages,
             "messages": [
                 "Reconciled by Python from current and non-current "
                 "liabilities on the group balance sheet."
@@ -270,6 +286,7 @@ def run_report_metric_tool(
                 },
             ],
             "source_page": source_page,
+            "source_pages": source_pages,
             "messages": messages,
         }
 
@@ -307,6 +324,7 @@ def run_report_metric_tool(
             },
         ],
         "source_page": source_page,
+        "source_pages": source_pages,
         "messages": [
             "This describes balance-sheet structure and does not by itself "
             "measure solvency."

@@ -1,5 +1,6 @@
 import json
 import sys
+from collections.abc import Mapping
 from datetime import date, timedelta
 from io import BytesIO
 from pathlib import Path
@@ -104,10 +105,23 @@ def show_metric_tool_result(result: MetricToolResult) -> None:
         st.markdown(f"- {item['label']}: {item['display_value']}")
     for message in result["messages"]:
         st.caption(message)
+    source_pages = result.get("source_pages", [])
+    page_text = "、".join(str(page) for page in source_pages)
+    if not page_text:
+        page_text = str(result["source_page"])
     st.caption(
-        f"本结果由 Python 确定性计算。证据来源：PDF 第 "
-        f"{result['source_page']} 页。"
+        "本结果由 Python 确定性计算。证据来源：PDF 第 "
+        f"{page_text} 页。"
     )
+
+
+def _statement_page_label(figures: Mapping[str, object]) -> str:
+    """Format a single PDF page or an inclusive statement page range."""
+    start_page = int(figures["page_number"])
+    end_page = int(figures.get("end_page_number", start_page))
+    if start_page == end_page:
+        return str(start_page)
+    return f"{start_page}–{end_page}"
 
 
 def show_route_decision(decision: RouteDecision) -> None:
@@ -2439,6 +2453,30 @@ def render_annual_report_page() -> None:
                     for page in extracted_pages
                 )
             )
+            st.markdown("#### 三张报表自动核验")
+            statement_columns = st.columns(3)
+            statement_checks = (
+                ("合并利润表", extracted_figures),
+                ("合并资产负债表", balance_sheet_figures),
+                ("合并现金流量表", cash_flow_figures),
+            )
+            for statement_column, (statement_name, figures) in zip(
+                statement_columns,
+                statement_checks,
+            ):
+                if figures is None:
+                    statement_column.warning(f"{statement_name}：尚未识别")
+                else:
+                    statement_column.success(
+                        f"{statement_name}：已核验\n\n"
+                        f"PDF 第 {_statement_page_label(figures)} 页"
+                    )
+            if any(figures is None for _, figures in statement_checks):
+                st.caption(
+                    "系统只展示完成标签识别和勾稽验证的报表；"
+                    "没有通过验证的数字不会被猜测补全。"
+                )
+
             default_page_index = (
                 extracted_figures["page_number"] - 1
                 if extracted_figures is not None
@@ -2476,7 +2514,7 @@ def render_annual_report_page() -> None:
             )
             use_llm_agent = st.toggle(
                 "使用 LLM 综合分析（需要 OpenAI API 额度）",
-                value=True,
+                value=False,
                 help=(
                     "只有本地 Verifier 通过证据检查后才会调用一次 API；"
                     "关闭后仍可使用全部本地检索、计算和验证功能。"
@@ -2803,8 +2841,9 @@ def render_annual_report_page() -> None:
                     )
 
                 st.caption(
-                    "证据行：Revenue 与 Profit/(loss) for the year，"
-                    f"PDF 第 {extracted_figures['page_number']} 页。"
+                    "证据行：营业收入 / Revenue 与归母净利润 / "
+                    "Profit for the year，PDF 第 "
+                    f"{_statement_page_label(extracted_figures)} 页。"
                 )
                 st.info(
                     "如果报表结构或行标签不符合预期，提取器会停止，"
@@ -2910,14 +2949,14 @@ def render_annual_report_page() -> None:
                     st.caption(
                         "证据行：流动资产合计、非流动资产合计、资产总计、"
                         "流动负债合计，PDF 第 "
-                        f"{balance_sheet_figures['page_number']} 页。"
+                        f"{_statement_page_label(balance_sheet_figures)} 页。"
                     )
                 else:
                     st.caption(
                         "证据行：Current assets、Non-current assets "
                         "classified as held for sale、Current liabilities "
                         "与 Net current liabilities，PDF 第 "
-                        f"{balance_sheet_figures['page_number']} 页。"
+                        f"{_statement_page_label(balance_sheet_figures)} 页。"
                     )
 
                 extracted_total_assets = balance_sheet_figures[
@@ -2990,13 +3029,14 @@ def render_annual_report_page() -> None:
                 if is_chinese_balance_sheet:
                     st.caption(
                         "证据行：资产总计、负债合计与所有者权益合计，"
-                        f"PDF 第 {balance_sheet_figures['page_number']} 页。"
+                        "PDF 第 "
+                        f"{_statement_page_label(balance_sheet_figures)} 页。"
                     )
                 else:
                     st.caption(
                         "证据部分：非流动资产、流动资源、流动负债、"
                         "非流动负债和净资产，PDF 第 "
-                        f"{balance_sheet_figures['page_number']} 页。"
+                        f"{_statement_page_label(balance_sheet_figures)} 页。"
                     )
 
             if cash_flow_figures is not None:
@@ -3105,13 +3145,13 @@ def render_annual_report_page() -> None:
                         "证据行：经营、投资和筹资活动现金流量净额；"
                         "汇率影响；现金及现金等价物净增加额；期初与"
                         "期末余额，PDF 第 "
-                        f"{cash_flow_figures['page_number']} 页。"
+                        f"{_statement_page_label(cash_flow_figures)} 页。"
                     )
                 else:
                     st.caption(
                         "证据行：经营、投资和融资净现金流；净现金变动；"
                         "期初与期末现金，PDF 第 "
-                        f"{cash_flow_figures['page_number']} 页。"
+                        f"{_statement_page_label(cash_flow_figures)} 页。"
                     )
     else:
         st.info(

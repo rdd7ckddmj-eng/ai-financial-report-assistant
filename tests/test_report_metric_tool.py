@@ -45,6 +45,7 @@ def test_metric_tool_calculates_net_profit_margin() -> None:
     assert result["display_value"] == "2.4%"
     assert result["formula"] == "1,787 ÷ 73,712 = 2.4%"
     assert result["source_page"] == 123
+    assert result["source_pages"] == [123]
 
 
 def test_metric_tool_calculates_revenue_growth_with_period_warning() -> None:
@@ -104,7 +105,28 @@ def test_metric_tool_does_not_guess_when_statement_is_missing() -> None:
 
     assert result["is_available"] is False
     assert result["source_page"] is None
+    assert result["source_pages"] == []
     assert "not found" in result["messages"][0]
+
+
+def test_metric_tool_keeps_multi_page_statement_provenance() -> None:
+    split_page_income = cast(
+        IncomeStatementFigures,
+        {
+            **INCOME_FIGURES,
+            "page_number": 61,
+            "end_page_number": 62,
+        },
+    )
+
+    result = run_report_metric_tool(
+        "net_profit_margin",
+        split_page_income,
+        BALANCE_FIGURES,
+    )
+
+    assert result["source_page"] == 61
+    assert result["source_pages"] == [61, 62]
 
 
 def test_metric_tool_rejects_unknown_tool() -> None:

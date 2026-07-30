@@ -31,6 +31,7 @@ class BalanceSheetFigures(TypedDict):
     previous_net_assets: float
     unit: str
     page_number: int
+    end_page_number: int
     statement_format: str
 
 
@@ -57,11 +58,18 @@ CHINESE_TOTAL_EQUITY_LABELS = (
 
 def _normalise_lines(page_text: str) -> list[str]:
     """Remove empty lines and normalise unusual PDF spacing."""
-    return [
-        " ".join(line.replace("\xa0", " ").split())
-        for line in page_text.splitlines()
-        if line.strip()
-    ]
+    lines: list[str] = []
+    for raw_line in page_text.splitlines():
+        line = " ".join(raw_line.replace("\xa0", " ").split())
+        if not line or re.fullmatch(r"\d+\s*/\s*\d+", line):
+            continue
+        if (
+            line.endswith("年度报告")
+            and "合并资产负债表" not in line
+        ):
+            continue
+        lines.append(line)
+    return lines
 
 
 def _parse_financial_value(value: str) -> float:
@@ -93,15 +101,52 @@ def _chinese_label_matches(line: str, label: str) -> bool:
     """Match an exact Chinese row label or the label followed by values."""
     compact_line = _compact_chinese_text(line)
     compact_label = _compact_chinese_text(label)
-    if compact_line == compact_label:
-        return True
-    if not compact_line.startswith(compact_label):
-        return False
+    candidates = (
+        compact_line,
+        re.sub(
+            r"^(?:\d+[.．、]|[一二三四五六七八九十]+[、.．])",
+            "",
+            compact_line,
+            count=1,
+        ),
+    )
+    for candidate in candidates:
+        if candidate == compact_label:
+            return True
+        if not candidate.startswith(compact_label):
+            continue
+        remainder = candidate[len(compact_label) :]
+        if remainder.startswith(
+            ("：", "（", "(", "-", "−", "－")
+        ) or bool(re.match(r"^\d", remainder)):
+            return True
+    return False
 
-    remainder = compact_line[len(compact_label) :]
-    return remainder.startswith(
-        ("：", "（", "(", "-", "−", "－")
-    ) or bool(re.match(r"^\d", remainder))
+
+def _chinese_label_span(
+    lines: list[str],
+    row_index: int,
+    label: str,
+) -> int | None:
+    """Return the last line of a label split across up to three PDF lines."""
+    combined = ""
+    for end_index in range(row_index, min(row_index + 3, len(lines))):
+        combined += _compact_chinese_text(lines[end_index])
+        if _chinese_label_matches(combined, label):
+            return end_index
+        compact_label = _compact_chinese_text(label)
+        without_prefix = re.sub(
+            r"^(?:\d+[.．、]|[一二三四五六七八九十]+[、.．])",
+            "",
+            combined,
+            count=1,
+        )
+        if not (
+            compact_label.startswith(combined)
+            or compact_label.startswith(without_prefix)
+        ):
+            break
+    return None
 
 
 def _financial_values_in_line(line: str) -> list[float]:
@@ -113,25 +158,37 @@ def _financial_values_in_line(line: str) -> list[float]:
     ]
 
 
+def _is_financial_values_line(line: str) -> bool:
+    """Return whether a continuation line contains only financial tokens."""
+    tokens = line.split()
+    return bool(tokens) and all(
+        FINANCIAL_VALUE_PATTERN.fullmatch(token) for token in tokens
+    )
+
+
 def _extract_chinese_row_pair(
     lines: list[str],
     labels: tuple[str, ...],
 ) -> tuple[float, float] | None:
     """Return current and prior-year values from a common A-share row."""
     for label in labels:
-        for row_index, line in enumerate(lines):
-            if not _chinese_label_matches(line, label):
+        for row_index in range(len(lines)):
+            label_end = _chinese_label_span(lines, row_index, label)
+            if label_end is None:
                 continue
 
-            same_line_values = _financial_values_in_line(line)
+            same_line_values: list[float] = []
+            for label_line in lines[row_index : label_end + 1]:
+                same_line_values.extend(_financial_values_in_line(label_line))
             if len(same_line_values) >= 2:
                 return same_line_values[-2], same_line_values[-1]
 
             following_values: list[float] = []
-            for following_line in lines[row_index + 1 : row_index + 7]:
-                values = _financial_values_in_line(following_line)
-                if values:
-                    following_values.extend(values)
+            for following_line in lines[label_end + 1 : label_end + 7]:
+                if _is_financial_values_line(following_line):
+                    following_values.extend(
+                        _financial_values_in_line(following_line)
+                    )
                     continue
                 if following_values:
                     break
@@ -341,6 +398,7 @@ def _extract_chinese_balance_sheet_figures(
         "previous_net_assets": previous_total_equity,
         "unit": _extract_unit(lines),
         "page_number": page_number,
+        "end_page_number": page_number,
         "statement_format": "chinese_a_share",
     }
 
@@ -477,6 +535,7 @@ def extract_balance_sheet_figures(
         "previous_net_assets": previous_net_assets,
         "unit": _extract_unit(lines),
         "page_number": page_number,
+        "end_page_number": page_number,
         "statement_format": "tesco_group",
     }
 
@@ -485,12 +544,27 @@ def find_balance_sheet_figures(
     pages: Iterable[tuple[int, str]],
 ) -> BalanceSheetFigures | None:
     """Scan report pages and return the first reconciled group balance sheet."""
-    for page_number, page_text in pages:
+    page_list = list(pages)
+    for page_index, (page_number, page_text) in enumerate(page_list):
         figures = extract_balance_sheet_figures(
             page_number=page_number,
             page_text=page_text,
         )
         if figures is not None:
             return figures
+        if "合并资产负债表" not in page_text:
+            continue
+
+        for window_size in range(2, 6):
+            window = page_list[page_index : page_index + window_size]
+            if len(window) < window_size:
+                break
+            figures = extract_balance_sheet_figures(
+                page_number=page_number,
+                page_text="\n".join(text for _, text in window),
+            )
+            if figures is not None:
+                figures["end_page_number"] = window[-1][0]
+                return figures
 
     return None

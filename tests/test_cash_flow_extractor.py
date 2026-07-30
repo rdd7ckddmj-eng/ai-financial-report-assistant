@@ -206,3 +206,57 @@ def test_chinese_cash_flow_rejects_ending_cash_mismatch() -> None:
     )
 
     assert figures is None
+
+
+def test_find_chinese_cash_flow_across_realistic_pages() -> None:
+    figures = find_cash_flow_figures(
+        [
+            (
+                64,
+                """
+                合并现金流量表
+                2025 年 1—12 月
+                单位：元 币种：人民币
+                """,
+            ),
+            (
+                65,
+                """
+                经营活动产生的现金流
+                量净额
+                61,522,204,989.35 92,463,692,168.43
+                投资活动产生的现金流
+                量净额
+                -31,641,898,948.89 -1,785,202,630.71
+                贵州茅台酒股份有限公司2025 年年度报告
+                """,
+            ),
+            (
+                66,
+                """
+                66 / 143
+                筹资活动产生的现金流
+                量净额
+                -73,427,081,208.87 -71,067,506,484.81
+                四、汇率变动对现金及现金等价
+                物的影响
+                2,295,358.30 -1,082,747.55
+                五、现金及现金等价物净增加额
+                -43,544,479,810.11 19,609,900,305.36
+                加：期初现金及现金等价物余
+                额
+                169,970,089,257.83 150,360,188,952.47
+                六、期末现金及现金等价物余额
+                126,425,609,447.72 169,970,089,257.83
+                母公司现金流量表
+                """,
+            ),
+        ]
+    )
+
+    assert figures is not None
+    assert figures["current_operating_cash_flow"] == 61_522_204_989.35
+    assert figures["current_net_cash_change"] == -43_544_479_810.11
+    assert figures["current_ending_cash"] == 126_425_609_447.72
+    assert figures["page_number"] == 64
+    assert figures["end_page_number"] == 66

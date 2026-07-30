@@ -230,3 +230,56 @@ def test_chinese_balance_sheet_does_not_guess_parent_equity() -> None:
     )
 
     assert figures is None
+
+
+def test_find_chinese_balance_sheet_across_realistic_pages() -> None:
+    figures = find_balance_sheet_figures(
+        [
+            (
+                56,
+                """
+                合并资产负债表
+                单位：元 币种：人民币
+                流动资产合计
+                252,518,662,398.57 251,726,674,636.66
+                贵州茅台酒股份有限公司2025 年年度报告
+                """,
+            ),
+            (
+                57,
+                """
+                57 / 143
+                非流动资产合计 51,316,181,622.87 47,217,905,282.04
+                资产总计 303,834,844,021.44 298,944,579,918.70
+                """,
+            ),
+            (
+                58,
+                """
+                流动负债合计 49,610,476,817.81 56,515,990,618.96
+                非流动负债合计 265,113,294.56 417,274,179.14
+                负债合计 49,875,590,112.37 56,933,264,798.10
+                所有者权益（或股东权
+                贵州茅台酒股份有限公司2025 年年度报告
+                """,
+            ),
+            (
+                59,
+                """
+                59 / 143
+                益）合计
+                253,959,253,909.07 242,011,315,120.60
+                负债和所有者权益（或股东权益）总计
+                303,834,844,021.44 298,944,579,918.70
+                母公司资产负债表
+                """,
+            ),
+        ]
+    )
+
+    assert figures is not None
+    assert figures["current_total_assets"] == 303_834_844_021.44
+    assert figures["current_total_liabilities"] == 49_875_590_112.37
+    assert figures["current_net_assets"] == 253_959_253_909.07
+    assert figures["page_number"] == 56
+    assert figures["end_page_number"] == 59

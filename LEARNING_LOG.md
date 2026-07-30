@@ -165,3 +165,43 @@ year.
 
 Deploy the selector fix and automatically load the Chinese original for
 three-statement extraction testing.
+
+## 2026-07-30 — Multi-page Chinese statement verification
+
+### What I studied
+
+Why a real annual report cannot be treated as one table per PDF page.
+
+### What I built or changed
+
+Added bounded adjacent-page windows for the Chinese consolidated income
+statement, balance sheet, and cash-flow statement. The interface now shows the
+verified page range for each statement and defaults optional paid LLM synthesis
+to off.
+
+### One concept I can now explain
+
+The program may join nearby pages to read one statement, but it still rejects
+the result unless all required rows and accounting reconciliations agree.
+
+### Error I encountered
+
+The 143-page Guizhou Moutai report loaded successfully, but the old extractors
+returned no figures because the three statements covered two to four pages.
+Chinese Q&A also tried to load an English embedding model on the free server.
+
+### How I fixed it
+
+Added realistic split-page regression cases using Guizhou Moutai statement
+values and switched Chinese or very large report searches to the transparent
+lexical/concept retriever.
+
+### What I still do not understand
+
+How many bank and insurer statement variants need separate deterministic
+templates.
+
+### Next action
+
+Deploy this version and rerun the official Guizhou Moutai PDF through all three
+statement checks on the public website.
