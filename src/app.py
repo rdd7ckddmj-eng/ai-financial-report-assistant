@@ -20,6 +20,7 @@ from src.adaptive_escalation import (
     decide_adaptive_escalation,
 )
 from src.anomaly_report_card import build_anomaly_report_card_html
+from src.anomaly_analogs import find_historical_anomaly_analogs
 from src.agent_coordinator import (
     AgentTraceStep,
     AgentWorkflowRun,
@@ -1162,6 +1163,7 @@ def _show_anomaly_event_research(
     company: CompanyIdentity,
     announcements: pd.DataFrame | None,
     *,
+    history_events: list[MarketActivityEvent] | None = None,
     market_source: str = "公开行情适配器",
     turnover_source: str = "公开行情字段或暂未取得",
 ) -> None:
@@ -1229,6 +1231,64 @@ def _show_anomaly_event_research(
             evidence_chain,
             event_context=selected["event_type"],
         )
+
+    analogs = find_historical_anomaly_analogs(
+        selected,
+        history_events or events,
+    )
+    st.markdown("#### 历史相似异动｜规则匹配")
+    st.caption(
+        "只比较所选日期以前的信号组合、日涨跌幅、成交量倍数和"
+        "普通换手率历史分位；缺失项不会按0处理。相似度不是未来"
+        "涨跌预测，也不构成投资建议。"
+    )
+    if not analogs:
+        st.info(
+            "当前扫描范围内没有具备足够可比字段的更早异动日期。"
+        )
+    else:
+        for rank, analog in enumerate(analogs, start=1):
+            with st.container(border=True):
+                title_column, score_column = st.columns([3, 1])
+                title_column.markdown(
+                    f"**{rank}. {analog['date']}｜"
+                    f"{analog['event_type']}**"
+                )
+                score_column.metric(
+                    "规则相似度",
+                    f"{analog['similarity_score']:.0%}",
+                )
+                volume_ratio = analog["volume_ratio_20d"]
+                volume_ratio_text = (
+                    "数据不足"
+                    if volume_ratio is None
+                    else f"{volume_ratio:.2f}倍"
+                )
+                st.caption(
+                    f"日涨跌幅 {_format_percent(analog['daily_return'])}｜"
+                    "成交量 / 前20日中位数 "
+                    f"{volume_ratio_text}"
+                    "｜普通换手率历史分位 "
+                    f"{_format_percent(analog['turnover_percentile_250d'])}"
+                    f"｜可比维度 {analog['comparable_dimension_count']} 项。"
+                )
+                st.write(analog["comparison_summary"])
+                if st.button(
+                    "用这个日期进入 Historical Lens",
+                    use_container_width=True,
+                    key=(
+                        f"anomaly_analog_{company['code']}_"
+                        f"{selected['date']}_{analog['date']}"
+                    ),
+                ):
+                    st.session_state["historical_prefill_date"] = (
+                        analog["date"]
+                    )
+                    st.session_state["historical_prefill_context"] = (
+                        f"与 {selected['date']} 规则相似："
+                        f"{analog['event_type']}"
+                    )
+                    _switch_page("historical")
 
     report_html = build_anomaly_report_card_html(
         company,
@@ -1753,7 +1813,12 @@ def render_market_anomaly_page() -> None:
                 "qfq",
             )
             activity = calculate_market_activity(market_frame, company)
-            events = scan_market_activity_events(market_frame, company)
+            history_events = scan_market_activity_events(
+                market_frame,
+                company,
+                max_results=60,
+            )
+            events = history_events[:8]
             report = build_market_anomaly_report(activity, events)
     except (DataSourceError, ValueError) as error:
         st.error(str(error))
@@ -1781,6 +1846,7 @@ def render_market_anomaly_page() -> None:
         events,
         company,
         announcements,
+        history_events=history_events,
         market_source=str(
             market_frame.attrs.get("source", "公开行情适配器")
         ),
