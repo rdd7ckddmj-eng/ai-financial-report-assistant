@@ -31,8 +31,8 @@ Build a web application that can:
   deterministic anomaly rules, official-evidence link, and non-predictive
   product boundary.
 - [Daily Limit-Up Board](docs/LIMIT_UP_BOARD_SPEC.md) defines the recent
-  public pool, validation, descriptive summary, deterministic ranking, and
-  ordinary-versus-effective-turnover boundary.
+  public pool, validation, post-market structure review, deterministic
+  ranking, and ordinary-versus-effective-turnover boundary.
 - [Watchlist Market Radar](docs/MARKET_RADAR_SPEC.md) defines the bounded
   five-company scan, three independent activity triggers, transparent ranking,
   and free-server operating boundary.
@@ -113,9 +113,11 @@ secret environment settings. It must never be committed to the repository.
 - Retrieve one recent Eastmoney public limit-up pool on demand and show daily
   limit-up count, first-board and consecutive-board counts, maximum streak,
   ordinary-turnover median, leading industry, amount, seal funds, first seal
-  time, break count, and a deterministic research order. The page makes one
-  bounded pool request, needs no paid API, and does not persist a full-market
-  history.
+  time, break count, and a deterministic research order. The same validated
+  pool also produces a board ladder, top-five industry structure, early-seal
+  coverage, reseal coverage, and rule-based observations without a forecast.
+  The page makes one bounded pool request, needs no paid API, and does not
+  persist a full-market history.
 - Show a deterministic market-activity evidence panel with the latest daily
   return, volume versus the preceding 20-session median, ordinary turnover
   availability, point-in-time volume and turnover percentiles versus up to
