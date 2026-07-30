@@ -19,6 +19,7 @@ from src.adaptive_escalation import (
     EscalationDecision,
     decide_adaptive_escalation,
 )
+from src.anomaly_report_card import build_anomaly_report_card_html
 from src.agent_coordinator import (
     AgentTraceStep,
     AgentWorkflowRun,
@@ -1160,6 +1161,9 @@ def _show_anomaly_event_research(
     events: list[MarketActivityEvent],
     company: CompanyIdentity,
     announcements: pd.DataFrame | None,
+    *,
+    market_source: str = "公开行情适配器",
+    turnover_source: str = "公开行情字段或暂未取得",
 ) -> None:
     """Connect one selected anomaly candidate to point-in-time evidence."""
     st.subheader("候选日期与官方证据链")
@@ -1210,6 +1214,7 @@ def _show_anomaly_event_research(
             f"{_format_percent(selected['turnover_percentile_250d'])}。"
         )
 
+    evidence_chain: EventEvidenceChain | None = None
     if announcements is None:
         st.warning(
             "官方公告源暂时不可访问。异动数字仍可核验，"
@@ -1224,6 +1229,29 @@ def _show_anomaly_event_research(
             evidence_chain,
             event_context=selected["event_type"],
         )
+
+    report_html = build_anomaly_report_card_html(
+        company,
+        selected,
+        evidence_chain,
+        market_source=market_source,
+        turnover_source=turnover_source,
+    )
+    st.markdown("#### 保存本次研究")
+    st.caption(
+        "下载文件可离线打开，并可通过浏览器“打印”另存为 PDF；"
+        "报告保留数据来源、公告链接和时间隔离说明。"
+    )
+    st.download_button(
+        "下载异动研究报告（HTML）",
+        data=report_html.encode("utf-8"),
+        file_name=(
+            f"WFZ_{company['code']}_{selected['date']}_异动研究报告.html"
+        ),
+        mime="text/html",
+        use_container_width=True,
+        key=f"anomaly_report_{company['code']}_{selected['date']}",
+    )
 
     action_columns = st.columns(2)
     if action_columns[0].button(
@@ -1749,7 +1777,20 @@ def render_market_anomaly_page() -> None:
     st.divider()
     _show_market_activity_evidence(activity)
     st.divider()
-    _show_anomaly_event_research(events, company, announcements)
+    _show_anomaly_event_research(
+        events,
+        company,
+        announcements,
+        market_source=str(
+            market_frame.attrs.get("source", "公开行情适配器")
+        ),
+        turnover_source=str(
+            market_frame.attrs.get(
+                "turnover_source",
+                "公开行情字段或暂未取得",
+            )
+        ),
+    )
 
     st.caption(
         f"行情来源：{market_frame.attrs.get('source', '公开行情适配器')}｜"
