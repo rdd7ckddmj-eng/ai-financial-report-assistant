@@ -53,9 +53,15 @@ def test_restatement_replaces_original_only_after_publication() -> None:
     assert before["points"][0]["total_assets"] == pytest.approx(
         254_364_804_995.25
     )
+    assert before["points"][0]["liabilities_to_assets"] == pytest.approx(
+        49_400_116_741.17 / 254_364_804_995.25
+    )
     assert after["points"][0]["accounting_basis"] == "restated"
     assert after["points"][0]["total_assets"] == pytest.approx(
         254_500_826_096.02
+    )
+    assert after["points"][0]["liabilities_to_assets"] == pytest.approx(
+        49_562_744_832.16 / 254_500_826_096.02
     )
     assert after["restatement_count"] == 1
 
@@ -77,9 +83,46 @@ def test_growth_and_ratios_are_calculated_in_python() -> None:
         -0.3346,
         abs=0.0001,
     )
+    assert latest["net_margin"] == pytest.approx(
+        82_320_067_101.68 / 168_838_102_514.79
+    )
+    assert latest["net_margin_change"] == pytest.approx(
+        (
+            82_320_067_101.68 / 168_838_102_514.79
+            - 86_228_146_421.62 / 170_899_152_276.34
+        )
+    )
+    assert latest["cash_conversion"] == pytest.approx(
+        61_522_204_989.35 / 82_320_067_101.68
+    )
+    assert latest["cash_conversion_change"] == pytest.approx(
+        (
+            61_522_204_989.35 / 82_320_067_101.68
+            - 92_463_692_168.43 / 86_228_146_421.62
+        )
+    )
     assert latest["liabilities_to_assets"] == pytest.approx(
         49_875_590_112.37 / 303_834_844_021.44
     )
+    assert latest["liabilities_to_assets_change"] == pytest.approx(
+        (
+            49_875_590_112.37 / 303_834_844_021.44
+            - 56_933_264_798.10 / 298_944_579_918.70
+        )
+    )
+
+
+def test_first_available_year_does_not_invent_ratio_changes() -> None:
+    result = select_financial_history_as_of(
+        load_moutai_financial_history(),
+        "2023-03-31",
+    )
+    first = result["points"][0]
+
+    assert first["period_year"] == 2022
+    assert first["net_margin_change"] is None
+    assert first["cash_conversion_change"] is None
+    assert first["liabilities_to_assets_change"] is None
 
 
 def test_history_loader_rejects_untrusted_sources(tmp_path: Path) -> None:

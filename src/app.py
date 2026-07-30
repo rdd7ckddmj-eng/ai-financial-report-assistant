@@ -997,6 +997,20 @@ def _format_percent(value: float | None) -> str:
     return "数据不足" if value is None else f"{value:.1%}"
 
 
+def _format_percentage_point_change(value: float | None) -> str | None:
+    """Format a ratio difference as percentage points, not growth."""
+    if value is None:
+        return None
+    return f"较上年 {value * 100:+.1f}个百分点"
+
+
+def _format_multiple_change(value: float | None) -> str | None:
+    """Format the change in a multiple without positive/negative colouring."""
+    if value is None:
+        return None
+    return f"较上年 {value:+.2f}倍"
+
+
 def _show_market_activity_evidence(
     activity: MarketActivityEvidence,
 ) -> None:
@@ -1667,8 +1681,46 @@ def _show_verified_financial_history(
     metric_columns[3].metric(
         "负债占总资产",
         _format_percent(latest["liabilities_to_assets"]),
+        _format_percentage_point_change(
+            latest["liabilities_to_assets_change"]
+        ),
+        delta_color="off",
         help="总负债 ÷ 总资产，由Python确定性计算。",
     )
+
+    with st.expander("查看盈利质量与现金质量", expanded=True):
+        quality_columns = st.columns(4)
+        quality_columns[0].metric(
+            "归母净利率",
+            _format_percent(latest["net_margin"]),
+            _format_percentage_point_change(latest["net_margin_change"]),
+            delta_color="off",
+            help="归母净利润 ÷ 营业收入，由Python确定性计算。",
+        )
+        quality_columns[1].metric(
+            "经营现金 / 归母净利润",
+            f"{latest['cash_conversion']:.2f}倍",
+            _format_multiple_change(latest["cash_conversion_change"]),
+            delta_color="off",
+            help=(
+                "经营活动现金流量净额 ÷ 归母净利润。"
+                "它用于观察利润与经营现金的匹配程度，"
+                "不能单独判断企业质量。"
+            ),
+        )
+        quality_columns[2].metric(
+            "总资产",
+            _format_cny_100m(latest["total_assets"]),
+        )
+        quality_columns[3].metric(
+            "总负债",
+            _format_cny_100m(latest["total_liabilities"]),
+        )
+        st.caption(
+            "净利率、现金利润比和负债占总资产均由已核验年报数据计算。"
+            "现金利润比高于或低于1倍都需要结合营运资本、税费、"
+            "季节性和一次性项目继续解释，页面不自动给出利好或利空判断。"
+        )
 
     if len(points) >= 2:
         try:

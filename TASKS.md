@@ -13,6 +13,7 @@
 - [x] Add a tested point-in-time evidence engine that excludes future disclosures.
 - [x] Add a Historical Lens page with a separate 1/3/6-month outcome reveal.
 - [x] Manually verify three flagship Historical Lens event dates for 贵州茅台.
+- [x] Add point-in-time profitability and cash-quality ratios.
 - [x] Find the latest complete official annual report and exclude summaries.
 - [x] Add server-side official PDF loading with signature and size checks.
 - [x] Validate the public data adapters in the deployed Render environment.

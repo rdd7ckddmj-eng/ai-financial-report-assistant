@@ -116,8 +116,9 @@ secret environment settings. It must never be committed to the repository.
   selection available.
 - Show a verified Guizhou Moutai multi-year financial trend with revenue,
   attributable net profit, operating cash flow, assets, liabilities, annual
-  report pages, and publication vintages. A later restatement replaces the
-  original figure only after the restatement has actually been published.
+  report pages, publication vintages, net margin, cash-to-profit conversion,
+  and liabilities-to-assets. A later restatement replaces the original figure
+  only after the restatement has actually been published.
 - Record the requested date and effective trading date, use unadjusted prices
   to avoid current adjustment-factor leakage, and audit disclosures excluded
   because they were published after the historical cut-off.

@@ -60,7 +60,11 @@ class FinancialTrendPoint(FinancialHistoryRecord):
     net_profit_growth: float | None
     operating_cash_flow_growth: float | None
     net_margin: float
+    net_margin_change: float | None
+    cash_conversion: float
+    cash_conversion_change: float | None
     liabilities_to_assets: float
+    liabilities_to_assets_change: float | None
 
 
 class FinancialHistoryResult(TypedDict):
@@ -213,6 +217,13 @@ def _growth(current: float, previous: float | None) -> float | None:
     return current / previous - 1
 
 
+def _difference(current: float, previous: float | None) -> float | None:
+    """Return a simple ratio change without calling it a growth rate."""
+    if previous is None:
+        return None
+    return current - previous
+
+
 def select_financial_history_as_of(
     records: Iterable[FinancialHistoryRecord],
     as_of_date: date | str,
@@ -243,6 +254,28 @@ def select_financial_history_as_of(
     points: list[FinancialTrendPoint] = []
     previous: FinancialHistoryRecord | None = None
     for record in selected:
+        net_margin = record["net_profit"] / record["revenue"]
+        cash_conversion = (
+            record["operating_cash_flow"] / record["net_profit"]
+        )
+        liabilities_to_assets = (
+            record["total_liabilities"] / record["total_assets"]
+        )
+        previous_net_margin = (
+            previous["net_profit"] / previous["revenue"]
+            if previous
+            else None
+        )
+        previous_cash_conversion = (
+            previous["operating_cash_flow"] / previous["net_profit"]
+            if previous
+            else None
+        )
+        previous_liabilities_to_assets = (
+            previous["total_liabilities"] / previous["total_assets"]
+            if previous
+            else None
+        )
         points.append(
             {
                 **record,
@@ -258,9 +291,20 @@ def select_financial_history_as_of(
                     record["operating_cash_flow"],
                     previous["operating_cash_flow"] if previous else None,
                 ),
-                "net_margin": record["net_profit"] / record["revenue"],
-                "liabilities_to_assets": (
-                    record["total_liabilities"] / record["total_assets"]
+                "net_margin": net_margin,
+                "net_margin_change": _difference(
+                    net_margin,
+                    previous_net_margin,
+                ),
+                "cash_conversion": cash_conversion,
+                "cash_conversion_change": _difference(
+                    cash_conversion,
+                    previous_cash_conversion,
+                ),
+                "liabilities_to_assets": liabilities_to_assets,
+                "liabilities_to_assets_change": _difference(
+                    liabilities_to_assets,
+                    previous_liabilities_to_assets,
                 ),
             }
         )
