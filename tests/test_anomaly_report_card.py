@@ -104,9 +104,11 @@ def test_report_card_preserves_metrics_sources_and_evidence() -> None:
     assert result.count("共同信号：明显放量、普通换手率高位") == 1
     assert "可比维度 4 项" in result
     assert (
-        "https://fangzhengai.wang/render_historical_lens_page"
+        "https://fangzhengai.wang/render_historical_lens_page?"
+        "code=600519&amp;date=2026-06-18&amp;source=anomaly-report"
         in result
     )
+    assert "直接复盘 2026-06-18" in result
     assert "后来收益没有进入本报告" in result
     assert "不构成买入、卖出或持有建议" in result
 
