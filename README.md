@@ -163,11 +163,10 @@ secret environment settings. It must never be committed to the repository.
   provenance.
 - Search for report evidence with transparent hybrid ranking: direct
   keywords, common Chinese-to-English mappings, auditable financial
-  concept groups, and a small local sentence-embedding model. Report vectors
-  are cached locally and the interface shows the retrieval method and semantic
-  similarity score. Chinese queries and very large reports use the transparent
-  lexical/concept path to avoid loading an unsuitable English embedding model
-  into a resource-constrained server.
+  concept groups, and an optional small local sentence-embedding model.
+  The memory-safe lexical/concept path is the default. Local embeddings require
+  `ENABLE_LOCAL_EMBEDDINGS=true`, should only be used on a server with enough
+  memory, and remain disabled for Chinese queries and very large reports.
 - Draft concise extractive answers using only retrieved report wording, with
   an inline PDF-page citation for every evidence extract.
 - Present supported answers as a conclusion plus evidence-backed points, and
@@ -202,8 +201,9 @@ secret environment settings. It must never be committed to the repository.
 - Measure the complete workflow against 10 human-defined Tesco Q&A cases.
   The current deterministic baseline passes 10/10 cases and 92/92 individual checks:
   routing, deterministic metrics, escalation, and safe refusal are 100%;
-  key-page retrieval is 100%. The previously missed total-liabilities case
-  now finds the group balance sheet through hybrid semantic retrieval.
+  key-page retrieval is 100%. The total-liabilities case finds the group
+  balance sheet through a deterministic financial-statement scope check,
+  without requiring the local embedding model.
 
 ## Verified benchmark
 

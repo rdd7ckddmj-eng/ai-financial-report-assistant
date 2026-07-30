@@ -440,7 +440,10 @@ def search_report_chunks(
             else 0
         )
         if semantic_score is None:
-            score = normalised_lexical_score
+            score = (
+                normalised_lexical_score
+                + _financial_statement_bonus(query, chunk["text"])
+            )
             retrieval_method = "lexical"
         else:
             score = (

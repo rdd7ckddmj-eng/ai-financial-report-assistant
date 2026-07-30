@@ -16,6 +16,19 @@ INDEX_CACHE_DIR = PROJECT_ROOT / ".cache" / "semantic_indexes"
 MAX_SEMANTIC_PASSAGES = 240
 CJK_PATTERN = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 
+
+def _env_flag(name: str) -> bool:
+    """Return True only when an environment switch is explicitly enabled."""
+    return os.getenv(name, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+ENABLE_LOCAL_EMBEDDINGS = _env_flag("ENABLE_LOCAL_EMBEDDINGS")
+
 # Keep all model files inside the project instead of writing to a user's
 # system-level cache. This also avoids Hugging Face Xet log permission issues.
 os.environ.setdefault(
@@ -33,7 +46,7 @@ def _load_model() -> object:
     return TextEmbedding(
         model_name=MODEL_NAME,
         cache_dir=str(MODEL_CACHE_DIR),
-        threads=min(os.cpu_count() or 2, 4),
+        threads=min(os.cpu_count() or 2, 2),
     )
 
 
@@ -54,7 +67,7 @@ def _normalise_rows(matrix: np.ndarray) -> np.ndarray:
     return matrix / norms
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=1)
 def _passage_matrix(texts: tuple[str, ...]) -> np.ndarray:
     """Embed report chunks once and reuse the index across questions and runs."""
     cache_path = _index_cache_path(texts)
@@ -65,7 +78,7 @@ def _passage_matrix(texts: tuple[str, ...]) -> np.ndarray:
 
     model = _load_model()
     matrix = np.asarray(
-        list(model.passage_embed(texts, batch_size=64)),
+        list(model.passage_embed(texts, batch_size=16)),
         dtype=np.float32,
     )
     matrix = _normalise_rows(matrix)
@@ -85,10 +98,15 @@ def semantic_similarity_scores(
     """Return local cosine similarities, or None if embeddings are unavailable."""
     if not query.strip() or not texts:
         return []
-    if CJK_PATTERN.search(query) or len(texts) > MAX_SEMANTIC_PASSAGES:
+    if (
+        not ENABLE_LOCAL_EMBEDDINGS
+        or CJK_PATTERN.search(query)
+        or len(texts) > MAX_SEMANTIC_PASSAGES
+    ):
         # The bundled model is English-only. Chinese A-share questions are
         # served more accurately and with much lower memory use by the
-        # transparent Chinese term/concept retriever.
+        # transparent Chinese term/concept retriever. Local embeddings are an
+        # explicit opt-in for servers with enough memory.
         return None
 
     try:

@@ -205,3 +205,18 @@ templates.
 
 Deploy this version and rerun the official Guizhou Moutai PDF through all three
 statement checks on the public website.
+
+## 2026-07-30 — Free-server memory protection
+
+### Error I encountered
+
+Render restarted the free instance after the annual-report workflow exceeded
+its memory limit.
+
+### How I fixed it
+
+Made local embeddings an explicit opt-in, reduced their batch and in-memory
+index sizes, and limited PDF and report-text caches to the latest report for
+thirty minutes. The default lexical/concept retriever, deterministic financial
+calculations, statement checks, evidence citations, and optional OpenAI
+synthesis remain available.

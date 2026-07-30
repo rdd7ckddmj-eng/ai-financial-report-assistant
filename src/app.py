@@ -386,17 +386,17 @@ def explain_liabilities_to_assets_ratio(ratio: float) -> str:
     return f"总负债约占总资产的 {ratio:.1%}。"
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(ttl=1800, max_entries=1, show_spinner=False)
 def read_uploaded_pdf(pdf_bytes: bytes) -> list[ExtractedPage]:
-    """Cache page extraction so the same upload is not processed repeatedly."""
+    """Temporarily cache only the most recently extracted PDF."""
     return extract_pdf_pages(pdf_bytes)
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(ttl=1800, max_entries=1, show_spinner=False)
 def build_search_chunks(
     pages: list[ExtractedPage],
 ) -> list[ReportChunk]:
-    """Cache page-preserving chunks used by the evidence search."""
+    """Temporarily cache chunks for only the most recent report."""
     return chunk_report_pages(pages)
 
 
@@ -841,9 +841,9 @@ def load_company_announcements(
     )
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=1800, max_entries=1, show_spinner=False)
 def load_official_annual_report(announcement_url: str) -> bytes:
-    """Temporarily cache a validated official annual-report PDF."""
+    """Temporarily cache only the latest validated official PDF."""
     return download_official_pdf(announcement_url)
 
 

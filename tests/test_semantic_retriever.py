@@ -1,7 +1,16 @@
 from src.semantic_retriever import (
+    ENABLE_LOCAL_EMBEDDINGS,
     MAX_SEMANTIC_PASSAGES,
     semantic_similarity_scores,
 )
+
+
+def test_local_embeddings_are_disabled_by_default() -> None:
+    assert ENABLE_LOCAL_EMBEDDINGS is False
+    assert semantic_similarity_scores(
+        "revenue",
+        ["Revenue increased during the year."],
+    ) is None
 
 
 def test_chinese_query_uses_lightweight_lexical_fallback() -> None:

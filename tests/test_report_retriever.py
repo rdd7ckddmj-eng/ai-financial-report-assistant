@@ -209,7 +209,7 @@ def test_concept_search_understands_top_line_wording() -> None:
     assert "revenue and sales" in results[0]["matched_concepts"]
 
 
-def test_hybrid_search_understands_total_liabilities_scope() -> None:
+def test_lexical_search_understands_total_liabilities_scope() -> None:
     chunks = chunk_report_pages(
         [
             {
@@ -238,8 +238,8 @@ def test_hybrid_search_understands_total_liabilities_scope() -> None:
 
     assert results[0]["page_number"] == 125
     assert results[0]["matched_concepts"] == ["leverage"]
-    assert results[0]["retrieval_method"] == "hybrid"
-    assert results[0]["semantic_score"] is not None
+    assert results[0]["retrieval_method"] == "lexical"
+    assert results[0]["semantic_score"] is None
 
 
 def test_search_report_chunks_returns_nothing_for_empty_or_unmatched_query() -> None:
@@ -289,7 +289,7 @@ def test_real_report_concept_search_finds_balance_sheet_liquidity() -> None:
     assert any(result["page_number"] == 125 for result in results)
 
 
-def test_real_report_hybrid_search_finds_total_liabilities_statement() -> None:
+def test_real_report_search_finds_total_liabilities_statement() -> None:
     if not REPORT_PATH.exists():
         pytest.skip("The public Tesco PDF is stored locally and not committed.")
 
