@@ -90,7 +90,8 @@ secret environment settings. It must never be committed to the repository.
   source links, topic classification, and a neutral attention level instead of
   unsupported bullish/bearish labels.
 - Find the latest complete annual report while excluding summaries, inquiry
-  letters, cancellations, and replies.
+  letters, cancellations, and replies; prefer the Chinese original over a
+  later translation for the same reporting year.
 - Temporarily load a validated CNINFO annual-report PDF on the server and feed
   it into the existing evidence workflow, with manual upload as a fallback.
 - Display daily candlesticks, volume, MA5/MA20/MA60, 20/60/250-trading-day

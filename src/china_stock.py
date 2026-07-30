@@ -854,7 +854,7 @@ def prepare_announcements(frame: pd.DataFrame) -> pd.DataFrame:
 def select_latest_annual_report(
     announcements: pd.DataFrame,
 ) -> pd.Series | None:
-    """Return the latest complete annual report, excluding summaries."""
+    """Return the latest complete report, preferring Chinese over translations."""
     prepared = prepare_announcements(announcements)
     if prepared.empty:
         return None
@@ -867,6 +867,30 @@ def select_latest_annual_report(
     candidates = prepared.loc[mask]
     if candidates.empty:
         return None
+
+    # A translated edition can be published after the Chinese original.
+    # Compare report years first so a prior-year Chinese report never wins,
+    # then prefer the Chinese original within the latest reporting year.
+    report_years = pd.to_numeric(
+        candidates["title"].str.extract(
+            r"((?:19|20)\d{2})年年度报告",
+            expand=False,
+        ),
+        errors="coerce",
+    )
+    if report_years.notna().any():
+        latest_report_year = report_years.max()
+        candidates = candidates.loc[report_years == latest_report_year]
+
+    translated_mask = candidates["title"].str.contains(
+        r"英文(?:版|译本)?|English",
+        case=False,
+        regex=True,
+        na=False,
+    )
+    chinese_originals = candidates.loc[~translated_mask]
+    if not chinese_originals.empty:
+        return chinese_originals.iloc[0]
     return candidates.iloc[0]
 
 

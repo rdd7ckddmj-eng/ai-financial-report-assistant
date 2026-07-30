@@ -128,3 +128,40 @@ How reliably image-only annual reports can be processed without adding OCR.
 
 Run a complete Chinese annual-report case through all three statement
 extractors and record any unsupported layout differences.
+
+## 2026-07-30 — Real annual-report selection
+
+### What I studied
+
+Why “latest publication date” and “latest reporting year” are not always the
+same selection rule.
+
+### What I built or changed
+
+Changed annual-report selection so the newest reporting year is chosen first,
+then the Chinese original is preferred over a later English translation.
+
+### One concept I can now explain
+
+An English translation published later does not make it the primary source for
+testing a Chinese financial-statement extractor.
+
+### Error I encountered
+
+The live website selected 贵州茅台2025年年度报告（英文版） because it had a
+later announcement date than the Chinese original.
+
+### How I fixed it
+
+The program now compares report years before comparing language and publication
+order, while still using English when it is the only version for that year.
+
+### What I still do not understand
+
+Whether every listed company uses a title that includes the four-digit report
+year.
+
+### Next action
+
+Deploy the selector fix and automatically load the Chinese original for
+three-statement extraction testing.

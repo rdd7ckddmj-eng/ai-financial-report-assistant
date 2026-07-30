@@ -17,6 +17,7 @@
 - [x] Manually verify three flagship Historical Lens event dates for 贵州茅台.
 - [x] Add point-in-time profitability and cash-quality ratios.
 - [x] Find the latest complete official annual report and exclude summaries.
+- [x] Prefer the Chinese original over a translation for the same report year.
 - [x] Add server-side official PDF loading with signature and size checks.
 - [x] Validate the public data adapters in the deployed Render environment.
 - [x] Deploy the multi-page version to the existing website.
