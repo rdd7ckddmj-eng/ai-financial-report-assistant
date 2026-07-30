@@ -95,6 +95,11 @@ secret environment settings. It must never be committed to the repository.
   it into the existing evidence workflow, with manual upload as a fallback.
 - Display daily candlesticks, volume, MA5/MA20/MA60, 20/60/250-trading-day
   returns, annualised historical volatility, and maximum drawdown.
+- Show a deterministic market-activity evidence panel with the latest daily
+  return, volume versus the preceding 20-session median, ordinary turnover
+  availability, and a board-rule-based limit-up candidate label.  Effective
+  turnover remains unavailable until a verified point-in-time free-float
+  denominator is connected.
 - Rebuild a historical market snapshot at a user-selected cut-off, using only
   earlier observations and disclosures, then reveal the subsequent 20/60/120
   trading-day outcomes in a separate user-controlled step.

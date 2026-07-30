@@ -58,6 +58,60 @@ def test_company_research_page_renders_a_successful_market_result(
     app.render_company_research_page()
 
 
+def test_market_page_passes_activity_evidence_to_the_renderer(
+    monkeypatch,
+) -> None:
+    """Cover the K-line page integration without calling a live data source."""
+    from src import app
+
+    company = {
+        "code": "600519",
+        "name": "贵州茅台",
+        "exchange": "SH",
+        "exchange_name": "上海证券交易所",
+        "canonical_code": "600519.SH",
+    }
+    dates = pd.date_range("2026-06-01", periods=30, freq="B")
+    close = pd.Series([100 + index * 0.2 for index in range(len(dates))])
+    market_frame = pd.DataFrame(
+        {
+            "date": dates,
+            "open": close - 0.2,
+            "high": close + 0.6,
+            "low": close - 0.8,
+            "close": close,
+            "volume": [1_000_000] * 29 + [2_000_000],
+            "amount": 100_000_000,
+            "turnover": 2.5,
+        }
+    )
+    market_frame.attrs["source"] = "测试公开行情"
+    rendered_activity = []
+
+    monkeypatch.setattr(app, "apply_product_theme", lambda: None)
+    monkeypatch.setattr(app, "show_compact_page_header", lambda *args: None)
+    monkeypatch.setattr(app, "_selected_company", lambda: company)
+    monkeypatch.setattr(app, "_show_company_banner", lambda selected: None)
+    monkeypatch.setattr(
+        app,
+        "load_a_share_history",
+        lambda *args: market_frame,
+    )
+    monkeypatch.setattr(
+        app,
+        "_show_market_activity_evidence",
+        lambda activity: rendered_activity.append(activity),
+    )
+    monkeypatch.setattr(app, "_build_kline_figure", lambda *args: object())
+    monkeypatch.setattr(app.st, "plotly_chart", lambda *args, **kwargs: None)
+    monkeypatch.setattr(app, "show_product_footer", lambda: None)
+
+    app.render_market_page()
+
+    assert rendered_activity[0]["volume_ratio_20d"] == 2
+    assert rendered_activity[0]["effective_turnover"] is None
+
+
 def test_historical_lens_page_renders_a_point_in_time_snapshot(
     monkeypatch,
 ) -> None:

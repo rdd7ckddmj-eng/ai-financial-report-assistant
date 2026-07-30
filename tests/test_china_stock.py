@@ -3,7 +3,9 @@ import pytest
 
 from src.china_stock import (
     add_moving_averages,
+    build_company_identity,
     build_cninfo_pdf_url,
+    calculate_market_activity,
     calculate_market_metrics,
     classify_announcement,
     infer_exchange,
@@ -11,6 +13,7 @@ from src.china_stock import (
     prepare_announcements,
     prepare_market_history,
     prepare_tencent_market_history,
+    reference_price_limit_ratio,
     resolve_company,
     select_latest_annual_report,
 )
@@ -74,6 +77,62 @@ def test_prepare_market_history_and_metrics() -> None:
     assert metrics["return_250d"] is not None
     assert metrics["max_drawdown"] == pytest.approx(0.0)
     assert with_averages["ma_60"].notna().sum() == 241
+
+
+def test_market_activity_uses_previous_20_day_median_volume() -> None:
+    frame = _market_rows(21)
+    frame.loc[:19, "成交量"] = 1_000_000
+    frame.loc[20, "成交量"] = 2_500_000
+    frame.loc[20, "换手率"] = 3.2
+    company = build_company_identity("600519", "贵州茅台")
+
+    activity = calculate_market_activity(frame, company)
+
+    assert activity["volume_ratio_20d"] == pytest.approx(2.5)
+    assert activity["volume_signal"] == "明显放量"
+    assert activity["turnover"] == pytest.approx(0.032)
+    assert activity["effective_turnover"] is None
+
+
+def test_market_activity_marks_limit_up_only_as_candidate() -> None:
+    frame = _market_rows(21)
+    frame.loc[20, "收盘"] = frame.loc[19, "收盘"] * 1.10
+    frame.loc[20, "最高"] = frame.loc[20, "收盘"]
+    company = build_company_identity("600519", "贵州茅台")
+
+    activity = calculate_market_activity(frame, company)
+
+    assert activity["limit_up_reference"] == pytest.approx(0.10)
+    assert activity["limit_up_status"] == "涨停候选"
+    assert "仍需交易所数据复核" in activity["limit_up_note"]
+
+
+@pytest.mark.parametrize(
+    ("code", "name", "market_date", "expected"),
+    [
+        ("600519", "贵州茅台", "2026-07-29", 0.10),
+        ("688981", "中芯国际", "2026-07-29", 0.20),
+        ("300750", "宁德时代", "2026-07-29", 0.20),
+        ("920001", "测试北交所公司", "2026-07-29", 0.30),
+        ("000001", "ST测试", "2026-07-29", 0.05),
+        ("600001", "*ST测试", "2026-07-05", 0.05),
+        ("600001", "*ST测试", "2026-07-06", 0.10),
+    ],
+)
+def test_reference_price_limit_ratio(
+    code: str,
+    name: str,
+    market_date: str,
+    expected: float,
+) -> None:
+    company = build_company_identity(code, name)
+
+    ratio = reference_price_limit_ratio(
+        company,
+        pd.Timestamp(market_date).date(),
+    )
+
+    assert ratio == pytest.approx(expected)
 
 
 def test_invalid_ohlc_rows_are_removed() -> None:

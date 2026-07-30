@@ -42,6 +42,22 @@ class MarketMetrics(TypedDict):
     observations: int
 
 
+class MarketActivityEvidence(TypedDict):
+    """Latest-session activity signals with explicit evidence limitations."""
+
+    latest_date: str
+    daily_return: float | None
+    volume_ratio_20d: float | None
+    volume_signal: str
+    turnover: float | None
+    turnover_status: str
+    effective_turnover: float | None
+    effective_turnover_status: str
+    limit_up_reference: float
+    limit_up_status: str
+    limit_up_note: str
+
+
 class DataSourceError(RuntimeError):
     """Raised when a public market-data source cannot be used safely."""
 
@@ -368,6 +384,111 @@ def calculate_market_metrics(frame: pd.DataFrame) -> MarketMetrics:
         "annualised_volatility": volatility,
         "max_drawdown": float(drawdowns.min()),
         "observations": len(prepared),
+    }
+
+
+def _is_risk_warning_company(company: CompanyIdentity) -> bool:
+    """Identify an explicit ST marker without guessing from price behaviour."""
+    compact_name = re.sub(r"\s+", "", company["name"]).upper()
+    return compact_name.startswith(("ST", "*ST"))
+
+
+def reference_price_limit_ratio(
+    company: CompanyIdentity,
+    market_date: date,
+) -> float:
+    """Return the board-level daily price-limit reference for one stock.
+
+    This is a screening reference, not a definitive exchange determination.
+    IPO windows, relistings, and other rule exceptions need separate metadata.
+    """
+    code = company["code"]
+    if company["exchange"] == "BJ":
+        return 0.30
+    if code.startswith(("300", "301", "688", "689")):
+        return 0.20
+    if _is_risk_warning_company(company):
+        # Shanghai aligned main-board risk-warning stocks with the 10% limit
+        # from 2026-07-06. Shenzhen risk-warning stocks remain a 5% reference.
+        if company["exchange"] == "SH" and market_date >= date(2026, 7, 6):
+            return 0.10
+        return 0.05
+    return 0.10
+
+
+def calculate_market_activity(
+    frame: pd.DataFrame,
+    company: CompanyIdentity,
+) -> MarketActivityEvidence:
+    """Calculate latest-session activity evidence without an LLM."""
+    prepared = prepare_market_history(frame)
+    if prepared.empty:
+        raise ValueError("没有足够的有效行情数据用于计算市场活跃度。")
+
+    latest = prepared.iloc[-1]
+    latest_date = latest["date"]
+    daily_return: float | None = None
+    if not pd.isna(latest["pct_change"]):
+        daily_return = float(latest["pct_change"]) / 100
+    elif len(prepared) >= 2:
+        previous_close = float(prepared.iloc[-2]["close"])
+        if previous_close > 0:
+            daily_return = float(latest["close"]) / previous_close - 1
+
+    volume_ratio: float | None = None
+    if len(prepared) >= 21:
+        previous_20_volume = prepared["volume"].iloc[-21:-1].astype(float)
+        baseline = float(previous_20_volume.median())
+        if baseline > 0:
+            volume_ratio = float(latest["volume"]) / baseline
+
+    if volume_ratio is None:
+        volume_signal = "数据不足"
+    elif volume_ratio >= 2:
+        volume_signal = "明显放量"
+    elif volume_ratio >= 1.3:
+        volume_signal = "温和放量"
+    elif volume_ratio <= 0.7:
+        volume_signal = "明显缩量"
+    else:
+        volume_signal = "接近前20日常态"
+
+    turnover_value = latest["turnover"]
+    turnover = (
+        None if pd.isna(turnover_value) else float(turnover_value) / 100
+    )
+    turnover_status = (
+        "公开日线已提供普通换手率"
+        if turnover is not None
+        else "当前公开日线未提供换手率"
+    )
+
+    limit_reference = reference_price_limit_ratio(company, latest_date)
+    if daily_return is None:
+        limit_status = "数据不足"
+    elif daily_return >= limit_reference - 0.003:
+        limit_status = "涨停候选"
+    else:
+        limit_status = "未触及参考阈值"
+
+    return {
+        "latest_date": latest_date.isoformat(),
+        "daily_return": daily_return,
+        "volume_ratio_20d": volume_ratio,
+        "volume_signal": volume_signal,
+        "turnover": turnover,
+        "turnover_status": turnover_status,
+        "effective_turnover": None,
+        "effective_turnover_status": (
+            "缺少可核验的时点自由流通股本，暂不计算"
+        ),
+        "limit_up_reference": limit_reference,
+        "limit_up_status": limit_status,
+        "limit_up_note": (
+            "仅按板块、风险警示标识和最新日涨幅筛选；"
+            "新股前五个交易日、重新上市、退市整理首日、"
+            "价格最小变动单位及其他例外仍需交易所数据复核。"
+        ),
     }
 
 

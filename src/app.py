@@ -31,8 +31,10 @@ from src.cash_flow_extractor import find_cash_flow_figures
 from src.china_stock import (
     CompanyIdentity,
     DataSourceError,
+    MarketActivityEvidence,
     MarketMetrics,
     add_moving_averages,
+    calculate_market_activity,
     calculate_market_metrics,
     download_official_pdf,
     fetch_announcements,
@@ -987,6 +989,61 @@ def _format_percent(value: float | None) -> str:
     return "数据不足" if value is None else f"{value:.1%}"
 
 
+def _show_market_activity_evidence(
+    activity: MarketActivityEvidence,
+) -> None:
+    """Render activity signals separately from investment interpretation."""
+    st.subheader("市场活跃度证据")
+    st.caption(
+        "这里回答“当天交易是否活跃”，不把放量或涨停候选解释成利好、"
+        "利空或买卖信号。"
+    )
+    columns = st.columns(4)
+    columns[0].metric(
+        "最新日涨跌幅",
+        _format_percent(activity["daily_return"]),
+    )
+    volume_ratio = activity["volume_ratio_20d"]
+    columns[1].metric(
+        "成交量 / 前20日中位数",
+        "数据不足" if volume_ratio is None else f"{volume_ratio:.2f}倍",
+        activity["volume_signal"],
+        delta_color="off",
+    )
+    columns[2].metric(
+        "普通换手率",
+        _format_percent(activity["turnover"]),
+    )
+    columns[3].metric(
+        "涨停状态",
+        activity["limit_up_status"],
+        f"规则参考 {activity['limit_up_reference']:.0%}",
+        delta_color="off",
+    )
+    st.caption(
+        f"普通换手率：{activity['turnover_status']}。"
+        f"有效换手率：{activity['effective_turnover_status']}。"
+    )
+    with st.expander("查看涨停候选与有效换手率的严谨边界"):
+        st.write(activity["limit_up_note"])
+        st.write(
+            "普通换手率使用公开行情源直接提供的字段；"
+            "“有效换手率”需要可核验的时点自由流通股本作为分母。"
+            "当前缺少该证据时，系统明确显示缺失，不使用普通换手率冒充。"
+        )
+        st.markdown(
+            "规则依据（截至2026-07-30）："
+            "[上交所2026年交易规则]"
+            "(https://www.sse.com.cn/lawandrules/sselawsrules2025/"
+            "stocks/exchange/c/c_20260424_10816482.shtml)｜"
+            "[深交所主板规则说明]"
+            "(https://investor.szse.cn/knowledge/qa/"
+            "t20230306_599093.html)｜"
+            "[北交所2026年交易规则]"
+            "(https://www.bse.cn/jygl_list/200028217.html)"
+        )
+
+
 def _load_company_research_data(
     company: CompanyIdentity,
 ) -> tuple[pd.DataFrame | None, MarketMetrics | None, pd.DataFrame | None]:
@@ -1352,6 +1409,7 @@ def render_market_page() -> None:
                 adjustment[adjustment_label],
             )
             metrics = calculate_market_metrics(market_frame)
+            activity = calculate_market_activity(market_frame, company)
     except (DataSourceError, ValueError) as error:
         st.error(str(error))
         st.info(
@@ -1372,6 +1430,8 @@ def render_market_page() -> None:
         "最大回撤",
         _format_percent(metrics["max_drawdown"]),
     )
+
+    _show_market_activity_evidence(activity)
 
     figure = _build_kline_figure(market_frame, company)
     st.plotly_chart(
