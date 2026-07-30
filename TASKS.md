@@ -9,6 +9,7 @@
 - [x] Define Company Research Engine and Historical Lens product specifications.
 - [x] Add a tested point-in-time evidence engine that excludes future disclosures.
 - [x] Add a Historical Lens page with a separate 1/3/6-month outcome reveal.
+- [x] Manually verify three flagship Historical Lens event dates for 贵州茅台.
 - [x] Find the latest complete official annual report and exclude summaries.
 - [x] Add server-side official PDF loading with signature and size checks.
 - [x] Validate the public data adapters in the deployed Render environment.
@@ -72,7 +73,7 @@
 - [ ] Add scheduled background refresh only when traffic justifies the cost.
 - [ ] Adapt deterministic statement extraction to major Chinese A-share layouts.
 - [ ] Add cross-year financial trends and comparable-company research.
-- [ ] Manually verify 3–5 flagship Historical Lens event dates for 贵州茅台.
+- [ ] Expand the 贵州茅台 flagship set from three to five events after review.
 - [x] GitHub publication and public Render website.
 - [ ] Complete recruitment materials.
 - [ ] Complete any remaining standalone Python exercises if useful.

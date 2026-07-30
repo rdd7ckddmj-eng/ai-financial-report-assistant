@@ -98,6 +98,9 @@ secret environment settings. It must never be committed to the repository.
 - Rebuild a historical market snapshot at a user-selected cut-off, using only
   earlier observations and disclosures, then reveal the subsequent 20/60/120
   trading-day outcomes in a separate user-controlled step.
+- Offer three manually verified Guizhou Moutai flagship dates with direct
+  Shanghai Stock Exchange or company-source links, while keeping free date
+  selection available.
 - Record the requested date and effective trading date, use unadjusted prices
   to avoid current adjustment-factor leakage, and audit disclosures excluded
   because they were published after the historical cut-off.
@@ -189,3 +192,8 @@ python -m src.qa_benchmark
 When the local Tesco report is available, `pytest` compares every benchmark
 row with the program's live PDF extraction. This catches both incorrect
 figures and lost provenance such as a wrong page or unit.
+
+The first Historical Lens flagship dates are stored separately in
+`data/verified/moutai_historical_events.csv`. They provide official event
+anchors only; later market outcomes are recalculated from validated history
+rather than stored as conclusions.

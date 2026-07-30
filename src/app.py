@@ -48,6 +48,7 @@ from src.financial_ratios import (
     net_profit_margin,
     revenue_growth,
 )
+from src.flagship_cases import load_moutai_flagship_events
 from src.historical_lens import (
     EvidenceRecord,
     calculate_historical_snapshot,
@@ -1439,11 +1440,46 @@ def render_historical_lens_page() -> None:
 
     today = date.today()
     default_date = today - timedelta(days=365)
+    selected_event = None
+    if company["code"] == "600519":
+        try:
+            flagship_events = load_moutai_flagship_events()
+        except ValueError:
+            flagship_events = []
+            st.warning("已核验的重要日期暂时无法读取，可继续自由选择日期。")
+
+        if flagship_events:
+            event_options = {"自由选择日期": None}
+            for event in flagship_events:
+                label = (
+                    f"{event['event_date'].isoformat()}｜"
+                    f"{event['title']}"
+                )
+                event_options[label] = event
+            event_label = st.selectbox(
+                "快速选择已核验的重要日期",
+                options=list(event_options),
+                index=len(event_options) - 1,
+                help=(
+                    "这些日期只提供官方事件入口和时间锚点，"
+                    "不会预设事件对股价的影响。"
+                ),
+            )
+            selected_event = event_options[event_label]
+            if selected_event is not None:
+                default_date = selected_event["event_date"]
+
+    date_key_suffix = (
+        selected_event["event_id"]
+        if selected_event is not None
+        else "custom"
+    )
     selected_date = st.date_input(
         "选择历史研究截止日",
         value=default_date,
         min_value=today - timedelta(days=365 * 5),
         max_value=today,
+        key=f"historical_date_{company['code']}_{date_key_suffix}",
         help=(
             "若所选日期不是交易日，系统会使用该日期之前最近一个交易日，"
             "并同时显示两个日期。"
@@ -1451,6 +1487,21 @@ def render_historical_lens_page() -> None:
     )
     if isinstance(selected_date, tuple):
         selected_date = selected_date[0]
+
+    if selected_event is not None:
+        with st.container(border=True):
+            st.markdown(f"#### 已核验重要时点｜{selected_event['title']}")
+            st.caption(
+                f"事件日期：{selected_event['event_date'].isoformat()}｜"
+                f"公开日期：{selected_event['published_date'].isoformat()}｜"
+                f"{selected_event['category']}｜证据等级 "
+                f"{selected_event['evidence_grade']}"
+            )
+            st.write(selected_event["why_important"])
+            st.link_button(
+                "查看该时点的官方原始证据",
+                selected_event["source_url"],
+            )
 
     history_start = selected_date - timedelta(days=550)
     history_end = min(today, selected_date + timedelta(days=250))
