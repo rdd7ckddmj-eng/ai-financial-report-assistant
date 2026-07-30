@@ -306,3 +306,29 @@ analogs.
 The comparison reuses the bounded market-event list already in memory. It
 does not call a paid API, download a second dataset, or create persistent
 files on the Render server.
+
+## 2026-07-30 — Historical analogs in the offline report
+
+### What I built or changed
+
+Extended the downloadable anomaly report so it also preserves up to three
+strictly earlier historical analogs, their rule scores, shared signals,
+comparable-dimension counts, and a Historical Lens replay entry.
+
+### One concept I can now explain
+
+A useful export should preserve the reasoning trail, not just the final
+numbers. The reader can see why two anomaly dates were considered similar and
+then choose whether to conduct a separate point-in-time replay.
+
+### How future leakage is prevented
+
+The report receives only the analog fields already computed on the page. It
+does not request later prices or embed subsequent returns, and it states this
+boundary beside the comparison results.
+
+### Why this design fits the current deployment
+
+The extra section is plain self-contained HTML. It adds no paid API call,
+server-side PDF dependency, persistent file storage, or second market-data
+request.
