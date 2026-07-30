@@ -117,6 +117,11 @@ secret environment settings. It must never be committed to the repository.
   A dedicated Market Anomaly Agent synthesises the three checks, connects a
   selected date to official disclosures, and can carry it into Historical Lens
   without weakening its publication-date boundary.
+- Compare a selected anomaly with strictly earlier anomaly candidates using
+  transparent weights for signal overlap, daily return, volume multiple, and
+  ordinary-turnover percentile. Missing fields are excluded and weights are
+  renormalised; weak matches are rejected. One click opens an earlier analog
+  in Historical Lens without exposing any later return.
 - Build an auditable abnormal-day evidence chain from official disclosures
   published on the selected date or within the preceding six calendar days.
   Later disclosures are excluded, links and date gaps remain visible, and
