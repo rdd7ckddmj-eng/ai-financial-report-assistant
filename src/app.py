@@ -2840,15 +2840,29 @@ def render_annual_report_page() -> None:
                 liquidity_unit = (
                     balance_sheet_figures["unit"] or "报告单位"
                 )
+                is_chinese_balance_sheet = (
+                    balance_sheet_figures.get("statement_format")
+                    == "chinese_a_share"
+                )
 
                 st.subheader("自动提取：流动性")
-                st.caption(
-                    "Python 将流动资源减去流动负债，并与报表中的"
-                    "净流动负债行进行勾稽核对。"
-                )
+                if is_chinese_balance_sheet:
+                    st.caption(
+                        "Python 核对流动资产、非流动资产和资产总计，"
+                        "并用流动资产减去流动负债计算净营运资金。"
+                    )
+                else:
+                    st.caption(
+                        "Python 将流动资源减去流动负债，并与报表中的"
+                        "净流动负债行进行勾稽核对。"
+                    )
                 resources_column, liabilities_column = st.columns(2)
                 resources_column.metric(
-                    f"流动资源 ({liquidity_unit})",
+                    (
+                        f"流动资产 ({liquidity_unit})"
+                        if is_chinese_balance_sheet
+                        else f"流动资源 ({liquidity_unit})"
+                    ),
                     f"{current_resources:,.0f}",
                 )
                 liabilities_column.metric(
@@ -2864,28 +2878,47 @@ def render_annual_report_page() -> None:
                     ),
                 )
                 net_current_column.metric(
-                    f"净流动负债 ({liquidity_unit})",
+                    (
+                        f"净营运资金 ({liquidity_unit})"
+                        if is_chinese_balance_sheet
+                        else f"净流动负债 ({liquidity_unit})"
+                    ),
                     f"{net_current_position:,.0f}",
                 )
-                st.caption(
-                    f"流动资源 = 流动资产小计 "
-                    f"{balance_sheet_figures['current_assets_subtotal']:,.0f} "
-                    f"+ 待售资产 "
-                    f"{assets_held_for_sale:,.0f} {liquidity_unit}. "
-                    f"上期流动比率：{previous_liquidity_ratio:.2f}x。"
-                )
+                if is_chinese_balance_sheet:
+                    st.caption(
+                        "中国报表中的持有待售资产已经包含在流动资产"
+                        f"合计内。本期流动资产合计：{current_resources:,.0f} "
+                        f"{liquidity_unit}；上期流动比率："
+                        f"{previous_liquidity_ratio:.2f}x。"
+                    )
+                else:
+                    st.caption(
+                        f"流动资源 = 流动资产小计 "
+                        f"{balance_sheet_figures['current_assets_subtotal']:,.0f} "
+                        f"+ 待售资产 "
+                        f"{assets_held_for_sale:,.0f} {liquidity_unit}. "
+                        f"上期流动比率：{previous_liquidity_ratio:.2f}x。"
+                    )
                 if current_liquidity_ratio < 1:
                     st.warning(
                         "报告日流动资源低于流动负债，表明营运资金为负；"
                         "但这本身不能证明企业资不抵债，还需结合现金流"
                         "和商业模式判断。"
                     )
-                st.caption(
-                    "证据行：Current assets、Non-current assets classified "
-                    "as held for sale、Current liabilities 与 Net current "
-                    f"liabilities，PDF 第 "
-                    f"{balance_sheet_figures['page_number']} 页。"
-                )
+                if is_chinese_balance_sheet:
+                    st.caption(
+                        "证据行：流动资产合计、非流动资产合计、资产总计、"
+                        "流动负债合计，PDF 第 "
+                        f"{balance_sheet_figures['page_number']} 页。"
+                    )
+                else:
+                    st.caption(
+                        "证据行：Current assets、Non-current assets "
+                        "classified as held for sale、Current liabilities "
+                        "与 Net current liabilities，PDF 第 "
+                        f"{balance_sheet_figures['page_number']} 页。"
+                    )
 
                 extracted_total_assets = balance_sheet_figures[
                     "current_total_assets"
@@ -2912,10 +2945,16 @@ def render_annual_report_page() -> None:
                 ) * 100
 
                 st.subheader("自动提取：杠杆与资本结构")
-                st.caption(
-                    "Python 汇总流动与非流动项目，并验证总资产减总负债"
-                    "等于报表净资产。"
-                )
+                if is_chinese_balance_sheet:
+                    st.caption(
+                        "Python 分别验证流动与非流动项目之和，并核对"
+                        "资产总计 = 负债合计 + 所有者权益合计。"
+                    )
+                else:
+                    st.caption(
+                        "Python 汇总流动与非流动项目，并验证总资产减"
+                        "总负债等于报表净资产。"
+                    )
                 total_assets_column, total_liabilities_column = st.columns(2)
                 total_assets_column.metric(
                     f"总资产 ({liquidity_unit})",
@@ -2948,11 +2987,17 @@ def render_annual_report_page() -> None:
                     "该比率反映资产负债表结构，应结合债务条款、"
                     "租赁负债、现金流和企业商业模式共同分析。"
                 )
-                st.caption(
-                    "证据部分：非流动资产、流动资源、流动负债、"
-                    "非流动负债和净资产，PDF 第 "
-                    f"{balance_sheet_figures['page_number']} 页。"
-                )
+                if is_chinese_balance_sheet:
+                    st.caption(
+                        "证据行：资产总计、负债合计与所有者权益合计，"
+                        f"PDF 第 {balance_sheet_figures['page_number']} 页。"
+                    )
+                else:
+                    st.caption(
+                        "证据部分：非流动资产、流动资源、流动负债、"
+                        "非流动负债和净资产，PDF 第 "
+                        f"{balance_sheet_figures['page_number']} 页。"
+                    )
 
             if cash_flow_figures is not None:
                 cash_flow_unit = cash_flow_figures["unit"] or "报告单位"

@@ -52,3 +52,42 @@ How API prepaid credits and billing limits should be configured.
 
 Decide whether to enable a small API budget, then run the first live,
 evidence-grounded LLM answer.
+
+## 2026-07-30
+
+### What I studied
+
+Why extracting a financial statement requires both row recognition and
+accounting reconciliation.
+
+### What I built or changed
+
+Added deterministic support for common Chinese A-share consolidated balance
+sheets, including current/prior-year figures, RMB units, and Chinese punctuation.
+
+### One concept I can now explain
+
+A recognised number is not automatically a reliable number. The program checks
+current plus non-current assets, current plus non-current liabilities, and the
+accounting equation before accepting the extraction.
+
+### Error I encountered
+
+The existing interface described the Tesco-specific held-for-sale presentation,
+which would be misleading for a Chinese balance sheet.
+
+### How I fixed it
+
+The extraction records the statement format, and the interface now uses the
+correct Chinese labels and explains that held-for-sale assets are already
+included in current assets.
+
+### What I still do not understand
+
+How many additional layouts are needed for banks, insurers, and image-only PDF
+reports.
+
+### Next action
+
+Validate the extractor against a real Chinese annual-report PDF, then adapt the
+cash-flow statement without weakening the reconciliation rules.

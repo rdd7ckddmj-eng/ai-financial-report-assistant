@@ -141,11 +141,13 @@ secret environment settings. It must never be committed to the repository.
 - Automatically extract revenue and profit totals from the verified Tesco
   six-column layout and common Chinese A-share consolidated income statements,
   including RMB units and attributable net profit.
+- Extract current and non-current assets and liabilities, total assets, total
+  liabilities, and total equity from common Chinese A-share consolidated
+  balance sheets.
 - Compare current and previous reported results and flag unequal period lengths.
-- Reconcile balance-sheet current resources and liabilities before calculating
-  current ratios.
-- Reconcile total assets, total liabilities, and net assets before calculating
-  liabilities-to-assets ratios.
+- Reconcile current plus non-current subtotals to published totals, then verify
+  assets equal liabilities plus equity before calculating liquidity and
+  leverage ratios.
 - Reconcile operating, investing, and financing cash flows to opening and
   ending cash.
 - Calculate net profit margin, revenue growth, current ratio, and
