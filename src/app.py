@@ -1585,7 +1585,11 @@ def _show_event_evidence_chain(
                         f"{item['evidence_grade']}"
                     )
                 with link_column:
-                    st.markdown(f"[查看原文 ↗]({item['source_url']})")
+                    st.link_button(
+                        "查看原文 ↗",
+                        item["source_url"],
+                        use_container_width=True,
+                    )
         if chain["matched_count"] > len(chain["matches"]):
             st.caption(
                 f"当前窗口共匹配 {chain['matched_count']} 条，"
@@ -1885,8 +1889,10 @@ def render_historical_lens_page() -> None:
                         "证据等级 A｜来源：巨潮资讯"
                     )
                 with link_column:
-                    st.markdown(
-                        f"[查看原文 ↗]({record['source_url']})"
+                    st.link_button(
+                        "查看原文 ↗",
+                        record["source_url"],
+                        use_container_width=True,
                     )
 
         known_announcements = announcements.loc[

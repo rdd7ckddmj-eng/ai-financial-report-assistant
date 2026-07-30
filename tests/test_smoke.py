@@ -61,6 +61,12 @@ _show_event_evidence_chain(chain, event_context="明显放量")
     assert any(
         "截止日后公告未进入" in item.value for item in app_test.caption
     )
+    link_buttons = app_test.get("link_button")
+    assert len(link_buttons) == 1
+    assert link_buttons[0].proto.label == "查看原文 ↗"
+    assert link_buttons[0].proto.url == (
+        "https://static.cninfo.com.cn/example.pdf"
+    )
 
 
 def test_company_research_page_renders_a_successful_market_result(
