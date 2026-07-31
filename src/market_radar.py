@@ -1,4 +1,4 @@
-"""Build a bounded, deterministic watchlist anomaly radar."""
+"""Build a bounded, deterministic watchlist research task queue."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ class WatchlistParseResult(TypedDict):
 
 
 class MarketRadarRow(TypedDict):
-    """One company's latest-session evidence for the watchlist wall."""
+    """One company's latest-session evidence for the research queue."""
 
     company: CompanyIdentity
     latest_date: str

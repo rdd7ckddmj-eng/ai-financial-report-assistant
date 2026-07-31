@@ -116,6 +116,7 @@ from src.report_retriever import (
     chunk_report_pages,
 )
 from src.report_metric_tool import MetricToolResult
+from src.research_queue_report import build_research_queue_report_html
 from src.volume_turnover_research import (
     VolumeTurnoverSnapshot,
     build_volume_turnover_history,
@@ -1465,7 +1466,7 @@ def render_home_page() -> None:
     ):
         _switch_page("limit_up")
     if discovery_columns[1].button(
-        "打开自选股异动雷达",
+        "打开自选股研究任务队列",
         use_container_width=True,
         key="home_to_market_radar",
     ):
@@ -2522,10 +2523,10 @@ def _scan_market_radar(
 
 
 def render_market_radar_page() -> None:
-    """Render an on-demand, bounded watchlist anomaly wall."""
+    """Render an on-demand, bounded watchlist research task queue."""
     apply_product_theme()
     show_compact_page_header(
-        "05 / 自选股异动雷达 · WATCHLIST RADAR",
+        "05 / 自选股研究任务队列 · RESEARCH QUEUE",
         "自选股研究任务队列",
         "一次比较最多5家A股的涨停候选、成交量放大和普通换手率"
         "历史位置，再连接最近官方公告，生成可追溯的研究先后顺序。",
@@ -2592,7 +2593,7 @@ def render_market_radar_page() -> None:
 
     if not rows:
         st.caption(
-            "输入代码并点击扫描后，这里会生成当日自选股异动信息墙。"
+            "输入代码并点击扫描后，这里会生成当日自选股研究任务队列。"
         )
         show_product_footer()
         return
@@ -2627,6 +2628,27 @@ def render_market_radar_page() -> None:
         + "。P1优先处理复合行情异动或两天内高关注官方公告；"
         "P2处理单项异动或七天内高/中关注公告；其余为P3。"
         "公告关注度来自标题主题，不表示利好或利空。"
+    )
+    queue_report_date = date.today()
+    queue_report_html = build_research_queue_report_html(
+        rows,
+        scan_date=queue_report_date,
+        failures=failures,
+    )
+    st.markdown("#### 保存本次任务队列")
+    st.caption(
+        "下载文件可离线打开，保留每家公司的优先级、"
+        "任务原因、数据来源和官方公告链接。"
+    )
+    st.download_button(
+        "下载自选股研究任务简报（HTML）",
+        data=queue_report_html.encode("utf-8"),
+        file_name=(
+            f"WFZ_{queue_report_date.isoformat()}_自选股研究任务简报.html"
+        ),
+        mime="text/html",
+        use_container_width=True,
+        key="market_radar_queue_report",
     )
 
     for rank, row in enumerate(rows, start=1):
@@ -5442,7 +5464,7 @@ def main() -> None:
     )
     radar_page = st.Page(
         render_market_radar_page,
-        title="自选股异动雷达",
+        title="自选股任务队列",
         icon="🛰️",
     )
     anomaly_page = st.Page(
