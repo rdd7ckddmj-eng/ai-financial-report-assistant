@@ -74,6 +74,22 @@ def test_review_summarises_verified_catl_history() -> None:
     assert review["restatement_count"] == 0
 
 
+def test_review_summarises_verified_byd_history() -> None:
+    points = select_financial_history_as_of(
+        load_verified_financial_history("002594"),
+        "2025-03-25",
+    )["points"]
+
+    review = build_financial_trend_review(points)
+
+    assert review["start_year"] == 2022
+    assert review["end_year"] == 2024
+    assert review["period_count"] == 3
+    assert review["growth_alignment"] == "收入与利润同向"
+    assert review["cash_alignment"] == "利润与经营现金方向不一致"
+    assert review["restatement_count"] == 0
+
+
 def test_single_year_does_not_invent_cross_year_change() -> None:
     review = build_financial_trend_review(_verified_points()[:1])
 
