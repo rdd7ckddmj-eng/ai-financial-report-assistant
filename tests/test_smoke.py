@@ -680,6 +680,7 @@ app.render_cross_company_comparison_page()
             app_test.success,
             app_test.warning,
             app_test.caption,
+            app_test.subheader,
             app_test.markdown,
         )
         for item in group
