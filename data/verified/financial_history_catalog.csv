@@ -1,0 +1,3 @@
+company_code,company_name,exchange,exchange_name,canonical_code,data_file,coverage_start_year,coverage_end_year,verified_periods,reviewed_on,status
+600519,贵州茅台,SH,上海证券交易所,600519.SH,moutai_financial_history.csv,2022,2025,4,2026-07-31,verified
+300750,宁德时代,SZ,深圳证券交易所,300750.SZ,catl_financial_history.csv,2022,2024,3,2026-07-31,verified
