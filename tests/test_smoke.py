@@ -660,3 +660,41 @@ app.render_financial_trend_page()
     assert len(app_test.metric) == 12
     assert len(app_test.get("link_button")) == 3
     assert app_test.selectbox[0].value == "比亚迪｜002594.SZ"
+
+
+def test_cross_company_comparison_page_shows_common_year_evidence() -> None:
+    """Render the new comparison page with all three audited companies."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src import app
+
+app.render_cross_company_comparison_page()
+"""
+    app_test = AppTest.from_string(script).run()
+    visible_text = "\n".join(
+        str(item.value)
+        for group in (
+            app_test.title,
+            app_test.info,
+            app_test.success,
+            app_test.warning,
+            app_test.caption,
+            app_test.markdown,
+        )
+        for item in group
+    )
+
+    assert not app_test.exception
+    assert "跨公司横向比较工作台" in visible_text
+    assert "非严格同行组" in visible_text
+    assert "共同年度检查通过" in visible_text
+    assert "不含估值、预测或买卖建议" in visible_text
+    assert app_test.multiselect[0].value == [
+        "贵州茅台｜600519.SH",
+        "宁德时代｜300750.SZ",
+        "比亚迪｜002594.SZ",
+    ]
+    assert app_test.selectbox[0].value == 2024
+    assert len(app_test.metric) == 4
+    assert len(app_test.get("link_button")) == 3
