@@ -49,6 +49,7 @@ from src.china_stock import (
     scan_market_activity_events,
     select_latest_annual_report,
 )
+from src.cross_company_comparison import build_cross_company_comparison
 from src.financial_statement_extractor import find_income_statement_figures
 from src.financial_ratios import (
     current_ratio,
@@ -1449,7 +1450,7 @@ def render_home_page() -> None:
         key_prefix="home",
         navigate_on_success=True,
     )
-    discovery_columns = st.columns(2)
+    discovery_columns = st.columns(3)
     if discovery_columns[0].button(
         "打开每日涨停板观察台",
         type="primary",
@@ -1463,9 +1464,16 @@ def render_home_page() -> None:
         key="home_to_market_radar",
     ):
         _switch_page("radar")
+    if discovery_columns[2].button(
+        "打开横向比较工作台",
+        use_container_width=True,
+        key="home_to_cross_company_comparison",
+    ):
+        _switch_page("comparison")
     st.caption(
         "还没有确定单一研究对象？先查看公开涨停股池，"
-        "或输入最多5个股票代码比较成交量和普通换手率异动证据。"
+        "输入最多5个股票代码比较市场异动，或使用已核验年报做"
+        "共同年度横向比较。"
     )
 
     st.divider()
@@ -3450,7 +3458,7 @@ def render_methodology_page() -> None:
     """Explain source priority, calculation boundaries, and known limits."""
     apply_product_theme()
     show_compact_page_header(
-        "10 / 方法与审计 · METHODOLOGY",
+        "11 / 方法与审计 · METHODOLOGY",
         "方法、证据与产品边界",
         "公开说明系统如何获取资料、计算指标、使用AI以及处理不确定性。",
     )
@@ -3679,6 +3687,236 @@ def render_financial_trend_page() -> None:
     st.warning(review["limitation"])
 
     _show_verified_financial_history(company, date.today())
+    show_product_footer()
+
+
+def render_cross_company_comparison_page() -> None:
+    """Render a common-year comparison without unsupported peer scoring."""
+    apply_product_theme()
+    show_compact_page_header(
+        "10 / 跨公司横向比较 · CROSS-COMPANY COMPARISON",
+        "跨公司横向比较工作台",
+        "在共同财务年度下比较已核验的规模、增长、盈利、经营现金和"
+        "负债结构，同时保留每家公司的官方年报页码。",
+    )
+
+    try:
+        catalog_audit = audit_financial_history_catalog()
+    except ValueError as error:
+        st.error(f"已核验公司接入清单未通过检查：{error}")
+        show_product_footer()
+        return
+
+    case_options = {
+        f"{case['company_name']}｜{case['canonical_code']}": case
+        for case in catalog_audit["cases"]
+    }
+    selected_labels = st.multiselect(
+        "选择比较公司（至少2家）",
+        options=list(case_options),
+        default=list(case_options),
+        key="cross_company_comparison_selector",
+    )
+    if len(selected_labels) < 2:
+        st.info("请至少选择两家已核验公司，才能建立共同年度比较。")
+        show_product_footer()
+        return
+
+    selected_cases = [case_options[label] for label in selected_labels]
+    points_by_code = {}
+    cutoff = date.today()
+    try:
+        for case in selected_cases:
+            result = select_financial_history_as_of(
+                load_verified_financial_history(case["company_code"]),
+                cutoff,
+            )
+            points_by_code[case["company_code"]] = result["points"]
+        initial_comparison = build_cross_company_comparison(
+            selected_cases,
+            points_by_code,
+        )
+    except ValueError as error:
+        st.warning(str(error))
+        show_product_footer()
+        return
+
+    year_options = sorted(
+        initial_comparison["common_years"],
+        reverse=True,
+    )
+    selected_year = st.selectbox(
+        "共同财务年度",
+        options=year_options,
+        index=0,
+        key="cross_company_comparison_year",
+    )
+    comparison = build_cross_company_comparison(
+        selected_cases,
+        points_by_code,
+        selected_year,
+    )
+    rows = comparison["rows"]
+
+    st.warning(
+        "当前目录尚未保存统一行业分类，因此本页是"
+        f"**{comparison['scope_label']}**。页面不会生成综合优劣分数。"
+    )
+    st.success(
+        "共同年度检查通过："
+        f"{comparison['company_count']} 家公司｜"
+        f"{comparison['selected_year']} 财务年度｜"
+        f"{len(rows)} 份 A 级官方年报证据。"
+    )
+
+    summary_columns = st.columns(4)
+    summary_columns[0].metric("共同财务年度", str(selected_year))
+    summary_columns[1].metric("比较公司", f"{len(rows)}家")
+    summary_columns[2].metric("官方年报", f"{len(rows)}份")
+    summary_columns[3].metric(
+        "最近公开日期",
+        max(row["published_date"] for row in rows),
+    )
+
+    st.subheader("同口径指标表")
+    st.caption(
+        "规模指标统一换算为人民币亿元；相对位置只与当前所选样本的"
+        "中位数比较，不表示利好、利空或质量高低。"
+    )
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {
+                    "公司": row["company_name"],
+                    "股票代码": row["canonical_code"],
+                    "营业收入（亿元）": round(
+                        row["revenue"] / 100_000_000,
+                        2,
+                    ),
+                    "归母净利润（亿元）": round(
+                        row["net_profit"] / 100_000_000,
+                        2,
+                    ),
+                    "经营现金（亿元）": round(
+                        row["operating_cash_flow"] / 100_000_000,
+                        2,
+                    ),
+                    "收入同比": _format_percent(row["revenue_growth"]),
+                    "利润同比": _format_percent(row["net_profit_growth"]),
+                    "经营现金同比": _format_percent(
+                        row["operating_cash_flow_growth"]
+                    ),
+                    "归母净利率": _format_percent(row["net_margin"]),
+                    "现金/利润": f"{row['cash_conversion']:.2f}倍",
+                    "负债占资产": _format_percent(
+                        row["liabilities_to_assets"]
+                    ),
+                    "净利率样本位置": row["net_margin_position"],
+                    "负债率样本位置": row[
+                        "liabilities_to_assets_position"
+                    ],
+                }
+                for row in rows
+            ]
+        ),
+        hide_index=True,
+        use_container_width=True,
+    )
+
+    chart_columns = st.columns(2)
+    with chart_columns[0]:
+        st.markdown("#### 规模比较｜人民币亿元")
+        scale_frame = pd.DataFrame(
+            {
+                row["company_name"]: {
+                    "营业收入": row["revenue"] / 100_000_000,
+                    "归母净利润": row["net_profit"] / 100_000_000,
+                    "经营现金": row["operating_cash_flow"] / 100_000_000,
+                }
+                for row in rows
+            }
+        ).T
+        st.bar_chart(scale_frame, height=330, use_container_width=True)
+    with chart_columns[1]:
+        st.markdown("#### 结构比较｜百分比")
+        ratio_frame = pd.DataFrame(
+            {
+                row["company_name"]: {
+                    "归母净利率": row["net_margin"] * 100,
+                    "负债占总资产": row["liabilities_to_assets"] * 100,
+                }
+                for row in rows
+            }
+        ).T
+        st.bar_chart(ratio_frame, height=330, use_container_width=True)
+
+    st.markdown("#### 同比变化｜百分比")
+    growth_frame = pd.DataFrame(
+        {
+            row["company_name"]: {
+                "营业收入": (
+                    row["revenue_growth"] * 100
+                    if row["revenue_growth"] is not None
+                    else None
+                ),
+                "归母净利润": (
+                    row["net_profit_growth"] * 100
+                    if row["net_profit_growth"] is not None
+                    else None
+                ),
+                "经营现金": (
+                    row["operating_cash_flow_growth"] * 100
+                    if row["operating_cash_flow_growth"] is not None
+                    else None
+                ),
+            }
+            for row in rows
+        }
+    ).T
+    st.bar_chart(growth_frame, height=330, use_container_width=True)
+    st.caption(
+        "三张图分别回答规模、结构和同比变化问题，避免把不同单位混进"
+        "同一个综合得分。"
+    )
+
+    st.subheader("规则化观察")
+    for observation in comparison["observations"]:
+        st.markdown(f"- {observation}")
+
+    with st.expander("查看共同年度的官方年报证据", expanded=True):
+        basis_labels = {
+            "original": "首次披露",
+            "restated": "追溯调整后",
+            "reported": "本期披露",
+        }
+        for row in rows:
+            with st.container(border=True):
+                evidence_text, evidence_link = st.columns([5, 1])
+                with evidence_text:
+                    st.markdown(
+                        f"**{row['company_name']}｜{row['canonical_code']}｜"
+                        f"{basis_labels[row['accounting_basis']]}**"
+                    )
+                    st.caption(
+                        f"{row['report_title']}｜公开日期 "
+                        f"{row['published_date']}｜主要数据第 "
+                        f"{row['summary_page']} 页｜合并负债第 "
+                        f"{row['balance_sheet_page']} 页｜证据等级 A"
+                    )
+                    if row["notes"]:
+                        st.caption(row["notes"])
+                with evidence_link:
+                    st.link_button(
+                        "查看年报 ↗",
+                        row["source_url"],
+                        use_container_width=True,
+                    )
+
+    st.warning(comparison["limitation"])
+    st.caption(
+        f"时间隔离审计：比较截止日为 {cutoff.isoformat()}；"
+        "只有该日期以前已经公开的年报版本可以参与共同年度计算。"
+    )
     show_product_footer()
 
 
@@ -4859,6 +5097,11 @@ def main() -> None:
         title="财务趋势实验室",
         icon="🧮",
     )
+    comparison_page = st.Page(
+        render_cross_company_comparison_page,
+        title="跨公司横向比较",
+        icon="⚖️",
+    )
     methodology_page = st.Page(
         render_methodology_page,
         title="方法与审计",
@@ -4875,6 +5118,7 @@ def main() -> None:
         "historical": historical_page,
         "annual": annual_page,
         "financial_trend": financial_trend_page,
+        "comparison": comparison_page,
         "methodology": methodology_page,
     }
 
@@ -4891,6 +5135,7 @@ def main() -> None:
                 historical_page,
                 annual_page,
                 financial_trend_page,
+                comparison_page,
             ],
             "产品说明": [methodology_page],
         }
