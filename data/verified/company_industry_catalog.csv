@@ -1,4 +1,5 @@
 company_code,company_name,exchange,classification_basis,disclosed_industry,peer_group_code,peer_group_name,source_title,source_url,source_page,reviewed_on,evidence_grade,notes
 600519,贵州茅台,SH,2024年报行业经营性信息,酒制造行业,baijiu,白酒制造,贵州茅台酒股份有限公司2024年年度报告,https://dataclouds.cninfo.com.cn/shgonggao/2025/2025-04-03/74014e840fc311f08a18fa163e957f7a.pdf,14,2026-07-31,A,年报第14页明确按酒制造行业披露；研究同行组进一步收窄为白酒制造。
+000858,五粮液,SZ,2024年报主营业务与行业披露,酒、饮料和精制茶制造业（C15）,baijiu,白酒制造,宜宾五粮液股份有限公司2024年年度报告全文,https://static.cninfo.com.cn/finalpage/2025-04-26/1223311527.PDF,9,2026-07-31,A,年报第9页明确主要从事白酒生产和销售；与贵州茅台共用白酒制造研究同行标签。
 300750,宁德时代,SZ,GB/T 4754-2017,锂离子电池制造（C3841）,li_ion_battery,动力与储能锂离子电池,宁德时代新能源科技股份有限公司2024年年度报告全文,https://static.cninfo.com.cn/finalpage/2025-03-15/1222806982.PDF,11,2026-07-31,A,年报第11页明确披露C3841；研究同行组结合动力与储能电池主营业务确定。
 002594,比亚迪,SZ,深交所汽车制造相关业披露要求,汽车制造相关业,nev_integrated_vehicle,新能源汽车整车（多元化业务）,比亚迪股份有限公司2024年年度报告全文,https://static.cninfo.com.cn/finalpage/2025-03-25/1222881496.PDF,13,2026-07-31,A,年报第13页按汽车制造相关业披露；同时保留其手机部件和电池等多元化业务边界。
