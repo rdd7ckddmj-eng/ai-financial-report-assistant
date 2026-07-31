@@ -4,11 +4,77 @@ from pathlib import Path
 import pytest
 
 from src.financial_history import (
+    FINANCIAL_HISTORY_CATALOG_PATH,
+    audit_financial_history_catalog,
+    load_financial_history_catalog,
     load_moutai_financial_history,
     load_verified_financial_history,
     select_financial_history_as_of,
     verified_financial_history_codes,
 )
+
+
+def test_standardised_catalog_accepts_all_verified_companies() -> None:
+    cases = load_financial_history_catalog()
+    audit = audit_financial_history_catalog()
+
+    assert [case["company_code"] for case in cases] == [
+        "600519",
+        "300750",
+    ]
+    assert [case["canonical_code"] for case in cases] == [
+        "600519.SH",
+        "300750.SZ",
+    ]
+    assert audit == {
+        "company_count": 2,
+        "financial_period_count": 7,
+        "publication_vintage_count": 8,
+        "all_checks_passed": True,
+        "cases": cases,
+    }
+
+
+def test_catalog_rejects_a_declared_year_range_that_data_does_not_cover(
+    tmp_path: Path,
+) -> None:
+    history_name = "catl_copy.csv"
+    (tmp_path / history_name).write_text(
+        (
+            FINANCIAL_HISTORY_CATALOG_PATH.parent
+            / "catl_financial_history.csv"
+        ).read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    catalog = tmp_path / "catalog.csv"
+    catalog.write_text(
+        "company_code,company_name,exchange,exchange_name,canonical_code,"
+        "data_file,coverage_start_year,coverage_end_year,verified_periods,"
+        "reviewed_on,status\n"
+        "300750,宁德时代,SZ,深圳证券交易所,300750.SZ,catl_copy.csv,"
+        "2022,2025,4,2026-07-31,verified\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="财务年度与接入目录不一致"):
+        load_financial_history_catalog(catalog)
+
+
+def test_catalog_rejects_a_data_file_outside_the_verified_directory(
+    tmp_path: Path,
+) -> None:
+    catalog = tmp_path / "catalog.csv"
+    catalog.write_text(
+        "company_code,company_name,exchange,exchange_name,canonical_code,"
+        "data_file,coverage_start_year,coverage_end_year,verified_periods,"
+        "reviewed_on,status\n"
+        "300750,宁德时代,SZ,深圳证券交易所,300750.SZ,../outside.csv,"
+        "2022,2024,3,2026-07-31,verified\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="同目录下"):
+        load_financial_history_catalog(catalog)
 
 
 def test_verified_moutai_history_has_four_years_and_official_sources() -> None:

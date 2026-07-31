@@ -102,6 +102,7 @@
 - [ ] Add scheduled background refresh only when traffic justifies the cost.
 - [ ] Extend deterministic statement extraction to bank, insurer, and other special-industry layouts.
 - [x] Extend audited cross-year financial trends beyond the flagship case.
+- [x] Add a standardised audited-company onboarding catalogue with automatic checks.
 - [ ] Add comparable-company research after peer and source rules are defined.
 - [ ] Expand the 贵州茅台 flagship set from three to five events after review.
 - [x] GitHub publication and public Render website.

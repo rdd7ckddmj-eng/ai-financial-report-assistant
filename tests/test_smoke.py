@@ -604,6 +604,7 @@ app.render_financial_trend_page()
         for group in (
             app_test.title,
             app_test.info,
+            app_test.success,
             app_test.warning,
             app_test.caption,
             app_test.markdown,
@@ -613,6 +614,7 @@ app.render_financial_trend_page()
 
     assert not app_test.exception
     assert "宁德时代" in visible_text
+    assert "标准化接入检查通过" in visible_text
     assert "收入与利润方向不一致" in visible_text
     assert len(app_test.metric) == 12
     assert len(app_test.get("link_button")) == 3

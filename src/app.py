@@ -57,6 +57,9 @@ from src.financial_ratios import (
     revenue_growth,
 )
 from src.financial_history import (
+    FinancialHistoryCase,
+    audit_financial_history_catalog,
+    load_financial_history_catalog,
     load_verified_financial_history,
     select_financial_history_as_of,
     verified_financial_history_codes,
@@ -2815,6 +2818,19 @@ def _format_cny_100m(value: float) -> str:
     return f"¥{value / 100_000_000:,.2f}亿"
 
 
+def _company_identity_from_financial_case(
+    case: FinancialHistoryCase,
+) -> CompanyIdentity:
+    """Build the shared company identity directly from an audited case."""
+    return {
+        "code": case["company_code"],
+        "name": case["company_name"],
+        "exchange": case["exchange"],
+        "exchange_name": case["exchange_name"],
+        "canonical_code": case["canonical_code"],
+    }
+
+
 def _show_verified_financial_history(
     company: CompanyIdentity,
     selected_date: date,
@@ -2827,9 +2843,18 @@ def _show_verified_financial_history(
         "若后来发生追溯调整，系统从调整公告日开始切换版本。"
     )
 
-    if company["code"] not in verified_financial_history_codes():
+    try:
+        verified_cases = load_financial_history_catalog()
+    except ValueError as error:
+        st.warning(str(error))
+        return
+    verified_codes = {case["company_code"] for case in verified_cases}
+    if company["code"] not in verified_codes:
+        covered_names = "、".join(
+            case["company_name"] for case in verified_cases
+        )
         st.info(
-            "多年财务页码基准目前覆盖贵州茅台和宁德时代。"
+            f"多年财务页码基准目前覆盖{covered_names}。"
             "其他A股公司仍可使用行情、公告和年报原文分析。"
         )
         return
@@ -3482,56 +3507,67 @@ def render_financial_trend_page() -> None:
         "负债结构变化，并保留报告版本、公开日期和原始页码。",
     )
 
+    try:
+        catalog_audit = audit_financial_history_catalog()
+    except ValueError as error:
+        st.error(f"已核验公司接入清单未通过检查：{error}")
+        show_product_footer()
+        return
+    verified_cases = catalog_audit["cases"]
+    case_by_code = {
+        case["company_code"]: case for case in verified_cases
+    }
+
     company = _selected_company()
     if company is None:
-        resolved = resolve_company("600519")
-        if not resolved:
-            st.warning("暂时无法载入贵州茅台旗舰案例。")
-            show_product_footer()
-            return
-        company = resolved[0]
+        company = _company_identity_from_financial_case(verified_cases[0])
         _store_selected_company(company)
-        st.info("尚未选择公司，已载入首个已核验案例：贵州茅台。")
+        st.info(
+            "尚未选择公司，已载入首个已核验案例："
+            f"{company['name']}。"
+        )
 
     _show_company_banner(company)
-    if company["code"] not in verified_financial_history_codes():
+    if company["code"] not in case_by_code:
+        covered_names = "、".join(
+            case["company_name"] for case in verified_cases
+        )
         st.info(
-            "独立的多年年报页码基准目前覆盖贵州茅台和宁德时代。"
+            f"独立的多年年报页码基准目前覆盖{covered_names}。"
             "这是因为每个年度都需要逐页核验，并处理后来发生的追溯调整；"
             "其他公司不会用未经核验的网络数字填补。"
         )
-        choice_columns = st.columns(2)
-        verified_choices = (
-            ("600519", "载入贵州茅台已核验案例"),
-            ("300750", "载入宁德时代已核验案例"),
+        fallback_options = {
+            f"{case['company_name']}｜{case['canonical_code']}": case
+            for case in verified_cases
+        }
+        fallback_label = st.selectbox(
+            "选择已核验公司",
+            options=list(fallback_options),
+            key="verified_financial_fallback_selector",
         )
-        for column, (code, label) in zip(
-            choice_columns,
-            verified_choices,
-            strict=True,
+        if st.button(
+            "载入选择的已核验公司",
+            type="primary",
+            use_container_width=True,
         ):
-            if column.button(
-                label,
-                type="primary" if code == "600519" else "secondary",
-                use_container_width=True,
-                key=f"verified_financial_choice_{code}",
-            ):
-                resolved = resolve_company(code)
-                if resolved:
-                    _store_selected_company(resolved[0])
-                    st.rerun()
+            _store_selected_company(
+                _company_identity_from_financial_case(
+                    fallback_options[fallback_label]
+                )
+            )
+            st.rerun()
         show_product_footer()
         return
 
     verified_company_options = {
-        "贵州茅台｜600519.SH": "600519",
-        "宁德时代｜300750.SZ": "300750",
+        f"{case['company_name']}｜{case['canonical_code']}": case
+        for case in verified_cases
     }
     option_labels = list(verified_company_options)
     current_label = next(
-        label
-        for label, code in verified_company_options.items()
-        if code == company["code"]
+        label for label, case in verified_company_options.items()
+        if case["company_code"] == company["code"]
     )
     selected_label = st.selectbox(
         "切换已核验公司",
@@ -3539,12 +3575,45 @@ def render_financial_trend_page() -> None:
         index=option_labels.index(current_label),
         key="verified_financial_company_selector",
     )
-    selected_code = verified_company_options[selected_label]
+    selected_case = verified_company_options[selected_label]
+    selected_code = selected_case["company_code"]
     if selected_code != company["code"]:
-        resolved = resolve_company(selected_code)
-        if resolved:
-            _store_selected_company(resolved[0])
-            st.rerun()
+        _store_selected_company(
+            _company_identity_from_financial_case(selected_case)
+        )
+        st.rerun()
+
+    st.success(
+        "标准化接入检查通过："
+        f"{catalog_audit['company_count']} 家公司｜"
+        f"{catalog_audit['financial_period_count']} 个财务年度｜"
+        f"{catalog_audit['publication_vintage_count']} 个公开报告版本。"
+    )
+    with st.expander("查看已核验公司接入清单"):
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "公司": case["company_name"],
+                        "股票代码": case["canonical_code"],
+                        "核验年度": (
+                            f"{case['coverage_start_year']}—"
+                            f"{case['coverage_end_year']}"
+                        ),
+                        "年度数": case["verified_periods"],
+                        "最近复核": case["reviewed_on"].isoformat(),
+                        "状态": "自动检查通过",
+                    }
+                    for case in verified_cases
+                ]
+            ),
+            hide_index=True,
+            use_container_width=True,
+        )
+        st.caption(
+            "新增公司必须同时通过身份、连续年度、官方 HTTPS 来源、"
+            "报告页码、金额和会计版本检查，才会自动出现在上方列表。"
+        )
 
     try:
         result = select_financial_history_as_of(

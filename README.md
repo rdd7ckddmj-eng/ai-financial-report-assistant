@@ -185,7 +185,10 @@ secret environment settings. It must never be committed to the repository.
   profit-operating-cash direction alignment, highlights restated vintages,
   and keeps every annual-report link and evidence page visible. Coverage now
   includes Guizhou Moutai for 2022-2025 and CATL for 2022-2024; other companies
-  remain unavailable until they pass the same page-level verification.
+  remain unavailable until they pass the same page-level verification. A
+  source-controlled onboarding catalogue now discovers approved companies
+  without hard-coded page changes and rejects identity, exchange, year-range,
+  file-path, source-domain, page, amount, or accounting-version inconsistencies.
 - Record the requested date and effective trading date, use unadjusted prices
   to avoid current adjustment-factor leakage, and audit disclosures excluded
   because they were published after the historical cut-off.
