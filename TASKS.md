@@ -106,7 +106,9 @@
 - [x] Prove catalogue-only expansion by adding BYD as the third audited company.
 - [x] Add common-year cross-company comparison with official evidence and an
   explicit non-peer warning.
-- [ ] Add comparable-company research after peer and source rules are defined.
+- [x] Add annual-report-backed industry evidence and conservative peer-group candidate rules.
+- [ ] Onboard a second verified company into one research peer group.
+- [ ] Add comparable-company valuation only after business-mix, accounting, and same-date market checks.
 - [ ] Expand the 贵州茅台 flagship set from three to five events after review.
 - [x] GitHub publication and public Render website.
 - [ ] Complete recruitment materials.

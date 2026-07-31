@@ -198,9 +198,10 @@ secret environment settings. It must never be committed to the repository.
   financial year shared by every selected verified company, keeps scale,
   growth, profitability, cash conversion, and balance-sheet structure separate,
   and links each displayed row back to its official annual report and pages.
-  The current catalogue has no unified industry classification, so the page
-  labels the three-company view as a cross-industry demonstration rather than
-  a strict peer group and never produces a composite quality score.
+  A separate audited industry catalogue preserves each annual-report label,
+  source page, and narrower research peer tag. The current default view spans
+  three research groups, each still one verified company short of a peer-group
+  candidate, and never produces a composite quality score.
 - Record the requested date and effective trading date, use unadjusted prices
   to avoid current adjustment-factor leakage, and audit disclosures excluded
   because they were published after the historical cut-off.
@@ -216,6 +217,8 @@ secret environment settings. It must never be committed to the repository.
   GBP, USD, EUR, and a generic other-currency option.
 - Include a downloadable Chinese user guide with operating steps, a
   three-minute interview-demo script, safety boundaries, and troubleshooting.
+- Run the full automated test suite during every Render build so a failing
+  change cannot replace the live version.
 - Upload a public annual-report PDF and preview page-level text.
 - Preserve the PDF filename and page number as evidence.
 - Automatically extract revenue and profit totals from the verified Tesco
