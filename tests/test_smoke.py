@@ -704,7 +704,7 @@ app.render_financial_trend_page()
 
 
 def test_cross_company_comparison_page_shows_common_year_evidence() -> None:
-    """Render the comparison page with all four audited companies."""
+    """Render the comparison page with all five audited companies."""
     from streamlit.testing.v1 import AppTest
 
     script = """
@@ -737,12 +737,13 @@ app.render_cross_company_comparison_page()
     assert app_test.multiselect[0].value == [
         "贵州茅台｜600519.SH",
         "五粮液｜000858.SZ",
+        "泸州老窖｜000568.SZ",
         "宁德时代｜300750.SZ",
         "比亚迪｜002594.SZ",
     ]
     assert app_test.selectbox[0].value == 2024
     assert len(app_test.metric) == 4
-    assert len(app_test.get("link_button")) == 4
+    assert len(app_test.get("link_button")) == 5
 
 
 def test_cross_company_page_can_select_the_baijiu_peer_candidate() -> None:
@@ -756,7 +757,11 @@ app.render_cross_company_comparison_page()
 """
     app_test = AppTest.from_string(script).run()
     app_test.multiselect[0].set_value(
-        ["贵州茅台｜600519.SH", "五粮液｜000858.SZ"]
+        [
+            "贵州茅台｜600519.SH",
+            "五粮液｜000858.SZ",
+            "泸州老窖｜000568.SZ",
+        ]
     ).run()
     visible_text = "\n".join(
         str(item.value)
@@ -772,4 +777,4 @@ app.render_cross_company_comparison_page()
     assert not app_test.exception
     assert "同行组候选｜白酒制造" in visible_text
     assert app_test.selectbox[0].value == 2025
-    assert len(app_test.get("link_button")) == 2
+    assert len(app_test.get("link_button")) == 3

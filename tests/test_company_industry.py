@@ -16,6 +16,7 @@ def test_industry_catalog_preserves_page_level_annual_report_evidence() -> None:
     assert [profile["company_code"] for profile in profiles] == [
         "600519",
         "000858",
+        "000568",
         "300750",
         "002594",
     ]
@@ -24,6 +25,7 @@ def test_industry_catalog_preserves_page_level_annual_report_evidence() -> None:
     assert all(profile["evidence_grade"] == "A" for profile in profiles)
     assert [profile["exchange"] for profile in profiles] == [
         "SH",
+        "SZ",
         "SZ",
         "SZ",
         "SZ",
@@ -42,13 +44,13 @@ def test_industry_audit_exactly_covers_financial_catalog() -> None:
     audit = audit_company_industry_catalog(cases)
 
     assert audit["all_checks_passed"] is True
-    assert audit["profile_count"] == 4
+    assert audit["profile_count"] == 5
     baijiu = next(
         item for item in audit["coverage"]
         if item["peer_group_code"] == "baijiu"
     )
-    assert baijiu["company_names"] == ["五粮液", "贵州茅台"]
-    assert baijiu["company_count"] == 2
+    assert baijiu["company_names"] == ["五粮液", "泸州老窖", "贵州茅台"]
+    assert baijiu["company_count"] == 3
     assert baijiu["companies_needed"] == 0
     assert baijiu["ready"] is True
     assert sum(item["ready"] for item in audit["coverage"]) == 1
