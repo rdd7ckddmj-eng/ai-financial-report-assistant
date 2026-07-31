@@ -11,16 +11,17 @@ Build a web application that can:
 1. identify a mainland listed company from its name or six-digit code;
 2. show source-linked official disclosures that refresh on demand;
 3. display validated daily K-lines and deterministic market-risk statistics;
-4. organise one recent public limit-up pool into a daily research wall;
-5. screen price, volume, and ordinary-turnover anomaly candidates;
-6. connect a selected candidate to point-in-time official disclosures;
-7. locate and temporarily load the latest official annual report;
-8. extract and calculate key financial indicators;
-9. answer questions using retrieved report evidence and PDF pages;
-10. show source references, limitations, and the Agent audit trail;
-11. revisit a past date without leaking later information into the snapshot;
-12. export a selected anomaly date as an auditable offline research report;
-13. avoid presenting AI output as investment advice.
+4. separate volume, ordinary turnover, and verified effective turnover;
+5. organise one recent public limit-up pool into a daily research wall;
+6. screen price, volume, and ordinary-turnover anomaly candidates;
+7. connect a selected candidate to point-in-time official disclosures;
+8. locate and temporarily load the latest official annual report;
+9. extract and calculate key financial indicators;
+10. answer questions using retrieved report evidence and PDF pages;
+11. show source references, limitations, and the Agent audit trail;
+12. revisit a past date without leaking later information into the snapshot;
+13. export a selected anomaly date as an auditable offline research report;
+14. avoid presenting AI output as investment advice.
 
 ## Product specifications
 
@@ -30,6 +31,9 @@ Build a web application that can:
 - [Market Anomaly Agent](docs/MARKET_ANOMALY_AGENT_SPEC.md) defines the
   deterministic anomaly rules, official-evidence link, and non-predictive
   product boundary.
+- [Volume and Turnover Research](docs/VOLUME_TURNOVER_SPEC.md) defines the
+  point-in-time participation metrics, bounded activity review, and
+  provenance-aware effective-turnover verification.
 - [Daily Limit-Up Board](docs/LIMIT_UP_BOARD_SPEC.md) defines the recent
   public pool, validation, post-market structure review, deterministic
   ranking, and ordinary-versus-effective-turnover boundary.
@@ -127,6 +131,12 @@ secret environment settings. It must never be committed to the repository.
   Sina's documented traded-volume divided by circulating-share fields.
   Effective turnover remains unavailable until a verified point-in-time
   investable free-float denominator is connected.
+- Provide a dedicated volume-and-turnover page that counts recent high-volume
+  and high ordinary-turnover sessions, plots a bounded 60-session
+  participation history, and preserves the distinction between ordinary and
+  effective turnover. An optional verification form calculates effective
+  turnover only after the user supplies same-unit circulating and free-float
+  shares plus a traceable source; missing denominators are never estimated.
 - Scan up to five user-entered A-share codes on demand and rank the latest
   evidence by triggered-signal count, then limit-up candidacy, volume multiple,
   and ordinary-turnover percentile. Each company fails independently, only

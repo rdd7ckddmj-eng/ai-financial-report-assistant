@@ -442,3 +442,36 @@ records and preserve missing amount or turnover as unavailable.
 Every new result reuses the single validated daily pool already in memory.
 The feature adds no provider request, paid API, background job, persistent
 database, or large server-side file.
+
+## 2026-07-31 — Volume and turnover participation research
+
+### What I built or changed
+
+Added a dedicated company page for latest volume versus the preceding
+20-session median, point-in-time volume and ordinary-turnover percentiles,
+recent activity-trigger counts, a bounded 60-session chart, and recent
+rule-based activity records.
+
+### One concept I can now explain
+
+Ordinary turnover and effective turnover use different denominators.
+Ordinary turnover commonly uses circulating shares, while effective turnover
+uses a narrower free-float denominator. A smaller valid denominator raises the
+measured turnover rate, but it does not by itself imply a future price move.
+
+### How effective turnover is kept auditable
+
+The free version does not estimate missing free float. The optional
+verification form runs only when the user supplies positive same-unit
+circulating and free-float shares plus a traceable source. Python then uses:
+
+`ordinary turnover × circulating shares ÷ free-float shares`
+
+The calculation rejects free float above circulating shares and any
+non-finite or non-positive denominator.
+
+### Why this design fits the current deployment
+
+The page reuses one cached company-history request, keeps only a 60-session
+chart and at most 20 recent event rows, and adds no paid API, persistent
+database, background process, or full-market download.
