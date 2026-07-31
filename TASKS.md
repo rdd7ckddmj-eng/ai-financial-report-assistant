@@ -101,7 +101,7 @@
 - [ ] Add source-controlled media news only after source-quality evaluation.
 - [ ] Add scheduled background refresh only when traffic justifies the cost.
 - [ ] Extend deterministic statement extraction to bank, insurer, and other special-industry layouts.
-- [ ] Extend audited cross-year financial trends beyond the flagship case.
+- [x] Extend audited cross-year financial trends beyond the flagship case.
 - [ ] Add comparable-company research after peer and source rules are defined.
 - [ ] Expand the 贵州茅台 flagship set from three to five events after review.
 - [x] GitHub publication and public Render website.
