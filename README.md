@@ -21,7 +21,8 @@ Build a web application that can:
 11. show source references, limitations, and the Agent audit trail;
 12. revisit a past date without leaking later information into the snapshot;
 13. export a selected anomaly date as an auditable offline research report;
-14. avoid presenting AI output as investment advice.
+14. compare audited multi-year financial trends without losing report versions;
+15. avoid presenting AI output as investment advice.
 
 ## Product specifications
 
@@ -42,6 +43,9 @@ Build a web application that can:
   and free-server operating boundary.
 - [Historical Lens](docs/HISTORICAL_LENS_SPEC.md) defines the point-in-time
   boundary, publication-date filtering, and separate later-outcome reveal.
+- [Financial Trend Lab](docs/FINANCIAL_TREND_LAB_SPEC.md) defines the audited
+  multi-year calculations, restatement handling, evidence pages, and
+  non-predictive boundary.
 
 ## Development principles
 
@@ -100,8 +104,8 @@ secret environment settings. It must never be committed to the repository.
 
 - Provide a multi-page product structure: home, company research centre,
   K-line and market evidence, Daily Limit-Up Board, Watchlist Market Radar,
-  Market Anomaly Agent, Historical Lens, annual-report evidence, and
-  methodology/audit.
+  Market Anomaly Agent, Historical Lens, annual-report evidence, Financial
+  Trend Lab, and methodology/audit.
 - Resolve mainland listed-company names or six-digit stock codes to a
   code-plus-exchange identity shared across all pages.
 - Synchronise official CNINFO disclosures on demand with a one-hour cache,
@@ -176,6 +180,12 @@ secret environment settings. It must never be committed to the repository.
   report pages, publication vintages, net margin, cash-to-profit conversion,
   and liabilities-to-assets. A later restatement replaces the original figure
   only after the restatement has actually been published.
+- Provide a standalone Financial Trend Lab that calculates three audited
+  compound annual change rates, distinguishes revenue-profit and
+  profit-operating-cash direction alignment, highlights restated vintages,
+  and keeps every annual-report link and evidence page visible. The first
+  version is deliberately limited to the manually verified Guizhou Moutai
+  flagship case rather than filling other companies with unverified figures.
 - Record the requested date and effective trading date, use unadjusted prices
   to avoid current adjustment-factor leakage, and audit disclosures excluded
   because they were published after the historical cut-off.

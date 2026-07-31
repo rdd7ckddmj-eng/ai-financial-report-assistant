@@ -475,3 +475,36 @@ non-finite or non-positive denominator.
 The page reuses one cached company-history request, keeps only a 60-session
 chart and at most 20 recent event rows, and adds no paid API, persistent
 database, background process, or full-market download.
+
+## 2026-07-31 — Audited Financial Trend Lab
+
+### What I built or changed
+
+Promoted the verified Guizhou Moutai multi-year annual-report series into a
+standalone Financial Trend Lab. The page calculates revenue, attributable-net-
+profit, and operating-cash-flow compound annual change rates, compares the
+latest direction of revenue versus profit and profit versus operating cash,
+and keeps the original report links, publication dates, pages, and accounting
+vintages visible.
+
+### One concept I can now explain
+
+A financial trend is not just a line chart. The same historical year can have
+an original value and a later restated value. A point-in-time research system
+must continue to use the original value before the restatement was published
+and switch only after the new version became public.
+
+### How interpretation is kept neutral
+
+The page describes whether revenue and profit, or profit and operating cash,
+moved in the same direction. It does not score either pattern as good or bad.
+Cash conversion can change because of working capital, tax, seasonality, or
+one-off items, so the user is directed back to the cited annual report.
+
+### Why the first version is intentionally narrow
+
+Only Guizhou Moutai has a four-year, manually verified, page-linked benchmark
+in the current repository. Other companies remain unavailable in this page
+until the same verification standard is met; unverified aggregator figures
+are not used to create the appearance of broad coverage. The feature needs no
+paid API, background process, database, or persistent Render storage.
