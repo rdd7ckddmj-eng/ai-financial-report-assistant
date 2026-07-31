@@ -13,7 +13,8 @@ Build a web application that can:
 3. display validated daily K-lines and deterministic market-risk statistics;
 4. separate volume, ordinary turnover, and verified effective turnover;
 5. organise one recent public limit-up pool into a daily research wall;
-6. screen price, volume, and ordinary-turnover anomaly candidates;
+6. combine watchlist activity evidence and recent official disclosures into a
+   deterministic research task queue;
 7. connect a selected candidate to point-in-time official disclosures;
 8. locate and temporarily load the latest official annual report;
 9. extract and calculate key financial indicators;
@@ -40,9 +41,9 @@ Build a web application that can:
 - [Daily Limit-Up Board](docs/LIMIT_UP_BOARD_SPEC.md) defines the recent
   public pool, validation, post-market structure review, deterministic
   ranking, and ordinary-versus-effective-turnover boundary.
-- [Watchlist Market Radar](docs/MARKET_RADAR_SPEC.md) defines the bounded
-  five-company scan, three independent activity triggers, transparent ranking,
-  and free-server operating boundary.
+- [Watchlist Research Queue](docs/MARKET_RADAR_SPEC.md) defines the bounded
+  five-company scan, three independent activity triggers, recent official
+  disclosure check, P1/P2/P3 research order, and free-server boundary.
 - [Historical Lens](docs/HISTORICAL_LENS_SPEC.md) defines the point-in-time
   boundary, publication-date filtering, and separate later-outcome reveal.
 - [Financial Trend Lab](docs/FINANCIAL_TREND_LAB_SPEC.md) defines the audited
@@ -150,11 +151,11 @@ secret environment settings. It must never be committed to the repository.
   effective turnover. An optional verification form calculates effective
   turnover only after the user supplies same-unit circulating and free-float
   shares plus a traceable source; missing denominators are never estimated.
-- Scan up to five user-entered A-share codes on demand and rank the latest
-  evidence by triggered-signal count, then limit-up candidacy, volume multiple,
-  and ordinary-turnover percentile. Each company fails independently, only
-  compact results remain in session state, and no paid API or persistent
-  full-market dataset is required.
+- Scan up to five user-entered A-share codes on demand, combine three market
+  activity triggers with recent validated official disclosures, display the
+  latest source, and create an explained P1/P2/P3 research task queue. Disclosure failures do not
+  erase valid market results, each company fails independently, and no paid API
+  or persistent full-market dataset is required.
 - Scan the latest 250 trading sessions for limit-up candidates, days whose
   volume is at least twice the preceding 20-session median, and days whose
   ordinary turnover reaches the 90th percentile of prior observations.

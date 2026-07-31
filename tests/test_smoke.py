@@ -284,6 +284,38 @@ def test_market_radar_page_scans_and_ranks_a_bounded_watchlist(
     )
     monkeypatch.setattr(app, "load_a_share_history", fake_history)
     monkeypatch.setattr(
+        app,
+        "load_company_announcements",
+        lambda code, *args, **kwargs: (
+            pd.DataFrame(
+                {
+                    "code": ["600519"],
+                    "name": ["贵州茅台"],
+                    "title": ["贵州茅台2025年年度报告"],
+                    "date": [date(2026, 7, 30)],
+                    "url": [
+                        "https://static.cninfo.com.cn/finalpage/"
+                        "2026-07-30/1234567890.PDF"
+                    ],
+                    "category": ["财务报告"],
+                    "attention": ["高"],
+                }
+            )
+            if code == "600519"
+            else pd.DataFrame(
+                columns=[
+                    "code",
+                    "name",
+                    "title",
+                    "date",
+                    "url",
+                    "category",
+                    "attention",
+                ]
+            )
+        ),
+    )
+    monkeypatch.setattr(
         app.st,
         "text_area",
         lambda *args, **kwargs: "600519, 300750",
@@ -305,6 +337,10 @@ def test_market_radar_page_scans_and_ranks_a_bounded_watchlist(
         "明显放量",
         "普通换手率历史高位",
     ]
+    assert rows[0]["research_priority"] == "P1｜立即核查"
+    assert rows[0]["latest_disclosure"]["title"] == (
+        "贵州茅台2025年年度报告"
+    )
     assert app.st.session_state["market_radar_failures"] == []
 
 

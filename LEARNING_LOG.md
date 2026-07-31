@@ -696,3 +696,31 @@ The two-company baijiu set is labelled a peer-group candidate, not a completed
 valuation set. Business mix, product price bands, channel structure, accounting
 policies, exceptional items, capital structure, and same-date market data still
 need review before valuation multiples can be compared.
+
+## 2026-07-31 — Official-evidence research task queue
+
+### What I built or changed
+
+Upgraded the bounded five-company watchlist radar into a research task queue.
+Each company now combines the three existing market-activity checks with its
+most recent validated official disclosure from a 45-day window. The interface
+shows P1, P2, or P3, explains every reason, keeps the official source link, and
+provides direct routes to the Market Anomaly Agent and Company Research Centre.
+
+### One concept I can now explain
+
+An Agent workflow is more useful when it turns evidence into the next auditable
+task instead of merely writing a paragraph. P1 means that a compound market
+anomaly or a very recent high-attention disclosure should be checked first;
+P2 means one market trigger or a recent high/medium-attention disclosure; P3
+means routine monitoring. These rules schedule research rather than predict a
+return.
+
+### Failure and evidence boundary
+
+Official disclosures are filtered by publication date and approved source
+domain. If the disclosure provider is temporarily unavailable, the valid market
+result remains visible and the page states the missing source. It does not
+replace the missing evidence with media summaries or AI guesses, and temporal
+proximity between a disclosure and market activity is never presented as
+causation or an investment signal.

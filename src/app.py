@@ -97,10 +97,11 @@ from src.market_anomaly_agent import (
     build_market_anomaly_report,
 )
 from src.market_radar import (
-    MarketRadarRow,
+    ResearchQueueRow,
     build_market_radar_row,
+    build_research_queue_row,
     parse_watchlist_codes,
-    rank_market_radar,
+    rank_research_queue,
 )
 from src.pdf_extractor import ExtractedPage, extract_pdf_pages
 from src.qa_benchmark import (
@@ -2449,7 +2450,7 @@ def render_limit_up_board_page() -> None:
 
 def _scan_market_radar(
     codes: list[str],
-) -> tuple[list[MarketRadarRow], list[str]]:
+) -> tuple[list[ResearchQueueRow], list[str]]:
     """Fetch a bounded watchlist and keep failures isolated by company."""
     try:
         directory: pd.DataFrame | None = load_a_share_directory()
@@ -2458,7 +2459,7 @@ def _scan_market_radar(
 
     end_date = date.today()
     start_date = end_date - timedelta(days=430)
-    rows: list[MarketRadarRow] = []
+    rows: list[ResearchQueueRow] = []
     failures: list[str] = []
     for code in codes:
         companies = resolve_company(code, directory)
@@ -2478,25 +2479,46 @@ def _scan_market_radar(
             failures.append(f"{company['canonical_code']}：{error}")
             continue
 
+        radar_row = build_market_radar_row(
+            company,
+            activity,
+            market_source=str(
+                market_frame.attrs.get(
+                    "source",
+                    "公开行情适配器",
+                )
+            ),
+            turnover_source=str(
+                market_frame.attrs.get(
+                    "turnover_source",
+                    "公开行情字段或暂未取得",
+                )
+            ),
+        )
+        disclosure_start = end_date - timedelta(days=45)
+        try:
+            announcements = load_company_announcements(
+                company["code"],
+                disclosure_start.isoformat(),
+                end_date.isoformat(),
+            )
+        except (DataSourceError, ValueError):
+            disclosure_records = None
+            disclosure_status = "官方公告源暂不可用"
+        else:
+            disclosure_records = announcements.to_dict("records")
+            disclosure_status = (
+                f"已核验近45日公告 {len(disclosure_records)} 条"
+            )
         rows.append(
-            build_market_radar_row(
-                company,
-                activity,
-                market_source=str(
-                    market_frame.attrs.get(
-                        "source",
-                        "公开行情适配器",
-                    )
-                ),
-                turnover_source=str(
-                    market_frame.attrs.get(
-                        "turnover_source",
-                        "公开行情字段或暂未取得",
-                    )
-                ),
+            build_research_queue_row(
+                radar_row,
+                disclosure_records,
+                as_of_date=end_date,
+                disclosure_status=disclosure_status,
             )
         )
-    return rank_market_radar(rows), failures
+    return rank_research_queue(rows), failures
 
 
 def render_market_radar_page() -> None:
@@ -2504,13 +2526,13 @@ def render_market_radar_page() -> None:
     apply_product_theme()
     show_compact_page_header(
         "05 / 自选股异动雷达 · WATCHLIST RADAR",
-        "自选股异动雷达",
+        "自选股研究任务队列",
         "一次比较最多5家A股的涨停候选、成交量放大和普通换手率"
-        "历史位置，把值得进一步复盘的公司排在前面。",
+        "历史位置，再连接最近官方公告，生成可追溯的研究先后顺序。",
     )
     st.info(
         "这是按需扫描，不会提前下载或永久保存全市场资料。"
-        "排序只表示触发了多少项异动证据，不代表上涨概率或投资价值。"
+        "P1/P2/P3只安排研究任务先后，不代表上涨概率或投资价值。"
     )
 
     with st.form("market_radar_form"):
@@ -2575,25 +2597,36 @@ def render_market_radar_page() -> None:
         show_product_footer()
         return
 
-    compound_count = sum(
-        row["radar_status"] == "复合异动" for row in rows
+    p1_count = sum(
+        row["research_priority"] == "P1｜立即核查" for row in rows
     )
     triggered_company_count = sum(
         row["trigger_count"] > 0 for row in rows
     )
     latest_dates = sorted({row["latest_date"] for row in rows})
-    summary_columns = st.columns(3)
+    disclosure_verified_count = sum(
+        row["disclosure_status"].startswith("已核验") for row in rows
+    )
+    summary_columns = st.columns(4)
     summary_columns[0].metric("成功扫描", f"{len(rows)} 家")
     summary_columns[1].metric(
-        "至少触发一项",
+        "P1研究任务",
+        f"{p1_count} 家",
+    )
+    summary_columns[2].metric(
+        "行情至少触发一项",
         f"{triggered_company_count} 家",
     )
-    summary_columns[2].metric("复合异动", f"{compound_count} 家")
+    summary_columns[3].metric(
+        "公告完成核验",
+        f"{disclosure_verified_count} 家",
+    )
     st.caption(
         "行情日期："
         + "、".join(latest_dates)
-        + "。先按触发项数量排序，再依次比较涨停候选、成交量倍数和"
-        "普通换手率历史分位；这不是投资评分。"
+        + "。P1优先处理复合行情异动或两天内高关注官方公告；"
+        "P2处理单项异动或七天内高/中关注公告；其余为P3。"
+        "公告关注度来自标题主题，不表示利好或利空。"
     )
 
     for rank, row in enumerate(rows, start=1):
@@ -2604,7 +2637,8 @@ def render_market_radar_page() -> None:
                 f"### {rank}. {company['name']}｜"
                 f"{company['canonical_code']}"
             )
-            status_column.markdown(f"**{row['radar_status']}**")
+            status_column.markdown(f"**{row['research_priority']}**")
+            status_column.caption(row["radar_status"])
 
             metric_columns = st.columns(4)
             metric_columns[0].metric(
@@ -2638,22 +2672,61 @@ def render_market_radar_page() -> None:
                 f"**触发证据：{signal_text}**｜"
                 f"可用证据 {row['available_signal_count']}/3 项。"
             )
+            st.markdown(
+                "**研究任务原因：** "
+                + "；".join(row["research_reasons"])
+                + "。"
+            )
             st.caption(
                 f"行情来源：{row['market_source']}｜"
                 f"换手率来源：{row['turnover_source']}。"
                 "普通换手率不等同于有效换手率。"
             )
-            if st.button(
-                "进入该公司市场异动 Agent",
+            latest_disclosure = row["latest_disclosure"]
+            if latest_disclosure is None:
+                st.caption(
+                    f"官方公告：{row['disclosure_status']}。"
+                    "系统不会用媒体摘要或AI猜测填补。"
+                )
+            else:
+                st.markdown("##### 最近官方公告")
+                disclosure_text, disclosure_link = st.columns([5, 1])
+                with disclosure_text:
+                    st.write(f"**{latest_disclosure['title']}**")
+                    st.caption(
+                        f"{latest_disclosure['published_date']}｜"
+                        f"{latest_disclosure['category']}｜"
+                        f"关注程度：{latest_disclosure['attention']}｜"
+                        f"距扫描日 {latest_disclosure['days_old']} 天｜"
+                        "来源：官方披露"
+                    )
+                with disclosure_link:
+                    st.link_button(
+                        "查看原文 ↗",
+                        latest_disclosure["source_url"],
+                        use_container_width=True,
+                    )
+
+            action_columns = st.columns(2)
+            if action_columns[0].button(
+                "进入市场异动 Agent",
                 use_container_width=True,
                 key=f"radar_to_anomaly_{company['canonical_code']}",
             ):
                 _store_selected_company(company)
                 _switch_page("anomaly")
+            if action_columns[1].button(
+                "进入公司研究中心",
+                use_container_width=True,
+                key=f"radar_to_company_{company['canonical_code']}",
+            ):
+                _store_selected_company(company)
+                _switch_page("company")
 
     st.warning(
-        "雷达只整理已经发生的公开行情。涨停候选仍需核验交易所例外规则，"
-        "放量和高换手也不等于利好、利空或买卖信号。"
+        "任务队列只整理已经发生的公开行情和官方公告。涨停候选仍需"
+        "核验交易所例外规则，公告与异动时间接近也不能证明因果关系；"
+        "P1/P2/P3均不等于利好、利空或买卖信号。"
     )
     show_product_footer()
 
