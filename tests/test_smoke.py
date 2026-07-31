@@ -174,6 +174,65 @@ def test_market_page_passes_activity_evidence_to_the_renderer(
     assert rendered_activity[0]["effective_turnover"] is None
 
 
+def test_volume_turnover_page_builds_a_bounded_research_snapshot(
+    monkeypatch,
+) -> None:
+    """Cover the dedicated participation page without live providers."""
+    from src import app
+
+    company = {
+        "code": "600519",
+        "name": "贵州茅台",
+        "exchange": "SH",
+        "exchange_name": "上海证券交易所",
+        "canonical_code": "600519.SH",
+    }
+    dates = pd.date_range("2026-04-01", periods=60, freq="B")
+    close = pd.Series([100 + index * 0.1 for index in range(len(dates))])
+    market_frame = pd.DataFrame(
+        {
+            "date": dates,
+            "open": close - 0.2,
+            "high": close + 0.5,
+            "low": close - 0.5,
+            "close": close,
+            "volume": [1_000_000.0] * 59 + [2_500_000.0],
+            "amount": 100_000_000.0,
+            "turnover": [1.0] * 59 + [4.0],
+        }
+    )
+    market_frame.attrs["source"] = "测试公开行情"
+    verified_snapshots = []
+
+    monkeypatch.setattr(app, "apply_product_theme", lambda: None)
+    monkeypatch.setattr(app, "show_compact_page_header", lambda *args: None)
+    monkeypatch.setattr(app, "_selected_company", lambda: company)
+    monkeypatch.setattr(app, "_show_company_banner", lambda selected: None)
+    monkeypatch.setattr(
+        app,
+        "load_a_share_history",
+        lambda *args: market_frame,
+    )
+    monkeypatch.setattr(
+        app,
+        "_build_volume_turnover_figure",
+        lambda *args: object(),
+    )
+    monkeypatch.setattr(app.st, "plotly_chart", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        app,
+        "_show_effective_turnover_verification",
+        lambda snapshot: verified_snapshots.append(snapshot),
+    )
+    monkeypatch.setattr(app, "show_product_footer", lambda: None)
+
+    app.render_volume_turnover_page()
+
+    assert verified_snapshots[0]["volume_ratio_20d"] == 2.5
+    assert verified_snapshots[0]["ordinary_turnover"] == 0.04
+    assert verified_snapshots[0]["high_volume_days"] == 1
+
+
 def test_market_radar_page_scans_and_ranks_a_bounded_watchlist(
     monkeypatch,
 ) -> None:
