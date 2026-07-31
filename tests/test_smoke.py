@@ -662,8 +662,49 @@ app.render_financial_trend_page()
     assert app_test.selectbox[0].value == "比亚迪｜002594.SZ"
 
 
+def test_financial_trend_page_shows_wuliangye_versions_in_streamlit() -> None:
+    """Prove Wuliangye's four periods and five vintages render safely."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src import app
+
+company = {
+    "code": "000858",
+    "name": "五粮液",
+    "exchange": "SZ",
+    "exchange_name": "深圳证券交易所",
+    "canonical_code": "000858.SZ",
+}
+app._selected_company = lambda: company
+app._show_company_banner = lambda selected: None
+app.render_financial_trend_page()
+"""
+    app_test = AppTest.from_string(script).run()
+    visible_text = "\n".join(
+        str(item.value)
+        for group in (
+            app_test.title,
+            app_test.info,
+            app_test.success,
+            app_test.warning,
+            app_test.caption,
+            app_test.markdown,
+        )
+        for item in group
+    )
+
+    assert not app_test.exception
+    assert "五粮液" in visible_text
+    assert "标准化接入检查通过" in visible_text
+    assert "追溯调整版本 1 个" in visible_text
+    assert len(app_test.metric) == 12
+    assert len(app_test.get("link_button")) == 4
+    assert app_test.selectbox[0].value == "五粮液｜000858.SZ"
+
+
 def test_cross_company_comparison_page_shows_common_year_evidence() -> None:
-    """Render the new comparison page with all three audited companies."""
+    """Render the comparison page with all four audited companies."""
     from streamlit.testing.v1 import AppTest
 
     script = """
@@ -690,14 +731,45 @@ app.render_cross_company_comparison_page()
     assert "跨公司横向比较工作台" in visible_text
     assert "跨行业比较（3个研究组）" in visible_text
     assert "行业证据与同行组状态" in visible_text
-    assert "尚无可称为同行组候选的组合" in visible_text
+    assert "已建立同行组候选覆盖：白酒制造" in visible_text
     assert "共同年度检查通过" in visible_text
     assert "不含估值、预测或买卖建议" in visible_text
     assert app_test.multiselect[0].value == [
         "贵州茅台｜600519.SH",
+        "五粮液｜000858.SZ",
         "宁德时代｜300750.SZ",
         "比亚迪｜002594.SZ",
     ]
     assert app_test.selectbox[0].value == 2024
     assert len(app_test.metric) == 4
-    assert len(app_test.get("link_button")) == 3
+    assert len(app_test.get("link_button")) == 4
+
+
+def test_cross_company_page_can_select_the_baijiu_peer_candidate() -> None:
+    """Switch the page from the default cross-industry view to baijiu."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src import app
+
+app.render_cross_company_comparison_page()
+"""
+    app_test = AppTest.from_string(script).run()
+    app_test.multiselect[0].set_value(
+        ["贵州茅台｜600519.SH", "五粮液｜000858.SZ"]
+    ).run()
+    visible_text = "\n".join(
+        str(item.value)
+        for group in (
+            app_test.success,
+            app_test.warning,
+            app_test.caption,
+            app_test.markdown,
+        )
+        for item in group
+    )
+
+    assert not app_test.exception
+    assert "同行组候选｜白酒制造" in visible_text
+    assert app_test.selectbox[0].value == 2025
+    assert len(app_test.get("link_button")) == 2

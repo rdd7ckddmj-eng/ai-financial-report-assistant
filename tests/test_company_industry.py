@@ -15,13 +15,19 @@ def test_industry_catalog_preserves_page_level_annual_report_evidence() -> None:
 
     assert [profile["company_code"] for profile in profiles] == [
         "600519",
+        "000858",
         "300750",
         "002594",
     ]
     assert all(profile["source_page"] > 0 for profile in profiles)
     assert all(profile["source_url"].startswith("https://") for profile in profiles)
     assert all(profile["evidence_grade"] == "A" for profile in profiles)
-    assert [profile["exchange"] for profile in profiles] == ["SH", "SZ", "SZ"]
+    assert [profile["exchange"] for profile in profiles] == [
+        "SH",
+        "SZ",
+        "SZ",
+        "SZ",
+    ]
     catl = next(
         profile for profile in profiles
         if profile["company_code"] == "300750"
@@ -36,10 +42,16 @@ def test_industry_audit_exactly_covers_financial_catalog() -> None:
     audit = audit_company_industry_catalog(cases)
 
     assert audit["all_checks_passed"] is True
-    assert audit["profile_count"] == 3
-    assert all(item["company_count"] == 1 for item in audit["coverage"])
-    assert all(item["companies_needed"] == 1 for item in audit["coverage"])
-    assert not any(item["ready"] for item in audit["coverage"])
+    assert audit["profile_count"] == 4
+    baijiu = next(
+        item for item in audit["coverage"]
+        if item["peer_group_code"] == "baijiu"
+    )
+    assert baijiu["company_names"] == ["五粮液", "贵州茅台"]
+    assert baijiu["company_count"] == 2
+    assert baijiu["companies_needed"] == 0
+    assert baijiu["ready"] is True
+    assert sum(item["ready"] for item in audit["coverage"]) == 1
 
 
 def test_default_selection_is_cross_industry_not_a_peer_group() -> None:
@@ -57,17 +69,10 @@ def test_default_selection_is_cross_industry_not_a_peer_group() -> None:
 def test_same_research_tag_is_only_a_peer_group_candidate() -> None:
     cases = load_financial_history_catalog()
     profiles = load_company_industry_catalog()
-    second_case = deepcopy(cases[0])
-    second_case["company_code"] = "600809"
-    second_case["company_name"] = "山西汾酒"
-    second_case["canonical_code"] = "600809.SH"
-    second_profile = deepcopy(profiles[0])
-    second_profile["company_code"] = "600809"
-    second_profile["company_name"] = "山西汾酒"
 
     assessment = assess_peer_group(
-        [cases[0], second_case],
-        [profiles[0], second_profile],
+        cases[:2],
+        profiles,
     )
 
     assert assessment["industry_group_count"] == 1

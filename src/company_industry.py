@@ -25,6 +25,7 @@ COMPANY_INDUSTRY_CATALOG_PATH = (
     PROJECT_ROOT / "data" / "verified" / "company_industry_catalog.csv"
 )
 ALLOWED_INDUSTRY_SOURCE_HOSTS = {
+    "disc.static.szse.cn",
     "static.cninfo.com.cn",
     "dataclouds.cninfo.com.cn",
     "www.sse.com.cn",

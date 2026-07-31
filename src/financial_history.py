@@ -29,6 +29,7 @@ FINANCIAL_HISTORY_CATALOG_PATH = (
     PROJECT_ROOT / "data" / "verified" / "financial_history_catalog.csv"
 )
 ALLOWED_REPORT_HOSTS = {
+    "disc.static.szse.cn",
     "static.cninfo.com.cn",
     "dataclouds.cninfo.com.cn",
     "www.sse.com.cn",

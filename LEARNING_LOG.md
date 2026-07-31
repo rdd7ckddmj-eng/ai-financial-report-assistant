@@ -664,3 +664,35 @@ Even two companies with the same research tag remain only peer candidates until
 their business mix, accounting policies, capital structure, and market-data
 dates are reviewed. No valuation, target price, prediction, or buy/sell opinion
 is produced at this stage.
+
+## 2026-07-31 — Wuliangye and the first audited peer-group candidate
+
+### What I built or changed
+
+Added Wuliangye's 2022-2025 audited financial history, official report pages,
+publication dates, and annual-report industry evidence. The standard catalogue
+now contains four companies and the comparison page recognises Guizhou Moutai
+plus Wuliangye as a baijiu peer-group candidate.
+
+### One concept I can now explain
+
+A peer group needs two separate proofs: a shared business label and a shared
+financial period. The industry catalogue proves that both companies primarily
+produce and sell baijiu; the financial catalogue proves that both have complete
+verified 2022-2025 annual-report data. A matching name alone would not be enough.
+
+### How accounting versions were handled
+
+Wuliangye's 2023 annual report restated its 2022 figures after adopting the
+Accounting Standards for Business Enterprises Interpretation No. 16. The
+original 2022 vintage remains visible before 29 April 2024, and the restated
+version becomes effective only from that publication date. The 2025 report's
+revenue-recognition and quarterly-data comparability disclosure is preserved in
+the evidence note instead of being hidden behind a growth percentage.
+
+### Product boundary
+
+The two-company baijiu set is labelled a peer-group candidate, not a completed
+valuation set. Business mix, product price bands, channel structure, accounting
+policies, exceptional items, capital structure, and same-date market data still
+need review before valuation multiples can be compared.
