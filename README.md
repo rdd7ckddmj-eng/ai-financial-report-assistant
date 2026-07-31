@@ -22,7 +22,9 @@ Build a web application that can:
 12. revisit a past date without leaking later information into the snapshot;
 13. export a selected anomaly date as an auditable offline research report;
 14. compare audited multi-year financial trends without losing report versions;
-15. avoid presenting AI output as investment advice.
+15. compare multiple verified companies on one common financial year while
+    retaining each annual-report source and page;
+16. avoid presenting AI output as investment advice.
 
 ## Product specifications
 
@@ -46,6 +48,9 @@ Build a web application that can:
 - [Financial Trend Lab](docs/FINANCIAL_TREND_LAB_SPEC.md) defines the audited
   multi-year calculations, restatement handling, evidence pages, and
   non-predictive boundary.
+- [Cross-Company Comparison](docs/CROSS_COMPANY_COMPARISON_SPEC.md) defines the
+  common-year rule, sample-median descriptions, annual-report evidence, and
+  boundary between a cross-industry demonstration and a true peer group.
 
 ## Development principles
 
@@ -189,6 +194,13 @@ secret environment settings. It must never be committed to the repository.
   source-controlled onboarding catalogue now discovers approved companies
   without hard-coded page changes and rejects identity, exchange, year-range,
   file-path, source-domain, page, amount, or accounting-version inconsistencies.
+- Provide a standalone Cross-Company Comparison workbench that finds the latest
+  financial year shared by every selected verified company, keeps scale,
+  growth, profitability, cash conversion, and balance-sheet structure separate,
+  and links each displayed row back to its official annual report and pages.
+  The current catalogue has no unified industry classification, so the page
+  labels the three-company view as a cross-industry demonstration rather than
+  a strict peer group and never produces a composite quality score.
 - Record the requested date and effective trading date, use unadjusted prices
   to avoid current adjustment-factor leakage, and audit disclosures excluded
   because they were published after the historical cut-off.

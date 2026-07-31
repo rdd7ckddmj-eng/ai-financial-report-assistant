@@ -600,3 +600,36 @@ the dataset does not create a duplicate vintage with identical values.
 BYD's rising revenue and profit alongside lower operating cash flow is shown as
 a direction mismatch that needs further annual-report investigation. The page
 does not convert that pattern into a positive or negative investment opinion.
+
+## 2026-07-31 — Common-year cross-company comparison
+
+### What I built or changed
+
+Added a standalone workbench that lets users select at least two audited
+companies, finds their shared verified financial years, and defaults to the
+latest common year. The page compares scale, year-on-year change, net margin,
+cash-to-profit conversion, and liabilities-to-assets while retaining each
+company's official annual-report link, publication date, and source pages.
+
+### One concept I can now explain
+
+A fair comparison starts with a common period. Guizhou Moutai has verified 2025
+figures, but CATL and BYD currently end in 2024, so a three-company view must use
+2024. Placing Moutai 2025 beside the others' 2024 figures would create a false
+comparison even if every individual number were correct.
+
+### Why the page does not rank companies
+
+The catalogue does not yet store one audited industry classification. The
+current three businesses therefore form a cross-industry demonstration, not a
+strict peer group. Python can describe which values are above or below the
+selected sample median, but high revenue, margin, cash conversion, or leverage
+does not have one universal good-or-bad meaning across different business
+models.
+
+### Product boundary
+
+The workbench keeps scale, growth, profitability, cash conversion, and leverage
+separate. It does not combine them into a composite score, valuation, target
+price, forecast, or buy/sell recommendation. A true peer feature remains a
+later step that requires a verified industry source and explicit peer rules.
