@@ -24,11 +24,13 @@ BAIJIU_OPERATING_QUALITY_PATH = (
     PROJECT_ROOT / "data" / "verified" / "baijiu_operating_quality.csv"
 )
 ALLOWED_REPORT_HOSTS = {
+    "dataclouds.cninfo.com.cn",
     "disc.static.szse.cn",
     "static.cninfo.com.cn",
     "www.sse.com.cn",
 }
 EXPECTED_COMPANY_CODES = {"600519", "000858", "000568"}
+EXPECTED_PERIOD_YEARS = {2023, 2024, 2025}
 REQUIRED_FIELDS = {
     "company_code",
     "company_name",
@@ -206,10 +208,15 @@ def load_baijiu_operating_quality(
             }
         )
 
-    if {record["company_code"] for record in records} != EXPECTED_COMPANY_CODES:
-        raise ValueError("白酒经营质量数据必须完整覆盖三家已核验公司。")
-    if {record["period_year"] for record in records} != {2025}:
-        raise ValueError("首版白酒经营质量数据只接受共同的 2025 年度。")
+    expected_keys = {
+        (company_code, period_year)
+        for company_code in EXPECTED_COMPANY_CODES
+        for period_year in EXPECTED_PERIOD_YEARS
+    }
+    if seen_keys != expected_keys:
+        raise ValueError(
+            "白酒经营质量数据必须完整覆盖三家公司2023—2025年度。"
+        )
     return records
 
 
@@ -308,7 +315,7 @@ def build_baijiu_operating_quality(
             "不同，不能据此形成质量排名。"
         ),
         (
-            "三家公司年末存货均同比增加，增幅区间为"
+            f"所选{len(result_rows)}家公司年末存货同比增幅区间为"
             f"{inventory_growth_low['inventory_growth']:.1%}—"
             f"{inventory_growth_high['inventory_growth']:.1%}；"
             "白酒存货包含需要长期储存的基酒，增加不等同于积压。"
@@ -327,10 +334,13 @@ def build_baijiu_operating_quality(
     limitation = (
         "本面板使用合并财务报表，不直接等同于旗舰白酒单品表现。"
         "存货占资产会受到财务公司和其他资产结构影响；合同负债是年末"
-        "时点数，不能单独解释为订单或需求；五粮液 2025 年报另披露"
-        "部分业务收入确认核算调整。页面不生成综合得分、盈利预测或"
-        "买卖建议。"
+        "时点数，不能单独解释为订单或需求；"
     )
+    if period_year == 2025:
+        limitation += (
+            "五粮液 2025 年报另披露部分业务收入确认核算调整；"
+        )
+    limitation += "页面不生成综合得分、盈利预测或买卖建议。"
     return {
         "period_year": period_year,
         "company_count": len(result_rows),
