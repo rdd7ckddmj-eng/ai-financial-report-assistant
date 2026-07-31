@@ -550,3 +550,70 @@ def test_financial_trend_page_renders_verified_flagship(
 
     assert rendered_history
     assert rendered_history[0][0]["code"] == "600519"
+
+
+def test_financial_trend_page_renders_verified_catl(
+    monkeypatch,
+) -> None:
+    """Keep the second audited company independent of live sources."""
+    from src import app
+
+    company = {
+        "code": "300750",
+        "name": "宁德时代",
+        "exchange": "SZ",
+        "exchange_name": "深圳证券交易所",
+        "canonical_code": "300750.SZ",
+    }
+    rendered_history = []
+
+    monkeypatch.setattr(app, "apply_product_theme", lambda: None)
+    monkeypatch.setattr(app, "show_compact_page_header", lambda *args: None)
+    monkeypatch.setattr(app, "_selected_company", lambda: company)
+    monkeypatch.setattr(app, "_show_company_banner", lambda selected: None)
+    monkeypatch.setattr(
+        app,
+        "_show_verified_financial_history",
+        lambda selected, cutoff: rendered_history.append(
+            (selected, cutoff)
+        ),
+    )
+    monkeypatch.setattr(app, "show_product_footer", lambda: None)
+
+    app.render_financial_trend_page()
+
+    assert rendered_history
+    assert rendered_history[0][0]["code"] == "300750"
+
+
+def test_financial_trend_page_shows_catl_evidence_in_streamlit() -> None:
+    """Render the real page controls, metrics, and official report links."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src import app
+
+company = app.resolve_company("300750")[0]
+app._selected_company = lambda: company
+app._show_company_banner = lambda selected: None
+app.render_financial_trend_page()
+"""
+    app_test = AppTest.from_string(script).run()
+    visible_text = "\n".join(
+        str(item.value)
+        for group in (
+            app_test.title,
+            app_test.info,
+            app_test.warning,
+            app_test.caption,
+            app_test.markdown,
+        )
+        for item in group
+    )
+
+    assert not app_test.exception
+    assert "宁德时代" in visible_text
+    assert "收入与利润方向不一致" in visible_text
+    assert len(app_test.metric) == 12
+    assert len(app_test.get("link_button")) == 3
+    assert app_test.selectbox[0].value == "宁德时代｜300750.SZ"
