@@ -20,18 +20,20 @@ def test_standardised_catalog_accepts_all_verified_companies() -> None:
 
     assert [case["company_code"] for case in cases] == [
         "600519",
+        "000858",
         "300750",
         "002594",
     ]
     assert [case["canonical_code"] for case in cases] == [
         "600519.SH",
+        "000858.SZ",
         "300750.SZ",
         "002594.SZ",
     ]
     assert audit == {
-        "company_count": 3,
-        "financial_period_count": 10,
-        "publication_vintage_count": 11,
+        "company_count": 4,
+        "financial_period_count": 14,
+        "publication_vintage_count": 16,
         "all_checks_passed": True,
         "cases": cases,
     }
@@ -105,9 +107,41 @@ def test_verified_catl_history_has_three_audited_years() -> None:
 
     assert verified_financial_history_codes() == (
         "600519",
+        "000858",
         "300750",
         "002594",
     )
+
+
+def test_wuliangye_history_preserves_restatement_and_2025_disclosure() -> None:
+    records = load_verified_financial_history("000858")
+
+    before_restatement = select_financial_history_as_of(
+        records,
+        "2024-04-28",
+    )
+    complete = select_financial_history_as_of(records, "2026-04-30")
+
+    assert [point["period_year"] for point in complete["points"]] == [
+        2022,
+        2023,
+        2024,
+        2025,
+    ]
+    assert before_restatement["points"][0]["accounting_basis"] == "original"
+    assert complete["points"][0]["accounting_basis"] == "restated"
+    assert complete["restatement_count"] == 1
+    latest = complete["points"][-1]
+    assert latest["revenue"] == pytest.approx(40_528_509_770.23)
+    assert latest["net_profit"] == pytest.approx(8_954_257_202.51)
+    assert latest["operating_cash_flow"] == pytest.approx(
+        29_706_259_919.13
+    )
+    assert latest["liabilities_to_assets"] == pytest.approx(
+        67_803_587_170.33 / 189_984_270_815.47
+    )
+    assert "收入确认核算" in latest["notes"]
+    assert latest["source_url"].startswith("https://disc.static.szse.cn/")
     assert [record["period_year"] for record in records] == [
         2022,
         2023,

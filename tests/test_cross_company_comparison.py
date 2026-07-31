@@ -39,9 +39,10 @@ def test_comparison_uses_latest_common_verified_year() -> None:
 
     assert comparison["common_years"] == [2022, 2023, 2024]
     assert comparison["selected_year"] == 2024
-    assert comparison["company_count"] == 3
+    assert comparison["company_count"] == 4
     assert [row["company_name"] for row in comparison["rows"]] == [
         "贵州茅台",
+        "五粮液",
         "宁德时代",
         "比亚迪",
     ]
@@ -49,6 +50,22 @@ def test_comparison_uses_latest_common_verified_year() -> None:
     assert comparison["industry_group_count"] == 3
     assert comparison["is_same_peer_group"] is False
     assert "不含估值、预测或买卖建议" in comparison["limitation"]
+
+
+def test_moutai_and_wuliangye_form_audited_peer_candidate() -> None:
+    cases, points_by_code, industry_profiles = _verified_comparison_inputs()
+
+    comparison = build_cross_company_comparison(
+        cases[:2],
+        points_by_code,
+        industry_profiles=industry_profiles,
+    )
+
+    assert comparison["selected_year"] == 2025
+    assert comparison["company_count"] == 2
+    assert comparison["scope_label"] == "同行组候选｜白酒制造"
+    assert comparison["is_same_peer_group"] is True
+    assert "业务分部占比" in comparison["limitation"]
 
 
 def test_comparison_preserves_byd_values_and_official_evidence() -> None:
