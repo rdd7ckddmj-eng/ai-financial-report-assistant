@@ -571,3 +571,32 @@ The catalogue is not a full-market database and does not produce investment
 scores. Companies without completed page-level verification remain outside the
 multi-year trend selector, although the rest of the research product continues
 to support them.
+
+## 2026-07-31 — BYD as the first catalogue-only expansion
+
+### What I built or changed
+
+Added BYD's 2022-2024 audited annual-report history through one verified CSV
+and one catalogue row. The Financial Trend Lab discovers the company without
+adding a BYD-specific page button or branch, proving that the onboarding
+contract now controls expansion.
+
+### One concept I can now explain
+
+The same annual report can use different units in different sections. BYD's
+headline financial indicators are presented in RMB yuan, while its consolidated
+balance sheet is presented in RMB thousands. Values must be converted to one
+unit before Python calculates growth, cash conversion, or liabilities-to-assets.
+
+### How accounting versions were handled
+
+BYD's 2024 report labels the 2023 comparison as restated. The five fields used
+by this lab—revenue, attributable net profit, operating cash flow, total assets,
+and total liabilities—match the values first disclosed in the 2023 report, so
+the dataset does not create a duplicate vintage with identical values.
+
+### Product boundary
+
+BYD's rising revenue and profit alongside lower operating cash flow is shown as
+a direction mismatch that needs further annual-report investigation. The page
+does not convert that pattern into a positive or negative investment opinion.

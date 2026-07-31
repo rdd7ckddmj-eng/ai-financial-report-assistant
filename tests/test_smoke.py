@@ -619,3 +619,44 @@ app.render_financial_trend_page()
     assert len(app_test.metric) == 12
     assert len(app_test.get("link_button")) == 3
     assert app_test.selectbox[0].value == "宁德时代｜300750.SZ"
+
+
+def test_financial_trend_page_shows_byd_evidence_in_streamlit() -> None:
+    """Prove the third catalogue company appears without page-code edits."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src import app
+
+company = {
+    "code": "002594",
+    "name": "比亚迪",
+    "exchange": "SZ",
+    "exchange_name": "深圳证券交易所",
+    "canonical_code": "002594.SZ",
+}
+app._selected_company = lambda: company
+app._show_company_banner = lambda selected: None
+app.render_financial_trend_page()
+"""
+    app_test = AppTest.from_string(script).run()
+    visible_text = "\n".join(
+        str(item.value)
+        for group in (
+            app_test.title,
+            app_test.info,
+            app_test.success,
+            app_test.warning,
+            app_test.caption,
+            app_test.markdown,
+        )
+        for item in group
+    )
+
+    assert not app_test.exception
+    assert "比亚迪" in visible_text
+    assert "标准化接入检查通过" in visible_text
+    assert "利润与经营现金方向不一致" in visible_text
+    assert len(app_test.metric) == 12
+    assert len(app_test.get("link_button")) == 3
+    assert app_test.selectbox[0].value == "比亚迪｜002594.SZ"

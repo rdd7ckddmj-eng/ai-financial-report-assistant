@@ -21,15 +21,17 @@ def test_standardised_catalog_accepts_all_verified_companies() -> None:
     assert [case["company_code"] for case in cases] == [
         "600519",
         "300750",
+        "002594",
     ]
     assert [case["canonical_code"] for case in cases] == [
         "600519.SH",
         "300750.SZ",
+        "002594.SZ",
     ]
     assert audit == {
-        "company_count": 2,
-        "financial_period_count": 7,
-        "publication_vintage_count": 8,
+        "company_count": 3,
+        "financial_period_count": 10,
+        "publication_vintage_count": 11,
         "all_checks_passed": True,
         "cases": cases,
     }
@@ -101,7 +103,11 @@ def test_verified_moutai_history_has_four_years_and_official_sources() -> None:
 def test_verified_catl_history_has_three_audited_years() -> None:
     records = load_verified_financial_history("300750")
 
-    assert verified_financial_history_codes() == ("600519", "300750")
+    assert verified_financial_history_codes() == (
+        "600519",
+        "300750",
+        "002594",
+    )
     assert [record["period_year"] for record in records] == [
         2022,
         2023,
@@ -114,6 +120,59 @@ def test_verified_catl_history_has_three_audited_years() -> None:
             "https://static.cninfo.com.cn/finalpage/"
         )
         for record in records
+    )
+
+
+def test_verified_byd_history_has_three_page_linked_years() -> None:
+    records = load_verified_financial_history("002594")
+
+    assert [record["period_year"] for record in records] == [
+        2022,
+        2023,
+        2024,
+    ]
+    assert [record["summary_page"] for record in records] == [7, 10, 11]
+    assert [record["balance_sheet_page"] for record in records] == [
+        127,
+        138,
+        143,
+    ]
+    assert all(record["company_name"] == "比亚迪" for record in records)
+    assert all(record["evidence_grade"] == "A" for record in records)
+    assert all(
+        record["source_url"].startswith(
+            "https://static.cninfo.com.cn/finalpage/"
+        )
+        for record in records
+    )
+
+
+def test_byd_history_preserves_cutoffs_and_calculates_latest_ratios() -> None:
+    records = load_verified_financial_history("002594")
+
+    before_2023_report = select_financial_history_as_of(
+        records,
+        "2024-03-26",
+    )
+    complete = select_financial_history_as_of(records, "2025-03-25")
+
+    assert [
+        point["period_year"] for point in before_2023_report["points"]
+    ] == [2022]
+    assert complete["future_vintage_count"] == 0
+    latest = complete["points"][-1]
+    assert latest["revenue"] == pytest.approx(777_102_455_000)
+    assert latest["revenue_growth"] == pytest.approx(
+        777_102_455_000 / 602_315_354_000 - 1
+    )
+    assert latest["net_profit_growth"] == pytest.approx(
+        40_254_346_000 / 30_040_811_000 - 1
+    )
+    assert latest["operating_cash_flow_growth"] == pytest.approx(
+        133_453_873_000 / 169_725_025_000 - 1
+    )
+    assert latest["liabilities_to_assets"] == pytest.approx(
+        584_667_646_000 / 783_355_855_000
     )
 
 
