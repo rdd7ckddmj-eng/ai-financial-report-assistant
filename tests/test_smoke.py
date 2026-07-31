@@ -778,6 +778,7 @@ app.render_cross_company_comparison_page()
     assert not app_test.exception
     assert "同行组候选｜白酒制造" in visible_text
     assert "白酒经营质量透视｜2025" in visible_text
+    assert "2023—2025经营质量趋势" in visible_text
     assert "不生成综合得分" in visible_text
     assert app_test.selectbox[0].value == 2025
     assert len(app_test.get("link_button")) == 3

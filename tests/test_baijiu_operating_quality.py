@@ -16,7 +16,7 @@ from src.financial_history import (
 )
 
 
-def _baijiu_comparison_rows():
+def _baijiu_comparison_rows(period_year: int = 2025):
     cases = load_financial_history_catalog()[:3]
     points_by_code = {
         case["company_code"]: select_financial_history_as_of(
@@ -28,21 +28,24 @@ def _baijiu_comparison_rows():
     comparison = build_cross_company_comparison(
         cases,
         points_by_code,
+        selected_year=period_year,
         industry_profiles=load_company_industry_catalog(),
     )
     return comparison["rows"]
 
 
-def test_baijiu_operating_quality_source_has_three_audited_companies() -> None:
+def test_baijiu_operating_quality_source_has_three_years_for_each_company() -> None:
     records = load_baijiu_operating_quality()
 
-    assert len(records) == 3
-    assert [record["company_code"] for record in records] == [
-        "600519",
-        "000858",
-        "000568",
-    ]
-    assert {record["period_year"] for record in records} == {2025}
+    assert len(records) == 9
+    assert {
+        (record["company_code"], record["period_year"])
+        for record in records
+    } == {
+        (company_code, period_year)
+        for company_code in ("600519", "000858", "000568")
+        for period_year in (2023, 2024, 2025)
+    }
     assert all(record["evidence_grade"] == "A" for record in records)
     assert all(record["verification_status"] == "verified" for record in records)
 
@@ -91,9 +94,61 @@ def test_baijiu_operating_quality_calculates_traceable_ratios() -> None:
     )
 
 
+def test_baijiu_operating_quality_calculates_verified_history() -> None:
+    records = load_baijiu_operating_quality()
+    result_2023 = build_baijiu_operating_quality(
+        _baijiu_comparison_rows(2023),
+        records,
+    )
+    result_2024 = build_baijiu_operating_quality(
+        _baijiu_comparison_rows(2024),
+        records,
+    )
+
+    moutai_2023 = next(
+        row for row in result_2023["rows"] if row["company_code"] == "600519"
+    )
+    assert result_2023["period_year"] == 2023
+    assert moutai_2023["gross_margin"] == pytest.approx(
+        (147_693_604_994.14 - 11_867_273_851.78)
+        / 147_693_604_994.14
+    )
+    assert moutai_2023["inventory_growth"] == pytest.approx(
+        46_435_185_061.53 / 38_824_374_236.24 - 1
+    )
+    assert moutai_2023["income_statement_page"] == 63
+    assert moutai_2023["inventory_page"] == 59
+    assert moutai_2023["contract_liabilities_page"] == 60
+
+    luzhou_2024 = next(
+        row for row in result_2024["rows"] if row["company_code"] == "000568"
+    )
+    assert result_2024["period_year"] == 2024
+    assert luzhou_2024["inventory_to_assets"] == pytest.approx(
+        13_392_794_475.96 / 68_334_595_564.58
+    )
+    assert luzhou_2024["contract_liabilities_growth"] == pytest.approx(
+        3_978_131_528.88 / 2_672_977_090.30 - 1
+    )
+    assert luzhou_2024["income_statement_page"] == 91
+    assert luzhou_2024["inventory_page"] == 86
+    assert luzhou_2024["contract_liabilities_page"] == 87
+
+
 def test_baijiu_operating_quality_rejects_cross_source_mismatch() -> None:
     records = deepcopy(load_baijiu_operating_quality())
-    records[0]["source_url"] = records[1]["source_url"]
+    moutai_2025 = next(
+        record
+        for record in records
+        if record["company_code"] == "600519"
+        and record["period_year"] == 2025
+    )
+    moutai_2025["source_url"] = next(
+        record["source_url"]
+        for record in records
+        if record["company_code"] == "000858"
+        and record["period_year"] == 2025
+    )
 
     with pytest.raises(ValueError, match="不一致"):
         build_baijiu_operating_quality(
