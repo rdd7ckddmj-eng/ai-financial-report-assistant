@@ -5,7 +5,9 @@ import pytest
 
 from src.financial_history import (
     load_moutai_financial_history,
+    load_verified_financial_history,
     select_financial_history_as_of,
+    verified_financial_history_codes,
 )
 
 
@@ -28,6 +30,59 @@ def test_verified_moutai_history_has_four_years_and_official_sources() -> None:
         record["total_liabilities"] < record["total_assets"]
         for record in records
     )
+
+
+def test_verified_catl_history_has_three_audited_years() -> None:
+    records = load_verified_financial_history("300750")
+
+    assert verified_financial_history_codes() == ("600519", "300750")
+    assert [record["period_year"] for record in records] == [
+        2022,
+        2023,
+        2024,
+    ]
+    assert all(record["company_name"] == "宁德时代" for record in records)
+    assert all(record["evidence_grade"] == "A" for record in records)
+    assert all(
+        record["source_url"].startswith(
+            "https://static.cninfo.com.cn/finalpage/"
+        )
+        for record in records
+    )
+
+
+def test_catl_history_preserves_publication_cutoffs_and_python_ratios() -> None:
+    records = load_verified_financial_history("300750")
+
+    before_2023_report = select_financial_history_as_of(
+        records,
+        "2024-03-15",
+    )
+    complete = select_financial_history_as_of(records, "2025-03-15")
+
+    assert [
+        point["period_year"] for point in before_2023_report["points"]
+    ] == [2022]
+    assert complete["future_vintage_count"] == 0
+    latest = complete["points"][-1]
+    assert latest["revenue"] == pytest.approx(362_012_554_000)
+    assert latest["revenue_growth"] == pytest.approx(
+        362_012_554_000 / 400_917_044_900 - 1
+    )
+    assert latest["net_profit_growth"] == pytest.approx(
+        50_744_682_000 / 44_121_248_300 - 1
+    )
+    assert latest["operating_cash_flow_growth"] == pytest.approx(
+        96_990_345_000 / 92_826_124_400 - 1
+    )
+    assert latest["liabilities_to_assets"] == pytest.approx(
+        513_201_949_000 / 786_658_123_000
+    )
+
+
+def test_generic_loader_rejects_companies_without_verified_history() -> None:
+    with pytest.raises(ValueError, match="尚未建立"):
+        load_verified_financial_history("000001")
 
 
 def test_as_of_filter_does_not_reveal_unpublished_financial_years() -> None:

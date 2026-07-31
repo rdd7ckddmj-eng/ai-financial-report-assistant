@@ -501,10 +501,40 @@ moved in the same direction. It does not score either pattern as good or bad.
 Cash conversion can change because of working capital, tax, seasonality, or
 one-off items, so the user is directed back to the cited annual report.
 
-### Why the first version is intentionally narrow
+### Why the first version was intentionally narrow
 
-Only Guizhou Moutai has a four-year, manually verified, page-linked benchmark
-in the current repository. Other companies remain unavailable in this page
-until the same verification standard is met; unverified aggregator figures
-are not used to create the appearance of broad coverage. The feature needs no
-paid API, background process, database, or persistent Render storage.
+At launch, only Guizhou Moutai had a four-year, manually verified, page-linked
+benchmark. That deliberate first boundary established the verification
+standard used for later companies; unverified aggregator figures were not used
+to create the appearance of broad coverage. The feature needs no paid API,
+background process, database, or persistent Render storage.
+
+## 2026-07-31 — CATL audited financial trend coverage
+
+### What I built or changed
+
+Generalised the audited financial-history loader so one validation path can
+serve more than one company, then added CATL's 2022-2024 complete annual-report
+series. Each year keeps its official CNINFO URL, publication date, summary
+page, consolidated-liability page, source unit, and verification status.
+
+### One concept I can now explain
+
+Financial statements can change display units between years. CATL's 2022 and
+2023 reports show the selected figures in RMB ten-thousands, while the 2024
+report uses RMB thousands. The stored benchmark converts both to RMB before
+Python calculates growth, margins, cash conversion, or liabilities-to-assets.
+
+### How interpretation is kept neutral
+
+CATL's latest verified year has lower revenue but higher attributable profit
+and operating cash flow. The product labels the revenue-profit directions as
+different and leaves the explanation to the cited annual report; it does not
+turn the pattern into a positive or negative investment signal.
+
+### Why expansion remains controlled
+
+The lab now covers two companies, not the entire A-share market. A new company
+is added only after its complete reports, consolidated scope, units, dates,
+figures, and pages pass the same checks. This prevents broad but unverified
+aggregator coverage from weakening the portfolio's evidence standard.

@@ -175,7 +175,7 @@ secret environment settings. It must never be committed to the repository.
 - Offer three manually verified Guizhou Moutai flagship dates with direct
   Shanghai Stock Exchange or company-source links, while keeping free date
   selection available.
-- Show a verified Guizhou Moutai multi-year financial trend with revenue,
+- Show verified Guizhou Moutai and CATL multi-year financial trends with revenue,
   attributable net profit, operating cash flow, assets, liabilities, annual
   report pages, publication vintages, net margin, cash-to-profit conversion,
   and liabilities-to-assets. A later restatement replaces the original figure
@@ -183,9 +183,9 @@ secret environment settings. It must never be committed to the repository.
 - Provide a standalone Financial Trend Lab that calculates three audited
   compound annual change rates, distinguishes revenue-profit and
   profit-operating-cash direction alignment, highlights restated vintages,
-  and keeps every annual-report link and evidence page visible. The first
-  version is deliberately limited to the manually verified Guizhou Moutai
-  flagship case rather than filling other companies with unverified figures.
+  and keeps every annual-report link and evidence page visible. Coverage now
+  includes Guizhou Moutai for 2022-2025 and CATL for 2022-2024; other companies
+  remain unavailable until they pass the same page-level verification.
 - Record the requested date and effective trading date, use unadjusted prices
   to avoid current adjustment-factor leakage, and audit disclosures excluded
   because they were published after the historical cut-off.
@@ -296,3 +296,8 @@ The first point-in-time A-share financial benchmark is stored in
 `data/verified/moutai_financial_history.csv`. It records both the original
 2022 figures and the later restated vintage, so a historical cut-off never sees
 an accounting revision before its publication date.
+
+The second audited benchmark is stored in
+`data/verified/catl_financial_history.csv`. It covers CATL's 2022-2024 complete
+annual reports, records the source unit conversion to RMB, and retains the
+official CNINFO report date plus the summary and consolidated-liability pages.

@@ -57,8 +57,9 @@ from src.financial_ratios import (
     revenue_growth,
 )
 from src.financial_history import (
-    load_moutai_financial_history,
+    load_verified_financial_history,
     select_financial_history_as_of,
+    verified_financial_history_codes,
 )
 from src.financial_trend_lab import build_financial_trend_review
 from src.flagship_cases import load_moutai_flagship_events
@@ -2818,7 +2819,7 @@ def _show_verified_financial_history(
     company: CompanyIdentity,
     selected_date: date,
 ) -> None:
-    """Show publication-date-filtered audited history for the flagship case."""
+    """Show publication-date-filtered audited history where available."""
     st.divider()
     st.subheader("当时已公开的多年财务趋势")
     st.caption(
@@ -2826,16 +2827,16 @@ def _show_verified_financial_history(
         "若后来发生追溯调整，系统从调整公告日开始切换版本。"
     )
 
-    if company["code"] != "600519":
+    if company["code"] not in verified_financial_history_codes():
         st.info(
-            "多年财务页码基准目前先覆盖贵州茅台旗舰案例。"
+            "多年财务页码基准目前覆盖贵州茅台和宁德时代。"
             "其他A股公司仍可使用行情、公告和年报原文分析。"
         )
         return
 
     try:
         result = select_financial_history_as_of(
-            load_moutai_financial_history(),
+            load_verified_financial_history(company["code"]),
             selected_date,
         )
     except ValueError as error:
@@ -3472,7 +3473,7 @@ def render_methodology_page() -> None:
 
 
 def render_financial_trend_page() -> None:
-    """Render audited cross-year trends for the verified flagship case."""
+    """Render audited cross-year trends for supported A-share cases."""
     apply_product_theme()
     show_compact_page_header(
         "09 / 财务趋势实验室 · FINANCIAL TREND LAB",
@@ -3493,27 +3494,61 @@ def render_financial_trend_page() -> None:
         st.info("尚未选择公司，已载入首个已核验案例：贵州茅台。")
 
     _show_company_banner(company)
-    if company["code"] != "600519":
+    if company["code"] not in verified_financial_history_codes():
         st.info(
-            "独立的多年年报页码基准目前先覆盖贵州茅台。"
+            "独立的多年年报页码基准目前覆盖贵州茅台和宁德时代。"
             "这是因为每个年度都需要逐页核验，并处理后来发生的追溯调整；"
             "其他公司不会用未经核验的网络数字填补。"
         )
-        if st.button(
-            "载入贵州茅台已核验案例",
-            type="primary",
-            use_container_width=True,
+        choice_columns = st.columns(2)
+        verified_choices = (
+            ("600519", "载入贵州茅台已核验案例"),
+            ("300750", "载入宁德时代已核验案例"),
+        )
+        for column, (code, label) in zip(
+            choice_columns,
+            verified_choices,
+            strict=True,
         ):
-            resolved = resolve_company("600519")
-            if resolved:
-                _store_selected_company(resolved[0])
-                st.rerun()
+            if column.button(
+                label,
+                type="primary" if code == "600519" else "secondary",
+                use_container_width=True,
+                key=f"verified_financial_choice_{code}",
+            ):
+                resolved = resolve_company(code)
+                if resolved:
+                    _store_selected_company(resolved[0])
+                    st.rerun()
         show_product_footer()
         return
 
+    verified_company_options = {
+        "贵州茅台｜600519.SH": "600519",
+        "宁德时代｜300750.SZ": "300750",
+    }
+    option_labels = list(verified_company_options)
+    current_label = next(
+        label
+        for label, code in verified_company_options.items()
+        if code == company["code"]
+    )
+    selected_label = st.selectbox(
+        "切换已核验公司",
+        options=option_labels,
+        index=option_labels.index(current_label),
+        key="verified_financial_company_selector",
+    )
+    selected_code = verified_company_options[selected_label]
+    if selected_code != company["code"]:
+        resolved = resolve_company(selected_code)
+        if resolved:
+            _store_selected_company(resolved[0])
+            st.rerun()
+
     try:
         result = select_financial_history_as_of(
-            load_moutai_financial_history(),
+            load_verified_financial_history(company["code"]),
             date.today(),
         )
         review = build_financial_trend_review(result["points"])
@@ -3589,9 +3624,12 @@ def render_annual_report_page() -> None:
     company = _selected_company()
     if company is not None:
         _show_company_banner(company)
-        if company["code"] == "600519" and st.button(
-            "查看已核验多年财务趋势",
-            use_container_width=True,
+        if (
+            company["code"] in verified_financial_history_codes()
+            and st.button(
+                "查看已核验多年财务趋势",
+                use_container_width=True,
+            )
         ):
             _switch_page("financial_trend")
     show_chinese_user_guide()

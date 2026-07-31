@@ -1,4 +1,4 @@
-"""Verified point-in-time financial history for the flagship A-share case.
+"""Verified point-in-time financial history for supported A-share cases.
 
 The data file stores publication vintages rather than one timeless value.
 When a later annual report restates an earlier year, the historical view uses
@@ -21,6 +21,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MOUTAI_FINANCIAL_HISTORY_PATH = (
     PROJECT_ROOT / "data" / "verified" / "moutai_financial_history.csv"
 )
+CATL_FINANCIAL_HISTORY_PATH = (
+    PROJECT_ROOT / "data" / "verified" / "catl_financial_history.csv"
+)
+VERIFIED_FINANCIAL_HISTORY_PATHS = {
+    "600519": MOUTAI_FINANCIAL_HISTORY_PATH,
+    "300750": CATL_FINANCIAL_HISTORY_PATH,
+}
 ALLOWED_REPORT_HOSTS = {
     "static.cninfo.com.cn",
     "dataclouds.cninfo.com.cn",
@@ -111,10 +118,13 @@ def _positive_int(value: str, field_name: str) -> int:
     return parsed
 
 
-def _validate_record(row: dict[str, str]) -> FinancialHistoryRecord:
+def _validate_record(
+    row: dict[str, str],
+    expected_company_code: str,
+) -> FinancialHistoryRecord:
     """Validate identity, source provenance, pages, and accounting values."""
-    if row["company_code"] != "600519":
-        raise ValueError("贵州茅台财务基准的股票代码必须是 600519。")
+    if row["company_code"] != expected_company_code:
+        raise ValueError("财务基准中的股票代码与所选公司不一致。")
 
     source_url = str(row["source_url"]).strip()
     parsed_url = urlparse(source_url)
@@ -127,7 +137,7 @@ def _validate_record(row: dict[str, str]) -> FinancialHistoryRecord:
     if row["evidence_grade"] != "A":
         raise ValueError("财务基准必须保留 A 级证据。")
     if row["verification_status"] != "verified":
-        raise ValueError("未核验财务数据不能进入旗舰案例。")
+        raise ValueError("未核验财务数据不能进入多年趋势案例。")
     if row["accounting_basis"] not in ACCOUNTING_BASES:
         raise ValueError("财务基准的会计口径标记无效。")
 
@@ -178,19 +188,36 @@ def _validate_record(row: dict[str, str]) -> FinancialHistoryRecord:
     }
 
 
-def load_moutai_financial_history(
-    path: Path = MOUTAI_FINANCIAL_HISTORY_PATH,
+def verified_financial_history_codes() -> tuple[str, ...]:
+    """Return companies with source-controlled audited history."""
+    return tuple(VERIFIED_FINANCIAL_HISTORY_PATHS)
+
+
+def load_verified_financial_history(
+    company_code: str,
+    path: Path | None = None,
 ) -> list[FinancialHistoryRecord]:
-    """Load the manually checked, source-controlled financial vintages."""
+    """Load one company's manually checked, source-controlled vintages."""
+    expected_company_code = str(company_code).strip()
+    data_path = path or VERIFIED_FINANCIAL_HISTORY_PATHS.get(
+        expected_company_code
+    )
+    if data_path is None:
+        raise ValueError("该公司尚未建立已核验的多年财务基准。")
+
     try:
-        with path.open(encoding="utf-8-sig", newline="") as handle:
+        with data_path.open(encoding="utf-8-sig", newline="") as handle:
             rows = list(csv.DictReader(handle))
     except OSError as error:
-        raise ValueError("无法读取贵州茅台多年财务基准。") from error
+        raise ValueError("无法读取该公司的多年财务基准。") from error
 
     if not rows:
-        raise ValueError("贵州茅台多年财务基准为空。")
-    records = [_validate_record(row) for row in rows]
+        raise ValueError("该公司的多年财务基准为空。")
+    records = [
+        _validate_record(row, expected_company_code) for row in rows
+    ]
+    if len({record["company_name"] for record in records}) != 1:
+        raise ValueError("同一财务基准中出现了多个公司名称。")
     identities = [
         (
             record["period_year"],
@@ -200,7 +227,7 @@ def load_moutai_financial_history(
         for record in records
     ]
     if len(identities) != len(set(identities)):
-        raise ValueError("贵州茅台多年财务基准存在重复版本。")
+        raise ValueError("该公司的多年财务基准存在重复版本。")
     return sorted(
         records,
         key=lambda record: (
@@ -208,6 +235,13 @@ def load_moutai_financial_history(
             record["period_year"],
         ),
     )
+
+
+def load_moutai_financial_history(
+    path: Path = MOUTAI_FINANCIAL_HISTORY_PATH,
+) -> list[FinancialHistoryRecord]:
+    """Keep the original flagship loader as a stable public interface."""
+    return load_verified_financial_history("600519", path)
 
 
 def _growth(current: float, previous: float | None) -> float | None:
