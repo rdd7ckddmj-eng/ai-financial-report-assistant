@@ -516,3 +516,37 @@ def test_historical_lens_page_renders_a_point_in_time_snapshot(
     monkeypatch.setattr(app, "show_product_footer", lambda: None)
 
     app.render_historical_lens_page()
+
+
+def test_financial_trend_page_renders_verified_flagship(
+    monkeypatch,
+) -> None:
+    """Keep the standalone audited trend page independent of live sources."""
+    from src import app
+
+    company = {
+        "code": "600519",
+        "name": "贵州茅台",
+        "exchange": "SH",
+        "exchange_name": "上海证券交易所",
+        "canonical_code": "600519.SH",
+    }
+    rendered_history = []
+
+    monkeypatch.setattr(app, "apply_product_theme", lambda: None)
+    monkeypatch.setattr(app, "show_compact_page_header", lambda *args: None)
+    monkeypatch.setattr(app, "_selected_company", lambda: company)
+    monkeypatch.setattr(app, "_show_company_banner", lambda selected: None)
+    monkeypatch.setattr(
+        app,
+        "_show_verified_financial_history",
+        lambda selected, cutoff: rendered_history.append(
+            (selected, cutoff)
+        ),
+    )
+    monkeypatch.setattr(app, "show_product_footer", lambda: None)
+
+    app.render_financial_trend_page()
+
+    assert rendered_history
+    assert rendered_history[0][0]["code"] == "600519"
