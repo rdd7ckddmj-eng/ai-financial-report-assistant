@@ -49,6 +49,7 @@ from src.china_stock import (
     scan_market_activity_events,
     select_latest_annual_report,
 )
+from src.company_industry import audit_company_industry_catalog
 from src.cross_company_comparison import build_cross_company_comparison
 from src.financial_statement_extractor import find_income_statement_figures
 from src.financial_ratios import (
@@ -3691,7 +3692,7 @@ def render_financial_trend_page() -> None:
 
 
 def render_cross_company_comparison_page() -> None:
-    """Render a common-year comparison without unsupported peer scoring."""
+    """Render a common-year comparison with audited industry boundaries."""
     apply_product_theme()
     show_compact_page_header(
         "10 / 跨公司横向比较 · CROSS-COMPANY COMPARISON",
@@ -3702,10 +3703,19 @@ def render_cross_company_comparison_page() -> None:
 
     try:
         catalog_audit = audit_financial_history_catalog()
+        industry_audit = audit_company_industry_catalog(
+            catalog_audit["cases"]
+        )
     except ValueError as error:
-        st.error(f"已核验公司接入清单未通过检查：{error}")
+        st.error(f"公司或行业接入清单未通过检查：{error}")
         show_product_footer()
         return
+
+    industry_profiles = industry_audit["profiles"]
+    industry_by_code = {
+        profile["company_code"]: profile
+        for profile in industry_profiles
+    }
 
     case_options = {
         f"{case['company_name']}｜{case['canonical_code']}": case
@@ -3735,6 +3745,7 @@ def render_cross_company_comparison_page() -> None:
         initial_comparison = build_cross_company_comparison(
             selected_cases,
             points_by_code,
+            industry_profiles=industry_profiles,
         )
     except ValueError as error:
         st.warning(str(error))
@@ -3755,19 +3766,86 @@ def render_cross_company_comparison_page() -> None:
         selected_cases,
         points_by_code,
         selected_year,
+        industry_profiles=industry_profiles,
     )
     rows = comparison["rows"]
 
-    st.warning(
-        "当前目录尚未保存统一行业分类，因此本页是"
-        f"**{comparison['scope_label']}**。页面不会生成综合优劣分数。"
-    )
+    if comparison["is_same_peer_group"]:
+        st.success(
+            f"行业边界检查通过：**{comparison['scope_label']}**。"
+            "这只是同行组候选，仍需继续核查业务分部和会计口径。"
+        )
+    else:
+        st.warning(
+            f"当前选择覆盖 {comparison['industry_group_count']} 个研究同行组，"
+            f"因此属于 **{comparison['scope_label']}**。"
+            "页面不会生成跨行业综合优劣分数。"
+        )
     st.success(
         "共同年度检查通过："
         f"{comparison['company_count']} 家公司｜"
         f"{comparison['selected_year']} 财务年度｜"
         f"{len(rows)} 份 A 级官方年报证据。"
     )
+
+    st.subheader("行业证据与同行组状态")
+    st.caption(
+        "披露行业来自公司官方年报；研究同行组是本产品为可比性建立的"
+        "更窄标签，不等同于监管机构的估值分类。"
+    )
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {
+                    "公司": case["company_name"],
+                    "年报披露行业": industry_by_code[
+                        case["company_code"]
+                    ]["disclosed_industry"],
+                    "研究同行组": industry_by_code[
+                        case["company_code"]
+                    ]["peer_group_name"],
+                    "分类依据": industry_by_code[
+                        case["company_code"]
+                    ]["classification_basis"],
+                    "年报证据页": industry_by_code[
+                        case["company_code"]
+                    ]["source_page"],
+                    "证据等级": industry_by_code[
+                        case["company_code"]
+                    ]["evidence_grade"],
+                }
+                for case in selected_cases
+            ]
+        ),
+        hide_index=True,
+        use_container_width=True,
+    )
+    st.markdown("#### 已核验同行组覆盖")
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {
+                    "研究同行组": coverage["peer_group_name"],
+                    "已核验公司": "、".join(coverage["company_names"]),
+                    "公司数量": coverage["company_count"],
+                    "同行候选状态": (
+                        "可用"
+                        if coverage["ready"]
+                        else f"尚缺 {coverage['companies_needed']} 家"
+                    ),
+                }
+                for coverage in industry_audit["coverage"]
+            ]
+        ),
+        hide_index=True,
+        use_container_width=True,
+    )
+    if not any(coverage["ready"] for coverage in industry_audit["coverage"]):
+        st.info(
+            "当前每个研究同行组只有 1 家已核验公司，因此尚无可称为"
+            "同行组候选的组合。下一步需要为其中一个组补充至少 1 家公司，"
+            "并按相同页码和单位规则核验多年年报。"
+        )
 
     summary_columns = st.columns(4)
     summary_columns[0].metric("共同财务年度", str(selected_year))
@@ -3789,6 +3867,9 @@ def render_cross_company_comparison_page() -> None:
                 {
                     "公司": row["company_name"],
                     "股票代码": row["canonical_code"],
+                    "研究同行组": industry_by_code[
+                        row["company_code"]
+                    ]["peer_group_name"],
                     "营业收入（亿元）": round(
                         row["revenue"] / 100_000_000,
                         2,
