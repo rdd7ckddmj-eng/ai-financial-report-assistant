@@ -52,8 +52,9 @@ Build a web application that can:
   common-year rule, sample-median descriptions, annual-report evidence, and
   boundary between a cross-industry demonstration and a true peer group.
 - [Baijiu Operating Quality](docs/BAIJIU_OPERATING_QUALITY_SPEC.md) defines the
-  audited 2025 gross-margin, inventory, contract-liability, and cash-quality
-  calculations that appear only for the verified baijiu peer candidate.
+  audited 2023-2025 gross-margin, inventory, contract-liability, cash-quality,
+  and three-year trend calculations that appear only for the verified baijiu
+  peer candidate.
 
 ## Development principles
 
@@ -207,13 +208,13 @@ secret environment settings. It must never be committed to the repository.
   three research groups. Baijiu now has a three-company peer-group candidate,
   while the default five-company view remains cross-industry and
   never produces a composite quality score.
-- Add a baijiu-only 2025 operating-quality panel for Guizhou Moutai,
+- Add a baijiu-only 2023-2025 operating-quality panel for Guizhou Moutai,
   Wuliangye, and Luzhou Laojiao. It calculates consolidated gross margin,
   inventory growth and asset weight, contract-liability growth and revenue
   weight, and operating-cash conversion from audited report values. Every
-  incremental fact retains its income-statement or balance-sheet page, while
-  the interface explicitly rejects backlog, demand, forecast, and composite
-  quality-score interpretations.
+  incremental fact retains its income-statement or balance-sheet page. Three
+  separate trend charts preserve metric units, while the interface explicitly
+  rejects backlog, demand, forecast, and composite quality-score interpretations.
 - Record the requested date and effective trading date, use unadjusted prices
   to avoid current adjustment-factor leakage, and audit disclosures excluded
   because they were published after the historical cut-off.
