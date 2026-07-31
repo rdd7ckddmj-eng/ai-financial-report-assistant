@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import csv
 import math
+import re
 from datetime import date, datetime
 from pathlib import Path
 from typing import Iterable, Literal, TypedDict
@@ -24,10 +25,9 @@ MOUTAI_FINANCIAL_HISTORY_PATH = (
 CATL_FINANCIAL_HISTORY_PATH = (
     PROJECT_ROOT / "data" / "verified" / "catl_financial_history.csv"
 )
-VERIFIED_FINANCIAL_HISTORY_PATHS = {
-    "600519": MOUTAI_FINANCIAL_HISTORY_PATH,
-    "300750": CATL_FINANCIAL_HISTORY_PATH,
-}
+FINANCIAL_HISTORY_CATALOG_PATH = (
+    PROJECT_ROOT / "data" / "verified" / "financial_history_catalog.csv"
+)
 ALLOWED_REPORT_HOSTS = {
     "static.cninfo.com.cn",
     "dataclouds.cninfo.com.cn",
@@ -35,6 +35,44 @@ ALLOWED_REPORT_HOSTS = {
     "static.sse.com.cn",
 }
 ACCOUNTING_BASES = {"original", "restated", "reported"}
+EXCHANGE_NAMES = {
+    "SH": "上海证券交易所",
+    "SZ": "深圳证券交易所",
+    "BJ": "北京证券交易所",
+}
+HISTORY_REQUIRED_FIELDS = {
+    "company_code",
+    "company_name",
+    "period_year",
+    "report_year",
+    "published_date",
+    "report_title",
+    "source_url",
+    "revenue",
+    "net_profit",
+    "operating_cash_flow",
+    "total_assets",
+    "total_liabilities",
+    "summary_page",
+    "balance_sheet_page",
+    "evidence_grade",
+    "verification_status",
+    "accounting_basis",
+    "notes",
+}
+CATALOG_REQUIRED_FIELDS = {
+    "company_code",
+    "company_name",
+    "exchange",
+    "exchange_name",
+    "canonical_code",
+    "data_file",
+    "coverage_start_year",
+    "coverage_end_year",
+    "verified_periods",
+    "reviewed_on",
+    "status",
+}
 
 
 class FinancialHistoryRecord(TypedDict):
@@ -84,6 +122,32 @@ class FinancialHistoryResult(TypedDict):
     restatement_count: int
 
 
+class FinancialHistoryCase(TypedDict):
+    """One approved company entry in the audited-history catalogue."""
+
+    company_code: str
+    company_name: str
+    exchange: Literal["SH", "SZ", "BJ"]
+    exchange_name: str
+    canonical_code: str
+    data_file: str
+    coverage_start_year: int
+    coverage_end_year: int
+    verified_periods: int
+    reviewed_on: date
+    status: Literal["verified"]
+
+
+class FinancialHistoryCatalogAudit(TypedDict):
+    """Compact proof that every catalogue entry passed the same checks."""
+
+    company_count: int
+    financial_period_count: int
+    publication_vintage_count: int
+    all_checks_passed: bool
+    cases: list[FinancialHistoryCase]
+
+
 def _as_date(value: date | datetime | str, field_name: str) -> date:
     """Parse supported date values without accepting malformed input."""
     if isinstance(value, datetime):
@@ -118,6 +182,83 @@ def _positive_int(value: str, field_name: str) -> int:
     return parsed
 
 
+def _expected_exchange(company_code: str) -> str:
+    """Infer the A-share exchange so catalogue identities cannot disagree."""
+    if not re.fullmatch(r"\d{6}", company_code):
+        raise ValueError("接入目录中的股票代码必须是6位数字。")
+    if company_code.startswith(("600", "601", "603", "605", "688", "689")):
+        return "SH"
+    if company_code.startswith(("000", "001", "002", "003", "300", "301")):
+        return "SZ"
+    if company_code.startswith(("4", "8", "920")):
+        return "BJ"
+    raise ValueError("接入目录中的股票代码无法匹配沪、深或北交所。")
+
+
+def _validate_catalog_row(row: dict[str, str]) -> FinancialHistoryCase:
+    """Validate one onboarding row before its financial file is accepted."""
+    company_code = str(row["company_code"]).strip()
+    company_name = str(row["company_name"]).strip()
+    exchange = str(row["exchange"]).strip().upper()
+    exchange_name = str(row["exchange_name"]).strip()
+    canonical_code = str(row["canonical_code"]).strip().upper()
+    data_file = str(row["data_file"]).strip()
+    status = str(row["status"]).strip()
+
+    if not company_name:
+        raise ValueError("接入目录中的公司名称不能为空。")
+    expected_exchange = _expected_exchange(company_code)
+    if exchange != expected_exchange:
+        raise ValueError("接入目录中的交易所与股票代码不一致。")
+    if exchange_name != EXCHANGE_NAMES[exchange]:
+        raise ValueError("接入目录中的交易所名称不一致。")
+    if canonical_code != f"{company_code}.{exchange}":
+        raise ValueError("接入目录中的标准股票代码不一致。")
+    if (
+        not data_file
+        or Path(data_file).name != data_file
+        or Path(data_file).suffix.lower() != ".csv"
+        or data_file == FINANCIAL_HISTORY_CATALOG_PATH.name
+    ):
+        raise ValueError("接入目录只能引用同目录下的独立 CSV 数据文件。")
+    if status != "verified":
+        raise ValueError("只有 verified 公司可以进入多年财务趋势目录。")
+
+    start_year = _positive_int(
+        row["coverage_start_year"],
+        "coverage_start_year",
+    )
+    end_year = _positive_int(
+        row["coverage_end_year"],
+        "coverage_end_year",
+    )
+    verified_periods = _positive_int(
+        row["verified_periods"],
+        "verified_periods",
+    )
+    if start_year > end_year:
+        raise ValueError("核验覆盖的开始年度不能晚于结束年度。")
+    if verified_periods != end_year - start_year + 1:
+        raise ValueError("核验年度数量必须与连续覆盖区间一致。")
+    reviewed_on = _as_date(row["reviewed_on"], "reviewed_on")
+    if reviewed_on > date.today():
+        raise ValueError("接入目录的复核日期不能晚于今天。")
+
+    return {
+        "company_code": company_code,
+        "company_name": company_name,
+        "exchange": exchange,
+        "exchange_name": exchange_name,
+        "canonical_code": canonical_code,
+        "data_file": data_file,
+        "coverage_start_year": start_year,
+        "coverage_end_year": end_year,
+        "verified_periods": verified_periods,
+        "reviewed_on": reviewed_on,
+        "status": "verified",
+    }
+
+
 def _validate_record(
     row: dict[str, str],
     expected_company_code: str,
@@ -125,6 +266,10 @@ def _validate_record(
     """Validate identity, source provenance, pages, and accounting values."""
     if row["company_code"] != expected_company_code:
         raise ValueError("财务基准中的股票代码与所选公司不一致。")
+    if not str(row["company_name"]).strip():
+        raise ValueError("财务基准中的公司名称不能为空。")
+    if not str(row["report_title"]).strip():
+        raise ValueError("财务基准中的年度报告名称不能为空。")
 
     source_url = str(row["source_url"]).strip()
     parsed_url = urlparse(source_url)
@@ -154,15 +299,19 @@ def _validate_record(
     if total_liabilities > total_assets:
         raise ValueError("总负债不能大于总资产。")
 
+    published_date = _as_date(
+        row["published_date"],
+        "published_date",
+    )
+    if published_date.year <= report_year:
+        raise ValueError("A股年度报告公开日期必须晚于报告年度。")
+
     return {
         "company_code": row["company_code"],
         "company_name": row["company_name"],
         "period_year": period_year,
         "report_year": report_year,
-        "published_date": _as_date(
-            row["published_date"],
-            "published_date",
-        ),
+        "published_date": published_date,
         "report_title": row["report_title"].strip(),
         "source_url": source_url,
         "revenue": _positive_float(row["revenue"], "revenue"),
@@ -188,26 +337,50 @@ def _validate_record(
     }
 
 
-def verified_financial_history_codes() -> tuple[str, ...]:
-    """Return companies with source-controlled audited history."""
-    return tuple(VERIFIED_FINANCIAL_HISTORY_PATHS)
+def _read_financial_history_catalog(
+    path: Path = FINANCIAL_HISTORY_CATALOG_PATH,
+) -> list[FinancialHistoryCase]:
+    """Read and structurally validate the source-controlled onboarding list."""
+    try:
+        with path.open(encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            missing = CATALOG_REQUIRED_FIELDS - set(reader.fieldnames or [])
+            if missing:
+                raise ValueError(
+                    "接入目录缺少字段：" + "、".join(sorted(missing))
+                )
+            rows = list(reader)
+    except OSError as error:
+        raise ValueError("无法读取多年财务趋势接入目录。") from error
 
-
-def load_verified_financial_history(
-    company_code: str,
-    path: Path | None = None,
-) -> list[FinancialHistoryRecord]:
-    """Load one company's manually checked, source-controlled vintages."""
-    expected_company_code = str(company_code).strip()
-    data_path = path or VERIFIED_FINANCIAL_HISTORY_PATHS.get(
-        expected_company_code
+    if not rows:
+        raise ValueError("多年财务趋势接入目录为空。")
+    cases = [_validate_catalog_row(row) for row in rows]
+    identity_sets = (
+        ("股票代码", [case["company_code"] for case in cases]),
+        ("标准股票代码", [case["canonical_code"] for case in cases]),
+        ("数据文件", [case["data_file"] for case in cases]),
     )
-    if data_path is None:
-        raise ValueError("该公司尚未建立已核验的多年财务基准。")
+    for label, values in identity_sets:
+        if len(values) != len(set(values)):
+            raise ValueError(f"接入目录存在重复{label}。")
+    return cases
 
+
+def _load_financial_history_file(
+    expected_company_code: str,
+    data_path: Path,
+) -> list[FinancialHistoryRecord]:
+    """Load and validate one company's publication vintages."""
     try:
         with data_path.open(encoding="utf-8-sig", newline="") as handle:
-            rows = list(csv.DictReader(handle))
+            reader = csv.DictReader(handle)
+            missing = HISTORY_REQUIRED_FIELDS - set(reader.fieldnames or [])
+            if missing:
+                raise ValueError(
+                    "财务基准缺少字段：" + "、".join(sorted(missing))
+                )
+            rows = list(reader)
     except OSError as error:
         raise ValueError("无法读取该公司的多年财务基准。") from error
 
@@ -235,6 +408,95 @@ def load_verified_financial_history(
             record["period_year"],
         ),
     )
+
+
+def load_financial_history_catalog(
+    path: Path = FINANCIAL_HISTORY_CATALOG_PATH,
+) -> list[FinancialHistoryCase]:
+    """Accept only catalogue entries whose linked data passes every check."""
+    cases = _read_financial_history_catalog(path)
+    for case in cases:
+        try:
+            records = _load_financial_history_file(
+                case["company_code"],
+                path.parent / case["data_file"],
+            )
+        except ValueError as error:
+            raise ValueError(
+                f"{case['company_name']}接入校验失败：{error}"
+            ) from error
+        if {record["company_name"] for record in records} != {
+            case["company_name"]
+        }:
+            raise ValueError("接入目录中的公司名称与财务数据不一致。")
+        actual_periods = sorted({record["period_year"] for record in records})
+        expected_periods = list(
+            range(
+                case["coverage_start_year"],
+                case["coverage_end_year"] + 1,
+            )
+        )
+        if actual_periods != expected_periods:
+            raise ValueError(
+                f"{case['company_name']}的财务年度与接入目录不一致。"
+            )
+    return cases
+
+
+def audit_financial_history_catalog(
+    path: Path = FINANCIAL_HISTORY_CATALOG_PATH,
+) -> FinancialHistoryCatalogAudit:
+    """Summarise the common onboarding checks for product display and CI."""
+    cases = load_financial_history_catalog(path)
+    publication_vintage_count = sum(
+        len(
+            _load_financial_history_file(
+                case["company_code"],
+                path.parent / case["data_file"],
+            )
+        )
+        for case in cases
+    )
+    return {
+        "company_count": len(cases),
+        "financial_period_count": sum(
+            case["verified_periods"] for case in cases
+        ),
+        "publication_vintage_count": publication_vintage_count,
+        "all_checks_passed": True,
+        "cases": cases,
+    }
+
+
+def verified_financial_history_codes() -> tuple[str, ...]:
+    """Return companies whose catalogue rows and data files both validate."""
+    return tuple(
+        case["company_code"] for case in load_financial_history_catalog()
+    )
+
+
+def load_verified_financial_history(
+    company_code: str,
+    path: Path | None = None,
+) -> list[FinancialHistoryRecord]:
+    """Load one company's manually checked, source-controlled vintages."""
+    expected_company_code = str(company_code).strip()
+    if path is None:
+        cases = _read_financial_history_catalog()
+        matched = next(
+            (
+                case
+                for case in cases
+                if case["company_code"] == expected_company_code
+            ),
+            None,
+        )
+        if matched is None:
+            raise ValueError("该公司尚未建立已核验的多年财务基准。")
+        data_path = FINANCIAL_HISTORY_CATALOG_PATH.parent / matched["data_file"]
+    else:
+        data_path = path
+    return _load_financial_history_file(expected_company_code, data_path)
 
 
 def load_moutai_financial_history(
