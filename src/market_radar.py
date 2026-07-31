@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
+from datetime import date, datetime
 from typing import TypedDict
 
-from src.china_stock import CompanyIdentity, MarketActivityEvidence
+from src.china_stock import (
+    CompanyIdentity,
+    MarketActivityEvidence,
+    is_allowed_disclosure_url,
+)
 
 
 class WatchlistParseResult(TypedDict):
@@ -33,6 +39,26 @@ class MarketRadarRow(TypedDict):
     radar_status: str
     market_source: str
     turnover_source: str
+
+
+class RadarDisclosure(TypedDict):
+    """One recent official disclosure attached to a radar company."""
+
+    title: str
+    published_date: str
+    source_url: str
+    category: str
+    attention: str
+    days_old: int
+
+
+class ResearchQueueRow(MarketRadarRow):
+    """A radar row enriched with a non-predictive research task priority."""
+
+    latest_disclosure: RadarDisclosure | None
+    disclosure_status: str
+    research_priority: str
+    research_reasons: list[str]
 
 
 def parse_watchlist_codes(
@@ -140,6 +166,165 @@ def rank_market_radar(
                 if turnover_percentile is not None
                 else -1.0
             ),
+            row["company"]["code"],
+        )
+
+    return sorted(rows, key=sort_key)
+
+
+def _as_date(value: object) -> date | None:
+    """Normalise supported disclosure-date values without guessing."""
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value).strip()[:10])
+    except ValueError:
+        return None
+
+
+def build_research_queue_row(
+    radar_row: MarketRadarRow,
+    disclosures: Sequence[Mapping[str, object]] | None,
+    *,
+    as_of_date: date,
+    disclosure_status: str = "已核验",
+) -> ResearchQueueRow:
+    """Attach recent official evidence and assign a review priority.
+
+    P1/P2/P3 only schedules research work.  It never represents expected
+    return, investment quality, or the direction of an announcement's impact.
+    """
+    candidates: list[RadarDisclosure] = []
+    if disclosures is not None:
+        attention_order = {"高": 3, "中": 2, "低": 1}
+        for disclosure in disclosures:
+            published_date = _as_date(disclosure.get("date"))
+            title = str(disclosure.get("title", "")).strip()
+            source_url = str(disclosure.get("url", "")).strip()
+            raw_category = disclosure.get("category")
+            raw_attention = disclosure.get("attention")
+            category = (
+                str(raw_category).strip()
+                if raw_category is not None
+                else "其他公告"
+            )
+            attention = (
+                str(raw_attention).strip()
+                if raw_attention is not None
+                else "低"
+            )
+            if (
+                published_date is None
+                or published_date > as_of_date
+                or not title
+                or not is_allowed_disclosure_url(source_url)
+            ):
+                continue
+            if attention not in attention_order:
+                attention = "低"
+            candidates.append(
+                {
+                    "title": title,
+                    "published_date": published_date.isoformat(),
+                    "source_url": source_url,
+                    "category": category or "其他公告",
+                    "attention": attention,
+                    "days_old": (as_of_date - published_date).days,
+                }
+            )
+        candidates.sort(
+            key=lambda item: (
+                item["published_date"],
+                attention_order[item["attention"]],
+                item["title"],
+            ),
+            reverse=True,
+        )
+
+    latest_disclosure = candidates[0] if candidates else None
+    trigger_count = radar_row["trigger_count"]
+    urgent_disclosure = next(
+        (
+            disclosure
+            for disclosure in candidates
+            if disclosure["attention"] == "高"
+            and disclosure["days_old"] <= 2
+        ),
+        None,
+    )
+    recent_priority_disclosure = next(
+        (
+            disclosure
+            for disclosure in candidates
+            if disclosure["attention"] in {"高", "中"}
+            and disclosure["days_old"] <= 7
+        ),
+        None,
+    )
+
+    if trigger_count >= 2 or urgent_disclosure:
+        research_priority = "P1｜立即核查"
+    elif trigger_count == 1 or recent_priority_disclosure:
+        research_priority = "P2｜优先复盘"
+    else:
+        research_priority = "P3｜常规跟踪"
+
+    research_reasons: list[str] = []
+    if trigger_count >= 2:
+        research_reasons.append(
+            f"市场端同时触发{trigger_count}项异动证据"
+        )
+    elif trigger_count == 1:
+        research_reasons.append("市场端触发1项异动证据")
+    if recent_priority_disclosure is not None:
+        research_reasons.append(
+            f"近{recent_priority_disclosure['days_old']}天有"
+            f"{recent_priority_disclosure['attention']}关注官方公告："
+            f"{recent_priority_disclosure['category']}"
+        )
+    if disclosures is None:
+        research_reasons.append(
+            "官方公告源本次不可访问，未用新闻或AI猜测替代"
+        )
+    elif latest_disclosure is None:
+        research_reasons.append("查询窗口内没有可展示的官方公告")
+    if not research_reasons:
+        research_reasons.append(
+            "当前未触发异动门槛，也无近7日高/中关注官方公告"
+        )
+
+    return {
+        **radar_row,
+        "latest_disclosure": latest_disclosure,
+        "disclosure_status": disclosure_status,
+        "research_priority": research_priority,
+        "research_reasons": research_reasons,
+    }
+
+
+def rank_research_queue(
+    rows: Sequence[ResearchQueueRow],
+) -> list[ResearchQueueRow]:
+    """Order research tasks without exposing a numeric investment score."""
+    priority_order = {
+        "P1｜立即核查": 1,
+        "P2｜优先复盘": 2,
+        "P3｜常规跟踪": 3,
+    }
+
+    def sort_key(row: ResearchQueueRow) -> tuple[object, ...]:
+        latest_disclosure = row["latest_disclosure"]
+        disclosure_days = (
+            latest_disclosure["days_old"]
+            if latest_disclosure is not None
+            else 10_000
+        )
+        return (
+            priority_order[row["research_priority"]],
+            -row["trigger_count"],
+            disclosure_days,
             row["company"]["code"],
         )
 
