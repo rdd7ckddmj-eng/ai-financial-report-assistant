@@ -21,19 +21,21 @@ def test_standardised_catalog_accepts_all_verified_companies() -> None:
     assert [case["company_code"] for case in cases] == [
         "600519",
         "000858",
+        "000568",
         "300750",
         "002594",
     ]
     assert [case["canonical_code"] for case in cases] == [
         "600519.SH",
         "000858.SZ",
+        "000568.SZ",
         "300750.SZ",
         "002594.SZ",
     ]
     assert audit == {
-        "company_count": 4,
-        "financial_period_count": 14,
-        "publication_vintage_count": 16,
+        "company_count": 5,
+        "financial_period_count": 18,
+        "publication_vintage_count": 20,
         "all_checks_passed": True,
         "cases": cases,
     }
@@ -108,6 +110,7 @@ def test_verified_catl_history_has_three_audited_years() -> None:
     assert verified_financial_history_codes() == (
         "600519",
         "000858",
+        "000568",
         "300750",
         "002594",
     )
@@ -155,6 +158,53 @@ def test_wuliangye_history_preserves_restatement_and_2025_disclosure() -> None:
     )
     assert "收入确认核算" in latest["notes"]
     assert latest["source_url"].startswith("https://disc.static.szse.cn/")
+
+
+def test_luzhou_laojiao_history_has_four_unrestated_official_years() -> None:
+    records = load_verified_financial_history("000568")
+
+    assert [record["period_year"] for record in records] == [
+        2022,
+        2023,
+        2024,
+        2025,
+    ]
+    assert [record["summary_page"] for record in records] == [7, 7, 8, 7]
+    assert [record["balance_sheet_page"] for record in records] == [
+        85,
+        84,
+        88,
+        76,
+    ]
+    assert all(record["company_name"] == "泸州老窖" for record in records)
+    assert all(record["accounting_basis"] == "reported" for record in records)
+    assert all(record["evidence_grade"] == "A" for record in records)
+    assert all(
+        record["source_url"].startswith(
+            "https://static.cninfo.com.cn/finalpage/"
+        )
+        for record in records
+    )
+
+    before_2025_report = select_financial_history_as_of(
+        records,
+        "2026-04-28",
+    )
+    complete = select_financial_history_as_of(records, "2026-04-29")
+
+    assert [
+        point["period_year"] for point in before_2025_report["points"]
+    ] == [2022, 2023, 2024]
+    assert complete["restatement_count"] == 0
+    latest = complete["points"][-1]
+    assert latest["revenue"] == pytest.approx(25_731_010_647.32)
+    assert latest["net_profit"] == pytest.approx(10_830_713_936.14)
+    assert latest["operating_cash_flow"] == pytest.approx(
+        7_123_218_677.88
+    )
+    assert latest["liabilities_to_assets"] == pytest.approx(
+        14_900_912_470.81 / 64_794_994_851.27
+    )
 
 
 def test_verified_byd_history_has_three_page_linked_years() -> None:

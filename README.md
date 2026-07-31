@@ -180,7 +180,7 @@ secret environment settings. It must never be committed to the repository.
 - Offer three manually verified Guizhou Moutai flagship dates with direct
   Shanghai Stock Exchange or company-source links, while keeping free date
   selection available.
-- Show verified Guizhou Moutai, Wuliangye, CATL, and BYD multi-year financial trends with
+- Show verified Guizhou Moutai, Wuliangye, Luzhou Laojiao, CATL, and BYD multi-year financial trends with
   revenue, attributable net profit, operating cash flow, assets, liabilities, annual
   report pages, publication vintages, net margin, cash-to-profit conversion,
   and liabilities-to-assets. A later restatement replaces the original figure
@@ -189,8 +189,8 @@ secret environment settings. It must never be committed to the repository.
   compound annual change rates, distinguishes revenue-profit and
   profit-operating-cash direction alignment, highlights restated vintages,
   and keeps every annual-report link and evidence page visible. Coverage now
-  includes Guizhou Moutai and Wuliangye for 2022-2025 plus CATL and BYD for
-  2022-2024; other
+  includes Guizhou Moutai, Wuliangye, and Luzhou Laojiao for 2022-2025 plus
+  CATL and BYD for 2022-2024; other
   companies remain unavailable until they pass the same page-level verification. A
   source-controlled onboarding catalogue now discovers approved companies
   without hard-coded page changes and rejects identity, exchange, year-range,
@@ -201,8 +201,8 @@ secret environment settings. It must never be committed to the repository.
   and links each displayed row back to its official annual report and pages.
   A separate audited industry catalogue preserves each annual-report label,
   source page, and narrower research peer tag. The current default view spans
-  three research groups. Baijiu now has its first two-company peer-group
-  candidate, while the default four-company view remains cross-industry and
+  three research groups. Baijiu now has a three-company peer-group candidate,
+  while the default five-company view remains cross-industry and
   never produces a composite quality score.
 - Record the requested date and effective trading date, use unadjusted prices
   to avoid current adjustment-factor leakage, and audit disclosures excluded
@@ -328,3 +328,10 @@ the original and later restated 2022 vintages, and records the 2025 annual
 report's revenue-recognition and quarterly-data comparability note. Together
 with Guizhou Moutai, it forms the first annual-report-backed baijiu peer-group
 candidate; this status is not a valuation or investment conclusion.
+
+The Luzhou Laojiao benchmark is stored in
+`data/verified/luzhou_laojiao_financial_history.csv`. It covers 2022-2025,
+records the official CNINFO summary and consolidated-liability pages, and
+confirms that none of the four annual reports restates the preceding-year
+figures. Together with Guizhou Moutai and Wuliangye, it expands the audited
+baijiu peer-group candidate from two companies to three.
