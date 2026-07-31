@@ -3983,98 +3983,83 @@ def render_cross_company_comparison_page() -> None:
         for row in rows
     }
     if comparison["is_same_peer_group"] and selected_peer_codes == {"baijiu"}:
-        if selected_year == 2025:
-            try:
-                baijiu_quality = build_baijiu_operating_quality(
-                    rows,
-                    load_baijiu_operating_quality(),
+        try:
+            baijiu_records = load_baijiu_operating_quality()
+        except ValueError as error:
+            st.warning(f"白酒经营质量证据未通过检查：{error}")
+        else:
+            verified_baijiu_years = sorted(
+                {
+                    record["period_year"]
+                    for record in baijiu_records
+                }.intersection(comparison["common_years"])
+            )
+            if selected_year not in verified_baijiu_years:
+                st.info(
+                    "白酒经营质量增量指标已核验2023—2025年度；"
+                    "更早年度仍保留通用横向比较，不混用未经复核的数据。"
                 )
-            except ValueError as error:
-                st.warning(f"白酒经营质量证据未通过检查：{error}")
             else:
-                st.subheader("白酒经营质量透视｜2025")
-                st.caption(
-                    "该面板只在已核验白酒同行组和共同年度下启用。"
-                    "所有比率由 Python 根据合并年报原值计算，不生成综合分数。"
-                )
-                st.dataframe(
-                    pd.DataFrame(
-                        [
-                            {
-                                "公司": row["company_name"],
-                                "合并毛利率": _format_percent(
-                                    row["gross_margin"]
-                                ),
-                                "存货（亿元）": round(
-                                    row["inventory"] / 100_000_000,
-                                    2,
-                                ),
-                                "存货/总资产": _format_percent(
-                                    row["inventory_to_assets"]
-                                ),
-                                "存货同比": _format_percent(
-                                    row["inventory_growth"]
-                                ),
-                                "合同负债（亿元）": round(
-                                    row["contract_liabilities"]
-                                    / 100_000_000,
-                                    2,
-                                ),
-                                "合同负债/收入": _format_percent(
-                                    row[
-                                        "contract_liabilities_to_revenue"
-                                    ]
-                                ),
-                                "合同负债同比": _format_percent(
-                                    row["contract_liabilities_growth"]
-                                ),
-                                "经营现金/归母净利": (
-                                    f"{row['cash_conversion']:.2f}倍"
-                                ),
-                            }
-                            for row in baijiu_quality["rows"]
-                        ]
-                    ),
-                    hide_index=True,
-                    use_container_width=True,
-                )
-
-                st.markdown("#### 白酒结构指标｜百分比")
-                baijiu_ratio_frame = pd.DataFrame(
-                    {
-                        row["company_name"]: {
-                            "合并毛利率": row["gross_margin"] * 100,
-                            "存货/总资产": row["inventory_to_assets"] * 100,
-                            "合同负债/收入": (
-                                row["contract_liabilities_to_revenue"] * 100
-                            ),
-                        }
-                        for row in baijiu_quality["rows"]
-                    }
-                ).T
-                st.bar_chart(
-                    baijiu_ratio_frame,
-                    height=330,
-                    use_container_width=True,
-                )
-                for observation in baijiu_quality["observations"]:
-                    st.markdown(f"- {observation}")
-
-                with st.expander("查看白酒增量指标的年报页码"):
+                try:
+                    baijiu_quality = build_baijiu_operating_quality(
+                        rows,
+                        baijiu_records,
+                    )
+                    baijiu_history_rows = []
+                    for history_year in verified_baijiu_years:
+                        history_comparison = build_cross_company_comparison(
+                            selected_cases,
+                            points_by_code,
+                            history_year,
+                            industry_profiles=industry_profiles,
+                        )
+                        history_quality = build_baijiu_operating_quality(
+                            history_comparison["rows"],
+                            baijiu_records,
+                        )
+                        baijiu_history_rows.extend(history_quality["rows"])
+                except ValueError as error:
+                    st.warning(f"白酒经营质量证据未通过检查：{error}")
+                else:
+                    st.subheader(f"白酒经营质量透视｜{selected_year}")
+                    st.caption(
+                        "该面板只在已核验白酒同行组和共同年度下启用。"
+                        "所有比率由 Python 根据合并年报原值计算，不生成综合分数。"
+                    )
                     st.dataframe(
                         pd.DataFrame(
                             [
                                 {
                                     "公司": row["company_name"],
-                                    "利润表页": row[
-                                        "income_statement_page"
-                                    ],
-                                    "存货页": row["inventory_page"],
-                                    "合同负债页": row[
-                                        "contract_liabilities_page"
-                                    ],
-                                    "证据等级": row["evidence_grade"],
-                                    "口径说明": row["notes"],
+                                    "合并毛利率": _format_percent(
+                                        row["gross_margin"]
+                                    ),
+                                    "存货（亿元）": round(
+                                        row["inventory"] / 100_000_000,
+                                        2,
+                                    ),
+                                    "存货/总资产": _format_percent(
+                                        row["inventory_to_assets"]
+                                    ),
+                                    "存货同比": _format_percent(
+                                        row["inventory_growth"]
+                                    ),
+                                    "合同负债（亿元）": round(
+                                        row["contract_liabilities"]
+                                        / 100_000_000,
+                                        2,
+                                    ),
+                                    "合同负债/收入": _format_percent(
+                                        row[
+                                            "contract_liabilities_to_revenue"
+                                        ]
+                                    ),
+                                    "合同负债同比": _format_percent(
+                                        row["contract_liabilities_growth"]
+                                    ),
+                                    "经营现金/归母净利": (
+                                        f"{row['cash_conversion']:.2f}倍"
+                                    ),
                                 }
                                 for row in baijiu_quality["rows"]
                             ]
@@ -4082,12 +4067,112 @@ def render_cross_company_comparison_page() -> None:
                         hide_index=True,
                         use_container_width=True,
                     )
-                st.warning(baijiu_quality["limitation"])
-        else:
-            st.info(
-                "白酒经营质量增量指标目前只完成 2025 年度页码核验；"
-                "较早年度仍保留通用横向比较，不混用未经复核的数据。"
-            )
+
+                    st.markdown("#### 白酒结构指标｜百分比")
+                    baijiu_ratio_frame = pd.DataFrame(
+                        {
+                            row["company_name"]: {
+                                "合并毛利率": row["gross_margin"] * 100,
+                                "存货/总资产": (
+                                    row["inventory_to_assets"] * 100
+                                ),
+                                "合同负债/收入": (
+                                    row[
+                                        "contract_liabilities_to_revenue"
+                                    ]
+                                    * 100
+                                ),
+                            }
+                            for row in baijiu_quality["rows"]
+                        }
+                    ).T
+                    st.bar_chart(
+                        baijiu_ratio_frame,
+                        height=330,
+                        use_container_width=True,
+                    )
+                    for observation in baijiu_quality["observations"]:
+                        st.markdown(f"- {observation}")
+
+                    history_start = min(verified_baijiu_years)
+                    history_end = max(verified_baijiu_years)
+                    st.markdown(
+                        f"#### {history_start}—{history_end}经营质量趋势"
+                    )
+                    st.caption(
+                        "每条线只连接同一公司的已审计年度数据；"
+                        "趋势用于观察变化，不代表预测或质量排名。"
+                    )
+
+                    def _baijiu_history_frame(
+                        field_name: str,
+                    ) -> pd.DataFrame:
+                        return (
+                            pd.DataFrame(
+                                [
+                                    {
+                                        "年度": row["period_year"],
+                                        "公司": row["company_name"],
+                                        "数值": row[field_name] * 100,
+                                    }
+                                    for row in baijiu_history_rows
+                                ]
+                            )
+                            .pivot(
+                                index="年度",
+                                columns="公司",
+                                values="数值",
+                            )
+                            .sort_index()
+                        )
+
+                    history_columns = st.columns(3)
+                    history_specs = (
+                        ("合并毛利率｜%", "gross_margin"),
+                        ("存货/总资产｜%", "inventory_to_assets"),
+                        (
+                            "合同负债/收入｜%",
+                            "contract_liabilities_to_revenue",
+                        ),
+                    )
+                    for column, (label, field_name) in zip(
+                        history_columns,
+                        history_specs,
+                    ):
+                        with column:
+                            st.markdown(f"##### {label}")
+                            st.line_chart(
+                                _baijiu_history_frame(field_name),
+                                height=280,
+                                use_container_width=True,
+                            )
+
+                    with st.expander(
+                        "查看2023—2025历史指标的年报页码"
+                    ):
+                        st.dataframe(
+                            pd.DataFrame(
+                                [
+                                    {
+                                        "年度": row["period_year"],
+                                        "公司": row["company_name"],
+                                        "利润表页": row[
+                                            "income_statement_page"
+                                        ],
+                                        "存货页": row["inventory_page"],
+                                        "合同负债页": row[
+                                            "contract_liabilities_page"
+                                        ],
+                                        "证据等级": row["evidence_grade"],
+                                        "口径说明": row["notes"],
+                                    }
+                                    for row in baijiu_history_rows
+                                ]
+                            ),
+                            hide_index=True,
+                            use_container_width=True,
+                        )
+                    st.warning(baijiu_quality["limitation"])
 
     st.subheader("规则化观察")
     for observation in comparison["observations"]:
