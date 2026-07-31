@@ -60,6 +60,7 @@ from src.financial_history import (
     load_moutai_financial_history,
     select_financial_history_as_of,
 )
+from src.financial_trend_lab import build_financial_trend_review
 from src.flagship_cases import load_moutai_flagship_events
 from src.historical_lens import (
     EvidenceRecord,
@@ -3423,7 +3424,7 @@ def render_methodology_page() -> None:
     """Explain source priority, calculation boundaries, and known limits."""
     apply_product_theme()
     show_compact_page_header(
-        "09 / 方法与审计 · METHODOLOGY",
+        "10 / 方法与审计 · METHODOLOGY",
         "方法、证据与产品边界",
         "公开说明系统如何获取资料、计算指标、使用AI以及处理不确定性。",
     )
@@ -3470,6 +3471,113 @@ def render_methodology_page() -> None:
     show_product_footer()
 
 
+def render_financial_trend_page() -> None:
+    """Render audited cross-year trends for the verified flagship case."""
+    apply_product_theme()
+    show_compact_page_header(
+        "09 / 财务趋势实验室 · FINANCIAL TREND LAB",
+        "财务趋势实验室",
+        "把多年官方年报放在同一口径下，观察收入、利润、经营现金和"
+        "负债结构变化，并保留报告版本、公开日期和原始页码。",
+    )
+
+    company = _selected_company()
+    if company is None:
+        resolved = resolve_company("600519")
+        if not resolved:
+            st.warning("暂时无法载入贵州茅台旗舰案例。")
+            show_product_footer()
+            return
+        company = resolved[0]
+        _store_selected_company(company)
+        st.info("尚未选择公司，已载入首个已核验案例：贵州茅台。")
+
+    _show_company_banner(company)
+    if company["code"] != "600519":
+        st.info(
+            "独立的多年年报页码基准目前先覆盖贵州茅台。"
+            "这是因为每个年度都需要逐页核验，并处理后来发生的追溯调整；"
+            "其他公司不会用未经核验的网络数字填补。"
+        )
+        if st.button(
+            "载入贵州茅台已核验案例",
+            type="primary",
+            use_container_width=True,
+        ):
+            resolved = resolve_company("600519")
+            if resolved:
+                _store_selected_company(resolved[0])
+                st.rerun()
+        show_product_footer()
+        return
+
+    try:
+        result = select_financial_history_as_of(
+            load_moutai_financial_history(),
+            date.today(),
+        )
+        review = build_financial_trend_review(result["points"])
+    except ValueError as error:
+        st.warning(str(error))
+        show_product_footer()
+        return
+
+    summary_columns = st.columns(4)
+    summary_columns[0].metric(
+        "已核验年度",
+        f"{review['period_count']}个",
+        f"{review['start_year']}—{review['end_year']}",
+        delta_color="off",
+    )
+    summary_columns[1].metric(
+        "营业收入复合年变化",
+        _format_percent(review["revenue_cagr"]),
+        "只使用首末已核验年度",
+        delta_color="off",
+    )
+    summary_columns[2].metric(
+        "归母净利润复合年变化",
+        _format_percent(review["net_profit_cagr"]),
+        "只使用首末已核验年度",
+        delta_color="off",
+    )
+    summary_columns[3].metric(
+        "经营现金流复合年变化",
+        _format_percent(review["operating_cash_flow_cagr"]),
+        "只使用首末已核验年度",
+        delta_color="off",
+    )
+    st.caption(
+        "复合年变化率使用首个与最后一个已核验完整年度计算，"
+        "不会把中间波动隐藏成未来预测。"
+    )
+
+    st.subheader("跨年结构观察")
+    structure_columns = st.columns(3)
+    with structure_columns[0]:
+        with st.container(border=True):
+            st.markdown("#### 收入—利润")
+            st.write(review["growth_alignment"])
+            st.caption("比较最新年度收入与归母净利润同比方向。")
+    with structure_columns[1]:
+        with st.container(border=True):
+            st.markdown("#### 利润—经营现金")
+            st.write(review["cash_alignment"])
+            st.caption("比较最新年度利润与经营现金流同比方向。")
+    with structure_columns[2]:
+        with st.container(border=True):
+            st.markdown("#### 报告版本审计")
+            st.write(f"追溯调整版本 {review['restatement_count']} 个")
+            st.caption("调整后的历史数字只从其公开日期起生效。")
+
+    for observation in review["observations"]:
+        st.markdown(f"- {observation}")
+    st.warning(review["limitation"])
+
+    _show_verified_financial_history(company, date.today())
+    show_product_footer()
+
+
 def render_annual_report_page() -> None:
     """Render the existing PDF evidence workflow as a dedicated subpage."""
     apply_product_theme()
@@ -3481,6 +3589,11 @@ def render_annual_report_page() -> None:
     company = _selected_company()
     if company is not None:
         _show_company_banner(company)
+        if company["code"] == "600519" and st.button(
+            "查看已核验多年财务趋势",
+            use_container_width=True,
+        ):
+            _switch_page("financial_trend")
     show_chinese_user_guide()
 
     automatic_report_bytes: bytes | None = None
@@ -4634,6 +4747,11 @@ def main() -> None:
         title="年报与证据",
         icon="📄",
     )
+    financial_trend_page = st.Page(
+        render_financial_trend_page,
+        title="财务趋势实验室",
+        icon="🧮",
+    )
     methodology_page = st.Page(
         render_methodology_page,
         title="方法与审计",
@@ -4649,6 +4767,7 @@ def main() -> None:
         "anomaly": anomaly_page,
         "historical": historical_page,
         "annual": annual_page,
+        "financial_trend": financial_trend_page,
         "methodology": methodology_page,
     }
 
@@ -4664,6 +4783,7 @@ def main() -> None:
                 anomaly_page,
                 historical_page,
                 annual_page,
+                financial_trend_page,
             ],
             "产品说明": [methodology_page],
         }
