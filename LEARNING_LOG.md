@@ -538,3 +538,36 @@ The lab now covers two companies, not the entire A-share market. A new company
 is added only after its complete reports, consolidated scope, units, dates,
 figures, and pages pass the same checks. This prevents broad but unverified
 aggregator coverage from weakening the portfolio's evidence standard.
+
+## 2026-07-31 — Standardised audited-company onboarding
+
+### What I built or changed
+
+Added one source-controlled onboarding catalogue for the Financial Trend Lab.
+The application now discovers approved companies from this catalogue instead
+of maintaining separate hard-coded company lists in the page. It displays the
+number of accepted companies, financial periods, and publication vintages.
+
+### One concept I can now explain
+
+Scaling a financial product is not the same as accepting more rows. Every new
+company needs a data contract: identity, exchange, continuous financial years,
+official source, report pages, positive finite amounts, accounting vintage,
+and review date. Python can reject a broken contract before the company becomes
+visible to users.
+
+### Why this makes later expansion safer
+
+The third verified company will require one checked data file and one catalogue
+entry rather than edits across several page functions. Automated validation
+catches structural mistakes and inconsistent coverage, while manual review
+still owns accounting scope, units, and transcription accuracy. This division
+keeps expansion faster without pretending that automation replaces evidence
+review.
+
+### Product boundary
+
+The catalogue is not a full-market database and does not produce investment
+scores. Companies without completed page-level verification remain outside the
+multi-year trend selector, although the rest of the research product continues
+to support them.
