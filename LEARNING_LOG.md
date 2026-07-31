@@ -724,3 +724,28 @@ result remains visible and the page states the missing source. It does not
 replace the missing evidence with media summaries or AI guesses, and temporal
 proximity between a disclosure and market activity is never presented as
 causation or an investment signal.
+
+## 2026-07-31 — Portable research task brief
+
+### What I built or changed
+
+Added a self-contained Chinese HTML export for the five-company research task
+queue. The brief preserves P1/P2/P3 priorities, task reasons, calculated market
+evidence, source labels, the latest validated official-disclosure link, and any
+company whose scan did not complete. It can be opened offline or printed to PDF.
+
+### One concept I can now explain
+
+An Agent is more useful when it delivers a durable work product rather than
+leaving its result inside one temporary browser session. The downloadable brief
+turns the queue into a research handoff that can be reviewed, shared, or saved
+without adding a user database to the free-server architecture.
+
+### Cost and safety boundary
+
+The export reuses only data already verified on the page and makes no additional
+market or disclosure request. External text is escaped before it enters the
+HTML, and an official link is included only after its domain passes the existing
+disclosure-source validation. Missing sources remain explicit; no media summary
+or AI guess fills the gap, and the report contains no investment score or
+recommendation.

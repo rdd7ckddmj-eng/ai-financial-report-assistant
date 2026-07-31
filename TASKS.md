@@ -15,6 +15,7 @@
 - [x] Add a deterministic post-market limit-up structure review.
 - [x] Add a bounded five-company watchlist anomaly radar.
 - [x] Connect the watchlist radar to official disclosures and generate a deterministic research task queue.
+- [x] Export the research task queue as an offline, source-linked Chinese HTML brief.
 - [x] Add abnormal-trading-day replay into Historical Lens.
 - [x] Add point-in-time activity percentiles to abnormal-day replay.
 - [x] Link selected abnormal days to nearby point-in-time official evidence.

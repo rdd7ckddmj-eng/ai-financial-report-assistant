@@ -153,9 +153,12 @@ secret environment settings. It must never be committed to the repository.
   shares plus a traceable source; missing denominators are never estimated.
 - Scan up to five user-entered A-share codes on demand, combine three market
   activity triggers with recent validated official disclosures, display the
-  latest source, and create an explained P1/P2/P3 research task queue. Disclosure failures do not
-  erase valid market results, each company fails independently, and no paid API
-  or persistent full-market dataset is required.
+  latest source, and create an explained P1/P2/P3 research task queue. Export
+  the queue as a self-contained Chinese HTML brief with the task reasons,
+  metrics, source labels, official links, failed scans, and non-predictive
+  boundary. Disclosure failures do not erase valid market results, each company
+  fails independently, and no paid API or persistent full-market dataset is
+  required.
 - Scan the latest 250 trading sessions for limit-up candidates, days whose
   volume is at least twice the preceding 20-session median, and days whose
   ordinary turnover reaches the 90th percentile of prior observations.
