@@ -104,6 +104,12 @@ from src.report_retriever import (
     chunk_report_pages,
 )
 from src.report_metric_tool import MetricToolResult
+from src.volume_turnover_research import (
+    VolumeTurnoverSnapshot,
+    build_volume_turnover_history,
+    build_volume_turnover_snapshot,
+    calculate_effective_turnover,
+)
 
 
 CHINESE_USER_GUIDE_PATH = (
@@ -1792,9 +1798,16 @@ def render_market_page() -> None:
     )
 
     _show_market_activity_evidence(activity)
-    if st.button(
-        "进入市场异动 Agent 查看候选日期与官方证据",
+    research_columns = st.columns(2)
+    if research_columns[0].button(
+        "进入成交量与换手率研究",
         type="primary",
+        use_container_width=True,
+        key=f"market_to_volume_turnover_{company['canonical_code']}",
+    ):
+        _switch_page("volume_turnover")
+    if research_columns[1].button(
+        "进入市场异动 Agent 查看候选日期",
         use_container_width=True,
         key=f"market_to_anomaly_{company['canonical_code']}",
     ):
@@ -1819,11 +1832,320 @@ def render_market_page() -> None:
     show_product_footer()
 
 
+def _build_volume_turnover_figure(
+    history: pd.DataFrame,
+    company: CompanyIdentity,
+) -> object:
+    """Plot bounded participation ratios without exposing ambiguous units."""
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
+    figure = make_subplots(specs=[[{"secondary_y": True}]])
+    figure.add_trace(
+        go.Bar(
+            x=history["date"],
+            y=history["volume_ratio_20d"],
+            name="成交量 / 前20日中位数",
+            marker_color="#3577a8",
+            opacity=0.72,
+            hovertemplate="%{x}<br>成交量倍数 %{y:.2f}x<extra></extra>",
+        ),
+        secondary_y=False,
+    )
+    figure.add_trace(
+        go.Scatter(
+            x=history["date"],
+            y=history["ordinary_turnover"],
+            mode="lines+markers",
+            name="普通换手率",
+            line={"color": "#c28a24", "width": 2},
+            marker={"size": 4},
+            hovertemplate="%{x}<br>普通换手率 %{y:.2%}<extra></extra>",
+        ),
+        secondary_y=True,
+    )
+    figure.add_hline(
+        y=1,
+        line_dash="dot",
+        line_color="rgba(53, 119, 168, 0.55)",
+        annotation_text="前20日中位数",
+        secondary_y=False,
+    )
+    figure.update_layout(
+        title=(
+            f"{company['name']}｜最近 {len(history)} 个交易日量能结构"
+        ),
+        height=520,
+        margin={"l": 20, "r": 20, "t": 58, "b": 20},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(255,255,255,0.72)",
+        hovermode="x unified",
+        legend={"orientation": "h", "y": 1.08, "x": 0},
+    )
+    figure.update_yaxes(
+        title_text="成交量倍数",
+        rangemode="tozero",
+        secondary_y=False,
+    )
+    figure.update_yaxes(
+        title_text="普通换手率",
+        tickformat=".1%",
+        rangemode="tozero",
+        secondary_y=True,
+    )
+    return figure
+
+
+def _show_effective_turnover_verification(
+    snapshot: VolumeTurnoverSnapshot,
+) -> None:
+    """Offer a manual, provenance-aware effective-turnover calculation."""
+    with st.expander("有效换手率验证模式（可选）"):
+        st.write(
+            "免费公开日线只能稳定取得普通换手率。若你有同一日期、"
+            "同一单位的无限售流通股本和自由流通股本，可以在这里验证"
+            "有效换手率；系统不会自动猜测缺失股本。"
+        )
+        with st.form("effective_turnover_verification"):
+            share_columns = st.columns(2)
+            circulating_shares = share_columns[0].number_input(
+                "无限售流通股本",
+                min_value=0.0,
+                value=0.0,
+                step=1_000.0,
+                help="可使用万股、亿股或股，但两个输入必须采用同一单位。",
+            )
+            free_float_shares = share_columns[1].number_input(
+                "自由流通股本",
+                min_value=0.0,
+                value=0.0,
+                step=1_000.0,
+                help="应排除大股东、战略持股等实际上不易交易的股份。",
+            )
+            evidence_columns = st.columns(2)
+            evidence_date = evidence_columns[0].date_input(
+                "股本数据日期",
+                value=date.fromisoformat(snapshot["latest_date"]),
+                max_value=date.today(),
+            )
+            evidence_source = evidence_columns[1].text_input(
+                "可追溯来源",
+                placeholder="例如：公司公告第X页或已授权数据接口",
+            )
+            submitted = st.form_submit_button(
+                "验证有效换手率",
+                use_container_width=True,
+            )
+
+        if not submitted:
+            st.caption(
+                "计算公式：普通换手率 × 无限售流通股本 ÷ "
+                "自由流通股本。两个股本输入只要求单位一致。"
+            )
+            return
+        if snapshot["ordinary_turnover"] is None:
+            st.error("当前缺少普通换手率，无法继续验证有效换手率。")
+            return
+        if not evidence_source.strip():
+            st.error("请填写股本数据的可追溯来源。")
+            return
+        if evidence_date.isoformat() > snapshot["latest_date"]:
+            st.error("股本数据日期不能晚于当前行情日期。")
+            return
+
+        try:
+            result = calculate_effective_turnover(
+                snapshot["ordinary_turnover"],
+                circulating_shares,
+                free_float_shares,
+            )
+        except ValueError as error:
+            st.error(str(error))
+            return
+
+        result_columns = st.columns(3)
+        result_columns[0].metric(
+            "自由流通股本占比",
+            _format_percent(result["free_float_ratio"]),
+        )
+        result_columns[1].metric(
+            "换手率调整倍数",
+            f"{result['adjustment_multiple']:.2f}倍",
+        )
+        result_columns[2].metric(
+            "验证后的有效换手率",
+            _format_percent(result["effective_turnover"]),
+        )
+        st.success(
+            f"计算完成：{result['formula']}。"
+        )
+        st.caption(
+            f"行情日期：{snapshot['latest_date']}；股本日期："
+            f"{evidence_date.isoformat()}；来源：{evidence_source.strip()}。"
+            "若两个日期不同，仍应检查期间是否发生增发、回购、解禁或"
+            "其他股本变化。"
+        )
+
+
+def render_volume_turnover_page() -> None:
+    """Render a dedicated, non-predictive participation research page."""
+    apply_product_theme()
+    show_compact_page_header(
+        "03 / 成交量与换手率 · PARTICIPATION RESEARCH",
+        "成交量与换手率研究",
+        "分开核验成交量、普通换手率和可选有效换手率，"
+        "观察交易活跃度而不预测未来涨跌。",
+    )
+    company = _selected_company()
+    if company is None:
+        st.warning("请先在首页选择一家中国上市公司。")
+        _render_company_search(
+            key_prefix="volume_turnover",
+            navigate_on_success=False,
+        )
+        show_product_footer()
+        return
+
+    _show_company_banner(company)
+    end_date = date.today()
+    start_date = end_date - timedelta(days=550)
+    try:
+        with st.spinner("正在读取并核验成交量与换手率历史……"):
+            market_frame = load_a_share_history(
+                company["code"],
+                start_date.isoformat(),
+                end_date.isoformat(),
+                "qfq",
+            )
+            snapshot = build_volume_turnover_snapshot(
+                market_frame,
+                company,
+            )
+            history = build_volume_turnover_history(market_frame)
+    except (DataSourceError, ValueError) as error:
+        st.error(str(error))
+        st.info(
+            "公开行情恢复后可直接重试；系统不会用估算值替代缺失数据。"
+        )
+        show_product_footer()
+        return
+
+    metric_columns = st.columns(4)
+    metric_columns[0].metric(
+        "最新成交量倍数",
+        (
+            "数据不足"
+            if snapshot["volume_ratio_20d"] is None
+            else f"{snapshot['volume_ratio_20d']:.2f}倍"
+        ),
+        snapshot["price_volume_pattern"],
+        delta_color="off",
+    )
+    metric_columns[1].metric(
+        "成交量历史分位",
+        _format_percent(snapshot["volume_percentile_250d"]),
+        (
+            f"此前{snapshot['volume_percentile_sessions']}个有效交易日"
+        ),
+        delta_color="off",
+    )
+    metric_columns[2].metric(
+        "普通换手率",
+        _format_percent(snapshot["ordinary_turnover"]),
+    )
+    metric_columns[3].metric(
+        "普通换手率历史分位",
+        _format_percent(snapshot["turnover_percentile_250d"]),
+        (
+            f"此前{snapshot['turnover_percentile_sessions']}个有效交易日"
+        ),
+        delta_color="off",
+    )
+    st.caption(
+        f"数据截至 {snapshot['latest_date']}；来源：{snapshot['source']}。"
+        f"{snapshot['turnover_status']}。"
+    )
+
+    st.subheader("近20日活跃度结构")
+    activity_columns = st.columns(3)
+    activity_columns[0].metric(
+        "明显放量日",
+        f"{snapshot['high_volume_days']}日",
+        "成交量≥前20日中位数2倍",
+        delta_color="off",
+    )
+    activity_columns[1].metric(
+        "普通换手率高位日",
+        f"{snapshot['high_turnover_days']}日",
+        "达到此前历史90%分位",
+        delta_color="off",
+    )
+    activity_columns[2].metric(
+        "两项同时出现",
+        f"{snapshot['compound_activity_days']}日",
+        "只描述重合，不代表强弱评分",
+        delta_color="off",
+    )
+
+    with st.container(border=True):
+        st.markdown("**规则化观察**")
+        for observation in snapshot["observations"]:
+            st.write(f"- {observation}")
+
+    figure = _build_volume_turnover_figure(history, company)
+    st.plotly_chart(
+        figure,
+        use_container_width=True,
+        config={"displaylogo": False},
+    )
+    st.caption(
+        "柱形表示当日成交量相对此前20日中位数的倍数；"
+        "折线表示普通换手率。所有滚动基准都排除当日和未来数据。"
+    )
+
+    if snapshot["events"]:
+        st.subheader("近20日异常活跃记录")
+        event_rows = [
+            {
+                "日期": event["date"],
+                "触发项目": event["event_type"],
+                "日涨跌幅": _format_percent(event["daily_return"]),
+                "成交量倍数": (
+                    "数据不足"
+                    if event["volume_ratio_20d"] is None
+                    else f"{event['volume_ratio_20d']:.2f}倍"
+                ),
+                "普通换手率": _format_percent(event["turnover"]),
+                "换手率历史分位": _format_percent(
+                    event["turnover_percentile_250d"]
+                ),
+            }
+            for event in snapshot["events"]
+        ]
+        st.dataframe(
+            pd.DataFrame(event_rows),
+            hide_index=True,
+            use_container_width=True,
+        )
+    else:
+        st.info(
+            "近20个交易日未触发“明显放量”或“普通换手率历史高位”规则。"
+        )
+
+    _show_effective_turnover_verification(snapshot)
+    st.warning(
+        "成交量、普通换手率和有效换手率只描述交易参与程度。"
+        "高活跃度可能对应上涨、下跌或事件冲击，不构成买入、"
+        "卖出或持有建议。"
+    )
+    show_product_footer()
+
+
 def render_limit_up_board_page() -> None:
     """Render one recent public limit-up pool as a research-first wall."""
     apply_product_theme()
     show_compact_page_header(
-        "03 / 每日涨停板观察台 · LIMIT-UP BOARD",
+        "04 / 每日涨停板观察台 · LIMIT-UP BOARD",
         "每日涨停板观察台",
         "按交易日查看涨停家数、连板、成交额、普通换手率、"
         "封板时间和行业集中度，再选择需要深入研究的公司。",
@@ -2163,7 +2485,7 @@ def render_market_radar_page() -> None:
     """Render an on-demand, bounded watchlist anomaly wall."""
     apply_product_theme()
     show_compact_page_header(
-        "04 / 自选股异动雷达 · WATCHLIST RADAR",
+        "05 / 自选股异动雷达 · WATCHLIST RADAR",
         "自选股异动雷达",
         "一次比较最多5家A股的涨停候选、成交量放大和普通换手率"
         "历史位置，把值得进一步复盘的公司排在前面。",
@@ -2322,7 +2644,7 @@ def render_market_anomaly_page() -> None:
     """Render a deterministic anomaly-to-official-evidence workflow."""
     apply_product_theme()
     show_compact_page_header(
-        "05 / 市场异动研究 · MARKET ANOMALY AGENT",
+        "06 / 市场异动研究 · MARKET ANOMALY AGENT",
         "市场异动研究 Agent",
         "自动核验涨停候选、成交量和普通换手率的历史位置，"
         "再把候选日期连接到当时已经公开的官方公告。",
@@ -2691,7 +3013,7 @@ def render_historical_lens_page() -> None:
     """Render a point-in-time research view without look-ahead information."""
     apply_product_theme()
     show_compact_page_header(
-        "06 / 历史回看 · HISTORICAL LENS",
+        "07 / 历史回看 · HISTORICAL LENS",
         "Historical Lens｜回到当时再研究",
         "冻结历史信息截止线，先查看当时已经公开的证据，"
         "再单独揭示后来1、3、6个月的市场表现。",
@@ -3101,7 +3423,7 @@ def render_methodology_page() -> None:
     """Explain source priority, calculation boundaries, and known limits."""
     apply_product_theme()
     show_compact_page_header(
-        "08 / 方法与审计 · METHODOLOGY",
+        "09 / 方法与审计 · METHODOLOGY",
         "方法、证据与产品边界",
         "公开说明系统如何获取资料、计算指标、使用AI以及处理不确定性。",
     )
@@ -3152,7 +3474,7 @@ def render_annual_report_page() -> None:
     """Render the existing PDF evidence workflow as a dedicated subpage."""
     apply_product_theme()
     show_compact_page_header(
-        "07 / 年报与证据 · ANNUAL REPORT",
+        "08 / 年报与证据 · ANNUAL REPORT",
         "年报与证据分析",
         "上传公开年度报告，按页提取文字、计算财务指标并生成可追溯答案。",
     )
@@ -4282,6 +4604,11 @@ def main() -> None:
         title="K线与市场表现",
         icon="📈",
     )
+    volume_turnover_page = st.Page(
+        render_volume_turnover_page,
+        title="成交量与换手率",
+        icon="📊",
+    )
     limit_up_page = st.Page(
         render_limit_up_board_page,
         title="每日涨停板观察台",
@@ -4316,6 +4643,7 @@ def main() -> None:
         "home": home_page,
         "company": company_page,
         "market": market_page,
+        "volume_turnover": volume_turnover_page,
         "limit_up": limit_up_page,
         "radar": radar_page,
         "anomaly": anomaly_page,
@@ -4330,6 +4658,7 @@ def main() -> None:
             "上市公司研究": [
                 company_page,
                 market_page,
+                volume_turnover_page,
                 limit_up_page,
                 radar_page,
                 anomaly_page,
