@@ -10,6 +10,7 @@
 - [x] Add point-in-time volume and ordinary-turnover historical percentiles.
 - [x] Add a dedicated volume-and-turnover research page.
 - [x] Add provenance-aware optional effective-turnover verification.
+- [x] Add a standalone audited Financial Trend Lab for the flagship case.
 - [x] Add an on-demand daily limit-up board with transparent ranking.
 - [x] Add a deterministic post-market limit-up structure review.
 - [x] Add a bounded five-company watchlist anomaly radar.
@@ -100,7 +101,8 @@
 - [ ] Add source-controlled media news only after source-quality evaluation.
 - [ ] Add scheduled background refresh only when traffic justifies the cost.
 - [ ] Extend deterministic statement extraction to bank, insurer, and other special-industry layouts.
-- [ ] Add cross-year financial trends and comparable-company research.
+- [ ] Extend audited cross-year financial trends beyond the flagship case.
+- [ ] Add comparable-company research after peer and source rules are defined.
 - [ ] Expand the 贵州茅台 flagship set from three to five events after review.
 - [x] GitHub publication and public Render website.
 - [ ] Complete recruitment materials.
