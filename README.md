@@ -175,8 +175,8 @@ secret environment settings. It must never be committed to the repository.
 - Offer three manually verified Guizhou Moutai flagship dates with direct
   Shanghai Stock Exchange or company-source links, while keeping free date
   selection available.
-- Show verified Guizhou Moutai and CATL multi-year financial trends with revenue,
-  attributable net profit, operating cash flow, assets, liabilities, annual
+- Show verified Guizhou Moutai, CATL, and BYD multi-year financial trends with
+  revenue, attributable net profit, operating cash flow, assets, liabilities, annual
   report pages, publication vintages, net margin, cash-to-profit conversion,
   and liabilities-to-assets. A later restatement replaces the original figure
   only after the restatement has actually been published.
@@ -184,8 +184,8 @@ secret environment settings. It must never be committed to the repository.
   compound annual change rates, distinguishes revenue-profit and
   profit-operating-cash direction alignment, highlights restated vintages,
   and keeps every annual-report link and evidence page visible. Coverage now
-  includes Guizhou Moutai for 2022-2025 and CATL for 2022-2024; other companies
-  remain unavailable until they pass the same page-level verification. A
+  includes Guizhou Moutai for 2022-2025 plus CATL and BYD for 2022-2024; other
+  companies remain unavailable until they pass the same page-level verification. A
   source-controlled onboarding catalogue now discovers approved companies
   without hard-coded page changes and rejects identity, exchange, year-range,
   file-path, source-domain, page, amount, or accounting-version inconsistencies.
