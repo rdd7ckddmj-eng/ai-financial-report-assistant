@@ -2,6 +2,7 @@ import json
 import sys
 from collections.abc import Mapping
 from datetime import date, timedelta
+from html import escape
 from io import BytesIO
 from pathlib import Path
 
@@ -473,11 +474,16 @@ def apply_product_theme() -> None:
             background: transparent;
         }
 
-        [data-testid="stToolbar"],
+        [data-testid="stToolbarActions"],
         #MainMenu,
         footer {
             visibility: hidden;
             height: 0;
+        }
+
+        [data-testid="stToolbar"] {
+            visibility: visible;
+            height: auto;
         }
 
         .block-container {
@@ -748,6 +754,344 @@ def apply_product_theme() -> None:
             color: var(--wfz-navy);
         }
 
+        /* Institutional research-terminal shell. The original theme remains
+           underneath as a safe fallback for older Streamlit versions. */
+        .stApp {
+            background:
+                radial-gradient(
+                    circle at 10% 0%,
+                    rgba(0, 163, 154, 0.08),
+                    transparent 28rem
+                ),
+                radial-gradient(
+                    circle at 92% 8%,
+                    rgba(212, 174, 98, 0.10),
+                    transparent 24rem
+                ),
+                linear-gradient(180deg, #f8fafc 0%, #f3f6fa 100%);
+            font-family:
+                Inter, "SF Pro Display", "PingFang SC", "Microsoft YaHei",
+                "Helvetica Neue", Arial, sans-serif;
+        }
+
+        [data-testid="stHeader"] {
+            height: 3.2rem;
+            background: rgba(248, 250, 252, 0.84);
+            border-bottom: 1px solid rgba(22, 61, 103, 0.06);
+            backdrop-filter: blur(16px);
+        }
+
+        /* The close and reopen controls must always remain discoverable. */
+        [data-testid="stSidebarCollapseButton"] {
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+
+        [data-testid="stSidebarCollapseButton"] button,
+        [data-testid="stSidebarCollapsedControl"] button,
+        [data-testid="stExpandSidebarButton"] {
+            width: 2.35rem;
+            height: 2.35rem;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            border-radius: 11px !important;
+            background: rgba(255, 255, 255, 0.09) !important;
+            box-shadow: 0 8px 22px rgba(2, 12, 25, 0.22) !important;
+        }
+
+        [data-testid="stSidebarCollapsedControl"] {
+            position: fixed !important;
+            top: 0.45rem !important;
+            left: 0.65rem !important;
+            z-index: 999999 !important;
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+
+        [data-testid="stExpandSidebarButton"] {
+            position: fixed !important;
+            top: 0.45rem !important;
+            left: 0.65rem !important;
+            z-index: 999999 !important;
+            display: inline-flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            border-color: rgba(7, 24, 46, 0.12) !important;
+            background: #07182e !important;
+        }
+
+        [data-testid="stSidebarCollapsedControl"] button {
+            border-color: rgba(7, 24, 46, 0.12) !important;
+            background: #07182e !important;
+        }
+
+        [data-testid="stSidebarCollapsedControl"] span,
+        [data-testid="stSidebarCollapseButton"] span,
+        [data-testid="stExpandSidebarButton"] span {
+            color: #ffffff !important;
+        }
+
+        section[data-testid="stSidebar"] {
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            background:
+                radial-gradient(
+                    circle at 30% -5%,
+                    rgba(0, 163, 154, 0.24),
+                    transparent 18rem
+                ),
+                linear-gradient(180deg, #07182e 0%, #0a203b 100%);
+            box-shadow: 18px 0 50px rgba(7, 24, 46, 0.12);
+        }
+
+        [data-testid="stSidebarHeader"] {
+            min-height: 5.5rem;
+            padding: 1.15rem 1rem 0.8rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        [data-testid="stSidebarHeader"]::before {
+            content: "FANGZHENG  AI";
+            display: flex;
+            align-items: center;
+            min-height: 2.3rem;
+            padding-left: 0.15rem;
+            color: #ffffff;
+            font-size: 0.82rem;
+            font-weight: 800;
+            letter-spacing: 0.16em;
+        }
+
+        [data-testid="stSidebarNav"] {
+            padding: 1rem 0.7rem 1.5rem;
+        }
+
+        [data-testid="stNavSectionHeader"] p {
+            margin-top: 0.7rem;
+            color: #7790aa !important;
+            font-size: 0.66rem;
+            font-weight: 800;
+            letter-spacing: 0.13em;
+        }
+
+        [data-testid="stSidebarNavLink"] {
+            min-height: 2.65rem;
+            margin: 0.18rem 0;
+            border: 1px solid transparent;
+            border-radius: 11px;
+            transition:
+                background 150ms ease,
+                border-color 150ms ease,
+                transform 150ms ease;
+        }
+
+        [data-testid="stSidebarNavLink"] p,
+        [data-testid="stSidebarNavLink"] span {
+            color: #d9e5f2 !important;
+            font-size: 0.86rem;
+            font-weight: 620;
+        }
+
+        [data-testid="stSidebarNavLink"]:hover {
+            border-color: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.07);
+            transform: translateX(2px);
+        }
+
+        [data-testid="stSidebarNavLink"][aria-current="page"],
+        a[aria-current="page"] [data-testid="stSidebarNavLink"] {
+            border-color: rgba(83, 220, 207, 0.22);
+            background: linear-gradient(
+                100deg,
+                rgba(0, 163, 154, 0.28),
+                rgba(255, 255, 255, 0.07)
+            );
+            box-shadow: inset 3px 0 0 #4dd6ca;
+        }
+
+        .wfz-hero-grid {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: minmax(0, 1.45fr) minmax(250px, 0.7fr);
+            gap: 2.8rem;
+            align-items: center;
+        }
+
+        .wfz-terminal {
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+            padding: 1.1rem;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 21px;
+            background: rgba(3, 15, 30, 0.38);
+            box-shadow:
+                0 24px 60px rgba(0, 0, 0, 0.22),
+                inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(18px);
+        }
+
+        .wfz-terminal-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.15rem 0.15rem 0.9rem;
+            color: rgba(255, 255, 255, 0.48);
+            font-size: 0.63rem;
+            font-weight: 750;
+            letter-spacing: 0.13em;
+        }
+
+        .wfz-live {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: #8fe4dc;
+        }
+
+        .wfz-live::before {
+            content: "";
+            width: 0.48rem;
+            height: 0.48rem;
+            border-radius: 50%;
+            background: #57d7ca;
+            box-shadow: 0 0 0 0.22rem rgba(87, 215, 202, 0.13);
+        }
+
+        .wfz-terminal-row {
+            display: grid;
+            grid-template-columns: 2.2rem 1fr auto;
+            gap: 0.75rem;
+            align-items: center;
+            margin-top: 0.58rem;
+            padding: 0.8rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .wfz-terminal-index {
+            color: rgba(255, 255, 255, 0.32);
+            font-size: 0.68rem;
+            font-weight: 800;
+        }
+
+        .wfz-terminal-label {
+            color: #ffffff;
+            font-size: 0.79rem;
+            font-weight: 650;
+        }
+
+        .wfz-terminal-detail {
+            margin-top: 0.2rem;
+            color: rgba(255, 255, 255, 0.45);
+            font-size: 0.66rem;
+        }
+
+        .wfz-terminal-status {
+            padding: 0.3rem 0.5rem;
+            border-radius: 999px;
+            background: rgba(87, 215, 202, 0.12);
+            color: #8fe4dc;
+            font-size: 0.58rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+        }
+
+        .wfz-page-intro {
+            margin-bottom: 1.7rem;
+            padding: 1.55rem 1.7rem;
+            border: 1px solid var(--wfz-line);
+            border-radius: 20px;
+            background:
+                linear-gradient(
+                    115deg,
+                    rgba(255, 255, 255, 0.97),
+                    rgba(240, 248, 249, 0.88)
+                );
+            box-shadow: 0 14px 38px rgba(17, 49, 80, 0.07);
+        }
+
+        .wfz-page-intro h1 {
+            margin: 0.2rem 0 0.5rem;
+            padding: 0;
+            font-size: clamp(1.75rem, 3.2vw, 2.45rem);
+            line-height: 1.12;
+        }
+
+        .wfz-page-intro p {
+            max-width: 820px;
+            margin: 0;
+            color: var(--wfz-muted);
+            font-size: 0.94rem;
+            line-height: 1.65;
+        }
+
+        .wfz-capability-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1rem;
+            margin: 1rem 0 2rem;
+        }
+
+        .wfz-capability {
+            min-height: 178px;
+            padding: 1.35rem;
+            border: 1px solid var(--wfz-line);
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.88);
+            box-shadow: 0 14px 34px rgba(17, 49, 80, 0.06);
+        }
+
+        .wfz-capability-number {
+            color: var(--wfz-teal);
+            font-size: 0.64rem;
+            font-weight: 850;
+            letter-spacing: 0.14em;
+        }
+
+        .wfz-capability h3 {
+            margin: 1rem 0 0.55rem;
+            padding: 0;
+            font-size: 1.05rem;
+        }
+
+        .wfz-capability p {
+            margin: 0;
+            color: var(--wfz-muted);
+            font-size: 0.82rem;
+            line-height: 1.65;
+        }
+
+        [data-testid="stTextInputRootElement"],
+        [data-testid="stTextAreaRootElement"],
+        [data-baseweb="select"] > div {
+            border-color: var(--wfz-line) !important;
+            border-radius: 12px !important;
+            background: rgba(255, 255, 255, 0.94) !important;
+        }
+
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            border-color: var(--wfz-line) !important;
+            border-radius: 18px !important;
+            background: rgba(255, 255, 255, 0.82);
+            box-shadow: 0 12px 32px rgba(17, 49, 80, 0.05);
+        }
+
+        @media (max-width: 920px) {
+            .wfz-hero-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .wfz-terminal {
+                display: none;
+            }
+
+            .wfz-capability-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         @media (max-width: 720px) {
             .block-container {
                 padding-top: 0.8rem;
@@ -768,6 +1112,20 @@ def apply_product_theme() -> None:
             .wfz-subtitle {
                 font-size: 0.92rem;
             }
+
+            .wfz-page-intro {
+                padding: 1.25rem;
+            }
+
+            [data-testid="stSidebarCollapsedControl"] {
+                top: 0.35rem !important;
+                left: 0.45rem !important;
+            }
+
+            [data-testid="stExpandSidebarButton"] {
+                top: 0.35rem !important;
+                left: 0.45rem !important;
+            }
         }
         </style>
         """,
@@ -780,38 +1138,104 @@ def show_product_identity() -> None:
     st.markdown(
         """
         <section class="wfz-hero">
-            <div class="wfz-kicker">
-                WFZ FINANCIAL INTELLIGENCE · 国内求职演示版
-            </div>
-            <h1 class="wfz-title">
-                中国上市公司<br><span>自主研究 Agent</span>
-            </h1>
-            <p class="wfz-subtitle">
-                输入公司名称或股票代码，统一查看官方公告、历史 K 线、
-                年报证据与 Agent 审计结果。Python 负责透明计算，
-                原始链接和 PDF 页码保证结论可追溯。
-            </p>
-            <div class="wfz-badges">
-                <span class="wfz-badge">中国上市公司</span>
-                <span class="wfz-badge">官方动态墙</span>
-                <span class="wfz-badge">K 线与风险指标</span>
-                <span class="wfz-badge">PYTHON 数值验证</span>
-                <span class="wfz-badge">PDF 页码溯源</span>
-                <span class="wfz-badge">多 AGENT 审计轨迹</span>
-                <span class="wfz-badge">不提供投资建议</span>
-            </div>
-            <div class="wfz-author">
-                <div class="wfz-monogram">WFZ</div>
+            <div class="wfz-hero-grid">
                 <div>
-                    <span class="wfz-author-label">
-                        产品设计与研发 / DESIGNED &amp; DEVELOPED BY
-                    </span>
-                    <span class="wfz-author-name">
-                        王方正 · Durham University
-                    </span>
+                    <div class="wfz-kicker">
+                        FANGZHENG AI · EVIDENCE-FIRST RESEARCH
+                    </div>
+                    <h1 class="wfz-title">
+                        中国上市公司<br><span>自主研究 Agent</span>
+                    </h1>
+                    <p class="wfz-subtitle">
+                        输入公司名称或股票代码，统一查看官方公告、历史 K 线、
+                        年报证据与 Agent 审计结果。Python 负责透明计算，
+                        原始链接和 PDF 页码保证结论可追溯。
+                    </p>
+                    <div class="wfz-badges">
+                        <span class="wfz-badge">官方披露优先</span>
+                        <span class="wfz-badge">PYTHON 数值验证</span>
+                        <span class="wfz-badge">PDF 页码溯源</span>
+                        <span class="wfz-badge">不提供投资建议</span>
+                    </div>
+                    <div class="wfz-author">
+                        <div class="wfz-monogram">WFZ</div>
+                        <div>
+                            <span class="wfz-author-label">
+                                DESIGNED &amp; DEVELOPED BY
+                            </span>
+                            <span class="wfz-author-name">
+                                王方正 · Durham University
+                            </span>
+                        </div>
+                    </div>
                 </div>
+                <aside class="wfz-terminal">
+                    <div class="wfz-terminal-head">
+                        <span>RESEARCH PIPELINE</span>
+                        <span class="wfz-live">SYSTEM READY</span>
+                    </div>
+                    <div class="wfz-terminal-row">
+                        <span class="wfz-terminal-index">01</span>
+                        <div>
+                            <div class="wfz-terminal-label">公开数据接入</div>
+                            <div class="wfz-terminal-detail">行情 · 公告 · 年报</div>
+                        </div>
+                        <span class="wfz-terminal-status">SOURCE</span>
+                    </div>
+                    <div class="wfz-terminal-row">
+                        <span class="wfz-terminal-index">02</span>
+                        <div>
+                            <div class="wfz-terminal-label">确定性计算</div>
+                            <div class="wfz-terminal-detail">指标 · 异动 · 横向比较</div>
+                        </div>
+                        <span class="wfz-terminal-status">PYTHON</span>
+                    </div>
+                    <div class="wfz-terminal-row">
+                        <span class="wfz-terminal-index">03</span>
+                        <div>
+                            <div class="wfz-terminal-label">证据审计</div>
+                            <div class="wfz-terminal-detail">页码 · 时点 · 局限</div>
+                        </div>
+                        <span class="wfz-terminal-status">VERIFIED</span>
+                    </div>
+                </aside>
             </div>
         </section>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def show_home_capabilities() -> None:
+    """Present the product's three research principles as one clear system."""
+    st.markdown(
+        """
+        <div class="wfz-capability-grid">
+            <article class="wfz-capability">
+                <div class="wfz-capability-number">01 / SOURCE</div>
+                <h3>官方披露优先</h3>
+                <p>
+                    以巨潮资讯和交易所公开信息为主要来源，保留公告日期、
+                    标题和原始链接。
+                </p>
+            </article>
+            <article class="wfz-capability">
+                <div class="wfz-capability-number">02 / CALCULATION</div>
+                <h3>Python 透明计算</h3>
+                <p>
+                    财务比率、收益率、波动率和最大回撤均由确定性代码计算，
+                    不交给 AI 猜测。
+                </p>
+            </article>
+            <article class="wfz-capability">
+                <div class="wfz-capability-number">03 / AUDIT</div>
+                <h3>证据可以追溯</h3>
+                <p>
+                    研究结果保留年报页码、数据来源和验证状态，
+                    并明确展示证据不足之处。
+                </p>
+            </article>
+        </div>
         """,
         unsafe_allow_html=True,
     )
@@ -898,11 +1322,15 @@ def show_compact_page_header(
 ) -> None:
     """Render a consistent subpage heading without repeating the home hero."""
     st.markdown(
-        f'<div class="wfz-section-label">{section}</div>',
+        f"""
+        <section class="wfz-page-intro">
+            <div class="wfz-section-label">{escape(section)}</div>
+            <h1>{escape(title)}</h1>
+            <p>{escape(description)}</p>
+        </section>
+        """,
         unsafe_allow_html=True,
     )
-    st.title(title)
-    st.write(description)
 
 
 def show_product_footer() -> None:
@@ -1484,28 +1912,7 @@ def render_home_page() -> None:
     )
 
     st.divider()
-    columns = st.columns(3)
-    with columns[0]:
-        with st.container(border=True):
-            st.subheader("官方披露优先")
-            st.write(
-                "以巨潮资讯和交易所公开信息为主要来源，保留公告日期、"
-                "标题和原始链接。"
-            )
-    with columns[1]:
-        with st.container(border=True):
-            st.subheader("Python透明计算")
-            st.write(
-                "财务比率、收益率、波动率和最大回撤均由确定性代码计算，"
-                "不会交给AI猜测。"
-            )
-    with columns[2]:
-        with st.container(border=True):
-            st.subheader("证据可追溯")
-            st.write(
-                "研究结果保留年报页码、数据来源和验证状态，"
-                "并明确展示证据不足之处。"
-            )
+    show_home_capabilities()
 
     st.markdown(
         '<div class="wfz-section-label">'

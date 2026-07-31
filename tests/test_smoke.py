@@ -7,6 +7,64 @@ def test_project_smoke() -> None:
     assert 1 + 1 == 2
 
 
+def test_product_theme_preserves_sidebar_reopen_control() -> None:
+    """Keep the collapsed navigation recoverable after visual customisation."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src.app import apply_product_theme
+
+apply_product_theme()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    theme_markup = "\n".join(item.value for item in app_test.markdown)
+    assert '[data-testid="stExpandSidebarButton"]' in theme_markup
+    assert '[data-testid="stSidebarCollapseButton"]' in theme_markup
+    assert "visibility: visible !important" in theme_markup
+
+
+def test_compact_page_header_escapes_dynamic_text() -> None:
+    """Do not turn future data-driven labels into executable page markup."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src.app import show_compact_page_header
+
+show_compact_page_header(
+    "01 / TEST",
+    "公司 <script>alert(1)</script>",
+    "证据 & 审计",
+)
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    header_markup = "\n".join(item.value for item in app_test.markdown)
+    assert "<script>alert(1)</script>" not in header_markup
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in header_markup
+    assert "证据 &amp; 审计" in header_markup
+
+
+def test_redesigned_home_page_renders_without_live_requests() -> None:
+    """Keep the new terminal hero and entry controls lightweight and stable."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src.app import render_home_page
+
+render_home_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    home_markup = "\n".join(item.value for item in app_test.markdown)
+    assert "RESEARCH PIPELINE" in home_markup
+    assert "FANGZHENG AI" in home_markup
+    assert len(app_test.button) == 4
+
+
 def test_event_evidence_chain_renderer_shows_auditable_limits() -> None:
     """Render the evidence chain as real Streamlit components."""
     from streamlit.testing.v1 import AppTest
