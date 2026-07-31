@@ -3756,11 +3756,14 @@ def render_cross_company_comparison_page() -> None:
         initial_comparison["common_years"],
         reverse=True,
     )
+    selection_signature = "_".join(
+        case["company_code"] for case in selected_cases
+    )
     selected_year = st.selectbox(
         "共同财务年度",
         options=year_options,
         index=0,
-        key="cross_company_comparison_year",
+        key=f"cross_company_comparison_year_{selection_signature}",
     )
     comparison = build_cross_company_comparison(
         selected_cases,

@@ -111,6 +111,19 @@ def test_verified_catl_history_has_three_audited_years() -> None:
         "300750",
         "002594",
     )
+    assert [record["period_year"] for record in records] == [
+        2022,
+        2023,
+        2024,
+    ]
+    assert all(record["company_name"] == "宁德时代" for record in records)
+    assert all(record["evidence_grade"] == "A" for record in records)
+    assert all(
+        record["source_url"].startswith(
+            "https://static.cninfo.com.cn/finalpage/"
+        )
+        for record in records
+    )
 
 
 def test_wuliangye_history_preserves_restatement_and_2025_disclosure() -> None:
@@ -142,19 +155,6 @@ def test_wuliangye_history_preserves_restatement_and_2025_disclosure() -> None:
     )
     assert "收入确认核算" in latest["notes"]
     assert latest["source_url"].startswith("https://disc.static.szse.cn/")
-    assert [record["period_year"] for record in records] == [
-        2022,
-        2023,
-        2024,
-    ]
-    assert all(record["company_name"] == "宁德时代" for record in records)
-    assert all(record["evidence_grade"] == "A" for record in records)
-    assert all(
-        record["source_url"].startswith(
-            "https://static.cninfo.com.cn/finalpage/"
-        )
-        for record in records
-    )
 
 
 def test_verified_byd_history_has_three_page_linked_years() -> None:
