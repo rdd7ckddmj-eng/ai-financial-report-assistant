@@ -236,9 +236,10 @@ def test_volume_turnover_page_builds_a_bounded_research_snapshot(
 def test_market_radar_page_scans_and_ranks_a_bounded_watchlist(
     monkeypatch,
 ) -> None:
-    """Cover the watchlist wall without calling live market providers."""
+    """Cover the research queue without calling live market providers."""
     from src import app
 
+    downloads = []
     dates = pd.date_range("2026-05-01", periods=30, freq="B")
     close = pd.Series([100 + index * 0.1 for index in range(len(dates))])
 
@@ -325,6 +326,11 @@ def test_market_radar_page_scans_and_ranks_a_bounded_watchlist(
         "form_submit_button",
         lambda *args, **kwargs: True,
     )
+    monkeypatch.setattr(
+        app.st,
+        "download_button",
+        lambda label, **kwargs: downloads.append((label, kwargs)),
+    )
     app.st.session_state.pop("market_radar_rows", None)
     app.st.session_state.pop("market_radar_failures", None)
 
@@ -342,6 +348,9 @@ def test_market_radar_page_scans_and_ranks_a_bounded_watchlist(
         "贵州茅台2025年年度报告"
     )
     assert app.st.session_state["market_radar_failures"] == []
+    assert downloads[0][0] == "下载自选股研究任务简报（HTML）"
+    assert downloads[0][1]["mime"] == "text/html"
+    assert b"WFZ" in downloads[0][1]["data"]
 
 
 def test_limit_up_board_page_builds_daily_wall(monkeypatch) -> None:
