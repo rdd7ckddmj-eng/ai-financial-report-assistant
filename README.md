@@ -328,3 +328,10 @@ the original and later restated 2022 vintages, and records the 2025 annual
 report's revenue-recognition and quarterly-data comparability note. Together
 with Guizhou Moutai, it forms the first annual-report-backed baijiu peer-group
 candidate; this status is not a valuation or investment conclusion.
+
+The Luzhou Laojiao benchmark is stored in
+`data/verified/luzhou_laojiao_financial_history.csv`. It covers 2022-2025,
+records the official CNINFO summary and consolidated-liability pages, and
+confirms that none of the four annual reports restates the preceding-year
+figures. Together with Guizhou Moutai and Wuliangye, it expands the audited
+baijiu peer-group candidate from two companies to three.
