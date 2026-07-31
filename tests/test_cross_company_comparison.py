@@ -3,6 +3,7 @@ from datetime import date
 
 import pytest
 
+from src.company_industry import load_company_industry_catalog
 from src.cross_company_comparison import (
     build_cross_company_comparison,
     common_financial_years,
@@ -16,6 +17,7 @@ from src.financial_history import (
 
 def _verified_comparison_inputs():
     cases = load_financial_history_catalog()
+    industry_profiles = load_company_industry_catalog()
     points_by_code = {
         case["company_code"]: select_financial_history_as_of(
             load_verified_financial_history(case["company_code"]),
@@ -23,13 +25,17 @@ def _verified_comparison_inputs():
         )["points"]
         for case in cases
     }
-    return cases, points_by_code
+    return cases, points_by_code, industry_profiles
 
 
 def test_comparison_uses_latest_common_verified_year() -> None:
-    cases, points_by_code = _verified_comparison_inputs()
+    cases, points_by_code, industry_profiles = _verified_comparison_inputs()
 
-    comparison = build_cross_company_comparison(cases, points_by_code)
+    comparison = build_cross_company_comparison(
+        cases,
+        points_by_code,
+        industry_profiles=industry_profiles,
+    )
 
     assert comparison["common_years"] == [2022, 2023, 2024]
     assert comparison["selected_year"] == 2024
@@ -39,14 +45,20 @@ def test_comparison_uses_latest_common_verified_year() -> None:
         "宁德时代",
         "比亚迪",
     ]
-    assert comparison["scope_label"] == "跨公司演示样本（非严格同行组）"
+    assert comparison["scope_label"] == "跨行业比较（3个研究组）"
+    assert comparison["industry_group_count"] == 3
+    assert comparison["is_same_peer_group"] is False
     assert "不含估值、预测或买卖建议" in comparison["limitation"]
 
 
 def test_comparison_preserves_byd_values_and_official_evidence() -> None:
-    cases, points_by_code = _verified_comparison_inputs()
+    cases, points_by_code, industry_profiles = _verified_comparison_inputs()
 
-    comparison = build_cross_company_comparison(cases, points_by_code)
+    comparison = build_cross_company_comparison(
+        cases,
+        points_by_code,
+        industry_profiles=industry_profiles,
+    )
     byd = next(
         row for row in comparison["rows"]
         if row["company_code"] == "002594"
@@ -72,12 +84,13 @@ def test_comparison_preserves_byd_values_and_official_evidence() -> None:
 
 
 def test_comparison_can_select_an_earlier_common_year() -> None:
-    cases, points_by_code = _verified_comparison_inputs()
+    cases, points_by_code, industry_profiles = _verified_comparison_inputs()
 
     comparison = build_cross_company_comparison(
         cases,
         points_by_code,
         selected_year=2023,
+        industry_profiles=industry_profiles,
     )
 
     assert comparison["selected_year"] == 2023
@@ -87,7 +100,7 @@ def test_comparison_can_select_an_earlier_common_year() -> None:
 
 
 def test_comparison_requires_two_distinct_companies() -> None:
-    cases, points_by_code = _verified_comparison_inputs()
+    cases, points_by_code, _ = _verified_comparison_inputs()
 
     with pytest.raises(ValueError, match="至少需要两家"):
         common_financial_years(cases[:1], points_by_code)
@@ -97,7 +110,7 @@ def test_comparison_requires_two_distinct_companies() -> None:
 
 
 def test_comparison_rejects_missing_common_year_or_invalid_selection() -> None:
-    cases, points_by_code = _verified_comparison_inputs()
+    cases, points_by_code, industry_profiles = _verified_comparison_inputs()
     non_overlapping = {
         cases[0]["company_code"]: [points_by_code[cases[0]["company_code"]][-1]],
         cases[1]["company_code"]: [points_by_code[cases[1]["company_code"]][0]],
@@ -107,13 +120,22 @@ def test_comparison_rejects_missing_common_year_or_invalid_selection() -> None:
         common_financial_years(cases[:2], non_overlapping)
 
     with pytest.raises(ValueError, match="不是所有公司的共同"):
-        build_cross_company_comparison(cases, points_by_code, 2025)
+        build_cross_company_comparison(
+            cases,
+            points_by_code,
+            2025,
+            industry_profiles=industry_profiles,
+        )
 
 
 def test_comparison_rejects_company_identity_mismatch() -> None:
-    cases, points_by_code = _verified_comparison_inputs()
+    cases, points_by_code, industry_profiles = _verified_comparison_inputs()
     invalid_points = deepcopy(points_by_code)
     invalid_points["300750"][0]["company_code"] = "002594"
 
     with pytest.raises(ValueError, match="公司身份"):
-        build_cross_company_comparison(cases, invalid_points)
+        build_cross_company_comparison(
+            cases,
+            invalid_points,
+            industry_profiles=industry_profiles,
+        )

@@ -687,7 +687,9 @@ app.render_cross_company_comparison_page()
 
     assert not app_test.exception
     assert "跨公司横向比较工作台" in visible_text
-    assert "非严格同行组" in visible_text
+    assert "跨行业比较（3个研究组）" in visible_text
+    assert "行业证据与同行组状态" in visible_text
+    assert "尚无可称为同行组候选的组合" in visible_text
     assert "共同年度检查通过" in visible_text
     assert "不含估值、预测或买卖建议" in visible_text
     assert app_test.multiselect[0].value == [

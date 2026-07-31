@@ -13,6 +13,7 @@ from collections.abc import Mapping, Sequence
 from statistics import median
 from typing import TypedDict
 
+from src.company_industry import CompanyIndustryProfile, assess_peer_group
 from src.financial_history import (
     FinancialHistoryCase,
     FinancialTrendPoint,
@@ -60,6 +61,8 @@ class CrossCompanyComparison(TypedDict):
     rows: list[CrossCompanyComparisonRow]
     observations: list[str]
     scope_label: str
+    industry_group_count: int
+    is_same_peer_group: bool
     limitation: str
 
 
@@ -155,6 +158,8 @@ def build_cross_company_comparison(
     cases: Sequence[FinancialHistoryCase],
     points_by_code: Mapping[str, Sequence[FinancialTrendPoint]],
     selected_year: int | None = None,
+    *,
+    industry_profiles: Sequence[CompanyIndustryProfile] | None = None,
 ) -> CrossCompanyComparison:
     """Compare verified companies on one shared annual-report year."""
     checked_cases = list(cases)
@@ -290,17 +295,40 @@ def build_cross_company_comparison(
         ),
     ]
 
+    if industry_profiles is None:
+        scope_label = "跨公司演示样本（行业证据未载入）"
+        industry_group_count = 0
+        is_same_peer_group = False
+        limitation = (
+            "当前计算没有载入行业证据，因此不能把所选公司宣称为同行组。"
+            "不同商业模式的规模、利润率、现金转换和负债结构不可直接"
+            "合成为优劣分数；本结果不含估值、预测或买卖建议。"
+        )
+    else:
+        peer_assessment = assess_peer_group(
+            checked_cases,
+            industry_profiles,
+        )
+        scope_label = peer_assessment["scope_label"]
+        industry_group_count = peer_assessment["industry_group_count"]
+        is_same_peer_group = peer_assessment["is_same_peer_group"]
+        limitation = peer_assessment["limitation"]
+        observations.insert(
+            1,
+            (
+                f"行业边界检查：所选公司覆盖 {industry_group_count} 个"
+                f"研究同行组，当前口径为“{scope_label}”。"
+            ),
+        )
+
     return {
         "common_years": common_years,
         "selected_year": year,
         "company_count": len(rows),
         "rows": rows,
         "observations": observations,
-        "scope_label": "跨公司演示样本（非严格同行组）",
-        "limitation": (
-            "当前接入清单尚未保存统一行业分类，因此页面不能把所选公司"
-            "宣称为严格同行组。不同商业模式的规模、利润率、现金转换和"
-            "负债结构不可直接合成为优劣分数；本结果不含估值、预测或"
-            "买卖建议。"
-        ),
+        "scope_label": scope_label,
+        "industry_group_count": industry_group_count,
+        "is_same_peer_group": is_same_peer_group,
+        "limitation": limitation,
     }

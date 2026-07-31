@@ -633,3 +633,34 @@ The workbench keeps scale, growth, profitability, cash conversion, and leverage
 separate. It does not combine them into a composite score, valuation, target
 price, forecast, or buy/sell recommendation. A true peer feature remains a
 later step that requires a verified industry source and explicit peer rules.
+
+## 2026-07-31 — Audited industry boundaries before peer valuation
+
+### What I built or changed
+
+Added a separate industry-evidence catalogue that records the annual-report
+industry wording, official PDF, source page, evidence grade, and a narrower
+research peer tag. The comparison page now shows peer coverage and only calls a
+selection a peer-group candidate when at least two verified companies share the
+same tag.
+
+### One concept I can now explain
+
+A common financial year solves only the timing problem. It does not make a
+liquor producer, battery manufacturer, and diversified vehicle manufacturer
+business peers. Industry scope must be evidenced separately before margins,
+cash conversion, leverage, or later valuation multiples can be interpreted.
+
+### Why no peer ranking was added
+
+The current three research groups each contain one company. The honest result
+is therefore a three-group cross-industry comparison and a visible statement
+that every group still needs one more verified company. The system does not
+invent peers merely to produce a ranking.
+
+### Product boundary
+
+Even two companies with the same research tag remain only peer candidates until
+their business mix, accounting policies, capital structure, and market-data
+dates are reviewed. No valuation, target price, prediction, or buy/sell opinion
+is produced at this stage.
