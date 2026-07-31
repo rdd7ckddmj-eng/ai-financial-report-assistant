@@ -3840,7 +3840,18 @@ def render_cross_company_comparison_page() -> None:
         hide_index=True,
         use_container_width=True,
     )
-    if not any(coverage["ready"] for coverage in industry_audit["coverage"]):
+    ready_groups = [
+        coverage["peer_group_name"]
+        for coverage in industry_audit["coverage"]
+        if coverage["ready"]
+    ]
+    if ready_groups:
+        st.success(
+            "已建立同行组候选覆盖："
+            + "、".join(ready_groups)
+            + "。选择同组公司后，页面仍会提醒继续核查业务分部和会计口径。"
+        )
+    else:
         st.info(
             "当前每个研究同行组只有 1 家已核验公司，因此尚无可称为"
             "同行组候选的组合。下一步需要为其中一个组补充至少 1 家公司，"
