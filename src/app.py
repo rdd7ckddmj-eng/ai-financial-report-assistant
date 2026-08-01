@@ -1,10 +1,12 @@
 import json
 import sys
 from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from html import escape
 from io import BytesIO
 from pathlib import Path
+from time import perf_counter
 
 import pandas as pd
 import streamlit as st
@@ -136,6 +138,7 @@ from src.volume_turnover_research import (
 CHINESE_USER_GUIDE_PATH = (
     PROJECT_ROOT / "docs" / "中文使用说明.md"
 )
+DEFAULT_RESEARCH_LOOKBACK_DAYS = 420
 
 
 def show_metric_tool_result(result: MetricToolResult) -> None:
@@ -1316,6 +1319,85 @@ def load_company_announcements(
     )
 
 
+def _fetch_company_research_sources_concurrently(
+    code: str,
+    start_date_text: str,
+    end_date_text: str,
+    adjust: str,
+) -> tuple[
+    pd.DataFrame | None,
+    pd.DataFrame | None,
+    str | None,
+    str | None,
+]:
+    """Fetch independent market and disclosure sources in parallel.
+
+    The two public requests do not depend on each other.  Running them with a
+    bounded two-worker pool reduces the first-run wall time from their sum to
+    roughly the slower request while preserving separate failure messages.
+    """
+    start_date = date.fromisoformat(start_date_text)
+    end_date = date.fromisoformat(end_date_text)
+    with ThreadPoolExecutor(
+        max_workers=2,
+        thread_name_prefix="wfz-research",
+    ) as executor:
+        market_future = executor.submit(
+            fetch_market_history,
+            code,
+            start_date,
+            end_date,
+            adjust=adjust,
+        )
+        announcement_future = executor.submit(
+            fetch_announcements,
+            code,
+            start_date,
+            end_date,
+        )
+
+        market_frame: pd.DataFrame | None = None
+        announcement_frame: pd.DataFrame | None = None
+        market_error: str | None = None
+        announcement_error: str | None = None
+        try:
+            market_frame = market_future.result()
+        except (DataSourceError, ValueError) as error:
+            market_error = str(error)
+        try:
+            announcement_frame = announcement_future.result()
+        except (DataSourceError, ValueError) as error:
+            announcement_error = str(error)
+
+    return (
+        market_frame,
+        announcement_frame,
+        market_error,
+        announcement_error,
+    )
+
+
+@st.cache_data(ttl=3600, max_entries=4, show_spinner=False)
+def load_company_research_sources(
+    code: str,
+    start_date_text: str,
+    end_date_text: str,
+    adjust: str = "qfq",
+) -> tuple[
+    pd.DataFrame | None,
+    pd.DataFrame | None,
+    str | None,
+    str | None,
+]:
+    """Cache one bounded parallel source bundle for company research."""
+    return _fetch_company_research_sources_concurrently(
+        code,
+        start_date_text,
+        end_date_text,
+        adjust,
+    )
+
+
 @st.cache_data(ttl=1800, max_entries=1, show_spinner=False)
 def load_official_annual_report(announcement_url: str) -> bytes:
     """Temporarily cache only the latest validated official PDF."""
@@ -1411,18 +1493,22 @@ def _render_company_search(
         )
 
     if submitted:
-        directory: pd.DataFrame | None
-        try:
-            with st.spinner("正在核验上市公司身份……"):
-                directory = load_a_share_directory()
-        except (DataSourceError, ValueError):
-            directory = None
-            st.info(
-                "实时公司目录暂时不可用，系统正在使用本地核验名单；"
-                "直接输入6位股票代码仍可继续。"
-            )
-
-        matches = resolve_company(query, directory)
+        # A valid six-digit code and the small verified demonstration list can
+        # be resolved locally.  Do not make every user wait for the full live
+        # A-share directory when it cannot improve that result.
+        matches = resolve_company(query, None)
+        if not matches and str(query).strip():
+            directory: pd.DataFrame | None
+            try:
+                with st.spinner("正在核验上市公司身份……"):
+                    directory = load_a_share_directory()
+            except (DataSourceError, ValueError):
+                directory = None
+                st.info(
+                    "实时公司目录暂时不可用，系统正在使用本地核验名单；"
+                    "直接输入6位股票代码仍可继续。"
+                )
+            matches = resolve_company(query, directory)
         st.session_state[matches_key] = matches
         if not matches:
             st.warning(
@@ -1841,34 +1927,23 @@ def _load_company_research_data(
 ) -> tuple[pd.DataFrame | None, MarketMetrics | None, pd.DataFrame | None]:
     """Load market history and announcements independently and safely."""
     end_date = date.today()
-    market_start = end_date - timedelta(days=550)
-    # Eighteen months keeps the latest full annual report in scope even late
-    # in the calendar year, while the wall still shows only the newest items.
-    announcement_start = end_date - timedelta(days=550)
+    research_start = end_date - timedelta(
+        days=DEFAULT_RESEARCH_LOOKBACK_DAYS
+    )
     market_frame: pd.DataFrame | None = None
     metrics: MarketMetrics | None = None
     announcements: pd.DataFrame | None = None
-
-    try:
-        market_frame = load_a_share_history(
-            company["code"],
-            market_start.isoformat(),
-            end_date.isoformat(),
-            "qfq",
-        )
-        if not market_frame.empty:
+    market_frame, announcements, _, _ = load_company_research_sources(
+        company["code"],
+        research_start.isoformat(),
+        end_date.isoformat(),
+        "qfq",
+    )
+    if market_frame is not None and not market_frame.empty:
+        try:
             metrics = calculate_market_metrics(market_frame)
-    except (DataSourceError, ValueError):
-        pass
-
-    try:
-        announcements = load_company_announcements(
-            company["code"],
-            announcement_start.isoformat(),
-            end_date.isoformat(),
-        )
-    except (DataSourceError, ValueError):
-        pass
+        except ValueError:
+            metrics = None
     return market_frame, metrics, announcements
 
 
@@ -1877,7 +1952,7 @@ def _run_comprehensive_research(
 ) -> ComprehensiveResearchBrief:
     """Run five independent research lanes without hiding source failures."""
     end_date = date.today()
-    start_date = end_date - timedelta(days=550)
+    start_date = end_date - timedelta(days=DEFAULT_RESEARCH_LOOKBACK_DAYS)
     data_errors: list[str] = []
     market_frame: pd.DataFrame | None = None
     market_metrics: MarketMetrics | None = None
@@ -1885,39 +1960,48 @@ def _run_comprehensive_research(
     market_source = "公开行情适配器"
     turnover_source = "暂未取得"
 
-    try:
-        market_frame = load_a_share_history(
-            company["code"],
-            start_date.isoformat(),
-            end_date.isoformat(),
-            "qfq",
-        )
+    (
+        market_frame,
+        announcement_frame,
+        market_error,
+        announcement_error,
+    ) = load_company_research_sources(
+        company["code"],
+        start_date.isoformat(),
+        end_date.isoformat(),
+        "qfq",
+    )
+
+    if market_error:
+        data_errors.append(f"行情证据链：{market_error}")
+    elif market_frame is not None:
+        try:
+            market_metrics = calculate_market_metrics(market_frame)
+            market_activity = calculate_market_activity(
+                market_frame,
+                company,
+            )
+        except ValueError as error:
+            data_errors.append(f"行情证据链：{error}")
         market_source = str(
             market_frame.attrs.get("source", market_source)
         )
         turnover_source = str(
             market_frame.attrs.get("turnover_source", turnover_source)
         )
-        market_metrics = calculate_market_metrics(market_frame)
-        market_activity = calculate_market_activity(market_frame, company)
-    except (DataSourceError, ValueError) as error:
-        data_errors.append(f"行情证据链：{error}")
 
     announcements: list[Mapping[str, object]] | None
-    announcement_frame: pd.DataFrame | None = None
     announcements_status = ""
-    try:
-        announcement_frame = load_company_announcements(
-            company["code"],
-            start_date.isoformat(),
-            end_date.isoformat(),
-        )
-        announcements = announcement_frame.to_dict("records")
-        announcements_status = f"已核验公告 {len(announcements)} 条"
-    except (DataSourceError, ValueError) as error:
+    if announcement_error:
         announcements = None
         announcements_status = "官方公告源本次未完成核验"
-        data_errors.append(f"官方公告证据链：{error}")
+        data_errors.append(f"官方公告证据链：{announcement_error}")
+    elif announcement_frame is not None:
+        announcements = announcement_frame.to_dict("records")
+        announcements_status = f"已核验公告 {len(announcements)} 条"
+    else:
+        announcements = None
+        announcements_status = "官方公告源本次未完成核验"
 
     latest_annual_report: Mapping[str, object] | None = None
     if announcement_frame is not None:
@@ -2107,17 +2191,29 @@ def render_comprehensive_research_page() -> None:
         "某个来源失败时，其他证据链仍会继续，并明确标记缺口。"
     )
     run_key = "comprehensive_research_brief"
+    elapsed_key = "comprehensive_research_elapsed_seconds"
     if st.button(
         "运行一键综合研究 Agent",
         type="primary",
         use_container_width=True,
         key=f"run_comprehensive_{company['canonical_code']}",
     ):
-        with st.spinner(
-            "正在执行：身份核验 → 行情计算 → 公告核验 → 年报定位 → "
-            "财务历史审计……"
-        ):
-            st.session_state[run_key] = _run_comprehensive_research(company)
+        started_at = perf_counter()
+        with st.status(
+            "正在并行读取行情与官方公告……",
+            expanded=True,
+        ) as run_status:
+            st.write("公司身份已确认，正在同时执行两条外部数据链。")
+            brief_result = _run_comprehensive_research(company)
+            st.write("公开数据读取完成，正在生成证据覆盖与核验任务。")
+            elapsed_seconds = perf_counter() - started_at
+            run_status.update(
+                label=f"综合研究已完成｜用时 {elapsed_seconds:.1f} 秒",
+                state="complete",
+                expanded=False,
+            )
+        st.session_state[run_key] = brief_result
+        st.session_state[elapsed_key] = elapsed_seconds
 
     brief = st.session_state.get(run_key)
     if not isinstance(brief, dict) or brief.get("company", {}).get(
@@ -2131,6 +2227,12 @@ def render_comprehensive_research_page() -> None:
         return
 
     _show_comprehensive_research_brief(brief)  # type: ignore[arg-type]
+    elapsed_seconds = st.session_state.get(elapsed_key)
+    if isinstance(elapsed_seconds, (int, float)):
+        st.caption(
+            f"本次综合研究用时 {elapsed_seconds:.1f} 秒；一小时内重复研究"
+            "同一家公司通常会直接复用缓存。"
+        )
     show_product_footer()
 
 

@@ -334,12 +334,14 @@ def test_market_activity_reports_supplemental_turnover_source() -> None:
     assert activity["turnover"] == pytest.approx(0.02)
 
 
-def test_market_history_fallback_supplements_turnover(
+def test_fast_market_history_supplements_turnover(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     dates = pd.date_range("2026-06-01", periods=25, freq="B")
+    eastmoney_calls = []
 
     def fail_eastmoney(**_: object) -> pd.DataFrame:
+        eastmoney_calls.append(True)
         raise RuntimeError("primary source unavailable")
 
     def tencent_history(**_: object) -> pd.DataFrame:
@@ -380,10 +382,40 @@ def test_market_history_fallback_supplements_turnover(
         build_company_identity("600519", "贵州茅台"),
     )
 
-    assert prepared.attrs["source"] == "腾讯财经公开日线（备用源）"
+    assert prepared.attrs["source"] == "腾讯财经公开日线（快速源）"
+    assert eastmoney_calls == []
     assert prepared["turnover"].notna().all()
     assert activity["turnover"] == pytest.approx(0.002)
     assert "新浪财经" in activity["turnover_status"]
+
+
+def test_market_history_uses_eastmoney_when_fast_source_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dates = pd.date_range("2026-06-01", periods=25, freq="B")
+
+    def fail_tencent(**_: object) -> pd.DataFrame:
+        raise RuntimeError("fast source unavailable")
+
+    def eastmoney_history(**_: object) -> pd.DataFrame:
+        return _market_rows(len(dates))
+
+    fake_akshare = SimpleNamespace(
+        stock_zh_a_hist_tx=fail_tencent,
+        stock_zh_a_hist=eastmoney_history,
+    )
+    monkeypatch.setitem(sys.modules, "akshare", fake_akshare)
+
+    prepared = fetch_market_history(
+        code="600519",
+        start_date=dates[0].date(),
+        end_date=dates[-1].date(),
+    )
+
+    assert prepared.attrs["source"] == "东方财富公开日线（备用源）"
+    assert prepared.attrs["turnover_source"] == (
+        "东方财富公开日线直接字段"
+    )
 
 
 def test_announcement_classification_uses_attention_not_sentiment() -> None:

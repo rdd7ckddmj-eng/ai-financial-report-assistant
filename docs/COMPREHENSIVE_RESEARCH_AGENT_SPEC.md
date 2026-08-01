@@ -93,3 +93,10 @@ One run makes bounded, cached requests for a single company. It does not
 pre-download the full market, persist annual-report PDFs, or store a user's
 research history. User accounts and persistent watchlists remain a later
 database-backed phase.
+
+The identity fast path resolves a valid six-digit code or a verified flagship
+name locally before considering the full live company directory. Market and
+official-disclosure requests run concurrently because neither depends on the
+other, and their combined result is cached for one hour. Each lane still keeps
+its own error state, so a speed optimisation cannot turn a failed source into
+verified evidence.

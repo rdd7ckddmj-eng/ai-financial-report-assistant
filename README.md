@@ -118,6 +118,13 @@ secret environment settings. It must never be committed to the repository.
 
 ## Current working features
 
+- Use a first-run performance path for the flagship workflow: six-digit stock
+  codes and the verified demonstration list resolve without downloading the
+  full A-share directory; Tencent daily history is attempted before the slower
+  market fallback; market history and official disclosures are fetched in
+  parallel; and the bounded result bundle is cached for one hour. The page
+  displays the measured run time without weakening source labels or failure
+  isolation.
 - Run a one-click Comprehensive Research Agent for one selected A-share
   company. It independently checks company identity, market/activity evidence,
   official disclosures, the latest complete annual report, and any available

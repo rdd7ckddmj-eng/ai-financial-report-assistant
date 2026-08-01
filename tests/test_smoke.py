@@ -127,6 +127,98 @@ render_comprehensive_research_page()
     )
 
 
+def test_company_code_search_skips_the_live_directory() -> None:
+    """A six-digit code should resolve instantly without a full-list request."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src import app
+
+def fail_if_called():
+    raise AssertionError("the live directory should not be requested")
+
+app.load_a_share_directory = fail_if_called
+app.render_home_page()
+"""
+    app_test = AppTest.from_string(script).run()
+    app_test.text_input[0].set_value("600519")
+    start_button = next(
+        button for button in app_test.button if button.label == "开始研究"
+    )
+    start_button.click().run()
+
+    assert not app_test.exception
+    selected = app_test.session_state["selected_company"]
+    assert selected["canonical_code"] == "600519.SH"
+    assert selected["name"] == "贵州茅台"
+
+
+def test_company_research_sources_start_independently(
+    monkeypatch,
+) -> None:
+    """Market and disclosure requests should overlap without merging errors."""
+    from threading import Barrier
+
+    from src import app
+
+    barrier = Barrier(2)
+    market = pd.DataFrame({"close": [1.0]})
+    announcements = pd.DataFrame({"title": ["测试公告"]})
+
+    def fake_market(*args, **kwargs):
+        barrier.wait(timeout=1)
+        return market
+
+    def fake_announcements(*args, **kwargs):
+        barrier.wait(timeout=1)
+        return announcements
+
+    monkeypatch.setattr(app, "fetch_market_history", fake_market)
+    monkeypatch.setattr(app, "fetch_announcements", fake_announcements)
+
+    result = app._fetch_company_research_sources_concurrently(
+        "600519",
+        "2025-06-01",
+        "2026-08-01",
+        "qfq",
+    )
+
+    assert result[0] is market
+    assert result[1] is announcements
+    assert result[2:] == (None, None)
+
+
+def test_parallel_company_sources_keep_a_successful_lane(
+    monkeypatch,
+) -> None:
+    """One failed provider must not erase the independent successful lane."""
+    from src import app
+
+    announcements = pd.DataFrame({"title": ["测试公告"]})
+
+    def fail_market(*args, **kwargs):
+        raise app.DataSourceError("行情暂不可用")
+
+    monkeypatch.setattr(app, "fetch_market_history", fail_market)
+    monkeypatch.setattr(
+        app,
+        "fetch_announcements",
+        lambda *args, **kwargs: announcements,
+    )
+
+    result = app._fetch_company_research_sources_concurrently(
+        "600519",
+        "2025-06-01",
+        "2026-08-01",
+        "qfq",
+    )
+
+    assert result[0] is None
+    assert result[1] is announcements
+    assert result[2] == "行情暂不可用"
+    assert result[3] is None
+
+
 def test_comprehensive_runner_keeps_independent_sources_auditable(
     monkeypatch,
 ) -> None:
@@ -174,13 +266,13 @@ def test_comprehensive_runner_keeps_independent_sources_auditable(
 
     monkeypatch.setattr(
         app,
-        "load_a_share_history",
-        lambda *args, **kwargs: market_frame,
-    )
-    monkeypatch.setattr(
-        app,
-        "load_company_announcements",
-        lambda *args, **kwargs: announcements,
+        "load_company_research_sources",
+        lambda *args, **kwargs: (
+            market_frame,
+            announcements,
+            None,
+            None,
+        ),
     )
     monkeypatch.setattr(
         app,

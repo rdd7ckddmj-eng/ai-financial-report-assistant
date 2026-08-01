@@ -1064,58 +1064,61 @@ def fetch_market_history(
     except Exception as error:
         raise DataSourceError("行情数据组件当前不可用，请稍后重试。") from error
 
+    # The Tencent endpoint has been the faster and more reliable first response
+    # on the deployed free service.  Use it first so a slow Eastmoney failure
+    # does not delay every user before the already-working fallback is tried.
+    symbol = f"{company['exchange'].lower()}{code}"
     try:
-        frame = ak.stock_zh_a_hist(
-            symbol=code,
-            period="daily",
+        fast_frame = ak.stock_zh_a_hist_tx(
+            symbol=symbol,
             start_date=start_date.strftime("%Y%m%d"),
             end_date=end_date.strftime("%Y%m%d"),
             adjust=adjust,
         )
-        prepared = prepare_market_history(frame)
+        prepared = prepare_tencent_market_history(fast_frame)
         if prepared.empty:
-            raise ValueError("东方财富返回了空行情。")
-        prepared.attrs["source"] = "东方财富公开日线"
-        prepared.attrs["turnover_source"] = "东方财富公开日线直接字段"
-        return prepared
-    except Exception as primary_error:
+            raise ValueError("腾讯财经返回了空行情。")
+        prepared.attrs["source"] = "腾讯财经公开日线（快速源）"
         try:
-            symbol = f"{company['exchange'].lower()}{code}"
-            fallback_frame = ak.stock_zh_a_hist_tx(
+            turnover_frame = ak.stock_zh_a_daily(
                 symbol=symbol,
+                start_date=start_date.strftime("%Y%m%d"),
+                end_date=end_date.strftime("%Y%m%d"),
+                adjust="",
+            )
+            prepared = merge_turnover_history(
+                prepared,
+                turnover_frame,
+            )
+            prepared.attrs["source"] = "腾讯财经公开日线（快速源）"
+        except Exception:
+            # Turnover is supplementary evidence.  A temporary Sina failure
+            # must not discard already validated OHLCV history.
+            prepared.attrs["turnover_source"] = "暂未取得"
+        return prepared
+    except Exception as fast_source_error:
+        try:
+            fallback_frame = ak.stock_zh_a_hist(
+                symbol=code,
+                period="daily",
                 start_date=start_date.strftime("%Y%m%d"),
                 end_date=end_date.strftime("%Y%m%d"),
                 adjust=adjust,
             )
-            prepared = prepare_tencent_market_history(fallback_frame)
+            prepared = prepare_market_history(fallback_frame)
             if prepared.empty:
-                raise ValueError("腾讯财经返回了空行情。")
-            prepared.attrs["source"] = "腾讯财经公开日线（备用源）"
-            try:
-                turnover_frame = ak.stock_zh_a_daily(
-                    symbol=symbol,
-                    start_date=start_date.strftime("%Y%m%d"),
-                    end_date=end_date.strftime("%Y%m%d"),
-                    adjust="",
-                )
-                prepared = merge_turnover_history(
-                    prepared,
-                    turnover_frame,
-                )
-                prepared.attrs["source"] = (
-                    "腾讯财经公开日线（备用源）"
-                )
-            except Exception:
-                # Turnover is supplementary evidence.  A temporary Sina
-                # failure must not discard already validated OHLCV history.
-                prepared.attrs["turnover_source"] = "暂未取得"
+                raise ValueError("东方财富返回了空行情。")
+            prepared.attrs["source"] = "东方财富公开日线（备用源）"
+            prepared.attrs["turnover_source"] = (
+                "东方财富公开日线直接字段"
+            )
             return prepared
         except Exception as fallback_error:
             raise DataSourceError(
                 "当前无法从两个公开来源取得该公司的历史日线，请稍后重试。"
             ) from ExceptionGroup(
-                "公开行情主源和备用源均不可用",
-                [primary_error, fallback_error],
+                "公开行情快速源和备用源均不可用",
+                [fast_source_error, fallback_error],
             )
 
 

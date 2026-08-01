@@ -1,6 +1,9 @@
 # Current task board
 
 ## Now
+- [x] Add an offline-first company-code path, faster market-source order,
+      parallel market/disclosure loading, shared one-hour caching, and visible
+      comprehensive-run timing.
 - [x] Reposition the product as a Chinese listed-company research Agent.
 - [x] Add a clean home page and separate research subpages.
 - [x] Add company-name and six-digit stock-code identification.
