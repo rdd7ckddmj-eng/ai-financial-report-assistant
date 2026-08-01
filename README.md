@@ -26,12 +26,18 @@ Build a web application that can:
 15. compare multiple verified companies on one common financial year while
     retaining each annual-report source and page;
 16. avoid presenting AI output as investment advice.
+17. run one bounded Comprehensive Research Agent that joins identity, market,
+    disclosure, annual-report, and verified-financial evidence into a
+    downloadable brief without hiding missing sources.
 
 ## Product specifications
 
 - [Company Research Engine](docs/COMPANY_RESEARCH_ENGINE_SPEC.md) defines the
   current-company research scope, evidence grades, verification states, and
   division between Python and AI.
+- [Comprehensive Research Agent](docs/COMPREHENSIVE_RESEARCH_AGENT_SPEC.md)
+  defines the five evidence lanes, evidence-coverage meaning, failure
+  isolation, deterministic observations, and portable research brief.
 - [Market Anomaly Agent](docs/MARKET_ANOMALY_AGENT_SPEC.md) defines the
   deterministic anomaly rules, official-evidence link, and non-predictive
   product boundary.
@@ -112,6 +118,12 @@ secret environment settings. It must never be committed to the repository.
 
 ## Current working features
 
+- Run a one-click Comprehensive Research Agent for one selected A-share
+  company. It independently checks company identity, market/activity evidence,
+  official disclosures, the latest complete annual report, and any available
+  page-linked financial history. The page shows evidence coverage rather than
+  an investment score, preserves failed lanes, exposes a six-step Agent trace,
+  recommends the next verification page, and exports a safe offline HTML brief.
 - Use a responsive institutional research-terminal interface with a dark
   grouped navigation rail, consistent page-introduction cards, a visible
   sidebar close control, and a persistent reopen control after collapse.

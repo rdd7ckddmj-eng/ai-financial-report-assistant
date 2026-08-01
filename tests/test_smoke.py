@@ -65,6 +65,145 @@ render_home_page()
     assert len(app_test.button) == 4
 
 
+def test_comprehensive_research_brief_renders_as_a_downloadable_page() -> None:
+    """Keep the flagship Agent result stable without live provider calls."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from datetime import date
+from src.china_stock import build_company_identity
+from src.comprehensive_research import build_comprehensive_research_brief
+from src.app import _show_comprehensive_research_brief
+
+brief = build_comprehensive_research_brief(
+    build_company_identity("600519", "贵州茅台"),
+    announcements=[],
+    announcements_status="已核验公告 0 条",
+    generated_on=date(2026, 8, 1),
+)
+_show_comprehensive_research_brief(brief)
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    assert any(
+        "综合研究状态" in item.value for item in app_test.markdown
+    )
+    assert any(
+        "五条证据链" in item.value for item in app_test.markdown
+    )
+    assert len(app_test.download_button) == 1
+    assert app_test.download_button[0].label == (
+        "下载一键综合研究简报（HTML）"
+    )
+
+
+def test_comprehensive_page_entry_renders_without_live_requests() -> None:
+    """Show the selected company and wait for an explicit one-click run."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_comprehensive_research_page
+
+st.session_state["selected_company"] = {
+    "code": "600519",
+    "name": "贵州茅台",
+    "exchange": "SH",
+    "exchange_name": "上海证券交易所",
+    "canonical_code": "600519.SH",
+}
+render_comprehensive_research_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    page_markup = "\n".join(item.value for item in app_test.markdown)
+    assert "COMPREHENSIVE AGENT" in page_markup
+    assert "一键综合研究 Agent" in page_markup
+    assert any(
+        button.label == "运行一键综合研究 Agent"
+        for button in app_test.button
+    )
+
+
+def test_comprehensive_runner_keeps_independent_sources_auditable(
+    monkeypatch,
+) -> None:
+    """Cover the five-lane runner while avoiding live public requests."""
+    from src import app
+
+    company = {
+        "code": "600519",
+        "name": "贵州茅台",
+        "exchange": "SH",
+        "exchange_name": "上海证券交易所",
+        "canonical_code": "600519.SH",
+    }
+    dates = pd.date_range("2025-06-02", periods=300, freq="B")
+    close = pd.Series([100 + index * 0.1 for index in range(len(dates))])
+    market_frame = pd.DataFrame(
+        {
+            "date": dates,
+            "open": close - 0.2,
+            "high": close + 0.6,
+            "low": close - 0.8,
+            "close": close,
+            "volume": [1_000_000.0] * 299 + [2_500_000.0],
+            "amount": 100_000_000.0,
+            "turnover": [1.0] * 299 + [4.0],
+        }
+    )
+    market_frame.attrs["source"] = "测试公开行情"
+    market_frame.attrs["turnover_source"] = "测试普通换手率"
+    annual_url = (
+        "https://static.cninfo.com.cn/finalpage/"
+        "2026-04-01/1234567890.PDF"
+    )
+    announcements = pd.DataFrame(
+        {
+            "code": ["600519"],
+            "name": ["贵州茅台"],
+            "title": ["贵州茅台2025年年度报告"],
+            "date": [date(2026, 4, 1)],
+            "url": [annual_url],
+            "category": ["财务报告"],
+            "attention": ["高"],
+        }
+    )
+
+    monkeypatch.setattr(
+        app,
+        "load_a_share_history",
+        lambda *args, **kwargs: market_frame,
+    )
+    monkeypatch.setattr(
+        app,
+        "load_company_announcements",
+        lambda *args, **kwargs: announcements,
+    )
+    monkeypatch.setattr(
+        app,
+        "verified_financial_history_codes",
+        lambda: (),
+    )
+
+    brief = app._run_comprehensive_research(company)
+
+    assert brief["coverage_ratio"] == 0.8
+    assert brief["verified_lane_count"] == 4
+    assert brief["unavailable_lane_count"] == 1
+    assert any(
+        finding["category"] == "交易活跃度"
+        for finding in brief["findings"]
+    )
+    assert any(
+        lane["key"] == "annual_report"
+        and lane["source_url"] == annual_url
+        for lane in brief["evidence_lanes"]
+    )
+
+
 def test_event_evidence_chain_renderer_shows_auditable_limits() -> None:
     """Render the evidence chain as real Streamlit components."""
     from streamlit.testing.v1 import AppTest

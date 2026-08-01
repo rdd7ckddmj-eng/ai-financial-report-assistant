@@ -55,6 +55,13 @@ from src.china_stock import (
     select_latest_annual_report,
 )
 from src.company_industry import audit_company_industry_catalog
+from src.comprehensive_research import (
+    ComprehensiveResearchBrief,
+    build_comprehensive_research_brief,
+)
+from src.comprehensive_research_report import (
+    build_comprehensive_research_report_html,
+)
 from src.cross_company_comparison import build_cross_company_comparison
 from src.financial_statement_extractor import find_income_statement_figures
 from src.financial_ratios import (
@@ -1387,6 +1394,7 @@ def _render_company_search(
     *,
     key_prefix: str,
     navigate_on_success: bool,
+    navigate_target: str = "company",
 ) -> CompanyIdentity | None:
     """Resolve a company code/name with a live directory and safe fallback."""
     matches_key = f"{key_prefix}_company_matches"
@@ -1427,7 +1435,7 @@ def _render_company_search(
             company = matches[0]
             _store_selected_company(company)
             if navigate_on_success:
-                _switch_page("company")
+                _switch_page(navigate_target)
             return company
 
     matches = st.session_state.get(matches_key, [])
@@ -1453,7 +1461,7 @@ def _render_company_search(
             company = options[selection]
             _store_selected_company(company)
             if navigate_on_success:
-                _switch_page("company")
+                _switch_page(navigate_target)
             return company
     return _selected_company()
 
@@ -1864,6 +1872,268 @@ def _load_company_research_data(
     return market_frame, metrics, announcements
 
 
+def _run_comprehensive_research(
+    company: CompanyIdentity,
+) -> ComprehensiveResearchBrief:
+    """Run five independent research lanes without hiding source failures."""
+    end_date = date.today()
+    start_date = end_date - timedelta(days=550)
+    data_errors: list[str] = []
+    market_frame: pd.DataFrame | None = None
+    market_metrics: MarketMetrics | None = None
+    market_activity: MarketActivityEvidence | None = None
+    market_source = "公开行情适配器"
+    turnover_source = "暂未取得"
+
+    try:
+        market_frame = load_a_share_history(
+            company["code"],
+            start_date.isoformat(),
+            end_date.isoformat(),
+            "qfq",
+        )
+        market_source = str(
+            market_frame.attrs.get("source", market_source)
+        )
+        turnover_source = str(
+            market_frame.attrs.get("turnover_source", turnover_source)
+        )
+        market_metrics = calculate_market_metrics(market_frame)
+        market_activity = calculate_market_activity(market_frame, company)
+    except (DataSourceError, ValueError) as error:
+        data_errors.append(f"行情证据链：{error}")
+
+    announcements: list[Mapping[str, object]] | None
+    announcement_frame: pd.DataFrame | None = None
+    announcements_status = ""
+    try:
+        announcement_frame = load_company_announcements(
+            company["code"],
+            start_date.isoformat(),
+            end_date.isoformat(),
+        )
+        announcements = announcement_frame.to_dict("records")
+        announcements_status = f"已核验公告 {len(announcements)} 条"
+    except (DataSourceError, ValueError) as error:
+        announcements = None
+        announcements_status = "官方公告源本次未完成核验"
+        data_errors.append(f"官方公告证据链：{error}")
+
+    latest_annual_report: Mapping[str, object] | None = None
+    if announcement_frame is not None:
+        try:
+            selected_report = select_latest_annual_report(announcement_frame)
+        except ValueError as error:
+            data_errors.append(f"年度报告定位证据链：{error}")
+        else:
+            if selected_report is not None:
+                latest_annual_report = selected_report.to_dict()
+
+    financial_history = None
+    if company["code"] in verified_financial_history_codes():
+        try:
+            records = load_verified_financial_history(company["code"])
+            financial_history = select_financial_history_as_of(
+                records,
+                end_date,
+            )
+        except ValueError as error:
+            data_errors.append(f"财务历史证据链：{error}")
+
+    return build_comprehensive_research_brief(
+        company,
+        market_metrics=market_metrics,
+        market_activity=market_activity,
+        market_source=market_source,
+        turnover_source=turnover_source,
+        announcements=announcements,
+        announcements_status=announcements_status,
+        latest_annual_report=latest_annual_report,
+        financial_history=financial_history,
+        generated_on=end_date,
+        data_errors=data_errors,
+    )
+
+
+def _show_comprehensive_research_brief(
+    brief: ComprehensiveResearchBrief,
+) -> None:
+    """Display one evidence-first research run and its audit trail."""
+    status_labels = {
+        "verified": "已核验",
+        "partial": "部分证据",
+        "unavailable": "暂不可用",
+    }
+    st.markdown("### 综合研究状态")
+    summary_columns = st.columns(4)
+    summary_columns[0].metric(
+        "证据覆盖率",
+        f"{brief['coverage_ratio']:.0%}",
+    )
+    summary_columns[1].metric("覆盖状态", brief["coverage_label"])
+    summary_columns[2].metric(
+        "已核验证据链",
+        f"{brief['verified_lane_count']} / 5",
+    )
+    summary_columns[3].metric(
+        "确定性观察",
+        f"{len(brief['findings'])} 项",
+    )
+    st.progress(
+        brief["coverage_ratio"],
+        text=(
+            "这里衡量本次取得的数据范围，不代表公司质量、"
+            "上涨概率或结论正确概率。"
+        ),
+    )
+
+    st.markdown("#### 五条证据链")
+    evidence_lanes = brief["evidence_lanes"]
+    for start in range(0, len(evidence_lanes), 3):
+        batch = evidence_lanes[start : start + 3]
+        columns = st.columns(len(batch))
+        for column, lane in zip(columns, batch, strict=True):
+            with column:
+                with st.container(border=True):
+                    st.markdown(f"**{lane['label']}**")
+                    if lane["status"] == "verified":
+                        st.success(status_labels[lane["status"]])
+                    elif lane["status"] == "partial":
+                        st.warning(status_labels[lane["status"]])
+                    else:
+                        st.error(status_labels[lane["status"]])
+                    st.write(lane["summary"])
+                    st.caption(
+                        f"来源：{lane['source']}｜"
+                        f"截止：{lane['as_of_date'] or '不适用'}"
+                    )
+                    st.caption(lane["limitation"])
+                    if lane["source_url"]:
+                        st.link_button(
+                            "查看官方证据 ↗",
+                            lane["source_url"],
+                            use_container_width=True,
+                        )
+
+    st.markdown("#### 确定性研究观察")
+    if not brief["findings"]:
+        st.warning(
+            "当前证据不足，系统没有使用旧样例或 AI 猜测生成观察。"
+        )
+    for index, finding in enumerate(brief["findings"], start=1):
+        with st.container(border=True):
+            heading_column, status_column = st.columns([4, 1])
+            heading_column.markdown(
+                f"**{index}. {finding['category']}｜"
+                f"{finding['headline']}**"
+            )
+            status_column.caption(status_labels[finding["status"]])
+            st.write(finding["statement"])
+            st.caption(f"依据：{finding['basis']}")
+            if finding["source_url"]:
+                st.link_button("查看对应官方原文 ↗", finding["source_url"])
+
+    report_html = build_comprehensive_research_report_html(brief)
+    company = brief["company"]
+    st.markdown("#### 保存本次综合研究")
+    st.download_button(
+        "下载一键综合研究简报（HTML）",
+        data=report_html.encode("utf-8"),
+        file_name=(
+            f"WFZ_{company['code']}_{brief['generated_on']}_综合研究简报.html"
+        ),
+        mime="text/html",
+        use_container_width=True,
+        key=f"comprehensive_report_{company['canonical_code']}",
+    )
+    st.caption(
+        "下载文件可离线打开或打印为 PDF，保留证据状态、来源链接、"
+        "执行轨迹和研究边界。"
+    )
+
+    st.markdown("#### 下一步核验任务")
+    action_columns = st.columns(2)
+    for index, action in enumerate(brief["actions"]):
+        with action_columns[index % 2]:
+            if st.button(
+                f"P{action['priority']}｜{action['label']}",
+                use_container_width=True,
+                key=(
+                    f"comprehensive_action_{company['code']}_"
+                    f"{action['page']}"
+                ),
+            ):
+                _switch_page(action["page"])
+            st.caption(action["reason"])
+
+    with st.expander("查看 Agent 执行轨迹与失败隔离", expanded=False):
+        for step in brief["trace"]:
+            st.markdown(
+                f"**{step['sequence']:02d}｜{step['agent']}｜"
+                f"{status_labels[step['status']]}**"
+            )
+            st.write(step["task"])
+            st.caption(step["output"])
+
+    with st.expander("查看研究限制", expanded=True):
+        for limitation in brief["limitations"]:
+            st.write(f"- {limitation}")
+
+
+def render_comprehensive_research_page() -> None:
+    """Render the one-click coordinator across existing research modules."""
+    apply_product_theme()
+    show_compact_page_header(
+        "旗舰 / 一键综合研究 · COMPREHENSIVE AGENT",
+        "一键综合研究 Agent",
+        "输入一家中国上市公司，自动串联行情、交易活跃度、官方公告、"
+        "年度报告和已核验财务历史，生成可下载、可追溯的研究简报。",
+    )
+    company = _selected_company()
+    if company is None:
+        st.info("请先选择一家研究公司。")
+        _render_company_search(
+            key_prefix="comprehensive",
+            navigate_on_success=False,
+        )
+        company = _selected_company()
+    if company is None:
+        show_product_footer()
+        return
+
+    _show_company_banner(company)
+    st.info(
+        "这次运行按需读取公开数据，不会提前下载全市场资料；"
+        "某个来源失败时，其他证据链仍会继续，并明确标记缺口。"
+    )
+    run_key = "comprehensive_research_brief"
+    if st.button(
+        "运行一键综合研究 Agent",
+        type="primary",
+        use_container_width=True,
+        key=f"run_comprehensive_{company['canonical_code']}",
+    ):
+        with st.spinner(
+            "正在执行：身份核验 → 行情计算 → 公告核验 → 年报定位 → "
+            "财务历史审计……"
+        ):
+            st.session_state[run_key] = _run_comprehensive_research(company)
+
+    brief = st.session_state.get(run_key)
+    if not isinstance(brief, dict) or brief.get("company", {}).get(
+        "canonical_code"
+    ) != company["canonical_code"]:
+        st.caption(
+            "点击运行后，本页会生成五条证据链、确定性观察、"
+            "Agent 执行轨迹和下一步核验任务。"
+        )
+        show_product_footer()
+        return
+
+    _show_comprehensive_research_brief(brief)  # type: ignore[arg-type]
+    show_product_footer()
+
+
 def render_home_page() -> None:
     """Render the single-entry home page for the research product."""
     apply_product_theme()
@@ -1884,6 +2154,7 @@ def render_home_page() -> None:
     _render_company_search(
         key_prefix="home",
         navigate_on_success=True,
+        navigate_target="comprehensive",
     )
     discovery_columns = st.columns(3)
     if discovery_columns[0].button(
@@ -2022,24 +2293,29 @@ def render_company_research_page() -> None:
             "所有指标由Python计算。历史表现不代表未来结果。"
         )
 
-    action_columns = st.columns(4)
+    action_columns = st.columns(5)
     if action_columns[0].button(
-        "查看完整K线与市场表现",
+        "运行综合研究 Agent",
         use_container_width=True,
         type="primary",
     ):
-        _switch_page("market")
+        _switch_page("comprehensive")
     if action_columns[1].button(
+        "查看完整K线与市场表现",
+        use_container_width=True,
+    ):
+        _switch_page("market")
+    if action_columns[2].button(
         "进入市场异动 Agent",
         use_container_width=True,
     ):
         _switch_page("anomaly")
-    if action_columns[2].button(
+    if action_columns[3].button(
         "进入 Historical Lens",
         use_container_width=True,
     ):
         _switch_page("historical")
-    if action_columns[3].button(
+    if action_columns[4].button(
         "进入年报与证据分析",
         use_container_width=True,
     ):
@@ -5849,6 +6125,11 @@ def main() -> None:
         icon="🏠",
         default=True,
     )
+    comprehensive_page = st.Page(
+        render_comprehensive_research_page,
+        title="一键综合研究 Agent",
+        icon="🧠",
+    )
     company_page = st.Page(
         render_company_research_page,
         title="公司研究中心",
@@ -5906,6 +6187,7 @@ def main() -> None:
     )
     st.session_state["_wfz_page_registry"] = {
         "home": home_page,
+        "comprehensive": comprehensive_page,
         "company": company_page,
         "market": market_page,
         "volume_turnover": volume_turnover_page,
@@ -5923,6 +6205,7 @@ def main() -> None:
         {
             "开始": [home_page],
             "上市公司研究": [
+                comprehensive_page,
                 company_page,
                 market_page,
                 volume_turnover_page,
