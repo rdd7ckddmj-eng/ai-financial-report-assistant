@@ -12,7 +12,7 @@ import json
 import math
 import re
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date
+from datetime import date, timedelta
 from functools import lru_cache
 from typing import TypedDict
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -103,6 +103,14 @@ CNINFO_MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 CNINFO_PAGE_SIZE = 30
 CNINFO_MAX_PAGES = 10
 CNINFO_MAX_WORKERS = 4
+TENCENT_KLINE_URL = (
+    "https://proxy.finance.qq.com/ifzqgtimg/appstock/app/newfqkline/get"
+)
+TENCENT_REQUEST_TIMEOUT_SECONDS = 6.0
+TENCENT_MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+TENCENT_MAX_CALENDAR_DAYS = 880
+TENCENT_MAX_TOTAL_CALENDAR_DAYS = 2_000
+TENCENT_MAX_WORKERS = 3
 CNINFO_CATEGORY_CODES = {
     "年报": "category_ndbg_szsh",
     "半年报": "category_bndbg_szsh",
@@ -517,58 +525,6 @@ def merge_turnover_history(
         merged.attrs["turnover_source"] = prepared_turnover.attrs[
             "turnover_source"
         ]
-        merged.attrs["turnover_rows_filled"] = filled_rows
-    return merged
-
-
-def merge_direct_turnover_history(
-    market_history: pd.DataFrame,
-    provider_history: pd.DataFrame,
-    *,
-    source_label: str,
-) -> pd.DataFrame:
-    """Fill ordinary turnover from a second bounded daily-history response.
-
-    Both inputs use the application's percentage-point convention.  Only the
-    date and turnover columns from the supplemental source survive the merge,
-    keeping the temporary frame small on the free Render instance.
-    """
-    prepared_market = prepare_market_history(market_history)
-    source_attributes = dict(prepared_market.attrs)
-    prepared_provider = prepare_market_history(provider_history)
-    if prepared_market.empty or prepared_provider.empty:
-        return prepared_market
-
-    supplemental = prepared_provider.loc[:, ["date", "turnover"]].dropna(
-        subset=["date", "turnover"]
-    )
-    supplemental = supplemental.loc[
-        supplemental["turnover"].map(math.isfinite)
-        & (supplemental["turnover"] >= 0)
-    ]
-    if supplemental.empty:
-        return prepared_market
-
-    merged = prepared_market.merge(
-        supplemental.rename(
-            columns={"turnover": "supplemental_turnover"}
-        ),
-        on="date",
-        how="left",
-        validate="one_to_one",
-    )
-    missing_before = merged["turnover"].isna()
-    merged["turnover"] = merged["turnover"].where(
-        ~missing_before,
-        merged["supplemental_turnover"],
-    )
-    filled_rows = int(
-        (missing_before & merged["turnover"].notna()).sum()
-    )
-    merged = merged.drop(columns=["supplemental_turnover"])
-    merged.attrs.update(source_attributes)
-    if filled_rows:
-        merged.attrs["turnover_source"] = source_label
         merged.attrs["turnover_rows_filled"] = filled_rows
     return merged
 
@@ -1143,6 +1099,160 @@ def fetch_company_directory() -> pd.DataFrame:
         ) from error
 
 
+def _fetch_tencent_market_chunk(
+    symbol: str,
+    start_date: date,
+    end_date: date,
+    *,
+    adjust: str,
+) -> pd.DataFrame:
+    """Read one bounded Tencent response without discarding turnover.
+
+    Tencent's raw daily rows include ordinary turnover after the dividend
+    metadata field.  AKShare's adapter intentionally truncates those rows to
+    six columns, so this small adapter preserves the source field directly and
+    avoids requesting another provider solely for turnover.
+    """
+    if end_date < start_date:
+        raise ValueError("行情查询结束日期不能早于开始日期。")
+    if (end_date - start_date).days > TENCENT_MAX_CALENDAR_DAYS:
+        raise ValueError("腾讯快速行情查询区间超过安全上限。")
+
+    variable_name = f"kline_day{adjust}{end_date.year}"
+    params = {
+        "_var": variable_name,
+        "param": (
+            f"{symbol},day,{start_date.isoformat()},"
+            f"{end_date.isoformat()},640,{adjust}"
+        ),
+        "r": "0.8205512681390605",
+    }
+    request = Request(
+        f"{TENCENT_KLINE_URL}?{urlencode(params)}",
+        headers={
+            "Accept": "*/*",
+            "Referer": f"https://gu.qq.com/{symbol}/gp",
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 Chrome/124.0 Safari/537.36"
+            ),
+        },
+    )
+    with urlopen(
+        request,
+        timeout=TENCENT_REQUEST_TIMEOUT_SECONDS,
+    ) as response:
+        content = response.read(TENCENT_MAX_RESPONSE_BYTES + 1)
+    if len(content) > TENCENT_MAX_RESPONSE_BYTES:
+        raise ValueError("腾讯行情单次响应超过安全大小上限。")
+
+    response_text = content.decode("utf-8")
+    json_start = response_text.find("{")
+    if json_start < 0:
+        raise ValueError("腾讯行情返回了无法识别的数据。")
+    decoded = json.loads(response_text[json_start:].rstrip(";\r\n "))
+    source_data = decoded.get("data")
+    if not isinstance(source_data, dict):
+        raise ValueError("腾讯行情响应缺少数据对象。")
+    symbol_data = source_data.get(symbol)
+    if not isinstance(symbol_data, dict):
+        raise ValueError("腾讯行情响应缺少股票数据。")
+
+    candidate_keys = (
+        (f"{adjust}day", "day") if adjust else ("day",)
+    )
+    rows: list[list[object]] = []
+    for key in candidate_keys:
+        candidate_rows = symbol_data.get(key)
+        if isinstance(candidate_rows, list):
+            rows = [
+                row
+                for row in candidate_rows
+                if isinstance(row, list) and len(row) >= 9
+            ]
+            if rows:
+                break
+    if not rows:
+        raise ValueError("腾讯行情响应没有可用日线。")
+
+    raw = pd.DataFrame(
+        {
+            "date": [row[0] for row in rows],
+            "open": [row[1] for row in rows],
+            "close": [row[2] for row in rows],
+            "high": [row[3] for row in rows],
+            "low": [row[4] for row in rows],
+            "volume": [row[5] for row in rows],
+            "turnover": [row[7] for row in rows],
+        }
+    )
+    prepared = prepare_market_history(raw)
+    prepared = prepared.loc[
+        prepared["date"].map(
+            lambda item: start_date <= item <= end_date
+        )
+    ].reset_index(drop=True)
+    if prepared.empty:
+        raise ValueError("腾讯行情返回日期不在请求区间内。")
+    prepared.attrs["source"] = "腾讯财经公开日线（快速源）"
+    prepared.attrs["turnover_source"] = "腾讯财经原始日线直接字段"
+    return prepared
+
+
+def _fetch_tencent_market_history(
+    symbol: str,
+    start_date: date,
+    end_date: date,
+    *,
+    adjust: str,
+) -> pd.DataFrame:
+    """Read and merge bounded Tencent chunks for up to five years.
+
+    Tencent limits one request to 640 daily rows.  Splitting by calendar date
+    keeps every response below that limit while preserving the market page's
+    three- and five-year choices.  At most three small requests run together,
+    and only validated columns are retained before the frames are combined.
+    """
+    if end_date < start_date:
+        raise ValueError("行情查询结束日期不能早于开始日期。")
+    if (end_date - start_date).days > TENCENT_MAX_TOTAL_CALENDAR_DAYS:
+        raise ValueError("腾讯快速行情查询总区间超过安全上限。")
+
+    ranges: list[tuple[date, date]] = []
+    chunk_start = start_date
+    while chunk_start <= end_date:
+        chunk_end = min(
+            end_date,
+            chunk_start + timedelta(days=TENCENT_MAX_CALENDAR_DAYS),
+        )
+        ranges.append((chunk_start, chunk_end))
+        chunk_start = chunk_end + timedelta(days=1)
+
+    with ThreadPoolExecutor(
+        max_workers=min(TENCENT_MAX_WORKERS, len(ranges))
+    ) as executor:
+        futures = [
+            executor.submit(
+                _fetch_tencent_market_chunk,
+                symbol,
+                chunk_start,
+                chunk_end,
+                adjust=adjust,
+            )
+            for chunk_start, chunk_end in ranges
+        ]
+        frames = [future.result() for future in futures]
+
+    prepared = prepare_market_history(
+        pd.concat(frames, ignore_index=True)
+    )
+    if prepared.empty:
+        raise ValueError("腾讯行情返回了空行情。")
+    prepared.attrs["source"] = "腾讯财经公开日线（快速源）"
+    prepared.attrs["turnover_source"] = "腾讯财经原始日线直接字段"
+    return prepared
+
+
 def fetch_market_history(
     code: str,
     start_date: date,
@@ -1154,64 +1264,31 @@ def fetch_market_history(
     if adjust not in {"", "qfq", "hfq"}:
         raise ValueError("复权方式必须是不复权、前复权或后复权。")
     company = build_company_identity(code)
+
+    # Read Tencent's bounded raw response directly.  Its rows already contain
+    # ordinary turnover, although the third-party adapter drops that field.
+    # Eastmoney remains a bounded fallback for provider outages.
+    provider_timeout_seconds = 6.0
+    symbol = f"{company['exchange'].lower()}{code}"
+    try:
+        return _fetch_tencent_market_history(
+            symbol,
+            start_date,
+            end_date,
+            adjust=adjust,
+        )
+    except Exception as error:
+        fast_source_error = error
+
     try:
         import akshare as ak
     except Exception as error:
-        raise DataSourceError("行情数据组件当前不可用，请稍后重试。") from error
-
-    # Keep every public request bounded on the small Render instance.  Tencent
-    # is the quick price source, but its daily adapter currently exposes only
-    # six columns and therefore no ordinary turnover.  When needed, request the
-    # same bounded date window from Eastmoney and retain only date + turnover;
-    # never start the old Sina full-history decode.
-    provider_timeout_seconds = 6.0
-    symbol = f"{company['exchange'].lower()}{code}"
-    fast_source_error: Exception | None = None
-    try:
-        fast_frame = ak.stock_zh_a_hist_tx(
-            symbol=symbol,
-            start_date=start_date.strftime("%Y%m%d"),
-            end_date=end_date.strftime("%Y%m%d"),
-            adjust=adjust,
-            timeout=provider_timeout_seconds,
+        raise DataSourceError(
+            "行情数据组件当前不可用，请稍后重试。"
+        ) from ExceptionGroup(
+            "腾讯快速源失败且备用组件不可用",
+            [fast_source_error, error],
         )
-        prepared = prepare_tencent_market_history(fast_frame)
-        if prepared.empty:
-            raise ValueError("腾讯财经返回了空行情。")
-    except Exception as error:
-        fast_source_error = error
-    else:
-        prepared.attrs["source"] = "腾讯财经公开日线（快速源）"
-        if prepared["turnover"].notna().any():
-            prepared.attrs["turnover_source"] = (
-                "腾讯财经公开日线直接字段"
-            )
-            return prepared
-
-        try:
-            turnover_frame = ak.stock_zh_a_hist(
-                symbol=code,
-                period="daily",
-                start_date=start_date.strftime("%Y%m%d"),
-                end_date=end_date.strftime("%Y%m%d"),
-                adjust=adjust,
-                timeout=provider_timeout_seconds,
-            )
-            prepared = merge_direct_turnover_history(
-                prepared,
-                turnover_frame,
-                source_label=(
-                    "东方财富公开日线直接字段（与腾讯价格按日期合并）"
-                ),
-            )
-        except Exception:
-            # Turnover is an enhancement, not a reason to discard valid price
-            # history.  The UI will state the limitation instead of guessing.
-            prepared.attrs["turnover_source"] = "暂未取得"
-        else:
-            if not prepared["turnover"].notna().any():
-                prepared.attrs["turnover_source"] = "暂未取得"
-        return prepared
 
     try:
         fallback_frame = ak.stock_zh_a_hist(

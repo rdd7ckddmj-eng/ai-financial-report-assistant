@@ -1,5 +1,6 @@
+import json
 import sys
-from datetime import date
+from datetime import date, timedelta
 from types import SimpleNamespace
 
 import pandas as pd
@@ -355,37 +356,49 @@ def test_market_activity_reports_supplemental_turnover_source() -> None:
     assert activity["turnover"] == pytest.approx(0.02)
 
 
-def test_fast_market_history_uses_bounded_provider_turnover(
+def test_fast_market_history_preserves_raw_tencent_turnover(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     dates = pd.date_range("2026-06-01", periods=25, freq="B")
-    eastmoney_calls = []
-    tencent_calls = []
+    rows = [
+        [
+            item.strftime("%Y-%m-%d"),
+            "100.0",
+            "101.0",
+            "102.0",
+            "99.0",
+            "2000000",
+            {},
+            "0.20",
+            "200000000",
+            "",
+        ]
+        for item in dates
+    ]
+    payload = {
+        "code": 0,
+        "data": {"sh600519": {"qfqday": rows}},
+    }
+    content = f"kline_dayqfq2026={json.dumps(payload)}".encode()
+    observed: dict[str, object] = {}
 
-    def fail_eastmoney(**_: object) -> pd.DataFrame:
-        eastmoney_calls.append(True)
-        raise RuntimeError("primary source unavailable")
+    class FakeResponse:
+        def __enter__(self) -> "FakeResponse":
+            return self
 
-    def tencent_history(**kwargs: object) -> pd.DataFrame:
-        tencent_calls.append(kwargs)
-        return pd.DataFrame(
-            {
-                "date": dates,
-                "open": 100.0,
-                "close": 101.0,
-                "high": 102.0,
-                "low": 99.0,
-                "volume": 2_000_000,
-                "amount": 200_000_000,
-                "turnover": 0.2,
-            }
-        )
+        def __exit__(self, *args: object) -> None:
+            return None
 
-    fake_akshare = SimpleNamespace(
-        stock_zh_a_hist=fail_eastmoney,
-        stock_zh_a_hist_tx=tencent_history,
-    )
-    monkeypatch.setitem(sys.modules, "akshare", fake_akshare)
+        def read(self, size: int) -> bytes:
+            observed["read_size"] = size
+            return content
+
+    def fake_urlopen(request: object, timeout: float) -> FakeResponse:
+        observed["url"] = request.full_url
+        observed["timeout"] = timeout
+        return FakeResponse()
+
+    monkeypatch.setattr(china_stock, "urlopen", fake_urlopen)
 
     prepared = fetch_market_history(
         code="600519",
@@ -398,11 +411,80 @@ def test_fast_market_history_uses_bounded_provider_turnover(
     )
 
     assert prepared.attrs["source"] == "腾讯财经公开日线（快速源）"
-    assert eastmoney_calls == []
-    assert tencent_calls[0]["timeout"] == 6.0
+    assert prepared.attrs["turnover_source"] == (
+        "腾讯财经原始日线直接字段"
+    )
+    assert observed["timeout"] == 6.0
+    assert observed["read_size"] == (
+        china_stock.TENCENT_MAX_RESPONSE_BYTES + 1
+    )
+    assert "sh600519" in str(observed["url"])
     assert prepared["turnover"].notna().all()
+    assert prepared["amount"].isna().all()
     assert activity["turnover"] == pytest.approx(0.002)
     assert "腾讯财经" in activity["turnover_status"]
+
+
+def test_long_tencent_history_uses_contiguous_bounded_chunks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed_ranges: list[tuple[date, date]] = []
+
+    def fake_chunk(
+        symbol: str,
+        start_date: date,
+        end_date: date,
+        *,
+        adjust: str,
+    ) -> pd.DataFrame:
+        observed_ranges.append((start_date, end_date))
+        raw = pd.DataFrame(
+            {
+                "date": [start_date],
+                "open": [100.0],
+                "high": [102.0],
+                "low": [99.0],
+                "close": [101.0],
+                "volume": [2_000_000],
+                "turnover": [0.2],
+            }
+        )
+        return china_stock.prepare_market_history(raw)
+
+    monkeypatch.setattr(
+        china_stock,
+        "_fetch_tencent_market_chunk",
+        fake_chunk,
+    )
+    start_date = date(2021, 8, 1)
+    end_date = date(2026, 8, 1)
+
+    prepared = china_stock._fetch_tencent_market_history(
+        "sh600519",
+        start_date,
+        end_date,
+        adjust="qfq",
+    )
+
+    ordered_ranges = sorted(observed_ranges)
+    assert len(ordered_ranges) == 3
+    assert ordered_ranges[0][0] == start_date
+    assert ordered_ranges[-1][1] == end_date
+    assert all(
+        (chunk_end - chunk_start).days
+        <= china_stock.TENCENT_MAX_CALENDAR_DAYS
+        for chunk_start, chunk_end in ordered_ranges
+    )
+    assert all(
+        current_end + timedelta(days=1) == next_start
+        for (_, current_end), (next_start, _) in zip(
+            ordered_ranges,
+            ordered_ranges[1:],
+        )
+    )
+    assert len(prepared) == 3
+    assert prepared["turnover"].notna().all()
+    assert prepared.attrs["source"] == "腾讯财经公开日线（快速源）"
 
 
 def test_market_history_uses_eastmoney_when_fast_source_fails(
@@ -410,7 +492,7 @@ def test_market_history_uses_eastmoney_when_fast_source_fails(
 ) -> None:
     dates = pd.date_range("2026-06-01", periods=25, freq="B")
 
-    def fail_tencent(**_: object) -> pd.DataFrame:
+    def fail_tencent(*_: object, **__: object) -> pd.DataFrame:
         raise RuntimeError("fast source unavailable")
 
     eastmoney_calls = []
@@ -419,10 +501,12 @@ def test_market_history_uses_eastmoney_when_fast_source_fails(
         eastmoney_calls.append(kwargs)
         return _market_rows(len(dates))
 
-    fake_akshare = SimpleNamespace(
-        stock_zh_a_hist_tx=fail_tencent,
-        stock_zh_a_hist=eastmoney_history,
+    monkeypatch.setattr(
+        china_stock,
+        "_fetch_tencent_market_history",
+        fail_tencent,
     )
+    fake_akshare = SimpleNamespace(stock_zh_a_hist=eastmoney_history)
     monkeypatch.setitem(sys.modules, "akshare", fake_akshare)
 
     prepared = fetch_market_history(
@@ -436,92 +520,6 @@ def test_market_history_uses_eastmoney_when_fast_source_fails(
         "东方财富公开日线直接字段"
     )
     assert eastmoney_calls[0]["timeout"] == 6.0
-
-
-def test_fast_market_history_supplements_missing_turnover_from_eastmoney(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    dates = pd.date_range("2026-06-01", periods=25, freq="B")
-    eastmoney_calls = []
-
-    def tencent_history(**_: object) -> pd.DataFrame:
-        return pd.DataFrame(
-            {
-                "date": dates,
-                "open": 100.0,
-                "close": 101.0,
-                "high": 102.0,
-                "low": 99.0,
-                "amount": 2_000_000,
-            }
-        )
-
-    def eastmoney_history(**kwargs: object) -> pd.DataFrame:
-        eastmoney_calls.append(kwargs)
-        frame = _market_rows(len(dates))
-        frame["日期"] = dates
-        frame["换手率"] = 1.8
-        return frame
-
-    fake_akshare = SimpleNamespace(
-        stock_zh_a_hist_tx=tencent_history,
-        stock_zh_a_hist=eastmoney_history,
-    )
-    monkeypatch.setitem(sys.modules, "akshare", fake_akshare)
-
-    prepared = fetch_market_history(
-        code="600519",
-        start_date=dates[0].date(),
-        end_date=dates[-1].date(),
-    )
-
-    assert prepared.attrs["source"] == "腾讯财经公开日线（快速源）"
-    assert prepared.attrs["turnover_source"] == (
-        "东方财富公开日线直接字段（与腾讯价格按日期合并）"
-    )
-    assert prepared.attrs["turnover_rows_filled"] == len(dates)
-    assert prepared["turnover"].eq(1.8).all()
-    assert eastmoney_calls[0]["start_date"] == "20260601"
-    assert eastmoney_calls[0]["end_date"] == dates[-1].strftime("%Y%m%d")
-    assert eastmoney_calls[0]["timeout"] == 6.0
-
-
-def test_turnover_supplement_failure_keeps_valid_fast_price_history(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    dates = pd.date_range("2026-06-01", periods=25, freq="B")
-
-    def tencent_history(**_: object) -> pd.DataFrame:
-        return pd.DataFrame(
-            {
-                "date": dates,
-                "open": 100.0,
-                "close": 101.0,
-                "high": 102.0,
-                "low": 99.0,
-                "amount": 2_000_000,
-            }
-        )
-
-    def fail_eastmoney(**_: object) -> pd.DataFrame:
-        raise RuntimeError("turnover supplement unavailable")
-
-    fake_akshare = SimpleNamespace(
-        stock_zh_a_hist_tx=tencent_history,
-        stock_zh_a_hist=fail_eastmoney,
-    )
-    monkeypatch.setitem(sys.modules, "akshare", fake_akshare)
-
-    prepared = fetch_market_history(
-        code="600519",
-        start_date=dates[0].date(),
-        end_date=dates[-1].date(),
-    )
-
-    assert len(prepared) == len(dates)
-    assert prepared.attrs["source"] == "腾讯财经公开日线（快速源）"
-    assert prepared.attrs["turnover_source"] == "暂未取得"
-    assert prepared["turnover"].isna().all()
 
 
 def test_announcement_classification_uses_attention_not_sentiment() -> None:
