@@ -1271,7 +1271,7 @@ def show_chinese_user_guide() -> None:
             data=guide_text,
             file_name="WFZ_中国上市公司研究Agent_中文使用说明.md",
             mime="text/markdown",
-            use_container_width=True,
+            width="stretch",
         )
 
 
@@ -1489,7 +1489,7 @@ def _render_company_search(
         submitted = st.form_submit_button(
             "开始研究",
             type="primary",
-            use_container_width=True,
+            width="stretch",
         )
 
     if submitted:
@@ -1541,7 +1541,7 @@ def _render_company_search(
         if st.button(
             "确认公司",
             type="primary",
-            use_container_width=True,
+            width="stretch",
             key=f"{key_prefix}_confirm_company",
         ):
             company = options[selection]
@@ -1840,7 +1840,7 @@ def _show_anomaly_event_research(
                 st.write(analog["comparison_summary"])
                 if st.button(
                     "用这个日期进入 Historical Lens",
-                    use_container_width=True,
+                    width="stretch",
                     key=(
                         f"anomaly_analog_{company['code']}_"
                         f"{selected['date']}_{analog['date']}"
@@ -1878,7 +1878,7 @@ def _show_anomaly_event_research(
             f"WFZ_{company['code']}_{selected['date']}_异动研究报告.html"
         ),
         mime="text/html",
-        use_container_width=True,
+        width="stretch",
         key=f"anomaly_report_{company['code']}_{selected['date']}",
     )
 
@@ -1886,7 +1886,7 @@ def _show_anomaly_event_research(
     if action_columns[0].button(
         "进入 Historical Lens 完整复盘",
         type="primary",
-        use_container_width=True,
+        width="stretch",
         key=(
             f"anomaly_historical_{company['code']}_{selected['date']}"
         ),
@@ -1898,7 +1898,7 @@ def _show_anomaly_event_research(
         _switch_page("historical")
     if action_columns[1].button(
         "查看完整K线",
-        use_container_width=True,
+        width="stretch",
         key=f"anomaly_market_{company['code']}",
     ):
         _switch_page("market")
@@ -2096,7 +2096,7 @@ def _show_comprehensive_research_brief(
                         st.link_button(
                             "查看官方证据 ↗",
                             lane["source_url"],
-                            use_container_width=True,
+                            width="stretch",
                         )
 
     st.markdown("#### 确定性研究观察")
@@ -2127,7 +2127,7 @@ def _show_comprehensive_research_brief(
             f"WFZ_{company['code']}_{brief['generated_on']}_综合研究简报.html"
         ),
         mime="text/html",
-        use_container_width=True,
+        width="stretch",
         key=f"comprehensive_report_{company['canonical_code']}",
     )
     st.caption(
@@ -2141,7 +2141,7 @@ def _show_comprehensive_research_brief(
         with action_columns[index % 2]:
             if st.button(
                 f"P{action['priority']}｜{action['label']}",
-                use_container_width=True,
+                width="stretch",
                 key=(
                     f"comprehensive_action_{company['code']}_"
                     f"{action['page']}"
@@ -2195,7 +2195,7 @@ def render_comprehensive_research_page() -> None:
     if st.button(
         "运行一键综合研究 Agent",
         type="primary",
-        use_container_width=True,
+        width="stretch",
         key=f"run_comprehensive_{company['canonical_code']}",
     ):
         started_at = perf_counter()
@@ -2262,19 +2262,19 @@ def render_home_page() -> None:
     if discovery_columns[0].button(
         "打开每日涨停板观察台",
         type="primary",
-        use_container_width=True,
+        width="stretch",
         key="home_to_limit_up_board",
     ):
         _switch_page("limit_up")
     if discovery_columns[1].button(
         "打开自选股研究任务队列",
-        use_container_width=True,
+        width="stretch",
         key="home_to_market_radar",
     ):
         _switch_page("radar")
     if discovery_columns[2].button(
         "打开横向比较工作台",
-        use_container_width=True,
+        width="stretch",
         key="home_to_cross_company_comparison",
     ):
         _switch_page("comparison")
@@ -2398,28 +2398,28 @@ def render_company_research_page() -> None:
     action_columns = st.columns(5)
     if action_columns[0].button(
         "运行综合研究 Agent",
-        use_container_width=True,
+        width="stretch",
         type="primary",
     ):
         _switch_page("comprehensive")
     if action_columns[1].button(
         "查看完整K线与市场表现",
-        use_container_width=True,
+        width="stretch",
     ):
         _switch_page("market")
     if action_columns[2].button(
         "进入市场异动 Agent",
-        use_container_width=True,
+        width="stretch",
     ):
         _switch_page("anomaly")
     if action_columns[3].button(
         "进入 Historical Lens",
-        use_container_width=True,
+        width="stretch",
     ):
         _switch_page("historical")
     if action_columns[4].button(
         "进入年报与证据分析",
-        use_container_width=True,
+        width="stretch",
     ):
         _switch_page("annual")
 
@@ -2607,13 +2607,13 @@ def render_market_page() -> None:
     if research_columns[0].button(
         "进入成交量与换手率研究",
         type="primary",
-        use_container_width=True,
+        width="stretch",
         key=f"market_to_volume_turnover_{company['canonical_code']}",
     ):
         _switch_page("volume_turnover")
     if research_columns[1].button(
         "进入市场异动 Agent 查看候选日期",
-        use_container_width=True,
+        width="stretch",
         key=f"market_to_anomaly_{company['canonical_code']}",
     ):
         _switch_page("anomaly")
@@ -2621,7 +2621,7 @@ def render_market_page() -> None:
     figure = _build_kline_figure(market_frame, company)
     st.plotly_chart(
         figure,
-        use_container_width=True,
+        width="stretch",
         config={"displaylogo": False},
     )
     st.caption(
@@ -2739,7 +2739,7 @@ def _show_effective_turnover_verification(
             )
             submitted = st.form_submit_button(
                 "验证有效换手率",
-                use_container_width=True,
+                width="stretch",
             )
 
         if not submitted:
@@ -2900,7 +2900,7 @@ def render_volume_turnover_page() -> None:
     figure = _build_volume_turnover_figure(history, company)
     st.plotly_chart(
         figure,
-        use_container_width=True,
+        width="stretch",
         config={"displaylogo": False},
     )
     st.caption(
@@ -2930,7 +2930,7 @@ def render_volume_turnover_page() -> None:
         st.dataframe(
             pd.DataFrame(event_rows),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
     else:
         st.info(
@@ -2973,7 +2973,7 @@ def render_limit_up_board_page() -> None:
         submitted = st.form_submit_button(
             "读取该日涨停板",
             type="primary",
-            use_container_width=True,
+            width="stretch",
         )
 
     if submitted:
@@ -3090,7 +3090,7 @@ def render_limit_up_board_page() -> None:
         st.dataframe(
             pd.DataFrame(ladder_rows),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
 
     with structure_columns[1]:
@@ -3112,7 +3112,7 @@ def render_limit_up_board_page() -> None:
         st.dataframe(
             pd.DataFrame(industry_rows),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
 
     with st.container(border=True):
@@ -3167,7 +3167,7 @@ def render_limit_up_board_page() -> None:
             )
             if st.button(
                 "进入该公司研究中心",
-                use_container_width=True,
+                width="stretch",
                 key=(
                     f"limit_up_to_company_{snapshot['trade_date']}_"
                     f"{row['code']}"
@@ -3198,7 +3198,7 @@ def render_limit_up_board_page() -> None:
     st.dataframe(
         pd.DataFrame(table_rows),
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
     if snapshot["total_count"] > len(table_rows):
         st.caption(
@@ -3210,11 +3210,11 @@ def render_limit_up_board_page() -> None:
     action_columns[0].link_button(
         "查看东方财富涨停板原始页面",
         "https://quote.eastmoney.com/ztb/detail#type=ztgc",
-        use_container_width=True,
+        width="stretch",
     )
     if action_columns[1].button(
         "用股票代码进入自选股雷达",
-        use_container_width=True,
+        width="stretch",
         key=f"limit_up_to_radar_{snapshot['trade_date']}",
     ):
         _switch_page("radar")
@@ -3332,7 +3332,7 @@ def render_market_radar_page() -> None:
         submitted = st.form_submit_button(
             "开始扫描自选股",
             type="primary",
-            use_container_width=True,
+            width="stretch",
         )
 
     if submitted:
@@ -3432,7 +3432,7 @@ def render_market_radar_page() -> None:
             f"WFZ_{queue_report_date.isoformat()}_自选股研究任务简报.html"
         ),
         mime="text/html",
-        use_container_width=True,
+        width="stretch",
         key="market_radar_queue_report",
     )
 
@@ -3511,20 +3511,20 @@ def render_market_radar_page() -> None:
                     st.link_button(
                         "查看原文 ↗",
                         latest_disclosure["source_url"],
-                        use_container_width=True,
+                        width="stretch",
                     )
 
             action_columns = st.columns(2)
             if action_columns[0].button(
                 "进入市场异动 Agent",
-                use_container_width=True,
+                width="stretch",
                 key=f"radar_to_anomaly_{company['canonical_code']}",
             ):
                 _store_selected_company(company)
                 _switch_page("anomaly")
             if action_columns[1].button(
                 "进入公司研究中心",
-                use_container_width=True,
+                width="stretch",
                 key=f"radar_to_company_{company['canonical_code']}",
             ):
                 _store_selected_company(company)
@@ -3691,7 +3691,7 @@ def _show_event_evidence_chain(
                     st.link_button(
                         "查看原文 ↗",
                         item["source_url"],
-                        use_container_width=True,
+                        width="stretch",
                     )
         if chain["matched_count"] > len(chain["matches"]):
             st.caption(
@@ -3872,7 +3872,7 @@ def _show_verified_financial_history(
             )
             st.plotly_chart(
                 figure,
-                use_container_width=True,
+                width="stretch",
                 config={"displaylogo": False},
             )
     else:
@@ -3919,7 +3919,7 @@ def _show_verified_financial_history(
                 st.link_button(
                     "查看年报 ↗",
                     point["source_url"],
-                    use_container_width=True,
+                    width="stretch",
                 )
 
     st.caption(
@@ -4173,7 +4173,7 @@ def render_historical_lens_page() -> None:
     figure = _build_kline_figure(historical_chart_frame, company)
     st.plotly_chart(
         figure,
-        use_container_width=True,
+        width="stretch",
         config={"displaylogo": False},
     )
     st.caption(
@@ -4252,7 +4252,7 @@ def render_historical_lens_page() -> None:
                     st.link_button(
                         "查看原文 ↗",
                         record["source_url"],
-                        use_container_width=True,
+                        width="stretch",
                     )
 
         known_announcements = announcements.loc[
@@ -4295,7 +4295,7 @@ def render_historical_lens_page() -> None:
     if st.button(
         "揭示后来1、3、6个月的市场表现",
         type="primary",
-        use_container_width=True,
+        width="stretch",
         key=f"{reveal_key}_button",
     ):
         st.session_state[reveal_key] = True
@@ -4442,7 +4442,7 @@ def render_financial_trend_page() -> None:
         if st.button(
             "载入选择的已核验公司",
             type="primary",
-            use_container_width=True,
+            width="stretch",
         ):
             _store_selected_company(
                 _company_identity_from_financial_case(
@@ -4501,7 +4501,7 @@ def render_financial_trend_page() -> None:
                 ]
             ),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
         st.caption(
             "新增公司必须同时通过身份、连续年度、官方 HTTPS 来源、"
@@ -4705,7 +4705,7 @@ def render_cross_company_comparison_page() -> None:
             ]
         ),
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
     st.markdown("#### 已核验同行组覆盖")
     st.dataframe(
@@ -4725,7 +4725,7 @@ def render_cross_company_comparison_page() -> None:
             ]
         ),
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
     ready_groups = [
         coverage["peer_group_name"]
@@ -4799,7 +4799,7 @@ def render_cross_company_comparison_page() -> None:
             ]
         ),
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
 
     chart_columns = st.columns(2)
@@ -4815,7 +4815,7 @@ def render_cross_company_comparison_page() -> None:
                 for row in rows
             }
         ).T
-        st.bar_chart(scale_frame, height=330, use_container_width=True)
+        st.bar_chart(scale_frame, height=330, width="stretch")
     with chart_columns[1]:
         st.markdown("#### 结构比较｜百分比")
         ratio_frame = pd.DataFrame(
@@ -4827,7 +4827,7 @@ def render_cross_company_comparison_page() -> None:
                 for row in rows
             }
         ).T
-        st.bar_chart(ratio_frame, height=330, use_container_width=True)
+        st.bar_chart(ratio_frame, height=330, width="stretch")
 
     st.markdown("#### 同比变化｜百分比")
     growth_frame = pd.DataFrame(
@@ -4852,7 +4852,7 @@ def render_cross_company_comparison_page() -> None:
             for row in rows
         }
     ).T
-    st.bar_chart(growth_frame, height=330, use_container_width=True)
+    st.bar_chart(growth_frame, height=330, width="stretch")
     st.caption(
         "三张图分别回答规模、结构和同比变化问题，避免把不同单位混进"
         "同一个综合得分。"
@@ -4945,7 +4945,7 @@ def render_cross_company_comparison_page() -> None:
                             ]
                         ),
                         hide_index=True,
-                        use_container_width=True,
+                        width="stretch",
                     )
 
                     st.markdown("#### 白酒结构指标｜百分比")
@@ -4969,7 +4969,7 @@ def render_cross_company_comparison_page() -> None:
                     st.bar_chart(
                         baijiu_ratio_frame,
                         height=330,
-                        use_container_width=True,
+                        width="stretch",
                     )
                     for observation in baijiu_quality["observations"]:
                         st.markdown(f"- {observation}")
@@ -5024,7 +5024,7 @@ def render_cross_company_comparison_page() -> None:
                             st.line_chart(
                                 _baijiu_history_frame(field_name),
                                 height=280,
-                                use_container_width=True,
+                                width="stretch",
                             )
 
                     with st.expander(
@@ -5050,7 +5050,7 @@ def render_cross_company_comparison_page() -> None:
                                 ]
                             ),
                             hide_index=True,
-                            use_container_width=True,
+                            width="stretch",
                         )
                     st.warning(baijiu_quality["limitation"])
 
@@ -5084,7 +5084,7 @@ def render_cross_company_comparison_page() -> None:
                     st.link_button(
                         "查看年报 ↗",
                         row["source_url"],
-                        use_container_width=True,
+                        width="stretch",
                     )
 
     st.warning(comparison["limitation"])
@@ -5110,7 +5110,7 @@ def render_annual_report_page() -> None:
             company["code"] in verified_financial_history_codes()
             and st.button(
                 "查看已核验多年财务趋势",
-                use_container_width=True,
+                width="stretch",
             )
         ):
             _switch_page("financial_trend")
@@ -5146,12 +5146,12 @@ def render_annual_report_page() -> None:
                 report_columns[0].link_button(
                     "查看官方原文",
                     str(latest_report["url"]),
-                    use_container_width=True,
+                    width="stretch",
                 )
                 auto_load_requested = report_columns[1].button(
                     "自动载入并分析",
                     type="primary",
-                    use_container_width=True,
+                    width="stretch",
                     key=f"auto_load_{company['canonical_code']}",
                 )
 
@@ -5331,7 +5331,7 @@ def render_annual_report_page() -> None:
                 search_evidence = st.form_submit_button(
                     "生成带页码的证据答案",
                     type="primary",
-                    use_container_width=True,
+                    width="stretch",
                 )
 
             if search_evidence:
@@ -5428,7 +5428,7 @@ def render_annual_report_page() -> None:
                         ),
                         file_name="agent_audit_trace.json",
                         mime="application/json",
-                        use_container_width=True,
+                        width="stretch",
                     )
 
                     if not evidence_results:
@@ -5526,7 +5526,7 @@ def render_annual_report_page() -> None:
             if uploaded_report.name == "tesco_annual_report_2026.pdf":
                 if st.button(
                     "运行 10 个案例的质量基准",
-                    use_container_width=True,
+                    width="stretch",
                 ):
                     with st.spinner("正在评估完整 Agent 工作流……"):
                         benchmark_results, benchmark_summary = (
@@ -6005,7 +6005,7 @@ def render_annual_report_page() -> None:
         calculate = st.form_submit_button(
             "计算净利润率",
             type="primary",
-            use_container_width=True,
+            width="stretch",
         )
 
     result_area = st.empty()
@@ -6065,7 +6065,7 @@ def render_annual_report_page() -> None:
         calculate_growth = st.form_submit_button(
             "计算收入增长率",
             type="primary",
-            use_container_width=True,
+            width="stretch",
         )
 
     growth_result_area = st.empty()
@@ -6122,7 +6122,7 @@ def render_annual_report_page() -> None:
         calculate_current_ratio = st.form_submit_button(
             "计算流动比率",
             type="primary",
-            use_container_width=True,
+            width="stretch",
         )
 
     current_ratio_result_area = st.empty()
@@ -6177,7 +6177,7 @@ def render_annual_report_page() -> None:
         calculate_leverage = st.form_submit_button(
             "计算资产负债率",
             type="primary",
-            use_container_width=True,
+            width="stretch",
         )
 
     leverage_result_area = st.empty()

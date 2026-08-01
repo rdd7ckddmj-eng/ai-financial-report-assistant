@@ -1,6 +1,14 @@
 from datetime import date
+from pathlib import Path
 
 import pandas as pd
+
+
+def test_app_uses_current_streamlit_width_api() -> None:
+    """Keep removed container-width arguments out of production pages."""
+    app_source = Path("src/app.py").read_text(encoding="utf-8")
+
+    assert "use_container_width=" not in app_source
 
 
 def test_project_smoke() -> None:

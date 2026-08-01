@@ -1,6 +1,6 @@
 pandas
 openpyxl
-streamlit>=1.40,<2
+streamlit>=1.51,<2
 pymupdf
 python-dotenv
 pytest

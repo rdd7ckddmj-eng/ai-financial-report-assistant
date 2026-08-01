@@ -11,6 +11,8 @@
       reports on the annual-report page, and lazy-load PDF parsing.
 - [x] Preserve Tencent's raw ordinary-turnover field in bounded fast-path
       chunks, with Eastmoney retained only as a provider-outage fallback.
+- [x] Migrate all production pages to Streamlit's current stretch-width API
+      and guard against reintroducing the removed container-width argument.
 - [x] Reposition the product as a Chinese listed-company research Agent.
 - [x] Add a clean home page and separate research subpages.
 - [x] Add company-name and six-digit stock-code identification.
