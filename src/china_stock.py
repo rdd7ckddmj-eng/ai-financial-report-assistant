@@ -521,6 +521,58 @@ def merge_turnover_history(
     return merged
 
 
+def merge_direct_turnover_history(
+    market_history: pd.DataFrame,
+    provider_history: pd.DataFrame,
+    *,
+    source_label: str,
+) -> pd.DataFrame:
+    """Fill ordinary turnover from a second bounded daily-history response.
+
+    Both inputs use the application's percentage-point convention.  Only the
+    date and turnover columns from the supplemental source survive the merge,
+    keeping the temporary frame small on the free Render instance.
+    """
+    prepared_market = prepare_market_history(market_history)
+    source_attributes = dict(prepared_market.attrs)
+    prepared_provider = prepare_market_history(provider_history)
+    if prepared_market.empty or prepared_provider.empty:
+        return prepared_market
+
+    supplemental = prepared_provider.loc[:, ["date", "turnover"]].dropna(
+        subset=["date", "turnover"]
+    )
+    supplemental = supplemental.loc[
+        supplemental["turnover"].map(math.isfinite)
+        & (supplemental["turnover"] >= 0)
+    ]
+    if supplemental.empty:
+        return prepared_market
+
+    merged = prepared_market.merge(
+        supplemental.rename(
+            columns={"turnover": "supplemental_turnover"}
+        ),
+        on="date",
+        how="left",
+        validate="one_to_one",
+    )
+    missing_before = merged["turnover"].isna()
+    merged["turnover"] = merged["turnover"].where(
+        ~missing_before,
+        merged["supplemental_turnover"],
+    )
+    filled_rows = int(
+        (missing_before & merged["turnover"].notna()).sum()
+    )
+    merged = merged.drop(columns=["supplemental_turnover"])
+    merged.attrs.update(source_attributes)
+    if filled_rows:
+        merged.attrs["turnover_source"] = source_label
+        merged.attrs["turnover_rows_filled"] = filled_rows
+    return merged
+
+
 def add_moving_averages(
     frame: pd.DataFrame,
     windows: tuple[int, ...] = (5, 20, 60),
@@ -1107,12 +1159,14 @@ def fetch_market_history(
     except Exception as error:
         raise DataSourceError("行情数据组件当前不可用，请稍后重试。") from error
 
-    # Keep every public request bounded on the small Render instance.  AKShare
-    # 1.18.72 already exposes Tencent's ordinary-turnover field, so starting a
-    # second Sina full-history decode here would duplicate data, add latency,
-    # and create a large transient memory spike.
+    # Keep every public request bounded on the small Render instance.  Tencent
+    # is the quick price source, but its daily adapter currently exposes only
+    # six columns and therefore no ordinary turnover.  When needed, request the
+    # same bounded date window from Eastmoney and retain only date + turnover;
+    # never start the old Sina full-history decode.
     provider_timeout_seconds = 6.0
     symbol = f"{company['exchange'].lower()}{code}"
+    fast_source_error: Exception | None = None
     try:
         fast_frame = ak.stock_zh_a_hist_tx(
             symbol=symbol,
@@ -1124,17 +1178,18 @@ def fetch_market_history(
         prepared = prepare_tencent_market_history(fast_frame)
         if prepared.empty:
             raise ValueError("腾讯财经返回了空行情。")
+    except Exception as error:
+        fast_source_error = error
+    else:
         prepared.attrs["source"] = "腾讯财经公开日线（快速源）"
         if prepared["turnover"].notna().any():
             prepared.attrs["turnover_source"] = (
                 "腾讯财经公开日线直接字段"
             )
-        else:
-            prepared.attrs["turnover_source"] = "暂未取得"
-        return prepared
-    except Exception as fast_source_error:
+            return prepared
+
         try:
-            fallback_frame = ak.stock_zh_a_hist(
+            turnover_frame = ak.stock_zh_a_hist(
                 symbol=code,
                 period="daily",
                 start_date=start_date.strftime("%Y%m%d"),
@@ -1142,21 +1197,46 @@ def fetch_market_history(
                 adjust=adjust,
                 timeout=provider_timeout_seconds,
             )
-            prepared = prepare_market_history(fallback_frame)
-            if prepared.empty:
-                raise ValueError("东方财富返回了空行情。")
-            prepared.attrs["source"] = "东方财富公开日线（备用源）"
-            prepared.attrs["turnover_source"] = (
-                "东方财富公开日线直接字段"
+            prepared = merge_direct_turnover_history(
+                prepared,
+                turnover_frame,
+                source_label=(
+                    "东方财富公开日线直接字段（与腾讯价格按日期合并）"
+                ),
             )
-            return prepared
-        except Exception as fallback_error:
-            raise DataSourceError(
-                "当前无法从两个公开来源取得该公司的历史日线，请稍后重试。"
-            ) from ExceptionGroup(
-                "公开行情快速源和备用源均不可用",
-                [fast_source_error, fallback_error],
-            )
+        except Exception:
+            # Turnover is an enhancement, not a reason to discard valid price
+            # history.  The UI will state the limitation instead of guessing.
+            prepared.attrs["turnover_source"] = "暂未取得"
+        else:
+            if not prepared["turnover"].notna().any():
+                prepared.attrs["turnover_source"] = "暂未取得"
+        return prepared
+
+    try:
+        fallback_frame = ak.stock_zh_a_hist(
+            symbol=code,
+            period="daily",
+            start_date=start_date.strftime("%Y%m%d"),
+            end_date=end_date.strftime("%Y%m%d"),
+            adjust=adjust,
+            timeout=provider_timeout_seconds,
+        )
+        prepared = prepare_market_history(fallback_frame)
+        if prepared.empty:
+            raise ValueError("东方财富返回了空行情。")
+        prepared.attrs["source"] = "东方财富公开日线（备用源）"
+        prepared.attrs["turnover_source"] = (
+            "东方财富公开日线直接字段"
+        )
+        return prepared
+    except Exception as fallback_error:
+        raise DataSourceError(
+            "当前无法从两个公开来源取得该公司的历史日线，请稍后重试。"
+        ) from ExceptionGroup(
+            "公开行情快速源和备用源均不可用",
+            [fast_source_error, fallback_error],
+        )
 
 
 def _read_cninfo_json(request: Request) -> dict[str, object]:

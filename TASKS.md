@@ -9,6 +9,8 @@
       spikes.
 - [x] Bound and parallelise official-disclosure pagination, query only annual
       reports on the annual-report page, and lazy-load PDF parsing.
+- [x] Supplement missing ordinary turnover from the same bounded Eastmoney
+      date window while retaining Tencent as the fast price source.
 - [x] Reposition the product as a Chinese listed-company research Agent.
 - [x] Add a clean home page and separate research subpages.
 - [x] Add company-name and six-digit stock-code identification.
@@ -29,7 +31,8 @@
 - [x] Link selected abnormal days to nearby point-in-time official evidence.
 - [x] Add a dedicated Market Anomaly Agent page.
 - [x] Include high ordinary-turnover percentile days in anomaly screening.
-- [x] Use Tencent's validated direct ordinary-turnover field on the fast path.
+- [x] Verify Tencent's actual six-column response and keep turnover provenance
+      separate from its fast price history.
 - [x] Synthesize independent price, volume, and turnover checks without predictions.
 - [x] Export a selected anomaly date as an auditable offline research report.
 - [x] Match a selected anomaly to strictly earlier rule-based historical analogs.
