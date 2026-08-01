@@ -4,6 +4,9 @@
 - [x] Add an offline-first company-code path, faster market-source order,
       parallel market/disclosure loading, shared one-hour caching, and visible
       comprehensive-run timing.
+- [x] Remove the duplicate full-history turnover decode and bound both market
+      providers to protect the Render free instance from long waits and memory
+      spikes.
 - [x] Reposition the product as a Chinese listed-company research Agent.
 - [x] Add a clean home page and separate research subpages.
 - [x] Add company-name and six-digit stock-code identification.
@@ -24,7 +27,7 @@
 - [x] Link selected abnormal days to nearby point-in-time official evidence.
 - [x] Add a dedicated Market Anomaly Agent page.
 - [x] Include high ordinary-turnover percentile days in anomaly screening.
-- [x] Supplement ordinary turnover when Tencent is the fallback price source.
+- [x] Use Tencent's validated direct ordinary-turnover field on the fast path.
 - [x] Synthesize independent price, volume, and turnover checks without predictions.
 - [x] Export a selected anomaly date as an auditable offline research report.
 - [x] Match a selected anomaly to strictly earlier rule-based historical analogs.

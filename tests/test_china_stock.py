@@ -334,17 +334,19 @@ def test_market_activity_reports_supplemental_turnover_source() -> None:
     assert activity["turnover"] == pytest.approx(0.02)
 
 
-def test_fast_market_history_supplements_turnover(
+def test_fast_market_history_uses_bounded_provider_turnover(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     dates = pd.date_range("2026-06-01", periods=25, freq="B")
     eastmoney_calls = []
+    tencent_calls = []
 
     def fail_eastmoney(**_: object) -> pd.DataFrame:
         eastmoney_calls.append(True)
         raise RuntimeError("primary source unavailable")
 
-    def tencent_history(**_: object) -> pd.DataFrame:
+    def tencent_history(**kwargs: object) -> pd.DataFrame:
+        tencent_calls.append(kwargs)
         return pd.DataFrame(
             {
                 "date": dates,
@@ -352,23 +354,15 @@ def test_fast_market_history_supplements_turnover(
                 "close": 101.0,
                 "high": 102.0,
                 "low": 99.0,
-                "amount": 2_000_000,
-            }
-        )
-
-    def sina_turnover(**_: object) -> pd.DataFrame:
-        return pd.DataFrame(
-            {
-                "date": dates,
                 "volume": 2_000_000,
-                "outstanding_share": 1_000_000_000,
+                "amount": 200_000_000,
+                "turnover": 0.2,
             }
         )
 
     fake_akshare = SimpleNamespace(
         stock_zh_a_hist=fail_eastmoney,
         stock_zh_a_hist_tx=tencent_history,
-        stock_zh_a_daily=sina_turnover,
     )
     monkeypatch.setitem(sys.modules, "akshare", fake_akshare)
 
@@ -384,9 +378,10 @@ def test_fast_market_history_supplements_turnover(
 
     assert prepared.attrs["source"] == "腾讯财经公开日线（快速源）"
     assert eastmoney_calls == []
+    assert tencent_calls[0]["timeout"] == 6.0
     assert prepared["turnover"].notna().all()
     assert activity["turnover"] == pytest.approx(0.002)
-    assert "新浪财经" in activity["turnover_status"]
+    assert "腾讯财经" in activity["turnover_status"]
 
 
 def test_market_history_uses_eastmoney_when_fast_source_fails(
@@ -397,7 +392,10 @@ def test_market_history_uses_eastmoney_when_fast_source_fails(
     def fail_tencent(**_: object) -> pd.DataFrame:
         raise RuntimeError("fast source unavailable")
 
-    def eastmoney_history(**_: object) -> pd.DataFrame:
+    eastmoney_calls = []
+
+    def eastmoney_history(**kwargs: object) -> pd.DataFrame:
+        eastmoney_calls.append(kwargs)
         return _market_rows(len(dates))
 
     fake_akshare = SimpleNamespace(
@@ -416,6 +414,7 @@ def test_market_history_uses_eastmoney_when_fast_source_fails(
     assert prepared.attrs["turnover_source"] == (
         "东方财富公开日线直接字段"
     )
+    assert eastmoney_calls[0]["timeout"] == 6.0
 
 
 def test_announcement_classification_uses_attention_not_sentiment() -> None:

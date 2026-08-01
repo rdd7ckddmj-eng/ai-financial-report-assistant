@@ -1064,9 +1064,11 @@ def fetch_market_history(
     except Exception as error:
         raise DataSourceError("行情数据组件当前不可用，请稍后重试。") from error
 
-    # The Tencent endpoint has been the faster and more reliable first response
-    # on the deployed free service.  Use it first so a slow Eastmoney failure
-    # does not delay every user before the already-working fallback is tried.
+    # Keep every public request bounded on the small Render instance.  AKShare
+    # 1.18.72 already exposes Tencent's ordinary-turnover field, so starting a
+    # second Sina full-history decode here would duplicate data, add latency,
+    # and create a large transient memory spike.
+    provider_timeout_seconds = 6.0
     symbol = f"{company['exchange'].lower()}{code}"
     try:
         fast_frame = ak.stock_zh_a_hist_tx(
@@ -1074,26 +1076,17 @@ def fetch_market_history(
             start_date=start_date.strftime("%Y%m%d"),
             end_date=end_date.strftime("%Y%m%d"),
             adjust=adjust,
+            timeout=provider_timeout_seconds,
         )
         prepared = prepare_tencent_market_history(fast_frame)
         if prepared.empty:
             raise ValueError("腾讯财经返回了空行情。")
         prepared.attrs["source"] = "腾讯财经公开日线（快速源）"
-        try:
-            turnover_frame = ak.stock_zh_a_daily(
-                symbol=symbol,
-                start_date=start_date.strftime("%Y%m%d"),
-                end_date=end_date.strftime("%Y%m%d"),
-                adjust="",
+        if prepared["turnover"].notna().any():
+            prepared.attrs["turnover_source"] = (
+                "腾讯财经公开日线直接字段"
             )
-            prepared = merge_turnover_history(
-                prepared,
-                turnover_frame,
-            )
-            prepared.attrs["source"] = "腾讯财经公开日线（快速源）"
-        except Exception:
-            # Turnover is supplementary evidence.  A temporary Sina failure
-            # must not discard already validated OHLCV history.
+        else:
             prepared.attrs["turnover_source"] = "暂未取得"
         return prepared
     except Exception as fast_source_error:
@@ -1104,6 +1097,7 @@ def fetch_market_history(
                 start_date=start_date.strftime("%Y%m%d"),
                 end_date=end_date.strftime("%Y%m%d"),
                 adjust=adjust,
+                timeout=provider_timeout_seconds,
             )
             prepared = prepare_market_history(fallback_frame)
             if prepared.empty:
