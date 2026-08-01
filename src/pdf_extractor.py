@@ -2,8 +2,6 @@
 
 from typing import TypedDict
 
-import fitz
-
 
 class ExtractedPage(TypedDict):
     """Text and provenance for one PDF page."""
@@ -16,6 +14,11 @@ def extract_pdf_pages(pdf_bytes: bytes) -> list[ExtractedPage]:
     """Extract text from a PDF while preserving one-based page numbers."""
     if not pdf_bytes:
         raise ValueError("The uploaded PDF is empty.")
+
+    # PyMuPDF has a meaningful cold-start and memory cost.  Most visitors use
+    # the company-research pages without opening a PDF, so load it only when a
+    # report is actually submitted for extraction.
+    import fitz
 
     try:
         document = fitz.open(stream=pdf_bytes, filetype="pdf")

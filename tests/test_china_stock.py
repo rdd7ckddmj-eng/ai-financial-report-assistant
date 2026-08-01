@@ -1,16 +1,20 @@
 import sys
+from datetime import date
 from types import SimpleNamespace
 
 import pandas as pd
 import pytest
 
+import src.china_stock as china_stock
 from src.china_stock import (
+    DataSourceError,
     add_moving_averages,
     build_company_identity,
     build_cninfo_pdf_url,
     calculate_market_activity,
     calculate_market_metrics,
     classify_announcement,
+    fetch_announcements,
     fetch_market_history,
     infer_exchange,
     is_allowed_disclosure_url,
@@ -24,6 +28,23 @@ from src.china_stock import (
     scan_market_activity_events,
     select_latest_annual_report,
 )
+
+
+def _cninfo_row(
+    announcement_id: int,
+    published_at: str,
+    *,
+    title: str = "贵州茅台2025年年度报告",
+) -> dict[str, object]:
+    timestamp = int(pd.Timestamp(published_at, tz="UTC").timestamp() * 1000)
+    return {
+        "secCode": "600519",
+        "secName": "贵州茅台",
+        "announcementTitle": title,
+        "announcementTime": timestamp,
+        "announcementId": announcement_id,
+        "orgId": "gssh0600519",
+    }
 
 
 def _market_rows(count: int = 300) -> pd.DataFrame:
@@ -434,6 +455,92 @@ def test_announcement_links_are_limited_to_disclosure_sources() -> None:
         "https://static.cninfo.com.cn/finalpage/report.pdf"
     )
     assert not is_allowed_disclosure_url("https://example.com/report.pdf")
+
+
+def test_fetch_announcements_uses_bounded_parallel_cninfo_pages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requested_pages: list[int] = []
+    observed_categories: list[str] = []
+    monkeypatch.setattr(
+        china_stock,
+        "_load_cninfo_stock_ids",
+        lambda: {"600519": "gssh0600519"},
+    )
+
+    def fake_page(
+        payload: dict[str, str],
+        page_number: int,
+    ) -> dict[str, object]:
+        requested_pages.append(page_number)
+        observed_categories.append(payload["category"])
+        return {
+            "totalAnnouncement": 61,
+            "announcements": [
+                _cninfo_row(
+                    page_number,
+                    f"2026-04-{page_number:02d} 08:00:00",
+                    title=f"贵州茅台第{page_number}页年度报告",
+                )
+            ],
+        }
+
+    monkeypatch.setattr(
+        china_stock,
+        "_fetch_cninfo_announcement_page",
+        fake_page,
+    )
+
+    result = fetch_announcements(
+        "600519",
+        date(2025, 1, 1),
+        date(2026, 7, 31),
+        category="年报",
+    )
+
+    assert sorted(requested_pages) == [1, 2, 3]
+    assert set(observed_categories) == {"category_ndbg_szsh"}
+    assert list(result["title"]) == [
+        "贵州茅台第3页年度报告",
+        "贵州茅台第2页年度报告",
+        "贵州茅台第1页年度报告",
+    ]
+    assert result.attrs["retrieved_pages"] == 3
+    assert result.attrs["total_announcements"] == 61
+    assert all(
+        str(url).startswith(
+            "https://www.cninfo.com.cn/new/disclosure/detail?"
+        )
+        for url in result["url"]
+    )
+
+
+def test_fetch_announcements_rejects_oversized_query(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        china_stock,
+        "_load_cninfo_stock_ids",
+        lambda: {"600519": "gssh0600519"},
+    )
+    monkeypatch.setattr(
+        china_stock,
+        "_fetch_cninfo_announcement_page",
+        lambda payload, page_number: {
+            "totalAnnouncement": (
+                china_stock.CNINFO_PAGE_SIZE
+                * (china_stock.CNINFO_MAX_PAGES + 1)
+            ),
+            "announcements": [],
+        },
+    )
+
+    with pytest.raises(DataSourceError, match="安全读取上限"):
+        fetch_announcements(
+            "600519",
+            date(2025, 1, 1),
+            date(2026, 7, 31),
+        )
 
 
 def test_cninfo_detail_link_builds_bounded_official_download_url() -> None:

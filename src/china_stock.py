@@ -8,11 +8,14 @@ temporarily unavailable.
 
 from __future__ import annotations
 
+import json
 import math
 import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
+from functools import lru_cache
 from typing import TypedDict
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 import pandas as pd
@@ -87,6 +90,46 @@ EXCHANGE_NAMES = {
     "SH": "上海证券交易所",
     "SZ": "深圳证券交易所",
     "BJ": "北京证券交易所",
+}
+
+CNINFO_STOCK_DIRECTORY_URL = (
+    "https://www.cninfo.com.cn/new/data/szse_stock.json"
+)
+CNINFO_ANNOUNCEMENT_QUERY_URL = (
+    "https://www.cninfo.com.cn/new/hisAnnouncement/query"
+)
+CNINFO_REQUEST_TIMEOUT_SECONDS = 6.0
+CNINFO_MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+CNINFO_PAGE_SIZE = 30
+CNINFO_MAX_PAGES = 10
+CNINFO_MAX_WORKERS = 4
+CNINFO_CATEGORY_CODES = {
+    "年报": "category_ndbg_szsh",
+    "半年报": "category_bndbg_szsh",
+    "一季报": "category_yjdbg_szsh",
+    "三季报": "category_sjdbg_szsh",
+    "业绩预告": "category_yjygjxz_szsh",
+    "权益分派": "category_qyfpxzcs_szsh",
+    "董事会": "category_dshgg_szsh",
+    "监事会": "category_jshgg_szsh",
+    "股东大会": "category_gddh_szsh",
+    "日常经营": "category_rcjy_szsh",
+    "公司治理": "category_gszl_szsh",
+    "中介报告": "category_zj_szsh",
+    "首发": "category_sf_szsh",
+    "增发": "category_zf_szsh",
+    "股权激励": "category_gqjl_szsh",
+    "配股": "category_pg_szsh",
+    "解禁": "category_jj_szsh",
+    "公司债": "category_gszq_szsh",
+    "可转债": "category_kzzq_szsh",
+    "其他融资": "category_qtrz_szsh",
+    "股权变动": "category_gqbd_szsh",
+    "补充更正": "category_bcgz_szsh",
+    "澄清致歉": "category_cqdq_szsh",
+    "风险提示": "category_fxts_szsh",
+    "特别处理和退市": "category_tbclts_szsh",
+    "退市整理期": "category_tszlq_szsh",
 }
 
 # A small offline directory keeps the product demonstrable when the live
@@ -1116,6 +1159,134 @@ def fetch_market_history(
             )
 
 
+def _read_cninfo_json(request: Request) -> dict[str, object]:
+    """Read one bounded CNINFO JSON response using only the standard library."""
+    with urlopen(
+        request,
+        timeout=CNINFO_REQUEST_TIMEOUT_SECONDS,
+    ) as response:
+        content = response.read(CNINFO_MAX_RESPONSE_BYTES + 1)
+    if len(content) > CNINFO_MAX_RESPONSE_BYTES:
+        raise ValueError("巨潮资讯单次响应超过安全大小上限。")
+    decoded = json.loads(content.decode("utf-8"))
+    if not isinstance(decoded, dict):
+        raise ValueError("巨潮资讯返回了无法识别的数据结构。")
+    return decoded
+
+
+def _cninfo_headers() -> dict[str, str]:
+    return {
+        "Accept": "application/json, text/plain, */*",
+        "Referer": (
+            "https://www.cninfo.com.cn/new/commonUrl/pageOfSearch?"
+            "url=disclosure/list/search"
+        ),
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 Chrome/124.0 Safari/537.36"
+        ),
+    }
+
+
+@lru_cache(maxsize=1)
+def _load_cninfo_stock_ids() -> dict[str, str]:
+    """Load and reuse the official A-share code-to-organisation mapping."""
+    request = Request(
+        CNINFO_STOCK_DIRECTORY_URL,
+        headers=_cninfo_headers(),
+    )
+    decoded = _read_cninfo_json(request)
+    stock_list = decoded.get("stockList")
+    if not isinstance(stock_list, list):
+        raise ValueError("巨潮资讯公司目录缺少股票列表。")
+
+    result: dict[str, str] = {}
+    for item in stock_list:
+        if not isinstance(item, dict):
+            continue
+        code = str(item.get("code", "")).strip()
+        organisation_id = str(item.get("orgId", "")).strip()
+        if re.fullmatch(r"\d{6}", code) and organisation_id:
+            result[code] = organisation_id
+    if not result:
+        raise ValueError("巨潮资讯公司目录没有可用记录。")
+    return result
+
+
+def _fetch_cninfo_announcement_page(
+    base_payload: dict[str, str],
+    page_number: int,
+) -> dict[str, object]:
+    payload = dict(base_payload)
+    payload["pageNum"] = str(page_number)
+    request = Request(
+        CNINFO_ANNOUNCEMENT_QUERY_URL,
+        data=urlencode(payload).encode("utf-8"),
+        headers={
+            **_cninfo_headers(),
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "Origin": "https://www.cninfo.com.cn",
+        },
+        method="POST",
+    )
+    return _read_cninfo_json(request)
+
+
+def _cninfo_rows_to_frame(rows: list[dict[str, object]]) -> pd.DataFrame:
+    """Convert CNINFO response rows into the app's trusted schema."""
+    if not rows:
+        return prepare_announcements(pd.DataFrame())
+
+    raw = pd.DataFrame(rows)
+    required = {
+        "secCode",
+        "secName",
+        "announcementTitle",
+        "announcementTime",
+        "announcementId",
+        "orgId",
+    }
+    if not required.issubset(raw.columns):
+        raise ValueError("巨潮资讯公告响应缺少必要字段。")
+
+    dates = pd.to_datetime(
+        raw["announcementTime"],
+        unit="ms",
+        utc=True,
+        errors="coerce",
+    ).dt.tz_convert("Asia/Shanghai").dt.tz_localize(None)
+    announcement_times = dates.dt.strftime("%Y-%m-%d %H:%M:%S")
+    detail_urls: list[str] = []
+    for code, announcement_id, organisation_id, published_at in zip(
+        raw["secCode"],
+        raw["announcementId"],
+        raw["orgId"],
+        announcement_times,
+    ):
+        query = urlencode(
+            {
+                "stockCode": str(code),
+                "announcementId": str(announcement_id),
+                "orgId": str(organisation_id),
+                "announcementTime": str(published_at),
+            }
+        )
+        detail_urls.append(
+            f"https://www.cninfo.com.cn/new/disclosure/detail?{query}"
+        )
+
+    normalised = pd.DataFrame(
+        {
+            "代码": raw["secCode"],
+            "简称": raw["secName"],
+            "公告标题": raw["announcementTitle"],
+            "公告时间": dates,
+            "公告链接": detail_urls,
+        }
+    )
+    return prepare_announcements(normalised)
+
+
 def fetch_announcements(
     code: str,
     start_date: date,
@@ -1123,20 +1294,90 @@ def fetch_announcements(
     *,
     category: str = "",
 ) -> pd.DataFrame:
-    """Fetch official CNINFO disclosures for one mainland listed company."""
+    """Fetch official disclosures with bounded requests and page fan-out."""
     build_company_identity(code)
-    try:
-        import akshare as ak
+    if end_date < start_date:
+        raise ValueError("公告查询结束日期不能早于开始日期。")
+    if category and category not in CNINFO_CATEGORY_CODES:
+        raise ValueError("暂不支持该公告类别。")
 
-        frame = ak.stock_zh_a_disclosure_report_cninfo(
-            symbol=code,
-            market="沪深京",
-            keyword="",
-            category=category,
-            start_date=start_date.strftime("%Y%m%d"),
-            end_date=end_date.strftime("%Y%m%d"),
-        )
-        return prepare_announcements(frame)
+    try:
+        organisation_id = _load_cninfo_stock_ids().get(code)
+        if not organisation_id:
+            raise ValueError("巨潮资讯公司目录中没有该股票代码。")
+        base_payload = {
+            "pageNum": "1",
+            "pageSize": str(CNINFO_PAGE_SIZE),
+            "column": "szse",
+            "tabName": "fulltext",
+            "plate": "",
+            "stock": f"{code},{organisation_id}",
+            "searchkey": "",
+            "secid": "",
+            "category": CNINFO_CATEGORY_CODES.get(category, ""),
+            "trade": "",
+            "seDate": (
+                f"{start_date.isoformat()}~{end_date.isoformat()}"
+            ),
+            "sortName": "",
+            "sortType": "",
+            "isHLtitle": "true",
+        }
+        first_page = _fetch_cninfo_announcement_page(base_payload, 1)
+        total = int(first_page.get("totalAnnouncement", 0) or 0)
+        if total < 0:
+            raise ValueError("巨潮资讯返回了无效公告数量。")
+        page_count = math.ceil(total / CNINFO_PAGE_SIZE)
+        if page_count > CNINFO_MAX_PAGES:
+            raise ValueError(
+                "公告数量超过一次安全读取上限，请缩短日期范围或选择公告类别。"
+            )
+
+        first_rows = first_page.get("announcements") or []
+        if not isinstance(first_rows, list):
+            raise ValueError("巨潮资讯返回了无法识别的公告列表。")
+        rows_by_page: dict[int, list[dict[str, object]]] = {
+            1: [item for item in first_rows if isinstance(item, dict)]
+        }
+        remaining_pages = range(2, page_count + 1)
+        if page_count > 1:
+            with ThreadPoolExecutor(
+                max_workers=min(CNINFO_MAX_WORKERS, page_count - 1),
+                thread_name_prefix="wfz-cninfo",
+            ) as executor:
+                futures = {
+                    page_number: executor.submit(
+                        _fetch_cninfo_announcement_page,
+                        base_payload,
+                        page_number,
+                    )
+                    for page_number in remaining_pages
+                }
+                for page_number, future in futures.items():
+                    decoded = future.result()
+                    page_rows = decoded.get("announcements") or []
+                    if not isinstance(page_rows, list):
+                        raise ValueError(
+                            "巨潮资讯返回了无法识别的公告列表。"
+                        )
+                    rows_by_page[page_number] = [
+                        item for item in page_rows if isinstance(item, dict)
+                    ]
+
+        rows = [
+            row
+            for page_number in sorted(rows_by_page)
+            for row in rows_by_page[page_number]
+        ]
+        prepared = _cninfo_rows_to_frame(rows)
+        prepared.attrs["source"] = "巨潮资讯官方披露（限时读取）"
+        prepared.attrs["retrieved_pages"] = page_count
+        prepared.attrs["total_announcements"] = total
+        return prepared
+    except ValueError as error:
+        raise DataSourceError(
+            f"当前无法取得巨潮资讯公告：{error}"
+        ) from error
     except Exception as error:
         raise DataSourceError(
             "当前无法取得巨潮资讯公告，请稍后重试。"

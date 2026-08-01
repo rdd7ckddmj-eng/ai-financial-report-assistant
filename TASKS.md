@@ -7,6 +7,8 @@
 - [x] Remove the duplicate full-history turnover decode and bound both market
       providers to protect the Render free instance from long waits and memory
       spikes.
+- [x] Bound and parallelise official-disclosure pagination, query only annual
+      reports on the annual-report page, and lazy-load PDF parsing.
 - [x] Reposition the product as a Chinese listed-company research Agent.
 - [x] Add a clean home page and separate research subpages.
 - [x] Add company-name and six-digit stock-code identification.

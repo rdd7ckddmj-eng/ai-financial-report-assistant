@@ -5126,6 +5126,7 @@ def render_annual_report_page() -> None:
                 company["code"],
                 start_date.isoformat(),
                 end_date.isoformat(),
+                "年报",
             )
             latest_report = select_latest_annual_report(announcements)
         except (DataSourceError, ValueError):
