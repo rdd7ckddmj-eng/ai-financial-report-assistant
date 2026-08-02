@@ -121,7 +121,9 @@ secret environment settings. It must never be committed to the repository.
 - Keep up to six recently researched companies and five self-selected companies
   in the visitor's own browser. The shortcuts require no login or server-side
   user database, store only public company identity and access timestamps, and
-  disappear when the visitor clears this site's browser data.
+  disappear when the visitor clears this site's browser data. The saved local
+  watchlist also pre-fills the bounded Market Radar and can be scanned with one
+  click without re-entering stock codes.
 - Use a first-run performance path for the flagship workflow: six-digit stock
   codes and the verified demonstration list resolve without downloading the
   full A-share directory; Tencent daily history is attempted before the slower

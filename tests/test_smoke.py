@@ -623,6 +623,11 @@ def test_market_radar_page_scans_and_ranks_a_bounded_watchlist(
     monkeypatch.setattr(app, "show_product_footer", lambda: None)
     monkeypatch.setattr(
         app,
+        "_browser_research_snapshot",
+        lambda: {"watchlist": []},
+    )
+    monkeypatch.setattr(
+        app,
         "load_a_share_directory",
         lambda: pd.DataFrame(
             {
@@ -672,7 +677,7 @@ def test_market_radar_page_scans_and_ranks_a_bounded_watchlist(
     monkeypatch.setattr(
         app.st,
         "form_submit_button",
-        lambda *args, **kwargs: True,
+        lambda label, *args, **kwargs: label == "开始扫描自选股",
     )
     monkeypatch.setattr(
         app.st,
@@ -699,6 +704,58 @@ def test_market_radar_page_scans_and_ranks_a_bounded_watchlist(
     assert downloads[0][0] == "下载自选股研究任务简报（HTML）"
     assert downloads[0][1]["mime"] == "text/html"
     assert b"WFZ" in downloads[0][1]["data"]
+
+
+def test_market_radar_page_one_click_scans_device_local_watchlist(
+    monkeypatch,
+) -> None:
+    """Use browser-local codes without replacing the manual input path."""
+    from src import app
+
+    scanned_codes = []
+    input_defaults = []
+    button_labels = []
+
+    def fake_scan(codes: list[str]):
+        scanned_codes.extend(codes)
+        return [], []
+
+    def fake_text_area(*args, **kwargs):
+        input_defaults.append(kwargs["value"])
+        return kwargs["value"]
+
+    def fake_submit(label, *args, **kwargs):
+        button_labels.append(label)
+        return label.startswith("一键扫描我的本机自选股")
+
+    monkeypatch.setattr(app, "apply_product_theme", lambda: None)
+    monkeypatch.setattr(app, "show_compact_page_header", lambda *args: None)
+    monkeypatch.setattr(app, "show_product_footer", lambda: None)
+    monkeypatch.setattr(
+        app,
+        "_browser_research_snapshot",
+        lambda: {
+            "watchlist": [
+                {"code": "600519", "name": "贵州茅台"},
+                {"code": "300750", "name": "宁德时代"},
+            ]
+        },
+    )
+    monkeypatch.setattr(app.st, "text_area", fake_text_area)
+    monkeypatch.setattr(app.st, "form_submit_button", fake_submit)
+    monkeypatch.setattr(app, "_scan_market_radar", fake_scan)
+    app.st.session_state.pop("market_radar_rows", None)
+    app.st.session_state.pop("market_radar_failures", None)
+
+    app.render_market_radar_page()
+
+    assert input_defaults == ["600519, 300750"]
+    assert button_labels == [
+        "一键扫描我的本机自选股（2家）",
+        "开始扫描自选股",
+    ]
+    assert scanned_codes == ["600519", "300750"]
+    assert app.st.session_state["market_radar_failures"] == []
 
 
 def test_limit_up_board_page_builds_daily_wall(monkeypatch) -> None:

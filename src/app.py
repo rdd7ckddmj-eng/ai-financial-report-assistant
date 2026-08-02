@@ -3723,22 +3723,54 @@ def render_market_radar_page() -> None:
         "P1/P2/P3只安排研究任务先后，不代表上涨概率或投资价值。"
     )
 
+    browser_snapshot = _browser_research_snapshot()
+    local_watchlist = browser_snapshot.get("watchlist", [])
+    local_watchlist_codes = [
+        item["code"]
+        for item in local_watchlist
+        if isinstance(item, Mapping)
+        and isinstance(item.get("code"), str)
+    ][:MAX_LOCAL_WATCHLIST]
+    default_watchlist_text = (
+        ", ".join(local_watchlist_codes)
+        if local_watchlist_codes
+        else "600519, 300750, 000001"
+    )
+    if local_watchlist_codes:
+        st.caption(
+            f"已从当前浏览器读取 {len(local_watchlist_codes)} 家本机自选股；"
+            "可一键扫描，也可在下方临时修改代码。"
+        )
+
     with st.form("market_radar_form"):
         watchlist_text = st.text_area(
             "输入最多5个六位股票代码",
-            value="600519, 300750, 000001",
+            value=default_watchlist_text,
             height=90,
             placeholder="例如：600519, 300750, 000001",
             help="可使用逗号、空格、分号或顿号分隔。",
         )
-        submitted = st.form_submit_button(
+        local_submitted = False
+        if local_watchlist_codes:
+            local_submitted = st.form_submit_button(
+                f"一键扫描我的本机自选股（{len(local_watchlist_codes)}家）",
+                type="primary",
+                width="stretch",
+            )
+        manual_submitted = st.form_submit_button(
             "开始扫描自选股",
-            type="primary",
+            type="secondary" if local_watchlist_codes else "primary",
             width="stretch",
         )
 
+    submitted = local_submitted or manual_submitted
     if submitted:
-        parsed = parse_watchlist_codes(watchlist_text)
+        scan_text = (
+            ", ".join(local_watchlist_codes)
+            if local_submitted
+            else watchlist_text
+        )
+        parsed = parse_watchlist_codes(scan_text)
         if parsed["invalid_tokens"]:
             st.warning(
                 "以下内容不是六位股票代码，已跳过："
