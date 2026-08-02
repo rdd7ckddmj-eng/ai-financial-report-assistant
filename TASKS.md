@@ -15,6 +15,8 @@
       and guard against reintroducing the removed container-width argument.
 - [x] Add staged loading, elapsed-time receipts, and source-health visibility
       to the three core research pages; parallelise anomaly data loading.
+- [x] Add browser-local recent research and a five-company watchlist without
+      login, server-side user records, or extra cloud storage.
 - [x] Reposition the product as a Chinese listed-company research Agent.
 - [x] Add a clean home page and separate research subpages.
 - [x] Add company-name and six-digit stock-code identification.

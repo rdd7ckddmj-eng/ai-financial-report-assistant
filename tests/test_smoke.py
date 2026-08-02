@@ -88,6 +88,42 @@ render_home_page()
     assert len(app_test.button) == 4
 
 
+def test_home_page_shows_device_local_recent_and_watchlist_entries() -> None:
+    """Keep local research shortcuts useful without a login or database."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_home_page
+
+company = {
+    "code": "600519",
+    "name": "贵州茅台",
+    "exchange": "SH",
+    "exchange_name": "上海证券交易所",
+    "canonical_code": "600519.SH",
+}
+st.session_state["_wfz_browser_research_snapshot"] = {
+    "version": 1,
+    "recent": [company],
+    "watchlist": [company],
+    "last_command_id": None,
+    "storage_status": "available",
+}
+render_home_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    labels = [button.label for button in app_test.button]
+    assert "继续研究｜贵州茅台 · 600519" in labels
+    assert "★ 移出自选" in labels
+    assert "研究｜贵州茅台 · 600519" in labels
+    assert "移除" in labels
+    captions = "\n".join(item.value for item in app_test.caption)
+    assert "只保存在当前浏览器" in captions
+
+
 def test_comprehensive_research_brief_renders_as_a_downloadable_page() -> None:
     """Keep the flagship Agent result stable without live provider calls."""
     from streamlit.testing.v1 import AppTest

@@ -2,11 +2,11 @@ import json
 import sys
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from html import escape
 from io import BytesIO
 from pathlib import Path
-from time import perf_counter
+from time import perf_counter, time_ns
 
 import pandas as pd
 import streamlit as st
@@ -33,6 +33,11 @@ from src.agent_coordinator import (
 from src.agent_router import RouteDecision, route_question
 from src.answer_verifier import VerificationResult
 from src.balance_sheet_extractor import find_balance_sheet_figures
+from src.browser_research_state import (
+    MAX_LOCAL_WATCHLIST,
+    MAX_RECENT_RESEARCH,
+    normalise_browser_research_state,
+)
 from src.baijiu_operating_quality import (
     build_baijiu_operating_quality,
     load_baijiu_operating_quality,
@@ -139,6 +144,131 @@ CHINESE_USER_GUIDE_PATH = (
     PROJECT_ROOT / "docs" / "中文使用说明.md"
 )
 DEFAULT_RESEARCH_LOOKBACK_DAYS = 420
+
+
+_BROWSER_RESEARCH_STORAGE = st.components.v2.component(
+    name="wfz_browser_research_storage",
+    html='<span class="wfz-browser-storage" aria-hidden="true"></span>',
+    css=".wfz-browser-storage { display: none; }",
+    js="""
+    export default function({ data, setStateValue }) {
+      const storageKey = data.storage_key;
+      const maxRecent = Number(data.max_recent) || 6;
+      const maxWatchlist = Number(data.max_watchlist) || 5;
+
+      const cleanCompany = (raw) => {
+        if (!raw || typeof raw !== "object") return null;
+        const fields = [
+          "code", "name", "exchange", "exchange_name", "canonical_code"
+        ];
+        const company = {};
+        for (const field of fields) {
+          const value = typeof raw[field] === "string"
+            ? raw[field].trim().slice(0, 80)
+            : "";
+          if (!value) return null;
+          company[field] = value;
+        }
+        if (!/^\\d{6}$/.test(company.code)) return null;
+        if (company.canonical_code !== `${company.code}.${company.exchange}`) {
+          return null;
+        }
+        for (const field of ["last_researched_at", "added_at"]) {
+          if (typeof raw[field] === "string" && raw[field].trim()) {
+            company[field] = raw[field].trim().slice(0, 40);
+          }
+        }
+        return company;
+      };
+
+      const cleanList = (raw, limit) => {
+        if (!Array.isArray(raw)) return [];
+        const seen = new Set();
+        const result = [];
+        for (const item of raw) {
+          const company = cleanCompany(item);
+          if (!company || seen.has(company.canonical_code)) continue;
+          seen.add(company.canonical_code);
+          result.push(company);
+          if (result.length >= limit) break;
+        }
+        return result;
+      };
+
+      const cleanSnapshot = (raw, status = "pending") => ({
+        version: 1,
+        recent: cleanList(raw?.recent, maxRecent),
+        watchlist: cleanList(raw?.watchlist, maxWatchlist),
+        last_command_id:
+          typeof raw?.last_command_id === "string"
+            ? raw.last_command_id.slice(0, 80)
+            : null,
+        storage_status: ["pending", "available", "unavailable"].includes(
+          raw?.storage_status
+        ) ? raw.storage_status : status,
+      });
+
+      let snapshot;
+      let storageAvailable = true;
+      try {
+        const stored = JSON.parse(localStorage.getItem(storageKey) || "null");
+        snapshot = cleanSnapshot(stored, "available");
+        snapshot.storage_status = "available";
+      } catch (_) {
+        storageAvailable = false;
+        snapshot = cleanSnapshot(data.known_snapshot, "unavailable");
+        snapshot.storage_status = "unavailable";
+      }
+
+      const command = data.command;
+      const company = cleanCompany(command?.company);
+      if (
+        company &&
+        typeof command?.id === "string" &&
+        command.id &&
+        ["record_research", "toggle_watchlist"].includes(command.action) &&
+        command.id !== snapshot.last_command_id
+      ) {
+        const code = company.canonical_code;
+        if (command.action === "record_research") {
+          company.last_researched_at = String(command.timestamp || "").slice(0, 40);
+          snapshot.recent = [
+            company,
+            ...snapshot.recent.filter((item) => item.canonical_code !== code),
+          ].slice(0, maxRecent);
+        } else if (command.action === "toggle_watchlist") {
+          const exists = snapshot.watchlist.some(
+            (item) => item.canonical_code === code
+          );
+          if (exists) {
+            snapshot.watchlist = snapshot.watchlist.filter(
+              (item) => item.canonical_code !== code
+            );
+          } else {
+            company.added_at = String(command.timestamp || "").slice(0, 40);
+            snapshot.watchlist = [company, ...snapshot.watchlist].slice(
+              0,
+              maxWatchlist
+            );
+          }
+        }
+        snapshot.last_command_id = command.id.slice(0, 80);
+        if (storageAvailable) {
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(snapshot));
+          } catch (_) {
+            snapshot.storage_status = "unavailable";
+          }
+        }
+      }
+
+      const known = cleanSnapshot(data.known_snapshot);
+      if (JSON.stringify(snapshot) !== JSON.stringify(known)) {
+        setStateValue("snapshot", snapshot);
+      }
+    }
+    """,
+)
 
 
 def show_metric_tool_result(result: MetricToolResult) -> None:
@@ -1495,9 +1625,59 @@ def _switch_page(name: str) -> None:
         st.switch_page(target)
 
 
+def _browser_research_snapshot() -> dict[str, object]:
+    """Return the small device-local state last received from the browser."""
+    return normalise_browser_research_state(
+        st.session_state.get("_wfz_browser_research_snapshot")
+    )
+
+
+def _queue_browser_research_command(
+    action: str,
+    company: CompanyIdentity,
+) -> None:
+    """Queue one idempotent browser-storage update for the next rerun."""
+    st.session_state["_wfz_browser_research_command"] = {
+        "id": f"{action}:{company['canonical_code']}:{time_ns()}",
+        "action": action,
+        "company": dict(company),
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+
+
+def _sync_browser_research_state() -> None:
+    """Synchronise bounded research history with this visitor's browser."""
+    known_snapshot = _browser_research_snapshot()
+    command = st.session_state.get("_wfz_browser_research_command")
+    result = _BROWSER_RESEARCH_STORAGE(
+        data={
+            "storage_key": "wfz.research.v1",
+            "max_recent": MAX_RECENT_RESEARCH,
+            "max_watchlist": MAX_LOCAL_WATCHLIST,
+            "known_snapshot": known_snapshot,
+            "command": command,
+        },
+        default={"snapshot": known_snapshot},
+        key="wfz_browser_research_storage",
+        on_snapshot_change=lambda: None,
+    )
+
+    raw_snapshot = getattr(result, "snapshot", None)
+    if raw_snapshot is None and isinstance(result, Mapping):
+        raw_snapshot = result.get("snapshot")
+    snapshot = normalise_browser_research_state(raw_snapshot)
+    st.session_state["_wfz_browser_research_snapshot"] = snapshot
+
+    if isinstance(command, Mapping) and (
+        snapshot.get("last_command_id") == command.get("id")
+    ):
+        st.session_state.pop("_wfz_browser_research_command", None)
+
+
 def _store_selected_company(company: CompanyIdentity) -> None:
     """Keep one company identity across every research subpage."""
     st.session_state["selected_company"] = dict(company)
+    _queue_browser_research_command("record_research", company)
 
 
 def _selected_company() -> CompanyIdentity | None:
@@ -1609,12 +1789,117 @@ def _show_company_banner(company: CompanyIdentity) -> None:
             "当前只根据6位代码识别了交易所，公司名称尚未通过实时目录核验。"
             "请在数据源恢复后重新搜索，核验前不要据此形成结论。"
         )
-    if st.button(
+
+    snapshot = _browser_research_snapshot()
+    watchlist_codes = {
+        item["canonical_code"]
+        for item in snapshot["watchlist"]
+        if isinstance(item, Mapping) and "canonical_code" in item
+    }
+    is_saved = company["canonical_code"] in watchlist_codes
+    action_columns = st.columns(2)
+    if action_columns[0].button(
+        "★ 已加入本机自选股（点击移除）"
+        if is_saved
+        else "☆ 加入本机自选股",
+        key=f"toggle_local_watchlist_{company['canonical_code']}",
+        width="stretch",
+    ):
+        _queue_browser_research_command("toggle_watchlist", company)
+        st.rerun()
+    if action_columns[1].button(
         "更换研究公司",
         key=f"change_company_{company['canonical_code']}",
+        width="stretch",
     ):
         st.session_state.pop("selected_company", None)
         _switch_page("home")
+
+
+def _render_local_research_hub() -> None:
+    """Show device-local recent research and a five-company watchlist."""
+    snapshot = _browser_research_snapshot()
+    recent = snapshot["recent"]
+    watchlist = snapshot["watchlist"]
+    watchlist_codes = {
+        item["canonical_code"]
+        for item in watchlist
+        if isinstance(item, Mapping) and "canonical_code" in item
+    }
+
+    st.markdown(
+        '<div class="wfz-section-label">'
+        "我的研究入口 · STORED ON THIS DEVICE"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    recent_column, watchlist_column = st.columns(2)
+    with recent_column:
+        st.subheader("最近研究")
+        if not recent:
+            st.caption("研究过的公司会自动出现在这里，最多保留6家。")
+        for item in recent:
+            if not isinstance(item, Mapping):
+                continue
+            canonical_code = str(item["canonical_code"])
+            company = dict(item)
+            row_columns = st.columns([3, 2])
+            if row_columns[0].button(
+                f"继续研究｜{item['name']} · {item['code']}",
+                width="stretch",
+                key=f"recent_open_{canonical_code}",
+            ):
+                _store_selected_company(company)  # type: ignore[arg-type]
+                _switch_page("comprehensive")
+            is_saved = canonical_code in watchlist_codes
+            if row_columns[1].button(
+                "★ 移出自选" if is_saved else "☆ 加入自选",
+                width="stretch",
+                key=f"recent_watchlist_{canonical_code}",
+            ):
+                _queue_browser_research_command(
+                    "toggle_watchlist",
+                    company,  # type: ignore[arg-type]
+                )
+                st.rerun()
+
+    with watchlist_column:
+        st.subheader(f"我的自选股｜{len(watchlist)}/{MAX_LOCAL_WATCHLIST}")
+        if not watchlist:
+            st.caption("可从最近研究或公司页面加入，最多保存5家。")
+        for item in watchlist:
+            if not isinstance(item, Mapping):
+                continue
+            canonical_code = str(item["canonical_code"])
+            company = dict(item)
+            row_columns = st.columns([3, 1])
+            if row_columns[0].button(
+                f"研究｜{item['name']} · {item['code']}",
+                width="stretch",
+                key=f"watchlist_open_{canonical_code}",
+            ):
+                _store_selected_company(company)  # type: ignore[arg-type]
+                _switch_page("comprehensive")
+            if row_columns[1].button(
+                "移除",
+                width="stretch",
+                key=f"watchlist_remove_{canonical_code}",
+            ):
+                _queue_browser_research_command(
+                    "toggle_watchlist",
+                    company,  # type: ignore[arg-type]
+                )
+                st.rerun()
+
+    if snapshot["storage_status"] == "unavailable":
+        st.warning(
+            "当前浏览器限制了本机存储，这些记录暂时只能保留在本次访问中。"
+        )
+    else:
+        st.caption(
+            "这些记录只保存在当前浏览器，不上传姓名、联系方式、年报文件或"
+            "其他个人数据；清理浏览器网站数据后记录会被删除。"
+        )
 
 
 def _format_percent(value: float | None) -> str:
@@ -2328,6 +2613,9 @@ def render_home_page() -> None:
         "输入最多5个股票代码比较市场异动，或使用已核验年报做"
         "共同年度横向比较。"
     )
+
+    st.divider()
+    _render_local_research_hub()
 
     st.divider()
     show_home_capabilities()
@@ -6378,6 +6666,7 @@ def main() -> None:
         layout="wide",
         initial_sidebar_state="expanded",
     )
+    _sync_browser_research_state()
 
     home_page = st.Page(
         render_home_page,
