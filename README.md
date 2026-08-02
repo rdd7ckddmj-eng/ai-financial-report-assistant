@@ -150,13 +150,15 @@ secret environment settings. It must never be committed to the repository.
   official disclosures, the latest complete annual report, and any available
   page-linked financial history. The page shows evidence coverage rather than
   an investment score, preserves failed lanes, exposes a six-step Agent trace,
-  recommends the next verification page, and exports a safe offline HTML brief.
+  recommends the next verification page, and exports both a safe offline HTML
+  brief and a versioned JSON audit package with a SHA-256 evidence fingerprint.
   A radar candidate can open this workflow with its queue priority, triggered
   signals, task reason, and latest disclosure clue, but the user still starts
   the run explicitly and all five lanes independently re-verify their evidence.
   When present, the matching trigger context is also preserved as a separate,
-  non-scoring section in the offline report; untrusted links and another
-  company's context are excluded.
+  non-scoring section in both exports; untrusted links and another company's
+  context are excluded. The fingerprint identifies an evidence payload but is
+  not presented as a digital signature or third-party certification.
 - Use a responsive institutional research-terminal interface with a dark
   grouped navigation rail, consistent page-introduction cards, a visible
   sidebar close control, and a persistent reopen control after collapse.

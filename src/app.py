@@ -67,6 +67,7 @@ from src.comprehensive_research import (
     build_comprehensive_research_brief,
 )
 from src.comprehensive_research_report import (
+    build_comprehensive_research_audit_payload,
     build_comprehensive_research_report_html,
 )
 from src.cross_company_comparison import build_cross_company_comparison
@@ -2715,20 +2716,43 @@ def _show_comprehensive_research_brief(
         brief,
         radar_context=_matching_radar_research_context(company),
     )
-    st.markdown("#### 保存本次综合研究")
-    st.download_button(
-        "下载一键综合研究简报（HTML）",
-        data=report_html.encode("utf-8"),
-        file_name=(
-            f"WFZ_{company['code']}_{brief['generated_on']}_综合研究简报.html"
-        ),
-        mime="text/html",
-        width="stretch",
-        key=f"comprehensive_report_{company['canonical_code']}",
+    audit_payload = build_comprehensive_research_audit_payload(
+        brief,
+        radar_context=_matching_radar_research_context(company),
     )
+    st.markdown("#### 保存本次综合研究")
+    report_column, audit_column = st.columns(2)
+    with report_column:
+        st.download_button(
+            "下载综合研究简报（HTML）",
+            data=report_html.encode("utf-8"),
+            file_name=(
+                f"WFZ_{company['code']}_{brief['generated_on']}_"
+                "综合研究简报.html"
+            ),
+            mime="text/html",
+            width="stretch",
+            key=f"comprehensive_report_{company['canonical_code']}",
+        )
+    with audit_column:
+        st.download_button(
+            "下载可审计数据包（JSON）",
+            data=json.dumps(
+                audit_payload,
+                ensure_ascii=False,
+                indent=2,
+            ),
+            file_name=(
+                f"WFZ_{company['code']}_{brief['generated_on']}_"
+                "综合研究审计包.json"
+            ),
+            mime="application/json",
+            width="stretch",
+            key=f"comprehensive_audit_{company['canonical_code']}",
+        )
     st.caption(
-        "下载文件可离线打开或打印为 PDF，保留证据状态、来源链接、"
-        "执行轨迹和研究边界。"
+        "HTML 适合离线阅读或打印为 PDF；JSON 保留同一份证据、"
+        "执行轨迹、雷达来源和 SHA-256 证据指纹，便于系统复核。"
     )
 
     st.markdown("#### 下一步核验任务")

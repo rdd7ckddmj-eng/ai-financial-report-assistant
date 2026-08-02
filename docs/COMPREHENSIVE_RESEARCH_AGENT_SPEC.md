@@ -89,7 +89,13 @@ does not rewrite failed steps as successful.
 
 ## Export
 
-The page can export a self-contained Chinese HTML brief. The export includes:
+The page exports the same verified run in two formats:
+
+- a self-contained Chinese HTML brief for offline reading and printing;
+- a structured JSON audit package for machine review, test fixtures, and
+  downstream analysis without re-fetching public sources.
+
+Both exports include:
 
 - company identity and generation date;
 - the matching Market Radar trigger context, when the workflow started from a
@@ -106,6 +112,13 @@ offline or printed to PDF without a server-side document dependency.
 Untrusted radar disclosure URLs are omitted, and context for another company
 is never written into the report. The trigger section is explicitly separated
 from evidence coverage and deterministic findings.
+
+The JSON package uses a versioned schema, keeps the five lane states,
+deterministic findings, next actions, complete Agent trace, limitations, and
+matching radar trigger. It also records a SHA-256 fingerprint over the
+structured evidence payload. The fingerprint identifies whether two exported
+payloads are identical; it is not a digital signature or third-party
+certification.
 
 ## Free-server boundary
 

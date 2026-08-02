@@ -155,10 +155,11 @@ _show_comprehensive_research_brief(brief)
     assert any(
         "五条证据链" in item.value for item in app_test.markdown
     )
-    assert len(app_test.download_button) == 1
-    assert app_test.download_button[0].label == (
-        "下载一键综合研究简报（HTML）"
-    )
+    download_labels = [item.label for item in app_test.download_button]
+    assert download_labels == [
+        "下载综合研究简报（HTML）",
+        "下载可审计数据包（JSON）",
+    ]
 
 
 def test_comprehensive_page_entry_renders_without_live_requests() -> None:

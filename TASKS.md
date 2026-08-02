@@ -1,6 +1,9 @@
 # Current task board
 
 ## Now
+- [x] Export the Comprehensive Research run as a versioned JSON audit package
+      with five evidence lanes, Agent trace, matching radar context, official
+      URL filtering, and a clearly bounded SHA-256 evidence fingerprint.
 - [x] Preserve the matching Market Radar trigger and validated disclosure clue
       inside the downloadable Comprehensive Research report without changing
       calculations, evidence coverage, or conclusions.

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
+from hashlib import sha256
 from html import escape
 
 from src.china_stock import is_allowed_disclosure_url
@@ -27,6 +29,173 @@ def _source_link(url: str | None) -> str:
         f'<a href="{_text(url)}" target="_blank" '
         'rel="noopener noreferrer">查看官方证据 ↗</a>'
     )
+
+
+def _safe_source_url(value: object) -> str | None:
+    """Keep only official disclosure links in portable report artifacts."""
+    url = str(value or "").strip()
+    return url if url and is_allowed_disclosure_url(url) else None
+
+
+def _safe_radar_context(
+    context: Mapping[str, object] | None,
+    *,
+    canonical_code: str,
+) -> dict[str, object] | None:
+    """Return a bounded same-company radar handoff for report exports."""
+    if context is None or context.get("canonical_code") != canonical_code:
+        return None
+
+    signals = context.get("triggered_signals")
+    reasons = context.get("research_reasons")
+    latest_disclosure = context.get("latest_disclosure")
+    safe_disclosure: dict[str, object] | None = None
+    if isinstance(latest_disclosure, Mapping):
+        safe_disclosure = {
+            "title": str(latest_disclosure.get("title", "标题待核验")),
+            "published_date": str(
+                latest_disclosure.get("published_date", "日期待核验")
+            ),
+            "category": str(
+                latest_disclosure.get("category", "类别待核验")
+            ),
+            "attention": str(
+                latest_disclosure.get("attention", "待核验")
+            ),
+            "source_url": _safe_source_url(
+                latest_disclosure.get("source_url")
+            ),
+        }
+
+    return {
+        "canonical_code": canonical_code,
+        "scan_date": str(context.get("scan_date", "待核验")),
+        "market_date": str(context.get("market_date", "待核验")),
+        "research_priority": str(
+            context.get("research_priority", "待核验")
+        ),
+        "radar_status": str(context.get("radar_status", "待核验")),
+        "triggered_signals": (
+            [str(item) for item in signals]
+            if isinstance(signals, list)
+            else []
+        ),
+        "research_reasons": (
+            [str(item) for item in reasons]
+            if isinstance(reasons, list)
+            else []
+        ),
+        "disclosure_status": str(
+            context.get("disclosure_status", "状态待核验")
+        ),
+        "latest_disclosure": safe_disclosure,
+    }
+
+
+def build_comprehensive_research_audit_payload(
+    brief: ComprehensiveResearchBrief,
+    *,
+    radar_context: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    """Build a safe, machine-readable evidence package for one run."""
+    company = brief["company"]
+    canonical_code = str(company["canonical_code"])
+    payload_core: dict[str, object] = {
+        "company": {
+            "code": str(company["code"]),
+            "name": str(company["name"]),
+            "exchange": str(company["exchange"]),
+            "exchange_name": str(company["exchange_name"]),
+            "canonical_code": canonical_code,
+        },
+        "generated_on": str(brief["generated_on"]),
+        "coverage": {
+            "ratio": float(brief["coverage_ratio"]),
+            "label": str(brief["coverage_label"]),
+            "verified_lane_count": int(brief["verified_lane_count"]),
+            "partial_lane_count": int(brief["partial_lane_count"]),
+            "unavailable_lane_count": int(
+                brief["unavailable_lane_count"]
+            ),
+            "lane_count": len(brief["evidence_lanes"]),
+        },
+        "research_trigger": _safe_radar_context(
+            radar_context,
+            canonical_code=canonical_code,
+        ),
+        "evidence_lanes": [
+            {
+                "key": str(lane["key"]),
+                "label": str(lane["label"]),
+                "status": str(lane["status"]),
+                "summary": str(lane["summary"]),
+                "source": str(lane["source"]),
+                "as_of_date": (
+                    str(lane["as_of_date"])
+                    if lane.get("as_of_date")
+                    else None
+                ),
+                "source_url": _safe_source_url(lane.get("source_url")),
+                "limitation": str(lane["limitation"]),
+            }
+            for lane in brief["evidence_lanes"]
+        ],
+        "deterministic_findings": [
+            {
+                "category": str(finding["category"]),
+                "headline": str(finding["headline"]),
+                "statement": str(finding["statement"]),
+                "basis": str(finding["basis"]),
+                "status": str(finding["status"]),
+                "source_url": _safe_source_url(
+                    finding.get("source_url")
+                ),
+            }
+            for finding in brief["findings"]
+        ],
+        "next_verification_actions": [
+            {
+                "priority": int(action["priority"]),
+                "page": str(action["page"]),
+                "label": str(action["label"]),
+                "reason": str(action["reason"]),
+            }
+            for action in brief["actions"]
+        ],
+        "agent_trace": [
+            {
+                "sequence": int(step["sequence"]),
+                "agent": str(step["agent"]),
+                "status": str(step["status"]),
+                "task": str(step["task"]),
+                "output": str(step["output"]),
+            }
+            for step in brief["trace"]
+        ],
+        "limitations": [str(item) for item in brief["limitations"]],
+        "audit_boundary": [
+            "本文件只保存页面本次已经取得的证据，不会再次请求公开数据源。",
+            "证据指纹用于识别本次数据包，不是数字签名或第三方认证。",
+            "本文件不构成买入、卖出或持有建议。",
+        ],
+    }
+    canonical_payload = json.dumps(
+        payload_core,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return {
+        "schema_version": "1.0",
+        "report_type": "wfz_comprehensive_research_audit",
+        "evidence_fingerprint": {
+            "algorithm": "SHA-256",
+            "value": sha256(canonical_payload).hexdigest(),
+            "scope": "除本指纹字段外的本次结构化证据包",
+        },
+        **payload_core,
+    }
 
 
 def _lane_html(lane: dict[str, object]) -> str:
@@ -123,8 +292,13 @@ def _radar_context_html(
     canonical_code: str,
 ) -> str:
     """Render the research trigger only for the report's selected company."""
-    if context is None or context.get("canonical_code") != canonical_code:
+    safe_context = _safe_radar_context(
+        context,
+        canonical_code=canonical_code,
+    )
+    if safe_context is None:
         return ""
+    context = safe_context
 
     signals = context.get("triggered_signals")
     signal_text = (
@@ -141,9 +315,8 @@ def _radar_context_html(
 
     latest_disclosure = context.get("latest_disclosure")
     if isinstance(latest_disclosure, Mapping):
-        raw_url = str(latest_disclosure.get("source_url", "")).strip()
         disclosure_link = _source_link(
-            raw_url if is_allowed_disclosure_url(raw_url) else None
+            _safe_source_url(latest_disclosure.get("source_url"))
         )
         disclosure_html = """
         <div class="trigger-disclosure">
