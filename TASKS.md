@@ -19,6 +19,8 @@
       login, server-side user records, or extra cloud storage.
 - [x] Connect the browser-local watchlist to the bounded Market Radar with
       one-click scanning while keeping manual code input.
+- [x] Run Market Radar with a bounded three-company worker pool and display
+      measured scan time without weakening per-company failure isolation.
 - [x] Reposition the product as a Chinese listed-company research Agent.
 - [x] Add a clean home page and separate research subpages.
 - [x] Add company-name and six-digit stock-code identification.

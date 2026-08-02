@@ -123,7 +123,9 @@ secret environment settings. It must never be committed to the repository.
   user database, store only public company identity and access timestamps, and
   disappear when the visitor clears this site's browser data. The saved local
   watchlist also pre-fills the bounded Market Radar and can be scanned with one
-  click without re-entering stock codes.
+  click without re-entering stock codes. Market Radar checks at most three
+  companies concurrently, reports measured scan time, and isolates failures by
+  company without increasing the five-company limit.
 - Use a first-run performance path for the flagship workflow: six-digit stock
   codes and the verified demonstration list resolve without downloading the
   full A-share directory; Tencent daily history is attempted before the slower

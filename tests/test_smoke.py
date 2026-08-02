@@ -686,6 +686,7 @@ def test_market_radar_page_scans_and_ranks_a_bounded_watchlist(
     )
     app.st.session_state.pop("market_radar_rows", None)
     app.st.session_state.pop("market_radar_failures", None)
+    app.st.session_state.pop("market_radar_elapsed_seconds", None)
 
     app.render_market_radar_page()
 
@@ -701,9 +702,80 @@ def test_market_radar_page_scans_and_ranks_a_bounded_watchlist(
         "贵州茅台2025年年度报告"
     )
     assert app.st.session_state["market_radar_failures"] == []
+    assert isinstance(
+        app.st.session_state["market_radar_elapsed_seconds"],
+        float,
+    )
     assert downloads[0][0] == "下载自选股研究任务简报（HTML）"
     assert downloads[0][1]["mime"] == "text/html"
     assert b"WFZ" in downloads[0][1]["data"]
+
+
+def test_market_radar_uses_three_bounded_company_workers(
+    monkeypatch,
+) -> None:
+    """Keep the faster scan bounded and preserve input-order collection."""
+    from src import app
+
+    executor_workers = []
+    submitted_codes = []
+
+    class ImmediateFuture:
+        def __init__(self, value):
+            self.value = value
+
+        def result(self):
+            return self.value
+
+    class RecordingExecutor:
+        def __init__(self, *, max_workers, thread_name_prefix):
+            executor_workers.append((max_workers, thread_name_prefix))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def submit(self, function, company, start_date, end_date):
+            submitted_codes.append(company["code"])
+            return ImmediateFuture(function(company, start_date, end_date))
+
+    def fake_resolve(code, directory):
+        return [
+            {
+                "code": code,
+                "name": f"测试公司{code}",
+                "exchange": "SH",
+                "exchange_name": "上海证券交易所",
+                "canonical_code": f"{code}.SH",
+            }
+        ]
+
+    monkeypatch.setattr(app, "ThreadPoolExecutor", RecordingExecutor)
+    monkeypatch.setattr(app, "load_a_share_directory", lambda: pd.DataFrame())
+    monkeypatch.setattr(app, "resolve_company", fake_resolve)
+    monkeypatch.setattr(
+        app,
+        "_scan_market_radar_company",
+        lambda company, *args: {"company": company},
+    )
+    monkeypatch.setattr(app, "rank_research_queue", lambda rows: rows)
+
+    rows, failures = app._scan_market_radar(
+        ["600519", "300750", "000001", "002594", "000858"]
+    )
+
+    assert executor_workers == [(3, "wfz-radar")]
+    assert submitted_codes == [
+        "600519",
+        "300750",
+        "000001",
+        "002594",
+        "000858",
+    ]
+    assert [row["company"]["code"] for row in rows] == submitted_codes
+    assert failures == []
 
 
 def test_market_radar_page_one_click_scans_device_local_watchlist(
@@ -746,6 +818,7 @@ def test_market_radar_page_one_click_scans_device_local_watchlist(
     monkeypatch.setattr(app, "_scan_market_radar", fake_scan)
     app.st.session_state.pop("market_radar_rows", None)
     app.st.session_state.pop("market_radar_failures", None)
+    app.st.session_state.pop("market_radar_elapsed_seconds", None)
 
     app.render_market_radar_page()
 
@@ -756,6 +829,10 @@ def test_market_radar_page_one_click_scans_device_local_watchlist(
     ]
     assert scanned_codes == ["600519", "300750"]
     assert app.st.session_state["market_radar_failures"] == []
+    assert isinstance(
+        app.st.session_state["market_radar_elapsed_seconds"],
+        float,
+    )
 
 
 def test_limit_up_board_page_builds_daily_wall(monkeypatch) -> None:

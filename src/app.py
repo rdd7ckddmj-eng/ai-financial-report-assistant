@@ -3636,10 +3636,62 @@ def render_limit_up_board_page() -> None:
     show_product_footer()
 
 
+def _scan_market_radar_company(
+    company: CompanyIdentity,
+    start_date: date,
+    end_date: date,
+) -> ResearchQueueRow:
+    """Build one isolated company result for the bounded radar worker pool."""
+    market_frame = load_a_share_history(
+        company["code"],
+        start_date.isoformat(),
+        end_date.isoformat(),
+        "qfq",
+    )
+    activity = calculate_market_activity(market_frame, company)
+    radar_row = build_market_radar_row(
+        company,
+        activity,
+        market_source=str(
+            market_frame.attrs.get(
+                "source",
+                "公开行情适配器",
+            )
+        ),
+        turnover_source=str(
+            market_frame.attrs.get(
+                "turnover_source",
+                "公开行情字段或暂未取得",
+            )
+        ),
+    )
+    disclosure_start = end_date - timedelta(days=45)
+    try:
+        announcements = load_company_announcements(
+            company["code"],
+            disclosure_start.isoformat(),
+            end_date.isoformat(),
+        )
+    except (DataSourceError, ValueError):
+        disclosure_records = None
+        disclosure_status = "官方公告源暂不可用"
+    else:
+        disclosure_records = announcements.to_dict("records")
+        disclosure_status = (
+            f"已核验近45日公告 {len(disclosure_records)} 条"
+        )
+    return build_research_queue_row(
+        radar_row,
+        disclosure_records,
+        as_of_date=end_date,
+        disclosure_status=disclosure_status,
+    )
+
+
 def _scan_market_radar(
     codes: list[str],
 ) -> tuple[list[ResearchQueueRow], list[str]]:
-    """Fetch a bounded watchlist and keep failures isolated by company."""
+    """Scan up to three companies concurrently and isolate every failure."""
     try:
         directory: pd.DataFrame | None = load_a_share_directory()
     except (DataSourceError, ValueError):
@@ -3647,65 +3699,44 @@ def _scan_market_radar(
 
     end_date = date.today()
     start_date = end_date - timedelta(days=430)
-    rows: list[ResearchQueueRow] = []
+    companies: list[CompanyIdentity] = []
     failures: list[str] = []
     for code in codes:
-        companies = resolve_company(code, directory)
-        if not companies:
+        matches = resolve_company(code, directory)
+        if not matches:
             failures.append(f"{code}：无法识别为当前支持的A股代码。")
             continue
-        company = companies[0]
-        try:
-            market_frame = load_a_share_history(
-                company["code"],
-                start_date.isoformat(),
-                end_date.isoformat(),
-                "qfq",
-            )
-            activity = calculate_market_activity(market_frame, company)
-        except (DataSourceError, ValueError) as error:
-            failures.append(f"{company['canonical_code']}：{error}")
-            continue
+        companies.append(matches[0])
 
-        radar_row = build_market_radar_row(
-            company,
-            activity,
-            market_source=str(
-                market_frame.attrs.get(
-                    "source",
-                    "公开行情适配器",
-                )
-            ),
-            turnover_source=str(
-                market_frame.attrs.get(
-                    "turnover_source",
-                    "公开行情字段或暂未取得",
-                )
-            ),
-        )
-        disclosure_start = end_date - timedelta(days=45)
-        try:
-            announcements = load_company_announcements(
-                company["code"],
-                disclosure_start.isoformat(),
-                end_date.isoformat(),
+    if not companies:
+        return [], failures
+
+    # Three workers shorten a five-company scan without creating an
+    # unbounded burst against the free server or the public data providers.
+    with ThreadPoolExecutor(
+        max_workers=min(3, len(companies)),
+        thread_name_prefix="wfz-radar",
+    ) as executor:
+        company_futures = [
+            (
+                company,
+                executor.submit(
+                    _scan_market_radar_company,
+                    company,
+                    start_date,
+                    end_date,
+                ),
             )
-        except (DataSourceError, ValueError):
-            disclosure_records = None
-            disclosure_status = "官方公告源暂不可用"
-        else:
-            disclosure_records = announcements.to_dict("records")
-            disclosure_status = (
-                f"已核验近45日公告 {len(disclosure_records)} 条"
-            )
-        rows.append(
-            build_research_queue_row(
-                radar_row,
-                disclosure_records,
-                as_of_date=end_date,
-                disclosure_status=disclosure_status,
-            )
-        )
+            for company in companies
+        ]
+
+        rows: list[ResearchQueueRow] = []
+        for company, future in company_futures:
+            try:
+                rows.append(future.result())
+            except (DataSourceError, ValueError) as error:
+                failures.append(f"{company['canonical_code']}：{error}")
+
     return rank_research_queue(rows), failures
 
 
@@ -3787,15 +3818,20 @@ def render_market_radar_page() -> None:
             )
 
         if parsed["codes"]:
+            scan_started = perf_counter()
             with st.spinner(
-                f"正在逐家核验 {len(parsed['codes'])} 家公司的公开行情……"
+                f"正在核验 {len(parsed['codes'])} 家公司的公开行情……"
             ):
                 rows, failures = _scan_market_radar(parsed["codes"])
             st.session_state["market_radar_rows"] = rows
             st.session_state["market_radar_failures"] = failures
+            st.session_state["market_radar_elapsed_seconds"] = (
+                perf_counter() - scan_started
+            )
         else:
             st.session_state["market_radar_rows"] = []
             st.session_state["market_radar_failures"] = []
+            st.session_state.pop("market_radar_elapsed_seconds", None)
             st.error("请至少输入一个有效的六位股票代码。")
 
     rows = st.session_state.get("market_radar_rows", [])
@@ -3804,6 +3840,14 @@ def render_market_radar_page() -> None:
         rows = []
     if not isinstance(failures, list):
         failures = []
+    elapsed_seconds = st.session_state.get(
+        "market_radar_elapsed_seconds"
+    )
+    if isinstance(elapsed_seconds, (int, float)):
+        st.caption(
+            f"本次扫描用时 {elapsed_seconds:.1f} 秒；"
+            "为兼顾速度与公开数据源稳定性，同时核验最多3家公司。"
+        )
 
     if failures:
         with st.expander("查看未完成扫描的公司", expanded=False):
