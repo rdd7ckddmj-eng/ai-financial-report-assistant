@@ -40,7 +40,7 @@ FINANCIAL_VALUE_PATTERN = re.compile(
 )
 UNIT_PATTERN = re.compile(r"^[£$€](?:k|m|bn)?$", re.IGNORECASE)
 CHINESE_UNIT_PATTERN = re.compile(
-    r"单位[:：](?:人民币)?(元|千元|万元|百万元)"
+    r"(?:金额)?单位(?:[:：]|为)(?:人民币)?(元|千元|万元|百万元)"
 )
 CHINESE_CURRENT_ASSETS_LABELS = ("流动资产合计",)
 CHINESE_NONCURRENT_ASSETS_LABELS = ("非流动资产合计",)
@@ -169,6 +169,8 @@ def _is_financial_values_line(line: str) -> bool:
 def _extract_chinese_row_pair(
     lines: list[str],
     labels: tuple[str, ...],
+    *,
+    value_column_count: int = 2,
 ) -> tuple[float, float] | None:
     """Return current and prior-year values from a common A-share row."""
     for label in labels:
@@ -180,7 +182,10 @@ def _extract_chinese_row_pair(
             same_line_values: list[float] = []
             for label_line in lines[row_index : label_end + 1]:
                 same_line_values.extend(_financial_values_in_line(label_line))
-            if len(same_line_values) >= 2:
+            if value_column_count == 4 and len(same_line_values) >= 4:
+                current, previous, _, _ = same_line_values[-4:]
+                return current, previous
+            if value_column_count == 2 and len(same_line_values) >= 2:
                 return same_line_values[-2], same_line_values[-1]
 
             following_values: list[float] = []
@@ -192,8 +197,21 @@ def _extract_chinese_row_pair(
                     continue
                 if following_values:
                     break
-            if len(following_values) >= 2:
+            if value_column_count == 4 and len(following_values) >= 4:
+                current, previous, _, _ = following_values[-4:]
+                return current, previous
+            if value_column_count == 2 and len(following_values) >= 2:
                 return following_values[-2], following_values[-1]
+    return None
+
+
+def _chinese_balance_sheet_column_count(lines: list[str]) -> int | None:
+    """Identify consolidated-only and consolidated-plus-company statements."""
+    compact_lines = [_compact_chinese_text(line) for line in lines]
+    if any("合并及公司资产负债表" in line for line in compact_lines):
+        return 4
+    if any("合并资产负债表" in line for line in compact_lines):
+        return 2
     return None
 
 
@@ -265,35 +283,44 @@ def _extract_row_pair(
 def _extract_chinese_balance_sheet_figures(
     page_number: int,
     lines: list[str],
+    *,
+    value_column_count: int = 2,
 ) -> BalanceSheetFigures | None:
     """Extract a common A-share consolidated balance sheet and reconcile it."""
     current_assets = _extract_chinese_row_pair(
         lines,
         CHINESE_CURRENT_ASSETS_LABELS,
+        value_column_count=value_column_count,
     )
     noncurrent_assets = _extract_chinese_row_pair(
         lines,
         CHINESE_NONCURRENT_ASSETS_LABELS,
+        value_column_count=value_column_count,
     )
     reported_total_assets = _extract_chinese_row_pair(
         lines,
         CHINESE_TOTAL_ASSETS_LABELS,
+        value_column_count=value_column_count,
     )
     current_liabilities = _extract_chinese_row_pair(
         lines,
         CHINESE_CURRENT_LIABILITIES_LABELS,
+        value_column_count=value_column_count,
     )
     noncurrent_liabilities = _extract_chinese_row_pair(
         lines,
         CHINESE_NONCURRENT_LIABILITIES_LABELS,
+        value_column_count=value_column_count,
     )
     reported_total_liabilities = _extract_chinese_row_pair(
         lines,
         CHINESE_TOTAL_LIABILITIES_LABELS,
+        value_column_count=value_column_count,
     )
     reported_total_equity = _extract_chinese_row_pair(
         lines,
         CHINESE_TOTAL_EQUITY_LABELS,
+        value_column_count=value_column_count,
     )
     extracted_rows = (
         current_assets,
@@ -409,8 +436,13 @@ def extract_balance_sheet_figures(
 ) -> BalanceSheetFigures | None:
     """Extract current resources and liabilities only when totals reconcile."""
     lines = _normalise_lines(page_text)
-    if any("合并资产负债表" in line for line in lines):
-        return _extract_chinese_balance_sheet_figures(page_number, lines)
+    chinese_value_column_count = _chinese_balance_sheet_column_count(lines)
+    if chinese_value_column_count is not None:
+        return _extract_chinese_balance_sheet_figures(
+            page_number,
+            lines,
+            value_column_count=chinese_value_column_count,
+        )
     if "Group balance sheet" not in lines:
         return None
 
@@ -552,7 +584,9 @@ def find_balance_sheet_figures(
         )
         if figures is not None:
             return figures
-        if "合并资产负债表" not in page_text:
+        if _chinese_balance_sheet_column_count(
+            _normalise_lines(page_text)
+        ) is None:
             continue
 
         for window_size in range(2, 6):

@@ -6047,6 +6047,10 @@ def render_company_onboarding_page() -> None:
         )
 
     state_key = "audited_company_onboarding_state"
+    notice_key = (
+        "audited_company_onboarding_notice_"
+        f"{company['canonical_code']}"
+    )
     raw_state = st.session_state.get(state_key)
     if not isinstance(raw_state, dict) or (
         raw_state.get("canonical_code") != company["canonical_code"]
@@ -6057,6 +6061,14 @@ def render_company_onboarding_page() -> None:
             "results": {},
         }
         st.session_state[state_key] = raw_state
+
+    processing_notice = st.session_state.pop(notice_key, None)
+    if isinstance(processing_notice, dict):
+        notice_message = str(processing_notice.get("message", ""))
+        if processing_notice.get("level") == "success":
+            st.success(notice_message)
+        else:
+            st.warning(notice_message)
 
     st.markdown("### 第一步：建立三年年报候选任务")
     st.write(
@@ -6200,14 +6212,20 @@ def render_company_onboarding_page() -> None:
             raw_state["results"] = typed_results
             st.session_state[state_key] = raw_state
             if result["status"] == "ready_for_human_review":
-                st.success("三张报表和金额单位检查通过，已进入人工复核队列。")
+                st.session_state[notice_key] = {
+                    "level": "success",
+                    "message": (
+                        "三张报表和金额单位检查通过，已进入人工复核队列。"
+                    ),
+                }
             else:
-                st.warning("本报告存在未识别报表或单位问题，需要人工查看原文。")
-            package = build_onboarding_package(
-                company,
-                typed_reports,
-                typed_results,
-            )
+                st.session_state[notice_key] = {
+                    "level": "warning",
+                    "message": (
+                        "本报告存在未识别报表或单位问题，需要人工查看原文。"
+                    ),
+                }
+            st.rerun()
         finally:
             # Long PDFs are intentionally not retained in session state.
             del pdf_bytes, extracted_pages

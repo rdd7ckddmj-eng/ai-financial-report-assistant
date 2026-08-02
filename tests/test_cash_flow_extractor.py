@@ -48,6 +48,24 @@ CHINESE_CASH_FLOW_TEXT = """
 六、期末现金及现金等价物余额 24,100.00 20,000.00
 """
 
+MIDEA_DUAL_CASH_FLOW_TEXT = """
+美的集团股份有限公司
+2025 年度合并及公司现金流量表
+(除特别注明外，金额单位为人民币千元)
+项目 附注 2025 年度 2024 年度 2025 年度 2024 年度
+合并 合并 公司 公司
+一、经营活动产生/(使用)的现金流量
+经营活动产生/(使用)的现金流量净额 四(64)(h) 53,345,930 60,511,572 (11,628,058) 4,645,875
+二、投资活动产生/(使用)的现金流量
+投资活动产生/(使用)的现金流量净额 25,340,273 (87,901,802) 61,045,937 (32,782,384)
+三、筹资活动(使用)/产生的现金流量
+筹资活动(使用)/产生的现金流量净额 (64,957,779) 22,697,954 (37,445,961) 5,736,041
+四、汇率变动对现金及现金等价物的影响 (338,482) (76,256) - -
+五、现金及现金等价物净增加/(减少)额 四(64)(h) 13,389,942 (4,768,532) 11,971,918 (22,400,468)
+加：年初现金及现金等价物余额 55,118,728 59,887,260 6,882,690 29,283,158
+六、年末现金及现金等价物余额 四(64)(i) 68,508,670 55,118,728 18,854,608 6,882,690
+"""
+
 
 def test_extract_cash_flow_figures_reconciles_both_cash_movements() -> None:
     figures = extract_cash_flow_figures(
@@ -260,3 +278,20 @@ def test_find_chinese_cash_flow_across_realistic_pages() -> None:
     assert figures["current_ending_cash"] == 126_425_609_447.72
     assert figures["page_number"] == 64
     assert figures["end_page_number"] == 66
+
+
+def test_extract_dual_cash_flow_uses_consolidated_columns() -> None:
+    figures = extract_cash_flow_figures(
+        page_number=136,
+        page_text=MIDEA_DUAL_CASH_FLOW_TEXT,
+    )
+
+    assert figures is not None
+    assert figures["current_operating_cash_flow"] == 53_345_930
+    assert figures["previous_operating_cash_flow"] == 60_511_572
+    assert figures["current_investing_cash_flow"] == 25_340_273
+    assert figures["current_financing_cash_flow"] == -64_957_779
+    assert figures["current_exchange_effect"] == -338_482
+    assert figures["current_net_cash_change"] == 13_389_942
+    assert figures["current_ending_cash"] == 68_508_670
+    assert figures["unit"] == "人民币千元"

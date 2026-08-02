@@ -39,6 +39,21 @@ CHINESE_INCOME_STATEMENT_TEXT = """
 少数股东损益 9,932,898.32 11,853,578.38
 """
 
+MIDEA_DUAL_INCOME_STATEMENT_TEXT = """
+美的集团股份有限公司
+2025 年度合并及公司利润表
+(除特别注明外，金额单位为人民币千元)
+项目 附注 2025年度 2024年度 2025年度 2024年度
+合并 合并 公司 公司
+一、营业总收入 458,502,407 409,084,266 936,519 946,607
+其中：营业收入
+四(48),
+十八(3) 456,451,731 407,149,600 936,519 946,607
+四、净利润 44,520,196 38,757,214 29,415,131 28,517,064
+归属于母公司股东的
+净利润 43,945,411 38,537,237 29,415,131 28,517,064
+"""
+
 
 def test_extract_income_statement_figures_uses_total_columns() -> None:
     figures = extract_income_statement_figures(
@@ -203,3 +218,17 @@ def test_find_chinese_income_statement_across_realistic_pages() -> None:
     assert figures["current_net_profit"] == 82_320_067_101.68
     assert figures["page_number"] == 61
     assert figures["end_page_number"] == 62
+
+
+def test_extract_dual_income_statement_uses_consolidated_columns() -> None:
+    figures = extract_income_statement_figures(
+        page_number=134,
+        page_text=MIDEA_DUAL_INCOME_STATEMENT_TEXT,
+    )
+
+    assert figures is not None
+    assert figures["current_revenue"] == 456_451_731
+    assert figures["previous_revenue"] == 407_149_600
+    assert figures["current_net_profit"] == 43_945_411
+    assert figures["previous_net_profit"] == 38_537_237
+    assert figures["unit"] == "人民币千元"

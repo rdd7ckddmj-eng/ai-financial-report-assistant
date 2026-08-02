@@ -37,26 +37,36 @@ FINANCIAL_VALUE_PATTERN = re.compile(
 UNIT_PATTERN = re.compile(r"^[£$€](?:k|m|bn)?$", re.IGNORECASE)
 WEEKS_PATTERN = re.compile(r"^(\d+) weeks(?: ended)?$", re.IGNORECASE)
 CHINESE_UNIT_PATTERN = re.compile(
-    r"单位[:：](?:人民币)?(元|千元|万元|百万元)"
+    r"(?:金额)?单位(?:[:：]|为)(?:人民币)?(元|千元|万元|百万元)"
 )
 CHINESE_CASH_FLOW_LABELS = {
     "operating": (
+        "经营活动产生/(使用)的现金流量净额",
+        "经营活动产生/（使用）的现金流量净额",
         "经营活动产生的现金流量净额",
         "经营活动现金流量净额",
     ),
     "investing": (
+        "投资活动产生/(使用)的现金流量净额",
+        "投资活动产生/（使用）的现金流量净额",
         "投资活动产生的现金流量净额",
         "投资活动现金流量净额",
     ),
     "financing": (
+        "筹资活动(使用)/产生的现金流量净额",
+        "筹资活动（使用）/产生的现金流量净额",
         "筹资活动产生的现金流量净额",
         "筹资活动现金流量净额",
     ),
     "net_change": (
+        "五、现金及现金等价物净增加/(减少)额",
+        "五、现金及现金等价物净增加/（减少）额",
         "五、现金及现金等价物净增加额",
         "现金及现金等价物净增加额",
     ),
     "opening": (
+        "加：年初现金及现金等价物余额",
+        "年初现金及现金等价物余额",
         "加：期初现金及现金等价物余额",
         "期初现金及现金等价物余额",
     ),
@@ -65,6 +75,8 @@ CHINESE_CASH_FLOW_LABELS = {
         "汇率变动对现金及现金等价物的影响",
     ),
     "ending": (
+        "六、年末现金及现金等价物余额",
+        "年末现金及现金等价物余额",
         "六、期末现金及现金等价物余额",
         "期末现金及现金等价物余额",
     ),
@@ -133,7 +145,12 @@ def _chinese_label_matches(line: str, label: str) -> bool:
         remainder = candidate[len(compact_label) :]
         if remainder.startswith(
             ("：", "（", "(", "-", "−", "－")
-        ) or bool(re.match(r"^\d", remainder)):
+        ) or bool(re.match(r"^\d", remainder)) or bool(
+            re.match(
+                r"^(?:附注)?[一二三四五六七八九十百]+[（(]",
+                remainder,
+            )
+        ):
             return True
     return False
 
@@ -184,6 +201,8 @@ def _is_financial_values_line(line: str) -> bool:
 def _extract_chinese_row_pair(
     lines: list[str],
     labels: tuple[str, ...],
+    *,
+    value_column_count: int = 2,
 ) -> tuple[float, float] | None:
     """Return current and prior-year values from a common A-share row."""
     for label in labels:
@@ -195,7 +214,10 @@ def _extract_chinese_row_pair(
             same_line_values: list[float] = []
             for label_line in lines[row_index : label_end + 1]:
                 same_line_values.extend(_financial_values_in_line(label_line))
-            if len(same_line_values) >= 2:
+            if value_column_count == 4 and len(same_line_values) >= 4:
+                current, previous, _, _ = same_line_values[-4:]
+                return current, previous
+            if value_column_count == 2 and len(same_line_values) >= 2:
                 return same_line_values[-2], same_line_values[-1]
 
             following_values: list[float] = []
@@ -207,8 +229,21 @@ def _extract_chinese_row_pair(
                     continue
                 if following_values:
                     break
-            if len(following_values) >= 2:
+            if value_column_count == 4 and len(following_values) >= 4:
+                current, previous, _, _ = following_values[-4:]
+                return current, previous
+            if value_column_count == 2 and len(following_values) >= 2:
                 return following_values[-2], following_values[-1]
+    return None
+
+
+def _chinese_cash_flow_column_count(lines: list[str]) -> int | None:
+    """Identify consolidated-only and consolidated-plus-company statements."""
+    compact_lines = [_compact_chinese_text(line) for line in lines]
+    if any("合并及公司现金流量表" in line for line in compact_lines):
+        return 4
+    if any("合并现金流量表" in line for line in compact_lines):
+        return 2
     return None
 
 
@@ -329,9 +364,14 @@ def extract_cash_flow_figures(
 ) -> CashFlowFigures | None:
     """Extract cash-flow totals only when both cash reconciliations pass."""
     lines = _normalise_lines(page_text)
-    if any("合并现金流量表" in line for line in lines):
+    chinese_value_column_count = _chinese_cash_flow_column_count(lines)
+    if chinese_value_column_count is not None:
         extracted_rows = {
-            name: _extract_chinese_row_pair(lines, labels)
+            name: _extract_chinese_row_pair(
+                lines,
+                labels,
+                value_column_count=chinese_value_column_count,
+            )
             for name, labels in CHINESE_CASH_FLOW_LABELS.items()
         }
         net_change_includes_exchange = True
@@ -421,7 +461,9 @@ def find_cash_flow_figures(
         )
         if figures is not None:
             return figures
-        if "合并现金流量表" not in page_text:
+        if _chinese_cash_flow_column_count(
+            _normalise_lines(page_text)
+        ) is None:
             continue
 
         for window_size in range(2, 5):

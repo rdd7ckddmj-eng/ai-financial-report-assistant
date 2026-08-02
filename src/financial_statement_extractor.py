@@ -25,7 +25,11 @@ FINANCIAL_VALUE_PATTERN = re.compile(
 UNIT_PATTERN = re.compile(r"^[£$€](?:k|m|bn)?$", re.IGNORECASE)
 WEEKS_PATTERN = re.compile(r"^(\d+) weeks ended$", re.IGNORECASE)
 CHINESE_UNIT_PATTERN = re.compile(
-    r"单位[:：](?:人民币)?(元|千元|万元|百万元)"
+    r"(?:金额)?单位(?:[:：]|为)(?:人民币)?(元|千元|万元|百万元)"
+)
+CHINESE_NOTE_REFERENCE_PATTERN = re.compile(
+    r"^(?:附注)?[一二三四五六七八九十百0-9]+"
+    r"(?:[（(][A-Za-z0-9]+[）)])+(?:[,，、])?$"
 )
 CHINESE_REVENUE_LABELS = (
     "其中：营业收入",
@@ -146,7 +150,12 @@ def _chinese_label_matches(line: str, label: str) -> bool:
         remainder = candidate[len(compact_label) :]
         if remainder.startswith(
             ("：", "（", "(", "-", "−", "－")
-        ) or bool(re.match(r"^\d", remainder)):
+        ) or bool(re.match(r"^\d", remainder)) or bool(
+            re.match(
+                r"^(?:附注)?[一二三四五六七八九十百]+[（(]",
+                remainder,
+            )
+        ):
             return True
     return False
 
@@ -194,9 +203,53 @@ def _is_financial_values_line(line: str) -> bool:
     )
 
 
+def _continuation_financial_values(line: str) -> list[float] | None:
+    """Read values from a numeric line or a line prefixed only by a note."""
+    tokens = line.split()
+    values = _financial_values_in_line(line)
+    if values and _is_financial_values_line(line):
+        return values
+
+    nonfinancial_tokens = [
+        token
+        for token in tokens
+        if FINANCIAL_VALUE_PATTERN.fullmatch(token) is None
+    ]
+    compact_nonfinancial = _compact_chinese_text(
+        "".join(nonfinancial_tokens)
+    )
+    if values and CHINESE_NOTE_REFERENCE_PATTERN.fullmatch(
+        compact_nonfinancial
+    ):
+        return values
+    if not values and CHINESE_NOTE_REFERENCE_PATTERN.fullmatch(
+        compact_nonfinancial
+    ):
+        return []
+    return None
+
+
+def _select_chinese_period_pair(
+    values: list[float],
+    *,
+    value_column_count: int,
+) -> tuple[float, float] | None:
+    """Select consolidated current/prior values from a supported table row."""
+    if value_column_count == 4:
+        if len(values) < 4:
+            return None
+        current, previous, _, _ = values[-4:]
+        return current, previous
+    if len(values) < 2:
+        return None
+    return values[-2], values[-1]
+
+
 def _extract_chinese_row_pair(
     lines: list[str],
     labels: tuple[str, ...],
+    *,
+    value_column_count: int = 2,
 ) -> tuple[float, float] | None:
     """Return current and prior-year values from a common A-share row."""
     for label in labels:
@@ -208,20 +261,39 @@ def _extract_chinese_row_pair(
             same_line_values: list[float] = []
             for label_line in lines[row_index : label_end + 1]:
                 same_line_values.extend(_financial_values_in_line(label_line))
-            if len(same_line_values) >= 2:
-                return same_line_values[-2], same_line_values[-1]
+            same_line_pair = _select_chinese_period_pair(
+                same_line_values,
+                value_column_count=value_column_count,
+            )
+            if same_line_pair is not None:
+                return same_line_pair
 
             following_values: list[float] = []
             for following_line in lines[label_end + 1 : label_end + 7]:
-                if _is_financial_values_line(following_line):
-                    following_values.extend(
-                        _financial_values_in_line(following_line)
-                    )
+                continuation_values = _continuation_financial_values(
+                    following_line
+                )
+                if continuation_values is not None:
+                    following_values.extend(continuation_values)
                     continue
                 if following_values:
                     break
-            if len(following_values) >= 2:
-                return following_values[-2], following_values[-1]
+            following_pair = _select_chinese_period_pair(
+                following_values,
+                value_column_count=value_column_count,
+            )
+            if following_pair is not None:
+                return following_pair
+    return None
+
+
+def _chinese_income_statement_column_count(lines: list[str]) -> int | None:
+    """Identify consolidated-only and consolidated-plus-company statements."""
+    compact_lines = [_compact_chinese_text(line) for line in lines]
+    if any("合并及公司利润表" in line for line in compact_lines):
+        return 4
+    if any("合并利润表" in line for line in compact_lines):
+        return 2
     return None
 
 
@@ -260,14 +332,20 @@ def extract_income_statement_figures(
         current_period_weeks, previous_period_weeks = _extract_period_weeks(
             lines
         )
-    elif any("合并利润表" in line for line in lines):
+    elif (
+        chinese_value_column_count := _chinese_income_statement_column_count(
+            lines
+        )
+    ) is not None:
         revenue_totals = _extract_chinese_row_pair(
             lines,
             CHINESE_REVENUE_LABELS,
+            value_column_count=chinese_value_column_count,
         )
         profit_totals = _extract_chinese_row_pair(
             lines,
             CHINESE_NET_PROFIT_LABELS,
+            value_column_count=chinese_value_column_count,
         )
         current_period_weeks, previous_period_weeks = None, None
     else:
@@ -305,7 +383,9 @@ def find_income_statement_figures(
         )
         if figures is not None:
             return figures
-        if "合并利润表" not in page_text:
+        if _chinese_income_statement_column_count(
+            _normalise_lines(page_text)
+        ) is None:
             continue
 
         for window_size in range(2, 4):

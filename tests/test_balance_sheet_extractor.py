@@ -60,6 +60,30 @@ CHINESE_BALANCE_SHEET_TEXT = """
 负债和所有者权益（或股东权益）总计 300,001.00 280,001.00
 """
 
+MIDEA_DUAL_BALANCE_SHEET_FIRST_PAGE = """
+美的集团股份有限公司
+合并及公司资产负债表
+2025 年 12 月 31 日
+(除特别注明外，金额单位为人民币千元)
+资产 附注 2025 年 2024 年 2025 年 2024 年
+合并 合并 公司 公司
+流动资产合计 416,662,341 389,063,786 127,272,108 99,393,257
+非流动资产合计 192,129,425 215,288,067 168,172,513 200,758,198
+资产总计 608,791,766 604,351,853 295,444,621 300,151,455
+"""
+
+MIDEA_DUAL_BALANCE_SHEET_SECOND_PAGE = """
+美的集团股份有限公司
+合并及公司资产负债表(续)
+(除特别注明外，金额单位为人民币千元)
+合并 合并 公司 公司
+流动负债合计 343,383,700 351,819,806 187,528,689 185,840,717
+非流动负债合计 28,983,843 24,864,656 9,863,262 7,805,712
+负债合计 372,367,543 376,684,462 197,391,951 193,646,429
+股东权益合计 236,424,223 227,667,391 98,052,670 106,505,026
+负债和股东权益总计 608,791,766 604,351,853 295,444,621 300,151,455
+"""
+
 
 def test_extract_balance_sheet_figures_reconciles_current_totals() -> None:
     figures = extract_balance_sheet_figures(
@@ -283,3 +307,25 @@ def test_find_chinese_balance_sheet_across_realistic_pages() -> None:
     assert figures["current_net_assets"] == 253_959_253_909.07
     assert figures["page_number"] == 56
     assert figures["end_page_number"] == 59
+
+
+def test_find_dual_balance_sheet_uses_consolidated_columns() -> None:
+    figures = find_balance_sheet_figures(
+        [
+            (131, MIDEA_DUAL_BALANCE_SHEET_FIRST_PAGE),
+            (132, MIDEA_DUAL_BALANCE_SHEET_SECOND_PAGE),
+        ]
+    )
+
+    assert figures is not None
+    assert figures["current_resources"] == 416_662_341
+    assert figures["previous_resources"] == 389_063_786
+    assert figures["current_total_assets"] == 608_791_766
+    assert figures["previous_total_assets"] == 604_351_853
+    assert figures["current_total_liabilities"] == 372_367_543
+    assert figures["previous_total_liabilities"] == 376_684_462
+    assert figures["current_net_assets"] == 236_424_223
+    assert figures["previous_net_assets"] == 227_667_391
+    assert figures["unit"] == "人民币千元"
+    assert figures["page_number"] == 131
+    assert figures["end_page_number"] == 132
