@@ -1447,6 +1447,26 @@ def _show_research_run_summary(
     )
 
 
+def _write_run_status(run_status: object | None, message: str) -> None:
+    """Write a stage only when Streamlit created a live status container."""
+    writer = getattr(run_status, "write", None)
+    if callable(writer):
+        writer(message)
+
+
+def _update_run_status(
+    run_status: object | None,
+    *,
+    label: str,
+    state: str,
+    expanded: bool,
+) -> None:
+    """Update live UI status while remaining safe in bare test mode."""
+    updater = getattr(run_status, "update", None)
+    if callable(updater):
+        updater(label=label, state=state, expanded=expanded)
+
+
 def show_product_footer() -> None:
     """Render the common developer attribution and product boundary."""
     st.markdown(
@@ -2393,12 +2413,14 @@ def render_company_research_page() -> None:
         market_frame, metrics, announcements = _load_company_research_data(
             company
         )
-        run_status.write(
+        _write_run_status(
+            run_status,
             "行情指标已完成计算。"
             if metrics is not None
             else "行情数据链本次未完成，其他功能继续。"
         )
-        run_status.write(
+        _write_run_status(
+            run_status,
             f"官方公告已完成核验，共 {len(announcements)} 条。"
             if announcements is not None
             else "官方公告数据链本次未完成，行情结果继续展示。"
@@ -2407,7 +2429,8 @@ def render_company_research_page() -> None:
         available_count = sum(
             (metrics is not None, announcements is not None)
         )
-        run_status.update(
+        _update_run_status(
+            run_status,
             label=(
                 f"公司研究数据同步完成｜{available_count}/2 条数据链可用｜"
                 f"{elapsed_seconds:.1f} 秒"
@@ -2885,7 +2908,8 @@ def render_volume_turnover_page() -> None:
                 end_date.isoformat(),
                 "qfq",
             )
-            run_status.write(
+            _write_run_status(
+                run_status,
                 f"已取得 {len(market_frame)} 个交易日，正在计算历史基准。"
             )
             snapshot = build_volume_turnover_snapshot(
@@ -2894,7 +2918,8 @@ def render_volume_turnover_page() -> None:
             )
             history = build_volume_turnover_history(market_frame)
             elapsed_seconds = perf_counter() - started_at
-            run_status.update(
+            _update_run_status(
+                run_status,
                 label=(
                     "成交量与换手率核验完成｜"
                     f"{elapsed_seconds:.1f} 秒"
@@ -2903,7 +2928,8 @@ def render_volume_turnover_page() -> None:
                 expanded=False,
             )
     except (DataSourceError, ValueError) as error:
-        run_status.update(
+        _update_run_status(
+            run_status,
             label="成交量与换手率数据链暂不可用",
             state="error",
             expanded=False,
@@ -3678,7 +3704,8 @@ def render_market_anomaly_page() -> None:
                 raise DataSourceError(
                     market_error or "公开行情源本次未返回有效数据。"
                 )
-            run_status.write(
+            _write_run_status(
+                run_status,
                 f"已取得 {len(market_frame)} 个交易日，正在执行异动规则。"
             )
             activity = calculate_market_activity(market_frame, company)
@@ -3690,15 +3717,18 @@ def render_market_anomaly_page() -> None:
             events = history_events[:8]
             report = build_market_anomaly_report(activity, events)
             if announcements is not None:
-                run_status.write(
+                _write_run_status(
+                    run_status,
                     f"官方公告已完成核验，共 {len(announcements)} 条。"
                 )
             else:
-                run_status.write(
+                _write_run_status(
+                    run_status,
                     "官方公告源本次未完成；行情异动结果仍可独立查看。"
                 )
             elapsed_seconds = perf_counter() - started_at
-            run_status.update(
+            _update_run_status(
+                run_status,
                 label=(
                     f"市场异动扫描完成｜发现 {len(events)} 个候选｜"
                     f"{elapsed_seconds:.1f} 秒"
@@ -3707,7 +3737,8 @@ def render_market_anomaly_page() -> None:
                 expanded=False,
             )
     except (DataSourceError, ValueError) as error:
-        run_status.update(
+        _update_run_status(
+            run_status,
             label="市场异动行情数据链暂不可用",
             state="error",
             expanded=False,

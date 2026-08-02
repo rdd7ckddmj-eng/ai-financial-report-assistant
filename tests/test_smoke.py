@@ -771,13 +771,8 @@ def test_market_anomaly_page_builds_report_and_evidence_chain(
     monkeypatch.setattr(app, "_show_company_banner", lambda selected: None)
     monkeypatch.setattr(
         app,
-        "load_a_share_history",
-        lambda *args: market_frame,
-    )
-    monkeypatch.setattr(
-        app,
-        "load_company_announcements",
-        lambda *args: announcements,
+        "load_company_research_sources",
+        lambda *args: (market_frame, announcements, None, None),
     )
     monkeypatch.setattr(
         app,
