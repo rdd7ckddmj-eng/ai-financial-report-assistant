@@ -714,7 +714,7 @@ def test_market_radar_page_scans_and_ranks_a_bounded_watchlist(
 def test_market_radar_uses_three_bounded_company_workers(
     monkeypatch,
 ) -> None:
-    """Keep the faster scan bounded and preserve input-order collection."""
+    """Keep known-code scans bounded without loading the full directory."""
     from src import app
 
     executor_workers = []
@@ -741,20 +741,11 @@ def test_market_radar_uses_three_bounded_company_workers(
             submitted_codes.append(company["code"])
             return ImmediateFuture(function(company, start_date, end_date))
 
-    def fake_resolve(code, directory):
-        return [
-            {
-                "code": code,
-                "name": f"测试公司{code}",
-                "exchange": "SH",
-                "exchange_name": "上海证券交易所",
-                "canonical_code": f"{code}.SH",
-            }
-        ]
+    def fail_if_called():
+        raise AssertionError("known radar codes should skip the live directory")
 
     monkeypatch.setattr(app, "ThreadPoolExecutor", RecordingExecutor)
-    monkeypatch.setattr(app, "load_a_share_directory", lambda: pd.DataFrame())
-    monkeypatch.setattr(app, "resolve_company", fake_resolve)
+    monkeypatch.setattr(app, "load_a_share_directory", fail_if_called)
     monkeypatch.setattr(
         app,
         "_scan_market_radar_company",
@@ -775,6 +766,38 @@ def test_market_radar_uses_three_bounded_company_workers(
         "000858",
     ]
     assert [row["company"]["code"] for row in rows] == submitted_codes
+    assert failures == []
+
+
+def test_market_radar_loads_directory_for_an_unknown_valid_code(
+    monkeypatch,
+) -> None:
+    """Preserve full-market coverage for codes outside the offline directory."""
+    from src import app
+
+    directory_calls = []
+
+    def fake_directory():
+        directory_calls.append(True)
+        return pd.DataFrame(
+            {
+                "code": ["600000"],
+                "name": ["浦发银行"],
+            }
+        )
+
+    monkeypatch.setattr(app, "load_a_share_directory", fake_directory)
+    monkeypatch.setattr(
+        app,
+        "_scan_market_radar_company",
+        lambda company, *args: {"company": company},
+    )
+    monkeypatch.setattr(app, "rank_research_queue", lambda rows: rows)
+
+    rows, failures = app._scan_market_radar(["600000"])
+
+    assert directory_calls == [True]
+    assert rows[0]["company"]["name"] == "浦发银行"
     assert failures == []
 
 

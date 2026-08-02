@@ -3692,17 +3692,30 @@ def _scan_market_radar(
     codes: list[str],
 ) -> tuple[list[ResearchQueueRow], list[str]]:
     """Scan up to three companies concurrently and isolate every failure."""
-    try:
-        directory: pd.DataFrame | None = load_a_share_directory()
-    except (DataSourceError, ValueError):
-        directory = None
+    offline_matches = {
+        code: matches[0]
+        for code in codes
+        if (matches := resolve_company(code, None))
+        and matches[0]["name"] != "待核验公司"
+    }
+    unresolved_codes = [code for code in codes if code not in offline_matches]
+    directory: pd.DataFrame | None = None
+    if unresolved_codes:
+        try:
+            directory = load_a_share_directory()
+        except (DataSourceError, ValueError):
+            directory = None
 
     end_date = date.today()
     start_date = end_date - timedelta(days=430)
     companies: list[CompanyIdentity] = []
     failures: list[str] = []
     for code in codes:
-        matches = resolve_company(code, directory)
+        matches = (
+            [offline_matches[code]]
+            if code in offline_matches
+            else resolve_company(code, directory)
+        )
         if not matches:
             failures.append(f"{code}：无法识别为当前支持的A股代码。")
             continue

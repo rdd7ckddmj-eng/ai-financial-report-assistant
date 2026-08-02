@@ -49,7 +49,8 @@ Build a web application that can:
   ranking, and ordinary-versus-effective-turnover boundary.
 - [Watchlist Research Queue](docs/MARKET_RADAR_SPEC.md) defines the bounded
   five-company scan, three independent activity triggers, recent official
-  disclosure check, P1/P2/P3 research order, and free-server boundary.
+  disclosure check, known-code directory fast path, P1/P2/P3 research order,
+  and free-server boundary.
 - [Historical Lens](docs/HISTORICAL_LENS_SPEC.md) defines the point-in-time
   boundary, publication-date filtering, and separate later-outcome reveal.
 - [Financial Trend Lab](docs/FINANCIAL_TREND_LAB_SPEC.md) defines the audited
