@@ -2710,8 +2710,11 @@ def _show_comprehensive_research_brief(
             if finding["source_url"]:
                 st.link_button("查看对应官方原文 ↗", finding["source_url"])
 
-    report_html = build_comprehensive_research_report_html(brief)
     company = brief["company"]
+    report_html = build_comprehensive_research_report_html(
+        brief,
+        radar_context=_matching_radar_research_context(company),
+    )
     st.markdown("#### 保存本次综合研究")
     st.download_button(
         "下载一键综合研究简报（HTML）",

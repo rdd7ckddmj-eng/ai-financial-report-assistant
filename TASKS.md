@@ -1,6 +1,9 @@
 # Current task board
 
 ## Now
+- [x] Preserve the matching Market Radar trigger and validated disclosure clue
+      inside the downloadable Comprehensive Research report without changing
+      calculations, evidence coverage, or conclusions.
 - [x] Connect a Market Radar candidate to the Comprehensive Research Agent with
       same-company session context, explicit re-verification, and no automatic
       external request on navigation.

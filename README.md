@@ -154,6 +154,9 @@ secret environment settings. It must never be committed to the repository.
   A radar candidate can open this workflow with its queue priority, triggered
   signals, task reason, and latest disclosure clue, but the user still starts
   the run explicitly and all five lanes independently re-verify their evidence.
+  When present, the matching trigger context is also preserved as a separate,
+  non-scoring section in the offline report; untrusted links and another
+  company's context are excluded.
 - Use a responsive institutional research-terminal interface with a dark
   grouped navigation rail, consistent page-introduction cards, a visible
   sidebar close control, and a persistent reopen control after collapse.

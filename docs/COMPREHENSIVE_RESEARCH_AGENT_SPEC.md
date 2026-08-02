@@ -92,6 +92,9 @@ does not rewrite failed steps as successful.
 The page can export a self-contained Chinese HTML brief. The export includes:
 
 - company identity and generation date;
+- the matching Market Radar trigger context, when the workflow started from a
+  radar candidate, including queue priority, dates, signals, task reasons, and
+  the validated latest-disclosure clue;
 - five evidence-lane states;
 - deterministic observations and their bases;
 - next verification tasks;
@@ -100,6 +103,9 @@ The page can export a self-contained Chinese HTML brief. The export includes:
 
 Dynamic company and source text is HTML-escaped. The export can be opened
 offline or printed to PDF without a server-side document dependency.
+Untrusted radar disclosure URLs are omitted, and context for another company
+is never written into the report. The trigger section is explicitly separated
+from evidence coverage and deterministic findings.
 
 ## Free-server boundary
 
