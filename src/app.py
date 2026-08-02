@@ -144,6 +144,7 @@ CHINESE_USER_GUIDE_PATH = (
     PROJECT_ROOT / "docs" / "中文使用说明.md"
 )
 DEFAULT_RESEARCH_LOOKBACK_DAYS = 420
+RADAR_RESEARCH_CONTEXT_KEY = "radar_research_context"
 
 
 _BROWSER_RESEARCH_STORAGE = st.components.v2.component(
@@ -1844,6 +1845,121 @@ def _selected_company() -> CompanyIdentity | None:
     return stored  # type: ignore[return-value]
 
 
+def _build_radar_research_context(
+    row: ResearchQueueRow,
+    *,
+    scanned_on: date | None = None,
+) -> dict[str, object]:
+    """Keep only the evidence needed to explain why research was opened."""
+    latest_disclosure = row["latest_disclosure"]
+    return {
+        "canonical_code": row["company"]["canonical_code"],
+        "scan_date": (scanned_on or date.today()).isoformat(),
+        "market_date": row["latest_date"],
+        "research_priority": row["research_priority"],
+        "radar_status": row["radar_status"],
+        "triggered_signals": list(row["triggered_signals"]),
+        "research_reasons": list(row["research_reasons"]),
+        "disclosure_status": row["disclosure_status"],
+        "latest_disclosure": (
+            dict(latest_disclosure)
+            if latest_disclosure is not None
+            else None
+        ),
+    }
+
+
+def _matching_radar_research_context(
+    company: CompanyIdentity,
+) -> Mapping[str, object] | None:
+    """Return radar context only when it belongs to the selected company."""
+    context = st.session_state.get(RADAR_RESEARCH_CONTEXT_KEY)
+    if not isinstance(context, Mapping):
+        return None
+    if context.get("canonical_code") != company["canonical_code"]:
+        return None
+    return context
+
+
+def _handoff_market_radar_to_comprehensive(
+    row: ResearchQueueRow,
+) -> None:
+    """Carry one radar clue into a fresh, user-triggered comprehensive run."""
+    company = row["company"]
+    _store_selected_company(company)
+    st.session_state[RADAR_RESEARCH_CONTEXT_KEY] = (
+        _build_radar_research_context(row)
+    )
+    # A prior brief may describe an older run.  Clear only the rendered result;
+    # the one-hour source cache can still make the next explicit run fast.
+    st.session_state.pop("comprehensive_research_brief", None)
+    st.session_state.pop("comprehensive_research_elapsed_seconds", None)
+    _switch_page("comprehensive")
+
+
+def _show_radar_research_context(company: CompanyIdentity) -> None:
+    """Explain the radar clue without presenting it as a conclusion."""
+    context = _matching_radar_research_context(company)
+    if context is None:
+        return
+
+    triggered_signals = context.get("triggered_signals", [])
+    signal_text = (
+        "、".join(str(item) for item in triggered_signals)
+        if isinstance(triggered_signals, list) and triggered_signals
+        else "未触发三项门槛"
+    )
+    research_reasons = context.get("research_reasons", [])
+    reason_text = (
+        "；".join(str(item) for item in research_reasons)
+        if isinstance(research_reasons, list) and research_reasons
+        else "等待综合研究重新核验"
+    )
+
+    with st.container(border=True):
+        st.markdown("#### 🛰️ 本次研究由自选股雷达触发")
+        summary_columns = st.columns(3)
+        summary_columns[0].metric(
+            "研究顺序",
+            str(context.get("research_priority", "待核验")),
+        )
+        summary_columns[1].metric(
+            "雷达状态",
+            str(context.get("radar_status", "待核验")),
+        )
+        summary_columns[2].metric(
+            "行情日期",
+            str(context.get("market_date", "待核验")),
+        )
+        st.write(f"**雷达触发证据：** {signal_text}")
+        st.write(f"**进入深度研究的原因：** {reason_text}。")
+
+        latest_disclosure = context.get("latest_disclosure")
+        if isinstance(latest_disclosure, Mapping):
+            st.write(
+                "**雷达已找到的最近官方公告：** "
+                + str(latest_disclosure.get("title", "标题待核验"))
+            )
+            st.caption(
+                f"{latest_disclosure.get('published_date', '日期待核验')}｜"
+                f"{latest_disclosure.get('category', '类别待核验')}｜"
+                f"关注程度：{latest_disclosure.get('attention', '待核验')}｜"
+                f"{context.get('disclosure_status', '状态待核验')}｜"
+                "综合研究仍会重新读取官方来源。"
+            )
+        else:
+            st.caption(
+                f"官方公告：{context.get('disclosure_status', '待核验')}。"
+                "综合研究会再次尝试官方来源。"
+            )
+
+        st.caption(
+            f"雷达扫描日：{context.get('scan_date', '待核验')}。"
+            "以上内容只是本次研究的入口线索，不是投资结论；"
+            "点击下方按钮后，综合 Agent 才会独立核验五条证据链。"
+        )
+
+
 def _render_company_search(
     *,
     key_prefix: str,
@@ -2663,6 +2779,7 @@ def render_comprehensive_research_page() -> None:
         return
 
     _show_company_banner(company)
+    _show_radar_research_context(company)
     st.info(
         "这次运行按需读取公开数据，不会提前下载全市场资料；"
         "某个来源失败时，其他证据链仍会继续，并明确标记缺口。"
@@ -4155,16 +4272,23 @@ def render_market_radar_page() -> None:
                         width="stretch",
                     )
 
-            action_columns = st.columns(2)
+            action_columns = st.columns([2, 1, 1])
             if action_columns[0].button(
-                "进入市场异动 Agent",
+                "生成完整研究简报",
+                type="primary",
+                width="stretch",
+                key=f"radar_to_comprehensive_{company['canonical_code']}",
+            ):
+                _handoff_market_radar_to_comprehensive(row)
+            if action_columns[1].button(
+                "异动复盘",
                 width="stretch",
                 key=f"radar_to_anomaly_{company['canonical_code']}",
             ):
                 _store_selected_company(company)
                 _switch_page("anomaly")
-            if action_columns[1].button(
-                "进入公司研究中心",
+            if action_columns[2].button(
+                "公司资料",
                 width="stretch",
                 key=f"radar_to_company_{company['canonical_code']}",
             ):

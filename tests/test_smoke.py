@@ -190,6 +190,118 @@ render_comprehensive_research_page()
     )
 
 
+def test_market_radar_handoff_stores_context_and_navigates() -> None:
+    """Carry the radar evidence into a fresh comprehensive-research entry."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src import app
+
+company = {
+    "code": "600519",
+    "name": "贵州茅台",
+    "exchange": "SH",
+    "exchange_name": "上海证券交易所",
+    "canonical_code": "600519.SH",
+}
+row = {
+    "company": company,
+    "latest_date": "2026-07-31",
+    "daily_return": 0.10,
+    "volume_ratio_20d": 2.5,
+    "turnover": 0.04,
+    "turnover_percentile_250d": 0.95,
+    "limit_up_candidate": True,
+    "triggered_signals": ["涨停候选", "明显放量"],
+    "trigger_count": 2,
+    "available_signal_count": 3,
+    "radar_status": "复合异动",
+    "market_source": "测试公开行情",
+    "turnover_source": "测试普通换手率",
+    "latest_disclosure": {
+        "title": "贵州茅台2025年年度报告",
+        "published_date": "2026-04-17",
+        "source_url": "https://static.cninfo.com.cn/test.pdf",
+        "category": "财务报告",
+        "attention": "高",
+        "days_old": 105,
+    },
+    "disclosure_status": "已核验近45日公告 1 条",
+    "research_priority": "P1｜立即核查",
+    "research_reasons": ["市场端同时触发2项异动证据"],
+}
+st.session_state["comprehensive_research_brief"] = {"old": True}
+app._switch_page = lambda name: st.session_state.__setitem__(
+    "test_target_page", name
+)
+app._handoff_market_radar_to_comprehensive(row)
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    assert app_test.session_state["selected_company"]["code"] == "600519"
+    context = app_test.session_state["radar_research_context"]
+    assert context["research_priority"] == "P1｜立即核查"
+    assert context["triggered_signals"] == ["涨停候选", "明显放量"]
+    assert context["latest_disclosure"]["title"] == (
+        "贵州茅台2025年年度报告"
+    )
+    assert app_test.session_state["test_target_page"] == "comprehensive"
+    assert "comprehensive_research_brief" not in app_test.session_state
+
+
+def test_comprehensive_page_shows_only_matching_radar_context() -> None:
+    """Do not leak a previous company's radar clue into another company."""
+    from streamlit.testing.v1 import AppTest
+
+    matching_script = """
+import streamlit as st
+from src.app import render_comprehensive_research_page
+
+st.session_state["selected_company"] = {
+    "code": "600519",
+    "name": "贵州茅台",
+    "exchange": "SH",
+    "exchange_name": "上海证券交易所",
+    "canonical_code": "600519.SH",
+}
+st.session_state["radar_research_context"] = {
+    "canonical_code": "600519.SH",
+    "scan_date": "2026-08-02",
+    "market_date": "2026-07-31",
+    "research_priority": "P1｜立即核查",
+    "radar_status": "复合异动",
+    "triggered_signals": ["涨停候选", "明显放量"],
+    "research_reasons": ["市场端同时触发2项异动证据"],
+    "disclosure_status": "已核验近45日公告 1 条",
+    "latest_disclosure": None,
+}
+render_comprehensive_research_page()
+"""
+    matching = AppTest.from_string(matching_script).run()
+
+    assert not matching.exception
+    matching_markup = "\n".join(item.value for item in matching.markdown)
+    assert "本次研究由自选股雷达触发" in matching_markup
+    assert any(
+        metric.label == "研究顺序" and metric.value == "P1｜立即核查"
+        for metric in matching.metric
+    )
+
+    mismatched = AppTest.from_string(
+        matching_script.replace(
+            '"600519.SH",\n    "scan_date"',
+            '"300750.SZ",\n    "scan_date"',
+        )
+    ).run()
+    assert not mismatched.exception
+    mismatched_markup = "\n".join(
+        item.value for item in mismatched.markdown
+    )
+    assert "本次研究由自选股雷达触发" not in mismatched_markup
+
+
 def test_company_code_search_skips_the_live_directory() -> None:
     """A six-digit code should resolve instantly without a full-list request."""
     from streamlit.testing.v1 import AppTest

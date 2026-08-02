@@ -151,6 +151,9 @@ secret environment settings. It must never be committed to the repository.
   page-linked financial history. The page shows evidence coverage rather than
   an investment score, preserves failed lanes, exposes a six-step Agent trace,
   recommends the next verification page, and exports a safe offline HTML brief.
+  A radar candidate can open this workflow with its queue priority, triggered
+  signals, task reason, and latest disclosure clue, but the user still starts
+  the run explicitly and all five lanes independently re-verify their evidence.
 - Use a responsive institutional research-terminal interface with a dark
   grouped navigation rail, consistent page-introduction cards, a visible
   sidebar close control, and a persistent reopen control after collapse.
@@ -200,7 +203,9 @@ secret environment settings. It must never be committed to the repository.
   metrics, source labels, official links, failed scans, and non-predictive
   boundary. Disclosure failures do not erase valid market results, each company
   fails independently, and no paid API or persistent full-market dataset is
-  required.
+  required. A primary action carries the selected candidate into the
+  Comprehensive Research Agent as session-only research context; it does not
+  persist a user record or convert a radar clue into an investment conclusion.
 - Scan the latest 250 trading sessions for limit-up candidates, days whose
   volume is at least twice the preceding 20-session median, and days whose
   ordinary turnover reaches the 90th percentile of prior observations.

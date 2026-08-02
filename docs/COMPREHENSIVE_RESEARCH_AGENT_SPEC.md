@@ -15,6 +15,20 @@ one research task. The product then checks five independent evidence lanes:
 The output is an auditable research brief, not a valuation, price forecast, or
 investment recommendation.
 
+## Radar-triggered entry
+
+The bounded Watchlist Market Radar can open this page with a lightweight
+session-only research context. The context explains the queue priority,
+triggered market signals, task reasons, market date, and latest validated
+official-disclosure clue for the same company.
+
+Navigation alone never starts external requests. The user must explicitly run
+the Comprehensive Research Agent. That run independently refreshes its five
+evidence lanes and does not treat the radar context as a verified conclusion.
+A context whose company code does not match the currently selected company is
+not displayed. Opening a new radar-triggered task also clears any previously
+rendered brief while retaining the bounded one-hour source cache.
+
 ## Deterministic boundary
 
 - Python calculates every price return, volume multiple, percentile,
