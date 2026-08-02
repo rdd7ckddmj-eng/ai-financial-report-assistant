@@ -1,3 +1,4 @@
+import gc
 import json
 import sys
 from collections.abc import Mapping
@@ -32,6 +33,14 @@ from src.agent_coordinator import (
 )
 from src.agent_router import RouteDecision, route_question
 from src.answer_verifier import VerificationResult
+from src.audited_company_onboarding import (
+    AnnualReportCandidate,
+    CandidateReportResult,
+    build_candidate_report_result,
+    build_onboarding_package,
+    select_recent_annual_reports,
+    serialise_onboarding_package,
+)
 from src.balance_sheet_extractor import find_balance_sheet_figures
 from src.browser_research_state import (
     MAX_LOCAL_WATCHLIST,
@@ -5930,6 +5939,380 @@ def render_cross_company_comparison_page() -> None:
     show_product_footer()
 
 
+def _show_onboarding_report_result(
+    result: CandidateReportResult,
+) -> None:
+    """Show one compact extraction receipt without treating it as approval."""
+    check_labels = {
+        "income_statement_reconciled": "合并利润表",
+        "balance_sheet_reconciled": "合并资产负债表",
+        "cash_flow_statement_reconciled": "合并现金流量表",
+    }
+    check_columns = st.columns(3)
+    for column, (key, label) in zip(
+        check_columns,
+        check_labels.items(),
+        strict=True,
+    ):
+        if result["statement_checks"][key]:
+            column.success(f"{label}：通过")
+        else:
+            column.warning(f"{label}：待复核")
+
+    unit_check = result["unit_check"]
+    if unit_check["passed"]:
+        units = unit_check.get("units", [])
+        st.caption(f"金额单位检查：通过｜{units[0] if units else '待核验'}")
+    else:
+        st.warning(str(unit_check["note"]))
+
+    page_labels = {
+        "income_statement": "利润表",
+        "balance_sheet": "资产负债表",
+        "cash_flow_statement": "现金流量表",
+    }
+    page_text = []
+    for key, label in page_labels.items():
+        page_range = result["statement_pages"].get(key)
+        if page_range is None:
+            page_text.append(f"{label}：未识别")
+            continue
+        start_page = page_range["start"]
+        end_page = page_range["end"]
+        pages = str(start_page) if start_page == end_page else (
+            f"{start_page}–{end_page}"
+        )
+        page_text.append(f"{label}：PDF第{pages}页")
+    st.caption("｜".join(page_text))
+
+    value_labels = {
+        "current_revenue": "营业收入",
+        "current_net_profit": "归母/合并净利润",
+        "current_operating_cash_flow": "经营现金流净额",
+        "current_total_assets": "总资产",
+        "current_total_liabilities": "总负债",
+    }
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {
+                    "财务年度": result["report_year"],
+                    "指标": label,
+                    "年报原始数值": result["values"].get(key),
+                }
+                for key, label in value_labels.items()
+            ]
+        ),
+        hide_index=True,
+        width="stretch",
+    )
+    st.caption(
+        "PDF 指纹（SHA-256）："
+        f"{result['evidence_fingerprint_sha256'][:16]}…｜"
+        "用于识别本次证据文件，不是数字签名或第三方认证。"
+    )
+
+
+def render_company_onboarding_page() -> None:
+    """Build a reviewable candidate package for one new audited company."""
+    apply_product_theme()
+    show_compact_page_header(
+        "09 / 公司扩展 · ONBOARDING AGENT",
+        "已核验公司扩展 Agent",
+        "自动发现最近三份完整年报，逐份提取五项核心数据，并把页码、"
+        "单位和跨年差异整理成人工复核候选包。",
+    )
+    st.info(
+        "这项功能扩大的是“已核验深度案例层”，不是替代 Wind 的全市场数据库。"
+        "系统不会未经人工确认就把候选数字写入正式目录。"
+    )
+
+    company = _selected_company()
+    if company is None:
+        st.markdown("### 选择候选公司")
+        company = _render_company_search(
+            key_prefix="audited_onboarding",
+            navigate_on_success=False,
+        )
+    if company is None:
+        st.caption("建议首个测试对象：美的集团（000333）。")
+        show_product_footer()
+        return
+
+    _show_company_banner(company)
+    if company["code"] in verified_financial_history_codes():
+        st.warning(
+            "该公司已经在已核验目录中。你仍可运行本流程检查最新报告，"
+            "但结果只会作为更新候选包，不会覆盖现有数据。"
+        )
+
+    state_key = "audited_company_onboarding_state"
+    raw_state = st.session_state.get(state_key)
+    if not isinstance(raw_state, dict) or (
+        raw_state.get("canonical_code") != company["canonical_code"]
+    ):
+        raw_state = {
+            "canonical_code": company["canonical_code"],
+            "reports": [],
+            "results": {},
+        }
+        st.session_state[state_key] = raw_state
+
+    st.markdown("### 第一步：建立三年年报候选任务")
+    st.write(
+        "Agent 只读取这家公司有限日期范围内的年报目录，排除摘要、半年报、"
+        "问询和英文重复版本。此时不会下载 PDF。"
+    )
+    if st.button(
+        "发现最近三份完整年报",
+        type="primary",
+        width="stretch",
+        key=f"discover_onboarding_{company['canonical_code']}",
+    ):
+        end_date = date.today()
+        start_date = end_date - timedelta(days=2_400)
+        try:
+            with st.spinner("正在读取官方年报目录……"):
+                announcements = load_company_announcements(
+                    company["code"],
+                    start_date.isoformat(),
+                    end_date.isoformat(),
+                    "年报",
+                )
+                reports = select_recent_annual_reports(
+                    announcements.to_dict("records")
+                )
+        except (DataSourceError, ValueError) as error:
+            st.error(str(error))
+        else:
+            raw_state = {
+                "canonical_code": company["canonical_code"],
+                "reports": reports,
+                "results": {},
+            }
+            st.session_state[state_key] = raw_state
+            if len(reports) == 3:
+                st.success("已建立最近三份完整年度报告的候选任务。")
+            else:
+                st.warning(
+                    f"只找到 {len(reports)} 份可用完整年报；"
+                    "候选包暂时不能通过连续三年检查。"
+                )
+
+    reports = raw_state.get("reports", [])
+    results = raw_state.get("results", {})
+    if not isinstance(reports, list) or not isinstance(results, dict):
+        reports = []
+        results = {}
+    if not reports:
+        st.caption(
+            "先建立候选任务。公开目录暂不可用时，不会用搜索摘要或AI猜测补齐。"
+        )
+        show_product_footer()
+        return
+
+    typed_reports: list[AnnualReportCandidate] = reports
+    typed_results: dict[str, CandidateReportResult] = results
+    package = build_onboarding_package(
+        company,
+        typed_reports,
+        typed_results,
+    )
+    processing = package["processing"]
+    summary_columns = st.columns(4)
+    summary_columns[0].metric("发现完整年报", f"{len(typed_reports)} / 3")
+    summary_columns[1].metric(
+        "已完成解析",
+        f"{processing['processed_report_count']} / {len(typed_reports)}",
+    )
+    summary_columns[2].metric(
+        "等待人工复核",
+        str(processing["ready_for_human_review_count"]),
+    )
+    summary_columns[3].metric(
+        "跨年差异线索",
+        str(package["restatement_clue_count"]),
+    )
+    progress_value = (
+        float(processing["processed_report_count"]) / len(typed_reports)
+    )
+    st.progress(
+        progress_value,
+        text="解析完成度只表示任务进度，不代表数据已经获准进入正式目录。",
+    )
+
+    st.markdown("### 第二步：逐份下载并核验")
+    st.caption(
+        "为保护 Render 免费服务器，每次只处理一份 PDF；解析完成后只保留"
+        "五项数值、页码和文件指纹，不长期保存年报文件。"
+    )
+    report_options = {
+        f"{report['report_year']}年｜{report['title']}": report
+        for report in typed_reports
+    }
+    selected_label = st.selectbox(
+        "选择本次核验的年度报告",
+        options=list(report_options),
+        key=f"onboarding_report_choice_{company['canonical_code']}",
+    )
+    selected_report = report_options[selected_label]
+    process_columns = st.columns([1, 1])
+    process_columns[0].link_button(
+        "查看官方报告",
+        selected_report["url"],
+        width="stretch",
+    )
+    process_requested = process_columns[1].button(
+        "下载并核验这一份年报",
+        type="primary",
+        width="stretch",
+        key=(
+            f"process_onboarding_{company['canonical_code']}_"
+            f"{selected_report['report_year']}"
+        ),
+    )
+    if process_requested:
+        pdf_bytes: bytes | None = None
+        extracted_pages: list[ExtractedPage] | None = None
+        try:
+            with st.spinner(
+                "正在临时下载PDF、核验三张报表并释放原始文件……"
+            ):
+                pdf_bytes = download_official_pdf(
+                    selected_report["url"],
+                    max_bytes=32 * 1024 * 1024,
+                )
+                extracted_pages = extract_pdf_pages(pdf_bytes)
+                result = build_candidate_report_result(
+                    company,
+                    selected_report,
+                    pdf_bytes,
+                    extracted_pages,
+                )
+        except (DataSourceError, ValueError) as error:
+            st.error(str(error))
+            st.info(
+                "系统已停止本次接入。你可以打开官方报告确认它是否为扫描版、"
+                "特殊行业报表，或文件是否超过免费服务器安全上限。"
+            )
+        else:
+            typed_results[selected_report["url"]] = result
+            raw_state["results"] = typed_results
+            st.session_state[state_key] = raw_state
+            if result["status"] == "ready_for_human_review":
+                st.success("三张报表和金额单位检查通过，已进入人工复核队列。")
+            else:
+                st.warning("本报告存在未识别报表或单位问题，需要人工查看原文。")
+            package = build_onboarding_package(
+                company,
+                typed_reports,
+                typed_results,
+            )
+        finally:
+            # Long PDFs are intentionally not retained in session state.
+            del pdf_bytes, extracted_pages
+            gc.collect()
+
+    st.markdown("### 候选报告证据")
+    for report in typed_reports:
+        result = typed_results.get(report["url"])
+        with st.container(border=True):
+            title_column, link_column = st.columns([5, 1])
+            title_column.markdown(
+                f"#### {report['report_year']}年｜{report['title']}"
+            )
+            title_column.caption(
+                f"公告日期：{report['published_date']}｜来源：巨潮资讯官方披露"
+            )
+            link_column.link_button(
+                "原文 ↗",
+                report["url"],
+                width="stretch",
+            )
+            if result is None:
+                st.info("等待逐份解析")
+            else:
+                _show_onboarding_report_result(result)
+
+    package = build_onboarding_package(
+        company,
+        typed_reports,
+        typed_results,
+    )
+    cross_checks = package["cross_report_checks"]
+    if cross_checks:
+        st.markdown("### 第三步：跨报告重述线索")
+        changed_checks = [
+            item
+            for item in cross_checks
+            if item["status"] == "changed_or_restated"
+        ]
+        if changed_checks:
+            st.warning(
+                "发现后续年报比较列与早期原始披露不一致。"
+                "这可能是追溯调整或口径变化，不能直接当作错误。"
+            )
+        else:
+            st.success("当前可比项目未发现跨报告数值变化。")
+        metric_labels = {
+            "revenue": "营业收入",
+            "net_profit": "净利润",
+            "operating_cash_flow": "经营现金流净额",
+            "total_assets": "总资产",
+            "total_liabilities": "总负债",
+        }
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "财务年度": item["period_year"],
+                        "指标": metric_labels[item["metric"]],
+                        "首次披露": item["original_report_value"],
+                        "后续比较列": item[
+                            "later_report_comparative_value"
+                        ],
+                        "核验状态": {
+                            "changed_or_restated": "存在差异，需查重述",
+                            "unchanged": "一致",
+                            "not_comparable": "单位或数据不可比",
+                        }[item["status"]],
+                    }
+                    for item in cross_checks
+                ]
+            ),
+            hide_index=True,
+            width="stretch",
+        )
+
+    st.markdown("### 人工确认闸门")
+    if package["status"] == "ready_for_human_review":
+        st.success(
+            "自动阶段完成：候选包可以交给人工逐项复核，但尚未进入正式目录。"
+        )
+    elif package["status"] == "human_review_required":
+        st.warning("自动检查未全部通过，请先处理异常项。")
+    elif package["status"] == "insufficient_report_history":
+        st.warning("完整年报不足三份，暂不满足连续三年接入条件。")
+    else:
+        st.info("继续逐份解析，完成后再进入人工复核。")
+    for action in package["approval_gate"]["required_actions"]:
+        st.markdown(f"- {action}")
+
+    st.download_button(
+        "下载公司接入候选包（JSON）",
+        data=serialise_onboarding_package(package),
+        file_name=(
+            f"{company['code']}_{company['name']}_audited_candidate.json"
+        ),
+        mime="application/json",
+        width="stretch",
+    )
+    st.caption(
+        "候选包明确记录 catalogue_written=false；下载不会自动修改网站数据库。"
+    )
+    show_product_footer()
+
+
 def render_annual_report_page() -> None:
     """Render the existing PDF evidence workflow as a dedicated subpage."""
     apply_product_theme()
@@ -7109,6 +7492,11 @@ def main() -> None:
         title="年报与证据",
         icon="📄",
     )
+    onboarding_page = st.Page(
+        render_company_onboarding_page,
+        title="已核验公司扩展 Agent",
+        icon="🧾",
+    )
     financial_trend_page = st.Page(
         render_financial_trend_page,
         title="财务趋势实验室",
@@ -7135,6 +7523,7 @@ def main() -> None:
         "anomaly": anomaly_page,
         "historical": historical_page,
         "annual": annual_page,
+        "onboarding": onboarding_page,
         "financial_trend": financial_trend_page,
         "comparison": comparison_page,
         "methodology": methodology_page,
@@ -7153,6 +7542,7 @@ def main() -> None:
                 anomaly_page,
                 historical_page,
                 annual_page,
+                onboarding_page,
                 financial_trend_page,
                 comparison_page,
             ],

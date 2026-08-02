@@ -29,6 +29,8 @@ Build a web application that can:
 17. run one bounded Comprehensive Research Agent that joins identity, market,
     disclosure, annual-report, and verified-financial evidence into a
     downloadable brief without hiding missing sources.
+18. build a three-report, page-linked candidate package for expanding the
+    audited company catalogue while retaining a mandatory human approval gate.
 
 ## Product specifications
 
@@ -66,6 +68,10 @@ Build a web application that can:
   audited 2023-2025 gross-margin, inventory, contract-liability, cash-quality,
   and three-year trend calculations that appear only for the verified baijiu
   peer candidate.
+- [Audited Company Onboarding Agent](docs/AUDITED_COMPANY_ONBOARDING_AGENT_SPEC.md)
+  defines official three-report discovery, statement and unit checks,
+  restatement clues, the 32 MB free-server boundary, and the mandatory human
+  approval gate before any catalogue write.
 
 ## Development principles
 
@@ -165,7 +171,13 @@ secret environment settings. It must never be committed to the repository.
 - Provide a multi-page product structure: home, company research centre,
   K-line and market evidence, Daily Limit-Up Board, Watchlist Market Radar,
   Market Anomaly Agent, Historical Lens, annual-report evidence, Financial
-  Trend Lab, and methodology/audit.
+  Trend Lab, audited-company onboarding, and methodology/audit.
+- Build an audited-company candidate package for any selected ordinary A-share
+  company: discover the latest three distinct complete annual reports, process
+  only one bounded PDF at a time, reconcile three statements, retain five core
+  values and page ranges, flag cross-report restatement clues, and export JSON.
+  The workflow never writes to the verified catalogue without separate human
+  review and therefore does not turn automated extraction into an audit claim.
 - Resolve mainland listed-company names or six-digit stock codes to a
   code-plus-exchange identity shared across all pages.
 - Synchronise official CNINFO disclosures on demand with a one-hour cache,

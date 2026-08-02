@@ -1,6 +1,10 @@
 # Current task board
 
 ## Now
+- [x] Add a bounded audited-company expansion Agent that discovers three
+      official complete annual reports, processes one PDF at a time, checks
+      three reconciled statements and units, surfaces restatement clues, and
+      exports a candidate JSON package behind a mandatory human approval gate.
 - [x] Export the Comprehensive Research run as a versioned JSON audit package
       with five evidence lanes, Agent trace, matching radar context, official
       URL filtering, and a clearly bounded SHA-256 evidence fingerprint.

@@ -191,6 +191,36 @@ render_comprehensive_research_page()
     )
 
 
+def test_audited_company_onboarding_waits_for_explicit_discovery() -> None:
+    """Keep the expansion Agent lightweight until the user starts a task."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_company_onboarding_page
+
+st.session_state["selected_company"] = {
+    "code": "000333",
+    "name": "美的集团",
+    "exchange": "SZ",
+    "exchange_name": "深圳证券交易所",
+    "canonical_code": "000333.SZ",
+}
+render_company_onboarding_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    page_markup = "\n".join(item.value for item in app_test.markdown)
+    assert "ONBOARDING AGENT" in page_markup
+    assert "已核验公司扩展 Agent" in page_markup
+    assert any(
+        button.label == "发现最近三份完整年报"
+        for button in app_test.button
+    )
+    assert not app_test.download_button
+
+
 def test_market_radar_handoff_stores_context_and_navigates() -> None:
     """Carry the radar evidence into a fresh comprehensive-research entry."""
     from streamlit.testing.v1 import AppTest
