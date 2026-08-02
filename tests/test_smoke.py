@@ -15,6 +15,21 @@ def test_project_smoke() -> None:
     assert 1 + 1 == 2
 
 
+def test_research_run_summary_separates_speed_and_source_health() -> None:
+    """Timing and source health must not be presented as investment quality."""
+    from src.app import _build_research_run_summary
+
+    summary = _build_research_run_summary(
+        2.345,
+        {"公开行情": True, "官方公告": False},
+    )
+
+    assert "本次处理用时 2.3 秒" in summary
+    assert "公开行情：正常" in summary
+    assert "官方公告：暂不可用" in summary
+    assert "上涨" not in summary
+
+
 def test_product_theme_preserves_sidebar_reopen_control() -> None:
     """Keep the collapsed navigation recoverable after visual customisation."""
     from streamlit.testing.v1 import AppTest

@@ -13,6 +13,8 @@
       chunks, with Eastmoney retained only as a provider-outage fallback.
 - [x] Migrate all production pages to Streamlit's current stretch-width API
       and guard against reintroducing the removed container-width argument.
+- [x] Add staged loading, elapsed-time receipts, and source-health visibility
+      to the three core research pages; parallelise anomaly data loading.
 - [x] Reposition the product as a Chinese listed-company research Agent.
 - [x] Add a clean home page and separate research subpages.
 - [x] Add company-name and six-digit stock-code identification.

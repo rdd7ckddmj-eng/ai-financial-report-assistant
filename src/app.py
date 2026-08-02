@@ -1422,6 +1422,31 @@ def show_compact_page_header(
     )
 
 
+def _build_research_run_summary(
+    elapsed_seconds: float,
+    source_states: Mapping[str, bool],
+) -> str:
+    """Describe run time and source availability without implying quality."""
+    source_summary = "｜".join(
+        f"{label}：{'正常' if available else '暂不可用'}"
+        for label, available in source_states.items()
+    )
+    return (
+        f"本次处理用时 {elapsed_seconds:.1f} 秒｜数据链状态："
+        f"{source_summary}。一小时内重复研究通常会复用缓存。"
+    )
+
+
+def _show_research_run_summary(
+    elapsed_seconds: float,
+    source_states: Mapping[str, bool],
+) -> None:
+    """Render one compact and consistent research-run receipt."""
+    st.caption(
+        _build_research_run_summary(elapsed_seconds, source_states)
+    )
+
+
 def show_product_footer() -> None:
     """Render the common developer attribution and product boundary."""
     st.markdown(
@@ -2360,10 +2385,44 @@ def render_company_research_page() -> None:
         return
 
     _show_company_banner(company)
-    with st.spinner("正在同步公开市场数据与最新公告……"):
+    started_at = perf_counter()
+    with st.status(
+        "正在同时读取公开行情与官方公告……",
+        expanded=True,
+    ) as run_status:
         market_frame, metrics, announcements = _load_company_research_data(
             company
         )
+        run_status.write(
+            "行情指标已完成计算。"
+            if metrics is not None
+            else "行情数据链本次未完成，其他功能继续。"
+        )
+        run_status.write(
+            f"官方公告已完成核验，共 {len(announcements)} 条。"
+            if announcements is not None
+            else "官方公告数据链本次未完成，行情结果继续展示。"
+        )
+        elapsed_seconds = perf_counter() - started_at
+        available_count = sum(
+            (metrics is not None, announcements is not None)
+        )
+        run_status.update(
+            label=(
+                f"公司研究数据同步完成｜{available_count}/2 条数据链可用｜"
+                f"{elapsed_seconds:.1f} 秒"
+            ),
+            state="complete" if available_count else "error",
+            expanded=False,
+        )
+
+    _show_research_run_summary(
+        elapsed_seconds,
+        {
+            "公开行情": metrics is not None,
+            "官方公告": announcements is not None,
+        },
+    )
 
     st.subheader("市场概览")
     if metrics is None:
@@ -2814,26 +2873,55 @@ def render_volume_turnover_page() -> None:
     _show_company_banner(company)
     end_date = date.today()
     start_date = end_date - timedelta(days=550)
+    started_at = perf_counter()
     try:
-        with st.spinner("正在读取并核验成交量与换手率历史……"):
+        with st.status(
+            "正在读取成交量与换手率历史……",
+            expanded=True,
+        ) as run_status:
             market_frame = load_a_share_history(
                 company["code"],
                 start_date.isoformat(),
                 end_date.isoformat(),
                 "qfq",
             )
+            run_status.write(
+                f"已取得 {len(market_frame)} 个交易日，正在计算历史基准。"
+            )
             snapshot = build_volume_turnover_snapshot(
                 market_frame,
                 company,
             )
             history = build_volume_turnover_history(market_frame)
+            elapsed_seconds = perf_counter() - started_at
+            run_status.update(
+                label=(
+                    "成交量与换手率核验完成｜"
+                    f"{elapsed_seconds:.1f} 秒"
+                ),
+                state="complete",
+                expanded=False,
+            )
     except (DataSourceError, ValueError) as error:
+        run_status.update(
+            label="成交量与换手率数据链暂不可用",
+            state="error",
+            expanded=False,
+        )
         st.error(str(error))
         st.info(
             "公开行情恢复后可直接重试；系统不会用估算值替代缺失数据。"
         )
         show_product_footer()
         return
+
+    _show_research_run_summary(
+        elapsed_seconds,
+        {
+            "公开行情": True,
+            "普通换手率": snapshot["ordinary_turnover"] is not None,
+        },
+    )
 
     metric_columns = st.columns(4)
     metric_columns[0].metric(
@@ -3569,13 +3657,29 @@ def render_market_anomaly_page() -> None:
 
     end_date = date.today()
     start_date = end_date - timedelta(days=550)
+    started_at = perf_counter()
     try:
-        with st.spinner("正在扫描市场异动候选……"):
-            market_frame = load_a_share_history(
+        with st.status(
+            "正在同时读取行情与官方公告……",
+            expanded=True,
+        ) as run_status:
+            (
+                market_frame,
+                announcements,
+                market_error,
+                announcement_error,
+            ) = load_company_research_sources(
                 company["code"],
                 start_date.isoformat(),
                 end_date.isoformat(),
                 "qfq",
+            )
+            if market_frame is None:
+                raise DataSourceError(
+                    market_error or "公开行情源本次未返回有效数据。"
+                )
+            run_status.write(
+                f"已取得 {len(market_frame)} 个交易日，正在执行异动规则。"
             )
             activity = calculate_market_activity(market_frame, company)
             history_events = scan_market_activity_events(
@@ -3585,7 +3689,29 @@ def render_market_anomaly_page() -> None:
             )
             events = history_events[:8]
             report = build_market_anomaly_report(activity, events)
+            if announcements is not None:
+                run_status.write(
+                    f"官方公告已完成核验，共 {len(announcements)} 条。"
+                )
+            else:
+                run_status.write(
+                    "官方公告源本次未完成；行情异动结果仍可独立查看。"
+                )
+            elapsed_seconds = perf_counter() - started_at
+            run_status.update(
+                label=(
+                    f"市场异动扫描完成｜发现 {len(events)} 个候选｜"
+                    f"{elapsed_seconds:.1f} 秒"
+                ),
+                state="complete",
+                expanded=False,
+            )
     except (DataSourceError, ValueError) as error:
+        run_status.update(
+            label="市场异动行情数据链暂不可用",
+            state="error",
+            expanded=False,
+        )
         st.error(str(error))
         st.info(
             "公开行情源恢复后可直接重试；"
@@ -3594,14 +3720,14 @@ def render_market_anomaly_page() -> None:
         show_product_footer()
         return
 
-    try:
-        announcements = load_company_announcements(
-            company["code"],
-            start_date.isoformat(),
-            end_date.isoformat(),
-        )
-    except (DataSourceError, ValueError):
-        announcements = None
+    _show_research_run_summary(
+        elapsed_seconds,
+        {
+            "公开行情": True,
+            "普通换手率": activity["turnover"] is not None,
+            "官方公告": announcements is not None and not announcement_error,
+        },
+    )
 
     _show_market_anomaly_report(report)
     st.divider()
