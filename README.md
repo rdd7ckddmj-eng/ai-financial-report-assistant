@@ -32,6 +32,9 @@ Build a web application that can:
 
 ## Product specifications
 
+- [Product Scope and Positioning](docs/PRODUCT_SCOPE.md) separates broad
+  on-demand A-share research from the narrower audited deep-dive catalogue and
+  states the commercial-database boundary.
 - [Company Research Engine](docs/COMPANY_RESEARCH_ENGINE_SPEC.md) defines the
   current-company research scope, evidence grades, verification states, and
   division between Python and AI.
@@ -119,6 +122,12 @@ secret environment settings. It must never be committed to the repository.
 
 ## Current working features
 
+- Present two explicit coverage layers on the home page: on-demand identity,
+  market, disclosure, and annual-report entry points for Shanghai, Shenzhen,
+  and Beijing listed-company codes when public sources are available; plus a
+  source-controlled audited catalogue of five deep-dive companies, 18
+  financial periods, and 20 publication vintages. The site clearly states
+  that it is not a real-time trading terminal or commercial data substitute.
 - Keep up to six recently researched companies and five self-selected companies
   in the visitor's own browser. The shortcuts require no login or server-side
   user database, store only public company identity and access timestamps, and

@@ -85,6 +85,10 @@ render_home_page()
     home_markup = "\n".join(item.value for item in app_test.markdown)
     assert "RESEARCH PIPELINE" in home_markup
     assert "FANGZHENG AI" in home_markup
+    assert "A 股按需研究层" in home_markup
+    assert "5 家公司 · 18 个财务期间 · 20 个发布版本" in home_markup
+    assert "贵州茅台 · 五粮液 · 泸州老窖 · 宁德时代 · 比亚迪" in home_markup
+    assert "不是实时交易终端或商业金融数据库的替代品" in home_markup
     assert len(app_test.button) == 4
 
 

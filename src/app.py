@@ -1203,6 +1203,89 @@ def apply_product_theme() -> None:
             line-height: 1.65;
         }
 
+        .wfz-scope-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+            margin: 1rem 0 1.2rem;
+        }
+
+        .wfz-scope-card {
+            min-height: 236px;
+            padding: 1.45rem;
+            border: 1px solid var(--wfz-line);
+            border-top: 4px solid var(--wfz-teal);
+            border-radius: 19px;
+            background: rgba(255, 255, 255, 0.90);
+            box-shadow: 0 14px 34px rgba(17, 49, 80, 0.06);
+        }
+
+        .wfz-scope-card--verified {
+            border-top-color: #c49a4b;
+        }
+
+        .wfz-scope-label {
+            color: var(--wfz-teal);
+            font-size: 0.65rem;
+            font-weight: 850;
+            letter-spacing: 0.14em;
+        }
+
+        .wfz-scope-card--verified .wfz-scope-label {
+            color: #9a712a;
+        }
+
+        .wfz-scope-card h3 {
+            margin: 0.8rem 0 0.55rem;
+            padding: 0;
+            font-size: 1.15rem;
+        }
+
+        .wfz-scope-stat {
+            margin-bottom: 0.8rem;
+            color: var(--wfz-navy);
+            font-size: 0.95rem;
+            font-weight: 780;
+        }
+
+        .wfz-scope-card p,
+        .wfz-scope-names {
+            margin: 0;
+            color: var(--wfz-muted);
+            font-size: 0.81rem;
+            line-height: 1.65;
+        }
+
+        .wfz-scope-names {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--wfz-line);
+        }
+
+        .wfz-scope-boundary {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: minmax(150px, 0.32fr) minmax(0, 1fr);
+            gap: 1rem;
+            align-items: center;
+            padding: 1.05rem 1.3rem;
+            border: 1px solid rgba(16, 45, 74, 0.12);
+            border-radius: 16px;
+            background: rgba(16, 45, 74, 0.045);
+        }
+
+        .wfz-scope-boundary strong {
+            color: var(--wfz-navy);
+            font-size: 0.82rem;
+            letter-spacing: 0.04em;
+        }
+
+        .wfz-scope-boundary span {
+            color: var(--wfz-muted);
+            font-size: 0.78rem;
+            line-height: 1.6;
+        }
+
         [data-testid="stTextInputRootElement"],
         [data-testid="stTextAreaRootElement"],
         [data-baseweb="select"] > div {
@@ -1228,6 +1311,11 @@ def apply_product_theme() -> None:
             }
 
             .wfz-capability-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .wfz-scope-grid,
+            .wfz-scope-boundary {
                 grid-template-columns: 1fr;
             }
         }
@@ -1287,12 +1375,13 @@ def show_product_identity() -> None:
                         中国上市公司<br><span>自主研究 Agent</span>
                     </h1>
                     <p class="wfz-subtitle">
-                        输入公司名称或股票代码，统一查看官方公告、历史 K 线、
-                        年报证据与 Agent 审计结果。Python 负责透明计算，
-                        原始链接和 PDF 页码保证结论可追溯。
+                        面向中国 A 股的低成本、证据优先研究工作流。市场广度层
+                        按需读取公开行情与公告，深度层只展示已完成核验的年报
+                        案例；Python 负责透明计算，原始链接和 PDF 页码保证追溯。
                     </p>
                     <div class="wfz-badges">
-                        <span class="wfz-badge">官方披露优先</span>
+                        <span class="wfz-badge">沪深北按需研究</span>
+                        <span class="wfz-badge">分层覆盖</span>
                         <span class="wfz-badge">PYTHON 数值验证</span>
                         <span class="wfz-badge">PDF 页码溯源</span>
                         <span class="wfz-badge">不提供投资建议</span>
@@ -1375,6 +1464,64 @@ def show_home_capabilities() -> None:
                     并明确展示证据不足之处。
                 </p>
             </article>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def show_home_research_scope() -> None:
+    """State broad on-demand access and narrow audited depth separately."""
+    try:
+        catalog_audit = audit_financial_history_catalog()
+    except ValueError:
+        verified_stat = "深度案例正在进行独立核验"
+        verified_names = "核验完成后才会进入深度研究目录"
+    else:
+        verified_stat = (
+            f"{catalog_audit['company_count']} 家公司 · "
+            f"{catalog_audit['financial_period_count']} 个财务期间 · "
+            f"{catalog_audit['publication_vintage_count']} 个发布版本"
+        )
+        verified_names = " · ".join(
+            case["company_name"] for case in catalog_audit["cases"]
+        )
+
+    st.markdown(
+        f"""
+        <div class="wfz-section-label">
+            产品覆盖 · RESEARCH COVERAGE
+        </div>
+        <div class="wfz-scope-grid">
+            <article class="wfz-scope-card">
+                <div class="wfz-scope-label">01 / ON-DEMAND A-SHARE</div>
+                <h3>A 股按需研究层</h3>
+                <div class="wfz-scope-stat">沪 · 深 · 北交易所代码入口</div>
+                <p>
+                    输入公司名称或六位代码后，系统按需核验公司身份、公开日线、
+                    官方公告和最近年报入口。资料不需要预先批量下载或永久保存；
+                    每次结果以公开数据源当时的可用性为准。
+                </p>
+            </article>
+            <article class="wfz-scope-card wfz-scope-card--verified">
+                <div class="wfz-scope-label">02 / AUDITED DEEP-DIVE</div>
+                <h3>已核验深度案例层</h3>
+                <div class="wfz-scope-stat">{escape(verified_stat)}</div>
+                <p>
+                    只有通过公司身份、年度连续性、官方来源、年报页码和会计口径
+                    检查的资料，才进入多年趋势与横向比较。
+                </p>
+                <div class="wfz-scope-names">
+                    当前案例：{escape(verified_names)}
+                </div>
+            </article>
+            <div class="wfz-scope-boundary">
+                <strong>PRODUCT BOUNDARY / 产品边界</strong>
+                <span>
+                    本产品不是实时交易终端或商业金融数据库的替代品，不包含机构
+                    内部路演与持仓资料，也不生成股价预测或买卖建议。
+                </span>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -2613,6 +2760,9 @@ def render_home_page() -> None:
         "输入最多5个股票代码比较市场异动，或使用已核验年报做"
         "共同年度横向比较。"
     )
+
+    st.divider()
+    show_home_research_scope()
 
     st.divider()
     _render_local_research_hub()

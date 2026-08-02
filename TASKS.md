@@ -1,6 +1,8 @@
 # Current task board
 
 ## Now
+- [x] Separate broad on-demand A-share access from the five-company audited
+      deep-dive catalogue on the home page and state the product boundary.
 - [x] Add an offline-first company-code path, faster market-source order,
       parallel market/disclosure loading, shared one-hour caching, and visible
       comprehensive-run timing.
