@@ -183,7 +183,12 @@ def _extract_chinese_row_pair(
             for label_line in lines[row_index : label_end + 1]:
                 same_line_values.extend(_financial_values_in_line(label_line))
             if value_column_count == 4 and len(same_line_values) >= 4:
-                current, previous, _, _ = same_line_values[-4:]
+                # Consolidated figures are the first two of the four value
+                # columns.  A PDF page number may be extracted immediately
+                # after the last row, so selecting from the beginning also
+                # prevents that footer from displacing the current-year
+                # consolidated amount.
+                current, previous, _, _ = same_line_values[:4]
                 return current, previous
             if value_column_count == 2 and len(same_line_values) >= 2:
                 return same_line_values[-2], same_line_values[-1]
@@ -198,7 +203,7 @@ def _extract_chinese_row_pair(
                 if following_values:
                     break
             if value_column_count == 4 and len(following_values) >= 4:
-                current, previous, _, _ = following_values[-4:]
+                current, previous, _, _ = following_values[:4]
                 return current, previous
             if value_column_count == 2 and len(following_values) >= 2:
                 return following_values[-2], following_values[-1]

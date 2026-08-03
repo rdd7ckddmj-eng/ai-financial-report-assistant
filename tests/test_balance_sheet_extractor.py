@@ -329,3 +329,28 @@ def test_find_dual_balance_sheet_uses_consolidated_columns() -> None:
     assert figures["unit"] == "人民币千元"
     assert figures["page_number"] == 131
     assert figures["end_page_number"] == 132
+
+
+def test_dual_balance_sheet_ignores_trailing_pdf_page_number() -> None:
+    first_page = MIDEA_DUAL_BALANCE_SHEET_FIRST_PAGE.replace(
+        "资产总计 608,791,766 604,351,853 295,444,621 300,151,455",
+        "资产总计\n"
+        "608,791,766\n"
+        "604,351,853\n"
+        "295,444,621\n"
+        "300,151,455\n"
+        "132",
+    )
+
+    figures = find_balance_sheet_figures(
+        [
+            (131, first_page),
+            (132, MIDEA_DUAL_BALANCE_SHEET_SECOND_PAGE),
+        ]
+    )
+
+    assert figures is not None
+    assert figures["current_total_assets"] == 608_791_766
+    assert figures["previous_total_assets"] == 604_351_853
+    assert figures["current_total_liabilities"] == 372_367_543
+    assert figures["unit"] == "人民币千元"
