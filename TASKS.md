@@ -150,6 +150,8 @@
   explicit non-peer warning.
 - [x] Add annual-report-backed industry evidence and conservative peer-group candidate rules.
 - [x] Onboard Wuliangye as the second verified company in the baijiu peer group.
+- [x] Add the first deterministic financial-anomaly explanation with a
+  page-linked cash-flow bridge and explicit unresolved-cause boundary.
 - [ ] Add comparable-company valuation only after business-mix, accounting, and same-date market checks.
 - [ ] Expand the 贵州茅台 flagship set from three to five events after review.
 - [x] GitHub publication and public Render website.

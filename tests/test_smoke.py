@@ -1398,6 +1398,45 @@ app.render_financial_trend_page()
     assert app_test.selectbox[0].value == "美的集团｜000333.SZ"
 
 
+def test_financial_anomaly_page_shows_verified_midea_bridge() -> None:
+    """Render the controlled cash-flow explanation without live sources."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src import app
+
+app.render_financial_anomaly_explanation_page()
+"""
+    app_test = AppTest.from_string(script).run()
+    visible_text = "\n".join(
+        str(item.value)
+        for group in (
+            app_test.title,
+            app_test.info,
+            app_test.success,
+            app_test.warning,
+            app_test.caption,
+            app_test.subheader,
+            app_test.markdown,
+        )
+        for item in group
+    )
+
+    assert not app_test.exception
+    assert "财务异常解释 Agent" in visible_text
+    assert "美的集团 2025 年" in visible_text
+    assert "已证实" in visible_text
+    assert "待进一步核查" in visible_text
+    assert "年报第 233 页" in visible_text
+    assert "不构成投资建议" in visible_text
+    assert len(app_test.metric) == 3
+    assert len(app_test.get("link_button")) == 1
+    assert len(app_test.get("download_button")) == 1
+    assert app_test.selectbox[0].value == (
+        "美的集团｜000333.SZ｜2025 年经营现金流背离"
+    )
+
+
 def test_financial_trend_page_shows_wuliangye_versions_in_streamlit() -> None:
     """Prove Wuliangye's four periods and five vintages render safely."""
     from streamlit.testing.v1 import AppTest

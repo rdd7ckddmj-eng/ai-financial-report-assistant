@@ -776,3 +776,30 @@ production and cost data, while also reporting industrial technology,
 intelligent-building, robotics, and other businesses. The research tag therefore
 preserves a diversified-business warning and remains a one-company group rather
 than being presented as a ready peer set or valuation comparison.
+
+## 2026-08-03 — First financial anomaly explanation bridge
+
+### What I built or changed
+
+Added a standalone Financial Anomaly Explanation Agent for Midea's 2025
+revenue-profit-cash divergence. The page detects the signal with fixed Python
+rules, reconciles all 14 rows from the annual report's cash-flow supplementary
+statement, ranks their year-on-year contribution, links back to page 233, and
+exports a source-linked Chinese HTML report with a SHA-256 evidence fingerprint.
+
+### One concept I can now explain
+
+A cash-flow bridge answers how accounting adjustment rows combine to produce
+the change in operating cash flow. The largest negative bridge contribution was
+the smaller increase in operating payables: its positive cash-flow contribution
+fell from RMB 50.346 billion to RMB 11.317 billion. Inventory, operating
+receivables, and consolidated net profit supplied the largest positive offsets.
+
+### Evidence and cause boundary
+
+The bridge proves arithmetic contribution, not business causation. Supplier
+payment timing, bills payable, contract liabilities, consolidation scope, and
+settlement policy remain questions until the relevant notes are checked. The
+trend signal also uses attributable net profit, while the official reconciliation
+starts from consolidated net profit; the product now states that accounting-scope
+difference instead of quietly treating the figures as identical.

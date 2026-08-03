@@ -95,6 +95,13 @@ from src.financial_history import (
     select_financial_history_as_of,
     verified_financial_history_codes,
 )
+from src.financial_anomaly_explanation import (
+    build_financial_anomaly_review,
+    load_financial_anomaly_evidence,
+)
+from src.financial_anomaly_report import (
+    build_financial_anomaly_report_html,
+)
 from src.financial_trend_lab import build_financial_trend_review
 from src.flagship_cases import load_moutai_flagship_events
 from src.historical_lens import (
@@ -5187,7 +5194,7 @@ def render_methodology_page() -> None:
     """Explain source priority, calculation boundaries, and known limits."""
     apply_product_theme()
     show_compact_page_header(
-        "11 / 方法与审计 · METHODOLOGY",
+        "12 / 方法与审计 · METHODOLOGY",
         "方法、证据与产品边界",
         "公开说明系统如何获取资料、计算指标、使用AI以及处理不确定性。",
     )
@@ -5416,6 +5423,163 @@ def render_financial_trend_page() -> None:
     st.warning(review["limitation"])
 
     _show_verified_financial_history(company, date.today())
+    show_product_footer()
+
+
+def render_financial_anomaly_explanation_page() -> None:
+    """Explain one verified financial divergence through a cash-flow bridge."""
+    apply_product_theme()
+    show_compact_page_header(
+        "11 / 财务异常解释 · FINANCIAL EXPLANATION AGENT",
+        "财务异常解释 Agent",
+        "从“指标为什么不同向”出发，用已核验年报逐项勾稽；"
+        "已证实的算术桥接与待核查的业务原因分开展示。",
+    )
+
+    try:
+        components = load_financial_anomaly_evidence()
+        company_code = components[0]["company_code"]
+        points = select_financial_history_as_of(
+            load_verified_financial_history(company_code),
+            date.today(),
+        )["points"]
+        review = build_financial_anomaly_review(points, components)
+    except ValueError as error:
+        st.error(f"财务异常证据未通过检查：{error}")
+        show_product_footer()
+        return
+
+    case_label = (
+        f"{review['company_name']}｜{review['canonical_code']}｜"
+        f"{review['period_year']} 年经营现金流背离"
+    )
+    st.selectbox(
+        "选择已核验异常案例",
+        options=[case_label],
+        key="financial_anomaly_case_selector",
+    )
+    st.info(
+        "第一个受控案例为美的集团 2025 年。"
+        "运行时不下载整份 PDF，不需要付费 API。"
+    )
+
+    signal_columns = st.columns(3)
+    signal_columns[0].metric(
+        "营业收入同比",
+        _format_percent(review["revenue_growth"]),
+        "已核验趋势数据",
+        delta_color="off",
+    )
+    signal_columns[1].metric(
+        "归母净利润同比",
+        _format_percent(review["attributable_net_profit_growth"]),
+        "已核验趋势数据",
+        delta_color="off",
+    )
+    signal_columns[2].metric(
+        "经营现金流同比",
+        _format_percent(review["operating_cash_flow_growth"]),
+        "已核验趋势数据",
+        delta_color="off",
+    )
+    if review["signal_detected"]:
+        st.warning(f"规则识别：**{review['signal_label']}**。")
+    else:
+        st.info(f"规则识别：{review['signal_label']}。")
+
+    st.subheader("四步解释链")
+    trace_columns = st.columns(4)
+    trace_items = (
+        ("① 异常扫描", "方向背离规则已触发"),
+        ("② 年报勾稽", "14 项调节数据与经营现金一致"),
+        ("③ 贡献排名", "按同比影响绝对值排序"),
+        ("④ 边界审计", "业务原因留在待核查区"),
+    )
+    for column, (title, text) in zip(
+        trace_columns,
+        trace_items,
+        strict=True,
+    ):
+        with column:
+            with st.container(border=True):
+                st.markdown(f"#### {title}")
+                st.caption(text)
+
+    st.subheader("已证实｜现金流桥接")
+    for finding in review["confirmed_findings"]:
+        st.markdown(f"- {finding}")
+    st.success(
+        "勾稽通过："
+        f"{review['period_year']} 年 "
+        f"{_format_optional_cny_100m(review['bridge_current_total'])}｜"
+        f"{review['comparison_year']} 年 "
+        f"{_format_optional_cny_100m(review['bridge_comparison_total'])}｜"
+        "同比变化 "
+        f"{_format_optional_cny_100m(review['bridge_change_total'])}。"
+    )
+
+    driver_rows = [
+        {
+            "排名": driver["rank"],
+            "现金流调节项": driver["component_label"],
+            "对同比变化的方向": driver["direction"],
+            f"{review['comparison_year']}（亿元）": round(
+                driver["comparison_value"] / 100_000_000,
+                2,
+            ),
+            f"{review['period_year']}（亿元）": round(
+                driver["current_value"] / 100_000_000,
+                2,
+            ),
+            "同比贡献（亿元）": round(
+                driver["change_contribution"] / 100_000_000,
+                2,
+            ),
+        }
+        for driver in review["drivers"]
+    ]
+    st.dataframe(
+        pd.DataFrame(driver_rows),
+        hide_index=True,
+        width="stretch",
+    )
+    st.caption(
+        "“同比贡献”是各调节项当期值减上年值。"
+        "负数表示拉低经营现金流的同比变化，不等于利空。"
+    )
+
+    st.subheader("待进一步核查｜不冒充已证实原因")
+    for question in review["unresolved_questions"]:
+        st.markdown(f"- {question}")
+
+    with st.container(border=True):
+        source_column, action_column = st.columns([4, 1])
+        with source_column:
+            st.markdown(f"**{review['report_title']}**")
+            st.caption(
+                f"年报第 {review['source_page']} 页｜"
+                f"证据等级 {review['evidence_grade']}｜"
+                "人工核验通过｜原报告单位千元，页面统一换算为元"
+            )
+        with action_column:
+            st.link_button(
+                "查看官方年报 ↗",
+                review["source_url"],
+                width="stretch",
+            )
+
+    report_html = build_financial_anomaly_report_html(review)
+    st.download_button(
+        "下载财务异常解释报告（HTML）",
+        data=report_html.encode("utf-8"),
+        file_name=(
+            f"{review['company_code']}_{review['period_year']}"
+            "_financial_anomaly_explanation.html"
+        ),
+        mime="text/html",
+        width="stretch",
+    )
+    st.warning(review["limitation"])
     show_product_footer()
 
 
@@ -7520,6 +7684,11 @@ def main() -> None:
         title="财务趋势实验室",
         icon="🧮",
     )
+    financial_anomaly_page = st.Page(
+        render_financial_anomaly_explanation_page,
+        title="财务异常解释 Agent",
+        icon="🧩",
+    )
     comparison_page = st.Page(
         render_cross_company_comparison_page,
         title="跨公司横向比较",
@@ -7543,6 +7712,7 @@ def main() -> None:
         "annual": annual_page,
         "onboarding": onboarding_page,
         "financial_trend": financial_trend_page,
+        "financial_anomaly": financial_anomaly_page,
         "comparison": comparison_page,
         "methodology": methodology_page,
     }
@@ -7563,6 +7733,7 @@ def main() -> None:
                 onboarding_page,
                 financial_trend_page,
                 comparison_page,
+                financial_anomaly_page,
             ],
             "产品说明": [methodology_page],
         }

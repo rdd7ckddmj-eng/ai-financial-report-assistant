@@ -31,6 +31,9 @@ Build a web application that can:
     downloadable brief without hiding missing sources.
 18. build a three-report, page-linked candidate package for expanding the
     audited company catalogue while retaining a mandatory human approval gate.
+19. explain a verified financial-direction mismatch through an annual-report
+    cash-flow bridge while separating confirmed arithmetic from unresolved
+    business causes.
 
 ## Product specifications
 
@@ -61,6 +64,9 @@ Build a web application that can:
 - [Financial Trend Lab](docs/FINANCIAL_TREND_LAB_SPEC.md) defines the audited
   multi-year calculations, restatement handling, evidence pages, and
   non-predictive boundary.
+- [Financial Anomaly Explanation Agent](docs/FINANCIAL_ANOMALY_EXPLANATION_AGENT_SPEC.md)
+  defines the deterministic signal, annual-report cash-flow bridge, confirmed
+  findings, unresolved cause questions, and non-advisory boundary.
 - [Cross-Company Comparison](docs/CROSS_COMPANY_COMPARISON_SPEC.md) defines the
   common-year rule, sample-median descriptions, annual-report evidence, and
   boundary between a cross-industry demonstration and a true peer group.
