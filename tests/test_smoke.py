@@ -1405,7 +1405,21 @@ def test_financial_anomaly_page_shows_verified_midea_bridge() -> None:
     script = """
 from src import app
 
-app.render_financial_anomaly_explanation_page()
+real_download_button = app.st.download_button
+
+def capture_download(label, **kwargs):
+    app.st.session_state["financial_anomaly_download_test"] = {
+        "label": label,
+        "file_name": kwargs["file_name"],
+        "mime": kwargs["mime"],
+        "byte_count": len(kwargs["data"]),
+    }
+
+try:
+    app.st.download_button = capture_download
+    app.render_financial_anomaly_explanation_page()
+finally:
+    app.st.download_button = real_download_button
 """
     app_test = AppTest.from_string(script).run()
     visible_text = "\n".join(
@@ -1431,7 +1445,13 @@ app.render_financial_anomaly_explanation_page()
     assert "不构成投资建议" in visible_text
     assert len(app_test.metric) == 3
     assert len(app_test.get("link_button")) == 1
-    assert len(app_test.get("download_button")) == 1
+    download = app_test.session_state["financial_anomaly_download_test"]
+    assert download["label"] == "下载财务异常解释报告（HTML）"
+    assert download["mime"] == "text/html"
+    assert download["file_name"].endswith(
+        "_financial_anomaly_explanation.html"
+    )
+    assert download["byte_count"] > 1_000
     assert app_test.selectbox[0].value == (
         "美的集团｜000333.SZ｜2025 年经营现金流背离"
     )
