@@ -37,18 +37,19 @@ def test_comparison_uses_latest_common_verified_year() -> None:
         industry_profiles=industry_profiles,
     )
 
-    assert comparison["common_years"] == [2022, 2023, 2024]
+    assert comparison["common_years"] == [2023, 2024]
     assert comparison["selected_year"] == 2024
-    assert comparison["company_count"] == 5
+    assert comparison["company_count"] == 6
     assert [row["company_name"] for row in comparison["rows"]] == [
         "贵州茅台",
         "五粮液",
         "泸州老窖",
         "宁德时代",
         "比亚迪",
+        "美的集团",
     ]
-    assert comparison["scope_label"] == "跨行业比较（3个研究组）"
-    assert comparison["industry_group_count"] == 3
+    assert comparison["scope_label"] == "跨行业比较（4个研究组）"
+    assert comparison["industry_group_count"] == 4
     assert comparison["is_same_peer_group"] is False
     assert "不含估值、预测或买卖建议" in comparison["limitation"]
 
@@ -121,6 +122,37 @@ def test_comparison_preserves_byd_values_and_official_evidence() -> None:
     assert byd["net_margin_position"] == "低于样本中位数"
 
 
+def test_comparison_preserves_midea_values_and_official_evidence() -> None:
+    cases, points_by_code, industry_profiles = _verified_comparison_inputs()
+
+    comparison = build_cross_company_comparison(
+        cases,
+        points_by_code,
+        selected_year=2024,
+        industry_profiles=industry_profiles,
+    )
+    midea = next(
+        row for row in comparison["rows"]
+        if row["company_code"] == "000333"
+    )
+
+    assert midea["revenue"] == pytest.approx(407_149_600_000)
+    assert midea["net_profit"] == pytest.approx(38_537_237_000)
+    assert midea["operating_cash_flow"] == pytest.approx(60_511_572_000)
+    assert midea["net_margin"] == pytest.approx(
+        38_537_237_000 / 407_149_600_000
+    )
+    assert midea["liabilities_to_assets"] == pytest.approx(
+        376_684_462_000 / 604_351_853_000
+    )
+    assert midea["summary_page"] == 9
+    assert midea["balance_sheet_page"] == 156
+    assert midea["source_url"] == (
+        "https://static.cninfo.com.cn/finalpage/2025-03-29/"
+        "1222951181.PDF"
+    )
+
+
 def test_comparison_can_select_an_earlier_common_year() -> None:
     cases, points_by_code, industry_profiles = _verified_comparison_inputs()
 
@@ -134,7 +166,16 @@ def test_comparison_can_select_an_earlier_common_year() -> None:
     assert comparison["selected_year"] == 2023
     assert all(row["period_year"] == 2023 for row in comparison["rows"])
     assert all(row["published_date"][:4] == "2024" for row in comparison["rows"])
-    assert all(row["revenue_growth"] is not None for row in comparison["rows"])
+    midea = next(
+        row for row in comparison["rows"]
+        if row["company_code"] == "000333"
+    )
+    assert midea["revenue_growth"] is None
+    assert all(
+        row["revenue_growth"] is not None
+        for row in comparison["rows"]
+        if row["company_code"] != "000333"
+    )
 
 
 def test_comparison_requires_two_distinct_companies() -> None:

@@ -749,3 +749,30 @@ HTML, and an official link is included only after its domain passes the existing
 disclosure-source validation. Missing sources remain explicit; no media summary
 or AI guess fills the gap, and the report contains no investment score or
 recommendation.
+
+## 2026-08-03 — Midea becomes the sixth verified deep-dive case
+
+### What I built or changed
+
+Promoted Midea's 2023-2025 annual-report candidate package into the controlled
+financial-history catalogue. The Financial Trend Lab and Cross-Company
+Comparison now discover it from the same source-controlled catalogue instead
+of using page-specific code. The six-company catalogue contains 21 financial
+periods and 23 publication vintages.
+
+### Evidence handling
+
+All five core values were converted from the reports' thousand-yuan unit to
+yuan only after the consolidated income statement, balance sheet, and cash-flow
+statement reconciliations passed. The 2024 and 2025 reports repeat earlier
+comparison values without changing the five fields used here, so no artificial
+restatement version was created. Every year retains the official report URL,
+publication date, main-data page, and consolidated balance-sheet page.
+
+### Industry boundary
+
+Midea's 2024 annual report uses the label “home appliance industry” for physical
+production and cost data, while also reporting industrial technology,
+intelligent-building, robotics, and other businesses. The research tag therefore
+preserves a diversified-business warning and remains a one-company group rather
+than being presented as a ready peer set or valuation comparison.

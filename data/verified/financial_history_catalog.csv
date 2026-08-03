@@ -4,3 +4,4 @@ company_code,company_name,exchange,exchange_name,canonical_code,data_file,covera
 000568,泸州老窖,SZ,深圳证券交易所,000568.SZ,luzhou_laojiao_financial_history.csv,2022,2025,4,2026-07-31,verified
 300750,宁德时代,SZ,深圳证券交易所,300750.SZ,catl_financial_history.csv,2022,2024,3,2026-07-31,verified
 002594,比亚迪,SZ,深圳证券交易所,002594.SZ,byd_financial_history.csv,2022,2024,3,2026-07-31,verified
+000333,美的集团,SZ,深圳证券交易所,000333.SZ,midea_financial_history.csv,2023,2025,3,2026-08-03,verified

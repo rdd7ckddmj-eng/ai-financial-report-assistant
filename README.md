@@ -131,8 +131,8 @@ secret environment settings. It must never be committed to the repository.
 - Present two explicit coverage layers on the home page: on-demand identity,
   market, disclosure, and annual-report entry points for Shanghai, Shenzhen,
   and Beijing listed-company codes when public sources are available; plus a
-  source-controlled audited catalogue of five deep-dive companies, 18
-  financial periods, and 20 publication vintages. The site clearly states
+  source-controlled audited catalogue of six deep-dive companies, 21
+  financial periods, and 23 publication vintages. The site clearly states
   that it is not a real-time trading terminal or commercial data substitute.
 - Keep up to six recently researched companies and five self-selected companies
   in the visitor's own browser. The shortcuts require no login or server-side
@@ -252,7 +252,7 @@ secret environment settings. It must never be committed to the repository.
 - Offer three manually verified Guizhou Moutai flagship dates with direct
   Shanghai Stock Exchange or company-source links, while keeping free date
   selection available.
-- Show verified Guizhou Moutai, Wuliangye, Luzhou Laojiao, CATL, and BYD multi-year financial trends with
+- Show verified Guizhou Moutai, Wuliangye, Luzhou Laojiao, CATL, BYD, and Midea multi-year financial trends with
   revenue, attributable net profit, operating cash flow, assets, liabilities, annual
   report pages, publication vintages, net margin, cash-to-profit conversion,
   and liabilities-to-assets. A later restatement replaces the original figure
@@ -262,7 +262,7 @@ secret environment settings. It must never be committed to the repository.
   profit-operating-cash direction alignment, highlights restated vintages,
   and keeps every annual-report link and evidence page visible. Coverage now
   includes Guizhou Moutai, Wuliangye, and Luzhou Laojiao for 2022-2025 plus
-  CATL and BYD for 2022-2024; other
+  CATL and BYD for 2022-2024, plus Midea for 2023-2025; other
   companies remain unavailable until they pass the same page-level verification. A
   source-controlled onboarding catalogue now discovers approved companies
   without hard-coded page changes and rejects identity, exchange, year-range,
@@ -273,8 +273,8 @@ secret environment settings. It must never be committed to the repository.
   and links each displayed row back to its official annual report and pages.
   A separate audited industry catalogue preserves each annual-report label,
   source page, and narrower research peer tag. The current default view spans
-  three research groups. Baijiu now has a three-company peer-group candidate,
-  while the default five-company view remains cross-industry and
+  four research groups. Baijiu now has a three-company peer-group candidate,
+  while the default six-company view remains cross-industry and
   never produces a composite quality score.
 - Add a baijiu-only 2023-2025 operating-quality panel for Guizhou Moutai,
   Wuliangye, and Luzhou Laojiao. It calculates consolidated gross margin,

@@ -24,6 +24,7 @@ def test_standardised_catalog_accepts_all_verified_companies() -> None:
         "000568",
         "300750",
         "002594",
+        "000333",
     ]
     assert [case["canonical_code"] for case in cases] == [
         "600519.SH",
@@ -31,11 +32,12 @@ def test_standardised_catalog_accepts_all_verified_companies() -> None:
         "000568.SZ",
         "300750.SZ",
         "002594.SZ",
+        "000333.SZ",
     ]
     assert audit == {
-        "company_count": 5,
-        "financial_period_count": 18,
-        "publication_vintage_count": 20,
+        "company_count": 6,
+        "financial_period_count": 21,
+        "publication_vintage_count": 23,
         "all_checks_passed": True,
         "cases": cases,
     }
@@ -113,6 +115,7 @@ def test_verified_catl_history_has_three_audited_years() -> None:
         "000568",
         "300750",
         "002594",
+        "000333",
     )
     assert [record["period_year"] for record in records] == [
         2022,
@@ -257,6 +260,61 @@ def test_byd_history_preserves_cutoffs_and_calculates_latest_ratios() -> None:
     )
     assert latest["liabilities_to_assets"] == pytest.approx(
         584_667_646_000 / 783_355_855_000
+    )
+
+
+def test_verified_midea_history_has_three_page_linked_years() -> None:
+    records = load_verified_financial_history("000333")
+
+    assert [record["period_year"] for record in records] == [
+        2023,
+        2024,
+        2025,
+    ]
+    assert [record["summary_page"] for record in records] == [9, 9, 8]
+    assert [record["balance_sheet_page"] for record in records] == [
+        159,
+        156,
+        132,
+    ]
+    assert all(record["company_name"] == "美的集团" for record in records)
+    assert all(record["evidence_grade"] == "A" for record in records)
+    assert all(record["accounting_basis"] == "reported" for record in records)
+    assert all(
+        record["source_url"].startswith(
+            "https://static.cninfo.com.cn/finalpage/"
+        )
+        for record in records
+    )
+
+
+def test_midea_history_preserves_cutoffs_and_calculates_latest_ratios() -> None:
+    records = load_verified_financial_history("000333")
+
+    before_2024_report = select_financial_history_as_of(
+        records,
+        "2025-03-28",
+    )
+    complete = select_financial_history_as_of(records, "2026-03-31")
+
+    assert [
+        point["period_year"] for point in before_2024_report["points"]
+    ] == [2023]
+    assert complete["future_vintage_count"] == 0
+    assert complete["restatement_count"] == 0
+    latest = complete["points"][-1]
+    assert latest["revenue"] == pytest.approx(456_451_731_000)
+    assert latest["revenue_growth"] == pytest.approx(
+        456_451_731_000 / 407_149_600_000 - 1
+    )
+    assert latest["net_profit_growth"] == pytest.approx(
+        43_945_411_000 / 38_537_237_000 - 1
+    )
+    assert latest["operating_cash_flow_growth"] == pytest.approx(
+        53_345_930_000 / 60_511_572_000 - 1
+    )
+    assert latest["liabilities_to_assets"] == pytest.approx(
+        372_367_543_000 / 608_791_766_000
     )
 
 

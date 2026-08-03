@@ -86,8 +86,11 @@ render_home_page()
     assert "RESEARCH PIPELINE" in home_markup
     assert "FANGZHENG AI" in home_markup
     assert "A 股按需研究层" in home_markup
-    assert "5 家公司 · 18 个财务期间 · 20 个发布版本" in home_markup
-    assert "贵州茅台 · 五粮液 · 泸州老窖 · 宁德时代 · 比亚迪" in home_markup
+    assert "6 家公司 · 21 个财务期间 · 23 个发布版本" in home_markup
+    assert (
+        "贵州茅台 · 五粮液 · 泸州老窖 · 宁德时代 · 比亚迪 · 美的集团"
+        in home_markup
+    )
     assert "不是实时交易终端或商业金融数据库的替代品" in home_markup
     assert len(app_test.button) == 4
 
@@ -1354,6 +1357,47 @@ app.render_financial_trend_page()
     assert app_test.selectbox[0].value == "比亚迪｜002594.SZ"
 
 
+def test_financial_trend_page_shows_midea_evidence_in_streamlit() -> None:
+    """Prove Midea appears through the verified catalogue only."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src import app
+
+company = {
+    "code": "000333",
+    "name": "美的集团",
+    "exchange": "SZ",
+    "exchange_name": "深圳证券交易所",
+    "canonical_code": "000333.SZ",
+}
+app._selected_company = lambda: company
+app._show_company_banner = lambda selected: None
+app.render_financial_trend_page()
+"""
+    app_test = AppTest.from_string(script).run()
+    visible_text = "\n".join(
+        str(item.value)
+        for group in (
+            app_test.title,
+            app_test.info,
+            app_test.success,
+            app_test.warning,
+            app_test.caption,
+            app_test.markdown,
+        )
+        for item in group
+    )
+
+    assert not app_test.exception
+    assert "美的集团" in visible_text
+    assert "标准化接入检查通过" in visible_text
+    assert "利润与经营现金方向不一致" in visible_text
+    assert len(app_test.metric) == 12
+    assert len(app_test.get("link_button")) == 3
+    assert app_test.selectbox[0].value == "美的集团｜000333.SZ"
+
+
 def test_financial_trend_page_shows_wuliangye_versions_in_streamlit() -> None:
     """Prove Wuliangye's four periods and five vintages render safely."""
     from streamlit.testing.v1 import AppTest
@@ -1396,7 +1440,7 @@ app.render_financial_trend_page()
 
 
 def test_cross_company_comparison_page_shows_common_year_evidence() -> None:
-    """Render the comparison page with all five audited companies."""
+    """Render the comparison page with all six audited companies."""
     from streamlit.testing.v1 import AppTest
 
     script = """
@@ -1421,7 +1465,7 @@ app.render_cross_company_comparison_page()
 
     assert not app_test.exception
     assert "跨公司横向比较工作台" in visible_text
-    assert "跨行业比较（3个研究组）" in visible_text
+    assert "跨行业比较（4个研究组）" in visible_text
     assert "行业证据与同行组状态" in visible_text
     assert "已建立同行组候选覆盖：白酒制造" in visible_text
     assert "共同年度检查通过" in visible_text
@@ -1432,10 +1476,11 @@ app.render_cross_company_comparison_page()
         "泸州老窖｜000568.SZ",
         "宁德时代｜300750.SZ",
         "比亚迪｜002594.SZ",
+        "美的集团｜000333.SZ",
     ]
     assert app_test.selectbox[0].value == 2024
     assert len(app_test.metric) == 4
-    assert len(app_test.get("link_button")) == 5
+    assert len(app_test.get("link_button")) == 6
 
 
 def test_cross_company_page_can_select_the_baijiu_peer_candidate() -> None:

@@ -14,8 +14,10 @@
 - [x] Connect a Market Radar candidate to the Comprehensive Research Agent with
       same-company session context, explicit re-verification, and no automatic
       external request on navigation.
-- [x] Separate broad on-demand A-share access from the five-company audited
+- [x] Separate broad on-demand A-share access from the audited
       deep-dive catalogue on the home page and state the product boundary.
+- [x] Promote Midea's 2023-2025 candidate package into the verified catalogue
+      after three-statement reconciliation and cross-report consistency checks.
 - [x] Add an offline-first company-code path, faster market-source order,
       parallel market/disclosure loading, shared one-hour caching, and visible
       comprehensive-run timing.

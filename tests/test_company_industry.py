@@ -19,12 +19,14 @@ def test_industry_catalog_preserves_page_level_annual_report_evidence() -> None:
         "000568",
         "300750",
         "002594",
+        "000333",
     ]
     assert all(profile["source_page"] > 0 for profile in profiles)
     assert all(profile["source_url"].startswith("https://") for profile in profiles)
     assert all(profile["evidence_grade"] == "A" for profile in profiles)
     assert [profile["exchange"] for profile in profiles] == [
         "SH",
+        "SZ",
         "SZ",
         "SZ",
         "SZ",
@@ -36,6 +38,13 @@ def test_industry_catalog_preserves_page_level_annual_report_evidence() -> None:
     )
     assert catl["disclosed_industry"] == "锂离子电池制造（C3841）"
     assert catl["source_page"] == 11
+    midea = next(
+        profile for profile in profiles
+        if profile["company_code"] == "000333"
+    )
+    assert midea["disclosed_industry"] == "家用电器行业"
+    assert midea["source_page"] == 50
+    assert "多元化业务" in midea["peer_group_name"]
 
 
 def test_industry_audit_exactly_covers_financial_catalog() -> None:
@@ -44,7 +53,7 @@ def test_industry_audit_exactly_covers_financial_catalog() -> None:
     audit = audit_company_industry_catalog(cases)
 
     assert audit["all_checks_passed"] is True
-    assert audit["profile_count"] == 5
+    assert audit["profile_count"] == 6
     baijiu = next(
         item for item in audit["coverage"]
         if item["peer_group_code"] == "baijiu"
@@ -62,9 +71,9 @@ def test_default_selection_is_cross_industry_not_a_peer_group() -> None:
 
     assessment = assess_peer_group(cases, profiles)
 
-    assert assessment["industry_group_count"] == 3
+    assert assessment["industry_group_count"] == 4
     assert assessment["is_same_peer_group"] is False
-    assert assessment["scope_label"] == "跨行业比较（3个研究组）"
+    assert assessment["scope_label"] == "跨行业比较（4个研究组）"
     assert "不含估值、预测或买卖建议" in assessment["limitation"]
 
 
