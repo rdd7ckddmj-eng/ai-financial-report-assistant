@@ -1,6 +1,9 @@
 # Current task board
 
 ## Now
+- [x] Add resumable one-click serial processing for all remaining onboarding
+      reports while keeping only one PDF in memory and preserving the human
+      approval gate.
 - [x] Add a bounded audited-company expansion Agent that discovers three
       official complete annual reports, processes one PDF at a time, checks
       three reconciled statements and units, surfaces restatement clues, and

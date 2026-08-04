@@ -38,6 +38,7 @@ from src.audited_company_onboarding import (
     CandidateReportResult,
     build_candidate_report_result,
     build_onboarding_package,
+    pending_annual_reports,
     select_recent_annual_reports,
     serialise_onboarding_package,
 )
@@ -6118,6 +6119,31 @@ def render_cross_company_comparison_page() -> None:
     show_product_footer()
 
 
+def _process_onboarding_report(
+    company: Mapping[str, object],
+    report: AnnualReportCandidate,
+) -> CandidateReportResult:
+    """Process one report and release its large temporary objects immediately."""
+    pdf_bytes: bytes | None = None
+    extracted_pages: list[ExtractedPage] | None = None
+    try:
+        pdf_bytes = download_official_pdf(
+            report["url"],
+            max_bytes=32 * 1024 * 1024,
+        )
+        extracted_pages = extract_pdf_pages(pdf_bytes)
+        return build_candidate_report_result(
+            company,
+            report,
+            pdf_bytes,
+            extracted_pages,
+        )
+    finally:
+        # Never keep a complete annual report in Streamlit session state.
+        del pdf_bytes, extracted_pages
+        gc.collect()
+
+
 def _show_onboarding_report_result(
     result: CandidateReportResult,
 ) -> None:
@@ -6362,23 +6388,28 @@ def render_company_onboarding_page() -> None:
             f"{selected_report['report_year']}"
         ),
     )
+    pending_reports = pending_annual_reports(typed_reports, typed_results)
+    batch_requested = st.button(
+        (
+            "自动串行核验全部剩余报告"
+            f"（{len(pending_reports)}份）"
+        ),
+        width="stretch",
+        disabled=not pending_reports,
+        key=f"process_all_onboarding_{company['canonical_code']}",
+    )
+    st.caption(
+        "批量模式仍然一次只处理一份PDF；每份完成后立即释放原文件，"
+        "同一浏览器会话内再次运行时会跳过已经成功的年度。"
+    )
     if process_requested:
-        pdf_bytes: bytes | None = None
-        extracted_pages: list[ExtractedPage] | None = None
         try:
             with st.spinner(
                 "正在临时下载PDF、核验三张报表并释放原始文件……"
             ):
-                pdf_bytes = download_official_pdf(
-                    selected_report["url"],
-                    max_bytes=32 * 1024 * 1024,
-                )
-                extracted_pages = extract_pdf_pages(pdf_bytes)
-                result = build_candidate_report_result(
+                result = _process_onboarding_report(
                     company,
                     selected_report,
-                    pdf_bytes,
-                    extracted_pages,
                 )
         except (DataSourceError, ValueError) as error:
             st.error(str(error))
@@ -6405,10 +6436,59 @@ def render_company_onboarding_page() -> None:
                     ),
                 }
             st.rerun()
-        finally:
-            # Long PDFs are intentionally not retained in session state.
-            del pdf_bytes, extracted_pages
-            gc.collect()
+
+    if batch_requested:
+        batch_progress = st.progress(
+            0.0,
+            text="准备按年度逐份核验……",
+        )
+        failures: list[tuple[int, str]] = []
+        completed_count = 0
+        for index, report in enumerate(pending_reports, start=1):
+            batch_progress.progress(
+                (index - 1) / len(pending_reports),
+                text=(
+                    f"正在核验 {report['report_year']} 年报告｜"
+                    f"第 {index} / {len(pending_reports)} 份"
+                ),
+            )
+            try:
+                result = _process_onboarding_report(company, report)
+            except (DataSourceError, ValueError) as error:
+                failures.append((report["report_year"], str(error)))
+            else:
+                typed_results[report["url"]] = result
+                # Save each compact result before the next large PDF starts.
+                raw_state["results"] = typed_results
+                st.session_state[state_key] = raw_state
+                completed_count += 1
+            batch_progress.progress(
+                index / len(pending_reports),
+                text=f"已处理 {index} / {len(pending_reports)} 份",
+            )
+
+        raw_state["results"] = typed_results
+        st.session_state[state_key] = raw_state
+        if failures:
+            failure_years = "、".join(
+                f"{year}年" for year, _ in failures
+            )
+            st.session_state[notice_key] = {
+                "level": "warning",
+                "message": (
+                    f"串行任务完成：成功 {completed_count} 份；"
+                    f"{failure_years} 未通过，已保留给人工复核。"
+                ),
+            }
+        else:
+            st.session_state[notice_key] = {
+                "level": "success",
+                "message": (
+                    f"已按顺序完成 {completed_count} 份年报核验；"
+                    "全程一次只处理一份PDF。"
+                ),
+            }
+        st.rerun()
 
     st.markdown("### 候选报告证据")
     for report in typed_reports:

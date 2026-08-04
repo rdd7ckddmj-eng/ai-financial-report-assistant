@@ -5,6 +5,7 @@ import pytest
 from src.audited_company_onboarding import (
     build_candidate_report_result,
     build_onboarding_package,
+    pending_annual_reports,
     select_recent_annual_reports,
     serialise_onboarding_package,
 )
@@ -103,6 +104,24 @@ def test_recent_report_selection_uses_three_distinct_chinese_reports() -> None:
 
     assert [item["report_year"] for item in reports] == [2025, 2024, 2023]
     assert reports[0]["url"].endswith("2025-zh.pdf")
+
+
+def test_pending_reports_skip_completed_years_and_keep_review_order() -> None:
+    reports = [_report(2025), _report(2024), _report(2023)]
+    results = {
+        str(reports[1]["url"]): _result(
+            2024,
+            current_base=100.0,
+            previous_base=90.0,
+        ),
+    }
+
+    pending = pending_annual_reports(
+        reports,  # type: ignore[arg-type]
+        results,  # type: ignore[arg-type]
+    )
+
+    assert [report["report_year"] for report in pending] == [2025, 2023]
 
 
 def test_candidate_report_requires_three_statements_and_matching_units(

@@ -224,6 +224,47 @@ render_company_onboarding_page()
     assert not app_test.download_button
 
 
+def test_audited_company_onboarding_offers_serial_batch_processing() -> None:
+    """Offer one action without parallelising memory-heavy PDF work."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_company_onboarding_page
+
+company = {
+    "code": "000001",
+    "name": "平安银行",
+    "exchange": "SZ",
+    "exchange_name": "深圳证券交易所",
+    "canonical_code": "000001.SZ",
+}
+st.session_state["selected_company"] = company
+st.session_state["audited_company_onboarding_state"] = {
+    "canonical_code": company["canonical_code"],
+    "reports": [
+        {
+            "report_year": year,
+            "published_date": f"{year + 1}-04-20",
+            "title": f"平安银行{year}年年度报告",
+            "url": f"https://static.cninfo.com.cn/{year}.pdf",
+        }
+        for year in (2025, 2024, 2023)
+    ],
+    "results": {},
+}
+render_company_onboarding_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    assert any(
+        button.label == "自动串行核验全部剩余报告（3份）"
+        and not button.disabled
+        for button in app_test.button
+    )
+
+
 def test_market_radar_handoff_stores_context_and_navigates() -> None:
     """Carry the radar evidence into a fresh comprehensive-research entry."""
     from streamlit.testing.v1 import AppTest

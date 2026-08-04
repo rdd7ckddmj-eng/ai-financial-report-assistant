@@ -132,6 +132,22 @@ def select_recent_annual_reports(
     return selected
 
 
+def pending_annual_reports(
+    reports: Iterable[AnnualReportCandidate],
+    results_by_url: Mapping[str, CandidateReportResult],
+) -> list[AnnualReportCandidate]:
+    """Return unprocessed reports in the original review order.
+
+    Keeping this decision deterministic lets the interface resume an
+    interrupted three-report task without downloading a completed PDF again.
+    """
+    return [
+        report
+        for report in reports
+        if report["url"] not in results_by_url
+    ]
+
+
 def _page_range(
     figures: Mapping[str, object] | None,
 ) -> dict[str, int] | None:

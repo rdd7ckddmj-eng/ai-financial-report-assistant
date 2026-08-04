@@ -273,6 +273,10 @@ secret environment settings. It must never be committed to the repository.
   source-controlled onboarding catalogue now discovers approved companies
   without hard-coded page changes and rejects identity, exchange, year-range,
   file-path, source-domain, page, amount, or accounting-version inconsistencies.
+  Candidate onboarding can process all remaining reports with one action, but
+  does so serially, releases each PDF before starting the next, resumes after
+  rerun within the same browser session, and still requires explicit human
+  approval before publication.
 - Explain the verified Midea 2025 and BYD 2024 revenue-profit-cash-flow
   divergences with separate 14-row and 18-row annual-report bridges. Both
   cases reconcile current and comparison-year operating cash flow, rank the
