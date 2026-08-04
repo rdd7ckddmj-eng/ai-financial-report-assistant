@@ -1,12 +1,17 @@
+import csv
 from datetime import datetime, timezone
+from io import StringIO
 
 import pytest
 
 from src.audited_company_onboarding import (
     build_candidate_report_result,
+    build_financial_history_draft_rows,
     build_onboarding_package,
     pending_annual_reports,
+    rmb_unit_multiplier,
     select_recent_annual_reports,
+    serialise_financial_history_draft,
     serialise_onboarding_package,
 )
 from src.china_stock import build_company_identity
@@ -227,3 +232,74 @@ def test_incomplete_package_is_not_presented_as_verified() -> None:
 
     assert package["status"] == "candidate_in_progress"
     assert package["processing"]["processed_report_count"] == 0
+
+
+@pytest.mark.parametrize(
+    ("unit", "expected"),
+    [
+        ("人民币元", 1.0),
+        ("人民币千元", 1_000.0),
+        ("万元", 10_000.0),
+        ("人民币百万元", 1_000_000.0),
+    ],
+)
+def test_rmb_unit_multiplier_supports_a_share_report_units(
+    unit: str,
+    expected: float,
+) -> None:
+    assert rmb_unit_multiplier(unit) == expected
+
+
+def test_rmb_unit_multiplier_rejects_unsupported_currency() -> None:
+    with pytest.raises(ValueError, match="不支持自动换算"):
+        rmb_unit_multiplier("美元")
+
+
+def test_financial_history_draft_converts_units_but_stays_candidate() -> None:
+    reports = [_report(2025), _report(2024), _report(2023)]
+    results = {
+        str(report["url"]): _result(
+            int(report["report_year"]),
+            current_base=float(index * 100),
+            previous_base=float((index - 1) * 100),
+        )
+        for index, report in enumerate(reversed(reports), start=1)
+    }
+    for result in results.values():
+        result["unit_check"]["units"] = [
+            "人民币千元",
+            "人民币千元",
+            "人民币千元",
+        ]
+    package = build_onboarding_package(
+        build_company_identity("000333", "美的集团"),
+        reports,  # type: ignore[arg-type]
+        results,  # type: ignore[arg-type]
+        generated_at=datetime(2026, 8, 4, tzinfo=timezone.utc),
+    )
+
+    rows = build_financial_history_draft_rows(package)
+    serialised = serialise_financial_history_draft(package)
+    csv_rows = list(csv.DictReader(StringIO(serialised)))
+
+    assert [row["period_year"] for row in rows] == [2023, 2024, 2025]
+    assert rows[0]["revenue"] == 100_000.0
+    assert rows[0]["verification_status"] == "candidate"
+    assert rows[0]["source_url"] == (
+        "https://static.cninfo.com.cn/2023.pdf"
+    )
+    assert csv_rows[0]["verification_status"] == "candidate"
+    assert "人民币千元并换算为人民币元" in csv_rows[0]["notes"]
+
+
+def test_financial_history_draft_rejects_incomplete_package() -> None:
+    reports = [_report(2025), _report(2024), _report(2023)]
+    package = build_onboarding_package(
+        build_company_identity("000333", "美的集团"),
+        reports,  # type: ignore[arg-type]
+        {},
+        generated_at=datetime(2026, 8, 4, tzinfo=timezone.utc),
+    )
+
+    with pytest.raises(ValueError, match="自动检查完成"):
+        build_financial_history_draft_rows(package)

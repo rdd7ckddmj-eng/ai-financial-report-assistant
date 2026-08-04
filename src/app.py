@@ -40,6 +40,7 @@ from src.audited_company_onboarding import (
     build_onboarding_package,
     pending_annual_reports,
     select_recent_annual_reports,
+    serialise_financial_history_draft,
     serialise_onboarding_package,
 )
 from src.balance_sheet_extractor import find_balance_sheet_figures
@@ -6587,6 +6588,32 @@ def render_company_onboarding_page() -> None:
     st.caption(
         "候选包明确记录 catalogue_written=false；下载不会自动修改网站数据库。"
     )
+    if package["status"] == "ready_for_human_review":
+        st.markdown("### 第四步：生成标准数据草稿")
+        st.warning(
+            "CSV 已按人民币元统一换算，但 verification_status 保持为 candidate。"
+            "正式数据加载器会拒绝它，直至人工完成复核并明确批准。"
+        )
+        try:
+            financial_history_draft = serialise_financial_history_draft(
+                package
+            )
+        except ValueError as error:
+            st.warning(str(error))
+        else:
+            st.download_button(
+                "下载标准财务历史CSV草稿",
+                data=financial_history_draft,
+                file_name=(
+                    f"{company['code']}_{company['name']}"
+                    "_financial_history_candidate.csv"
+                ),
+                mime="text/csv",
+                width="stretch",
+            )
+            st.caption(
+                "该文件只减少手工整理工作，不代表公司已经进入已核验目录。"
+            )
     show_product_footer()
 
 

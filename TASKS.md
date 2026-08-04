@@ -1,6 +1,9 @@
 # Current task board
 
 ## Now
+- [x] Convert a completed onboarding package into a production-shaped CSV
+      candidate with deterministic RMB-unit conversion, official PDF links,
+      page provenance, and a non-importable candidate status.
 - [x] Add resumable one-click serial processing for all remaining onboarding
       reports while keeping only one PDF in memory and preserving the human
       approval gate.

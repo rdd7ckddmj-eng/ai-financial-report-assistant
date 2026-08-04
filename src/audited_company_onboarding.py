@@ -7,17 +7,19 @@ human must review before the company is admitted to the audited catalogue.
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import math
 import re
 from collections.abc import Iterable, Mapping
 from datetime import date, datetime, timezone
+from io import StringIO
 from typing import TypedDict
 
 from src.balance_sheet_extractor import find_balance_sheet_figures
 from src.cash_flow_extractor import find_cash_flow_figures
-from src.china_stock import is_allowed_disclosure_url
+from src.china_stock import build_cninfo_pdf_url, is_allowed_disclosure_url
 from src.financial_statement_extractor import find_income_statement_figures
 
 
@@ -31,6 +33,38 @@ TRANSLATION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 REPORT_YEAR_PATTERN = re.compile(r"((?:19|20)\d{2})年年度报告")
+FINANCIAL_HISTORY_DRAFT_FIELDS = (
+    "company_code",
+    "company_name",
+    "period_year",
+    "report_year",
+    "published_date",
+    "report_title",
+    "source_url",
+    "revenue",
+    "net_profit",
+    "operating_cash_flow",
+    "total_assets",
+    "total_liabilities",
+    "summary_page",
+    "balance_sheet_page",
+    "evidence_grade",
+    "verification_status",
+    "accounting_basis",
+    "notes",
+)
+RMB_UNIT_MULTIPLIERS = {
+    "元": 1.0,
+    "人民币元": 1.0,
+    "千元": 1_000.0,
+    "人民币千元": 1_000.0,
+    "万元": 10_000.0,
+    "人民币万元": 10_000.0,
+    "百万元": 1_000_000.0,
+    "人民币百万元": 1_000_000.0,
+    "亿元": 100_000_000.0,
+    "人民币亿元": 100_000_000.0,
+}
 
 
 class AnnualReportCandidate(TypedDict):
@@ -463,3 +497,141 @@ def serialise_onboarding_package(package: Mapping[str, object]) -> str:
         indent=2,
         sort_keys=True,
     )
+
+
+def rmb_unit_multiplier(unit: object) -> float:
+    """Return a deterministic multiplier from one report unit to RMB yuan."""
+    normalised = re.sub(r"\s+", "", str(unit or "").strip())
+    multiplier = RMB_UNIT_MULTIPLIERS.get(normalised)
+    if multiplier is None:
+        raise ValueError(
+            "年报金额单位暂不支持自动换算，必须人工确认后再生成CSV草稿。"
+        )
+    return multiplier
+
+
+def _required_report_page(
+    result: CandidateReportResult,
+    statement_key: str,
+) -> int:
+    """Read one required page without inventing missing provenance."""
+    page_range = result["statement_pages"].get(statement_key)
+    if not isinstance(page_range, Mapping) or "start" not in page_range:
+        raise ValueError("候选报告缺少三张报表页码，不能生成CSV草稿。")
+    page = int(page_range["start"])
+    if page <= 0:
+        raise ValueError("候选报告页码无效，不能生成CSV草稿。")
+    return page
+
+
+def _normalised_rmb_value(
+    result: CandidateReportResult,
+    key: str,
+    multiplier: float,
+) -> float:
+    """Convert one extracted statement value to finite RMB yuan."""
+    raw_value = result["values"].get(key)
+    if raw_value is None:
+        raise ValueError("候选报告缺少核心财务数值，不能生成CSV草稿。")
+    value = float(raw_value) * multiplier
+    if not math.isfinite(value):
+        raise ValueError("候选报告包含无效财务数值，不能生成CSV草稿。")
+    return value
+
+
+def build_financial_history_draft_rows(
+    package: Mapping[str, object],
+) -> list[dict[str, object]]:
+    """Create standard candidate rows without granting verified status.
+
+    The output mirrors the production financial-history columns, but its
+    ``verification_status`` remains ``candidate``.  The production loader
+    therefore rejects it until a human completes the approval checklist.
+    """
+    if package.get("status") != "ready_for_human_review":
+        raise ValueError("只有自动检查完成的候选包才能生成CSV草稿。")
+    company = package.get("company")
+    processing = package.get("processing")
+    if not isinstance(company, Mapping) or not isinstance(processing, Mapping):
+        raise ValueError("候选包结构不完整，不能生成CSV草稿。")
+    raw_results = processing.get("results")
+    if not isinstance(raw_results, list) or not raw_results:
+        raise ValueError("候选包没有已处理年报，不能生成CSV草稿。")
+
+    restatement_count = int(package.get("restatement_clue_count", 0))
+    rows: list[dict[str, object]] = []
+    for raw_result in sorted(
+        raw_results,
+        key=lambda item: int(item["report_year"]),
+    ):
+        result: CandidateReportResult = raw_result
+        if result.get("status") != "ready_for_human_review":
+            raise ValueError("候选包仍有未通过自动检查的年报。")
+        unit_check = result["unit_check"]
+        units = unit_check.get("units", [])
+        if unit_check.get("passed") is not True or not isinstance(units, list):
+            raise ValueError("候选报告金额单位尚未通过一致性检查。")
+        multiplier = rmb_unit_multiplier(units[0] if units else None)
+        report_year = int(result["report_year"])
+        notes = (
+            f"{report_year}年度自动接入候选；原年报单位{units[0]}并换算为人民币元；"
+            "三表自动勾稽通过；仍须人工复核页码、合并口径和数值。"
+        )
+        if restatement_count:
+            notes += (
+                f"候选包另有{restatement_count}项跨报告差异线索，"
+                "正式接入前必须判断是否属于追溯调整。"
+            )
+        rows.append(
+            {
+                "company_code": str(company.get("code", "")),
+                "company_name": str(company.get("name", "")),
+                "period_year": report_year,
+                "report_year": report_year,
+                "published_date": result["published_date"],
+                "report_title": result["title"],
+                "source_url": build_cninfo_pdf_url(result["source_url"]),
+                "revenue": _normalised_rmb_value(
+                    result, "current_revenue", multiplier
+                ),
+                "net_profit": _normalised_rmb_value(
+                    result, "current_net_profit", multiplier
+                ),
+                "operating_cash_flow": _normalised_rmb_value(
+                    result, "current_operating_cash_flow", multiplier
+                ),
+                "total_assets": _normalised_rmb_value(
+                    result, "current_total_assets", multiplier
+                ),
+                "total_liabilities": _normalised_rmb_value(
+                    result, "current_total_liabilities", multiplier
+                ),
+                "summary_page": _required_report_page(
+                    result, "income_statement"
+                ),
+                "balance_sheet_page": _required_report_page(
+                    result, "balance_sheet"
+                ),
+                "evidence_grade": "A",
+                "verification_status": "candidate",
+                "accounting_basis": "reported",
+                "notes": notes,
+            }
+        )
+    return rows
+
+
+def serialise_financial_history_draft(
+    package: Mapping[str, object],
+) -> str:
+    """Serialise safe candidate rows with the production column order."""
+    rows = build_financial_history_draft_rows(package)
+    output = StringIO(newline="")
+    writer = csv.DictWriter(
+        output,
+        fieldnames=FINANCIAL_HISTORY_DRAFT_FIELDS,
+        lineterminator="\n",
+    )
+    writer.writeheader()
+    writer.writerows(rows)
+    return output.getvalue()

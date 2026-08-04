@@ -277,6 +277,10 @@ secret environment settings. It must never be committed to the repository.
   does so serially, releases each PDF before starting the next, resumes after
   rerun within the same browser session, and still requires explicit human
   approval before publication.
+  A completed candidate package can also export a production-shaped financial
+  history CSV with deterministic RMB-unit conversion, official PDF links and
+  statement pages. Its status remains `candidate`, so the verified loader will
+  reject it until a human approves the evidence and accounting treatment.
 - Explain the verified Midea 2025 and BYD 2024 revenue-profit-cash-flow
   divergences with separate 14-row and 18-row annual-report bridges. Both
   cases reconcile current and comparison-year operating cash flow, rank the
