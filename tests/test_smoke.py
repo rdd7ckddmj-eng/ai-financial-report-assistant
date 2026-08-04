@@ -83,9 +83,12 @@ render_home_page()
 
     assert not app_test.exception
     home_markup = "\n".join(item.value for item in app_test.markdown)
+    home_subheaders = "\n".join(
+        item.value for item in app_test.subheader
+    )
     assert "RESEARCH PIPELINE" in home_markup
     assert "FANGZHENG AI" in home_markup
-    assert "更快完成有证据的第一轮公司研究" in home_markup
+    assert "更快完成有证据的第一轮公司研究" in home_subheaders
     assert "把核心资料接到同一入口" in home_markup
     assert "把数据变成可继续核验的问题" in home_markup
     assert "输出一份可复核的研究底稿" in home_markup
