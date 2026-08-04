@@ -31,8 +31,8 @@ Build a web application that can:
     downloadable brief without hiding missing sources.
 18. build a three-report, page-linked candidate package for expanding the
     audited company catalogue while retaining a mandatory human approval gate.
-19. explain a verified financial-direction mismatch through an annual-report
-    cash-flow bridge while separating confirmed arithmetic from unresolved
+19. explain verified financial-direction mismatches through annual-report
+    cash-flow bridges while separating confirmed arithmetic from unresolved
     business causes.
 
 ## Product specifications
@@ -273,6 +273,11 @@ secret environment settings. It must never be committed to the repository.
   source-controlled onboarding catalogue now discovers approved companies
   without hard-coded page changes and rejects identity, exchange, year-range,
   file-path, source-domain, page, amount, or accounting-version inconsistencies.
+- Explain the verified Midea 2025 and BYD 2024 revenue-profit-cash-flow
+  divergences with separate 14-row and 18-row annual-report bridges. Both
+  cases reconcile current and comparison-year operating cash flow, rank the
+  contribution of each adjustment, adapt unresolved working-capital questions
+  to the observed directions, and export a source-linked offline report.
 - Provide a standalone Cross-Company Comparison workbench that finds the latest
   financial year shared by every selected verified company, keeps scale,
   growth, profitability, cash conversion, and balance-sheet structure separate,

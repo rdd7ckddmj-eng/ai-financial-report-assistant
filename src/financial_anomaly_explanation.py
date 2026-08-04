@@ -22,6 +22,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FINANCIAL_ANOMALY_EVIDENCE_PATH = (
     PROJECT_ROOT / "data" / "verified" / "financial_anomaly_evidence.csv"
 )
+BYD_FINANCIAL_ANOMALY_EVIDENCE_PATH = (
+    PROJECT_ROOT
+    / "data"
+    / "verified"
+    / "byd_financial_anomaly_evidence.csv"
+)
+FINANCIAL_ANOMALY_EVIDENCE_PATHS = (
+    FINANCIAL_ANOMALY_EVIDENCE_PATH,
+    BYD_FINANCIAL_ANOMALY_EVIDENCE_PATH,
+)
 REQUIRED_FIELDS = {
     "company_code",
     "company_name",
@@ -224,6 +234,29 @@ def load_financial_anomaly_evidence(
     return components
 
 
+def load_financial_anomaly_cases(
+    paths: Sequence[Path] = FINANCIAL_ANOMALY_EVIDENCE_PATHS,
+) -> list[list[CashFlowBridgeComponent]]:
+    """Load separate controlled cases without allowing duplicate identities."""
+    cases: list[list[CashFlowBridgeComponent]] = []
+    seen: set[tuple[str, int, int]] = set()
+    for path in paths:
+        components = load_financial_anomaly_evidence(path)
+        first = components[0]
+        identity = (
+            first["company_code"],
+            first["period_year"],
+            first["comparison_year"],
+        )
+        if identity in seen:
+            raise ValueError("财务异常案例不能重复。")
+        seen.add(identity)
+        cases.append(components)
+    if not cases:
+        raise ValueError("财务异常案例目录为空。")
+    return cases
+
+
 def _growth(current: float, comparison: float) -> float:
     if comparison == 0:
         raise ValueError("对比年度基数为零，无法计算同比。")
@@ -241,6 +274,58 @@ def _format_percent(value: float) -> str:
 
 def _format_100m(value: float) -> str:
     return f"{value / 100_000_000:,.2f} 亿元"
+
+
+def _build_unresolved_questions(
+    drivers: Sequence[CashFlowBridgeDriver],
+) -> list[str]:
+    """Turn bridge directions into questions, never unsupported causes."""
+    by_code = {item["component_code"]: item for item in drivers}
+    questions: list[str] = []
+    payables = by_code.get("operating_payables")
+    if payables and payables["change_contribution"] < 0:
+        questions.append(
+            "经营性应付项目增加额为什么明显低于上年？"
+            "需进一步拆分应付账款、应付票据、合同负债、"
+            "其他经营性应付与结算时点。"
+        )
+    elif payables:
+        questions.append(
+            "经营性应付项目对现金流的同比支撑为什么增强？"
+            "需进一步拆分应付账款、应付票据、合同负债、"
+            "其他经营性应付与结算时点。"
+        )
+    questions.append(
+        (
+            "该变化是否受业务结构、并表范围或供应链结算政策影响？"
+            "需回到相关科目附注和管理层讨论核查。"
+        )
+    )
+
+    inventory = by_code.get("inventory_change")
+    receivables = by_code.get("operating_receivables")
+    if inventory and inventory["change_contribution"] < 0:
+        questions.append(
+            "存货增加对经营现金流的占用为什么扩大？"
+            "需核查原材料、在产品、产成品、周转速度与减值附注。"
+        )
+    elif inventory:
+        questions.append(
+            "存货对经营现金流的同比改善是否可持续？"
+            "需结合存货结构、周转速度与减值附注继续跟踪。"
+        )
+
+    if receivables and receivables["change_contribution"] < 0:
+        questions.append(
+            "经营性应收项目的现金占用为什么扩大？"
+            "需核查应收账款、应收票据、合同资产与客户结算条款。"
+        )
+    elif receivables:
+        questions.append(
+            "经营性应收项目对现金流的同比改善是否可持续？"
+            "需结合应收结构、账龄与结算条款继续跟踪。"
+        )
+    return questions
 
 
 def build_financial_anomaly_review(
@@ -394,21 +479,7 @@ def build_financial_anomaly_review(
         "reconciliation_passed": True,
         "drivers": drivers,
         "confirmed_findings": confirmed_findings,
-        "unresolved_questions": [
-            (
-                "经营性应付项目增加额为什么明显低于上年？"
-                "需进一步拆分应付账款、应付票据、合同负债、"
-                "其他经营性应付与结算时点。"
-            ),
-            (
-                "该变化是否受业务结构、并表范围或供应链结算政策影响？"
-                "需回到相关科目附注和管理层讨论核查。"
-            ),
-            (
-                "存货和经营性应收项目对现金流的同比改善是否可持续？"
-                "需结合细分附注与下期报告继续跟踪。"
-            ),
-        ],
+        "unresolved_questions": _build_unresolved_questions(drivers),
         "report_title": first["report_title"],
         "source_url": first["source_url"],
         "source_page": first["source_page"],

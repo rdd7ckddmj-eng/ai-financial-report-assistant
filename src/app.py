@@ -97,7 +97,7 @@ from src.financial_history import (
 )
 from src.financial_anomaly_explanation import (
     build_financial_anomaly_review,
-    load_financial_anomaly_evidence,
+    load_financial_anomaly_cases,
 )
 from src.financial_anomaly_report import (
     build_financial_anomaly_report_html,
@@ -5437,29 +5437,41 @@ def render_financial_anomaly_explanation_page() -> None:
     )
 
     try:
-        components = load_financial_anomaly_evidence()
-        company_code = components[0]["company_code"]
-        points = select_financial_history_as_of(
-            load_verified_financial_history(company_code),
-            date.today(),
-        )["points"]
-        review = build_financial_anomaly_review(points, components)
+        reviews = []
+        for components in load_financial_anomaly_cases():
+            company_code = components[0]["company_code"]
+            points = select_financial_history_as_of(
+                load_verified_financial_history(company_code),
+                date.today(),
+            )["points"]
+            reviews.append(
+                build_financial_anomaly_review(points, components)
+            )
     except ValueError as error:
         st.error(f"财务异常证据未通过检查：{error}")
         show_product_footer()
         return
 
-    case_label = (
-        f"{review['company_name']}｜{review['canonical_code']}｜"
-        f"{review['period_year']} 年经营现金流背离"
-    )
-    st.selectbox(
+    case_options = {
+        (
+            f"{item['company_name']}｜{item['canonical_code']}｜"
+            f"{item['period_year']} 年经营现金流背离"
+        ): item
+        for item in reviews
+    }
+    selected_case = st.selectbox(
         "选择已核验异常案例",
-        options=[case_label],
+        options=list(case_options),
         key="financial_anomaly_case_selector",
     )
+    review = case_options[selected_case]
     st.info(
-        "第一个受控案例为美的集团 2025 年。"
+        f"当前收录 {len(reviews)} 个受控案例："
+        + "、".join(
+            f"{item['company_name']} {item['period_year']} 年"
+            for item in reviews
+        )
+        + "。"
         "运行时不下载整份 PDF，不需要付费 API。"
     )
 
@@ -5491,7 +5503,10 @@ def render_financial_anomaly_explanation_page() -> None:
     trace_columns = st.columns(4)
     trace_items = (
         ("① 异常扫描", "方向背离规则已触发"),
-        ("② 年报勾稽", "14 项调节数据与经营现金一致"),
+        (
+            "② 年报勾稽",
+            f"{len(review['drivers'])} 项调节数据与经营现金一致",
+        ),
         ("③ 贡献排名", "按同比影响绝对值排序"),
         ("④ 边界审计", "业务原因留在待核查区"),
     )

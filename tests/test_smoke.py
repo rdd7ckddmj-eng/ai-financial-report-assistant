@@ -1439,6 +1439,8 @@ finally:
     assert not app_test.exception
     assert "财务异常解释 Agent" in visible_text
     assert "美的集团 2025 年" in visible_text
+    assert "比亚迪 2024 年" in visible_text
+    assert "当前收录 2 个受控案例" in visible_text
     assert "已证实" in visible_text
     assert "待进一步核查" in visible_text
     assert "年报第 233 页" in visible_text
@@ -1455,6 +1457,63 @@ finally:
     assert app_test.selectbox[0].value == (
         "美的集团｜000333.SZ｜2025 年经营现金流背离"
     )
+    assert list(app_test.selectbox[0].options) == [
+        "美的集团｜000333.SZ｜2025 年经营现金流背离",
+        "比亚迪｜002594.SZ｜2024 年经营现金流背离",
+    ]
+
+
+def test_financial_anomaly_page_switches_to_verified_byd_bridge() -> None:
+    """Select the second case without requesting the live annual report."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src import app
+
+app.st.session_state["financial_anomaly_case_selector"] = (
+    "比亚迪｜002594.SZ｜2024 年经营现金流背离"
+)
+real_download_button = app.st.download_button
+
+def capture_download(label, **kwargs):
+    app.st.session_state["byd_anomaly_download_test"] = {
+        "file_name": kwargs["file_name"],
+        "byte_count": len(kwargs["data"]),
+    }
+
+try:
+    app.st.download_button = capture_download
+    app.render_financial_anomaly_explanation_page()
+finally:
+    app.st.download_button = real_download_button
+"""
+    app_test = AppTest.from_string(script).run()
+    visible_text = "\n".join(
+        str(item.value)
+        for group in (
+            app_test.title,
+            app_test.info,
+            app_test.success,
+            app_test.warning,
+            app_test.caption,
+            app_test.subheader,
+            app_test.markdown,
+        )
+        for item in group
+    )
+
+    assert not app_test.exception
+    assert app_test.selectbox[0].value == (
+        "比亚迪｜002594.SZ｜2024 年经营现金流背离"
+    )
+    assert "年报第 239 页" in visible_text
+    assert "18 项调节数据与经营现金一致" in visible_text
+    assert "存货增加对经营现金流的占用为什么扩大" in visible_text
+    download = app_test.session_state["byd_anomaly_download_test"]
+    assert download["file_name"] == (
+        "002594_2024_financial_anomaly_explanation.html"
+    )
+    assert download["byte_count"] > 1_000
 
 
 def test_financial_trend_page_shows_wuliangye_versions_in_streamlit() -> None:
