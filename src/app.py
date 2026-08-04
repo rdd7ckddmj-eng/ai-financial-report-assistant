@@ -1389,21 +1389,22 @@ def show_product_identity() -> None:
             <div class="wfz-hero-grid">
                 <div>
                     <div class="wfz-kicker">
-                        FANGZHENG AI · EVIDENCE-FIRST RESEARCH
+                        FANGZHENG AI · FROM TICKER TO TRACEABLE RESEARCH
                     </div>
                     <h1 class="wfz-title">
-                        中国上市公司<br><span>自主研究 Agent</span>
+                        从一个股票代码开始<br><span>完成一轮可追溯公司研究</span>
                     </h1>
                     <p class="wfz-subtitle">
-                        面向中国 A 股的低成本、证据优先研究工作流。市场广度层
-                        按需读取公开行情与公告，深度层只展示已完成核验的年报
-                        案例；Python 负责透明计算，原始链接和 PDF 页码保证追溯。
+                        面向个人投资者、初级分析人员和金融学生的 A 股初步研究
+                        工作台。输入公司名称或股票代码，系统把分散在行情、公告
+                        和年报中的公开信息接成一条研究链，计算关键指标、指出
+                        值得继续核验的问题，并形成附来源的研究底稿。
                     </p>
                     <div class="wfz-badges">
-                        <span class="wfz-badge">沪深北按需研究</span>
-                        <span class="wfz-badge">分层覆盖</span>
-                        <span class="wfz-badge">PYTHON 数值验证</span>
-                        <span class="wfz-badge">PDF 页码溯源</span>
+                        <span class="wfz-badge">一个代码统一入口</span>
+                        <span class="wfz-badge">官方公开资料</span>
+                        <span class="wfz-badge">PYTHON 确定性计算</span>
+                        <span class="wfz-badge">来源与页码溯源</span>
                         <span class="wfz-badge">不提供投资建议</span>
                     </div>
                     <div class="wfz-author">
@@ -1426,26 +1427,26 @@ def show_product_identity() -> None:
                     <div class="wfz-terminal-row">
                         <span class="wfz-terminal-index">01</span>
                         <div>
-                            <div class="wfz-terminal-label">公开数据接入</div>
-                            <div class="wfz-terminal-detail">行情 · 公告 · 年报</div>
+                            <div class="wfz-terminal-label">建立标的档案</div>
+                            <div class="wfz-terminal-detail">身份 · 行情 · 公告 · 年报</div>
                         </div>
-                        <span class="wfz-terminal-status">SOURCE</span>
+                        <span class="wfz-terminal-status">COLLECT</span>
                     </div>
                     <div class="wfz-terminal-row">
                         <span class="wfz-terminal-index">02</span>
                         <div>
-                            <div class="wfz-terminal-label">确定性计算</div>
-                            <div class="wfz-terminal-detail">指标 · 异动 · 横向比较</div>
+                            <div class="wfz-terminal-label">分析并提出问题</div>
+                            <div class="wfz-terminal-detail">指标 · 异动 · 趋势 · 比较</div>
                         </div>
-                        <span class="wfz-terminal-status">PYTHON</span>
+                        <span class="wfz-terminal-status">ANALYSE</span>
                     </div>
                     <div class="wfz-terminal-row">
                         <span class="wfz-terminal-index">03</span>
                         <div>
-                            <div class="wfz-terminal-label">证据审计</div>
-                            <div class="wfz-terminal-detail">页码 · 时点 · 局限</div>
+                            <div class="wfz-terminal-label">形成可复核底稿</div>
+                            <div class="wfz-terminal-detail">发现 · 来源 · 页码 · 局限</div>
                         </div>
-                        <span class="wfz-terminal-status">VERIFIED</span>
+                        <span class="wfz-terminal-status">DELIVER</span>
                     </div>
                 </aside>
             </div>
@@ -1456,37 +1457,87 @@ def show_product_identity() -> None:
 
 
 def show_home_capabilities() -> None:
-    """Present the product's three research principles as one clear system."""
+    """Explain the three connected jobs completed by the product."""
     st.markdown(
         """
+        <div class="wfz-section-label">
+            网站能完成什么 · WHAT IT DOES
+        </div>
         <div class="wfz-capability-grid">
             <article class="wfz-capability">
-                <div class="wfz-capability-number">01 / SOURCE</div>
-                <h3>官方披露优先</h3>
+                <div class="wfz-capability-number">01 / COLLECT</div>
+                <h3>把核心资料接到同一入口</h3>
                 <p>
-                    以巨潮资讯和交易所公开信息为主要来源，保留公告日期、
-                    标题和原始链接。
+                    核验公司身份，按需连接公开行情、官方公告和年度报告，
+                    减少在多个网站之间反复检索和整理。
                 </p>
             </article>
             <article class="wfz-capability">
-                <div class="wfz-capability-number">02 / CALCULATION</div>
-                <h3>Python 透明计算</h3>
+                <div class="wfz-capability-number">02 / ANALYSE</div>
+                <h3>把数据变成可继续核验的问题</h3>
                 <p>
-                    财务比率、收益率、波动率和最大回撤均由确定性代码计算，
-                    不交给 AI 猜测。
+                    用 Python 计算财务趋势、收益、波动、成交和异动，
+                    再由 Agent 连接公告、年报和历史情境进行质疑与解释。
                 </p>
             </article>
             <article class="wfz-capability">
-                <div class="wfz-capability-number">03 / AUDIT</div>
-                <h3>证据可以追溯</h3>
+                <div class="wfz-capability-number">03 / DELIVER</div>
+                <h3>输出一份可复核的研究底稿</h3>
                 <p>
-                    研究结果保留年报页码、数据来源和验证状态，
-                    并明确展示证据不足之处。
+                    汇总关键发现、反方问题、来源链接、年报页码和证据缺口，
+                    支持下载后继续核验、比较、复盘或与他人讨论。
                 </p>
             </article>
         </div>
         """,
         unsafe_allow_html=True,
+    )
+
+
+def show_home_value_proposition() -> None:
+    """State the research problem, user outcome, and defensible advantages."""
+    st.markdown(
+        '<div class="wfz-section-label">'
+        "产品用途与客户价值 · PURPOSE & VALUE"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    st.subheader("更快完成有证据的第一轮公司研究")
+    st.write(
+        "上市公司资料分散、年报篇幅长，而普通 AI 回答又可能混淆来源或"
+        "生成无法核对的数字。本产品的目的，是把“寻找资料、计算指标、"
+        "提出问题、回到原文核验、整理研究结果”连成一条统一流程。"
+    )
+    st.info(
+        "用户最终得到的不是一个简单的‘好或不好’，而是一份知道数字从"
+        "哪里来、哪些判断已有证据、哪些问题仍需继续调查的研究底稿。"
+    )
+    benefit_columns = st.columns(3)
+    with benefit_columns[0].container(border=True):
+        st.markdown("#### 减少前期资料整理")
+        st.write(
+            "用一个公司名称或代码进入统一研究流程，减少重复搜索、复制和"
+            "手工计算，把时间留给真正的判断。"
+        )
+    with benefit_columns[1].container(border=True):
+        st.markdown("#### 降低错误与遗漏风险")
+        st.write(
+            "数字由规则计算，结论保留来源和页码；数据不足或来源失败时"
+            "明确提示，不把缺失值伪装成确定答案。"
+        )
+    with benefit_columns[2].container(border=True):
+        st.markdown("#### 让研究可以复核和复用")
+        st.write(
+            "同一套框架可用于不同公司、不同年份和历史时点，方便比较、"
+            "复盘、团队讨论和后续深入研究。"
+        )
+
+    st.markdown("#### 本产品真正的优势")
+    st.write(
+        "优势不在于拥有比 Wind 等商业数据库更多的数据，而在于把公开资料"
+        "转化为一条透明、低成本、可审计的研究工作流：官方披露优先；"
+        "Python 负责数字，AI 只负责基于证据解释和质疑；历史回看隔离未来"
+        "信息；任何一条数据链失败都不会被 AI 猜测补齐。"
     )
 
 
@@ -2881,6 +2932,9 @@ def render_home_page() -> None:
     show_product_identity()
     show_chinese_user_guide()
 
+    show_home_value_proposition()
+    show_home_capabilities()
+
     st.markdown(
         '<div class="wfz-section-label">'
         "开始研究 · START RESEARCH"
@@ -2928,9 +2982,6 @@ def render_home_page() -> None:
 
     st.divider()
     _render_local_research_hub()
-
-    st.divider()
-    show_home_capabilities()
 
     st.markdown(
         '<div class="wfz-section-label">'
@@ -5235,9 +5286,12 @@ def render_methodology_page() -> None:
     with st.container(border=True):
         st.subheader("产品用途")
         st.write(
-            "本产品面向上市公司基本面研究、教育和求职作品集展示。"
-            "所有结论均需结合原始公告、行业背景和个人风险承受能力判断，"
-            "不提供个性化投资建议。"
+            "本产品帮助个人投资者、初级分析人员和金融学生完成上市公司"
+            "第一轮研究：从一个公司名称或股票代码开始，连接公开行情、"
+            "公告和年报，计算关键指标，识别值得继续核验的问题，并输出"
+            "附有来源、页码和证据缺口的研究底稿。它减少前期资料整理与"
+            "重复计算，让研究过程更一致、更容易复核，但不替代商业数据库、"
+            "专业判断或尽职调查，也不提供个性化投资建议。"
         )
     show_chinese_user_guide()
     show_product_footer()

@@ -85,6 +85,11 @@ render_home_page()
     home_markup = "\n".join(item.value for item in app_test.markdown)
     assert "RESEARCH PIPELINE" in home_markup
     assert "FANGZHENG AI" in home_markup
+    assert "更快完成有证据的第一轮公司研究" in home_markup
+    assert "把核心资料接到同一入口" in home_markup
+    assert "把数据变成可继续核验的问题" in home_markup
+    assert "输出一份可复核的研究底稿" in home_markup
+    assert "优势不在于拥有比 Wind 等商业数据库更多的数据" in home_markup
     assert "A 股按需研究层" in home_markup
     assert "6 家公司 · 21 个财务期间 · 23 个发布版本" in home_markup
     assert (

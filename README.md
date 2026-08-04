@@ -4,6 +4,14 @@ A Chinese-first portfolio product combining listed-company research,
 financial analysis, public market data, annual-report evidence, and auditable
 Agent workflows.
 
+Its purpose is to help retail investors, junior analysts, and finance students
+complete a traceable first-pass review of a mainland listed company. Starting
+from one company name or stock code, it connects public market data, official
+disclosures, and annual-report evidence; performs deterministic calculations;
+surfaces questions that need further verification; and produces a source-linked
+research workpaper. It competes on transparent workflow and auditability rather
+than commercial-database breadth or investment predictions.
+
 ## Project objective
 
 Build a web application that can:
