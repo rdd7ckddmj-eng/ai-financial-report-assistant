@@ -45,6 +45,9 @@ Build a web application that can:
 20. revisit a company through an Evidence Delta Agent that compares official
     disclosures with a device-local checkpoint and exports a source-linked
     change brief without a login or server-side user database.
+21. maintain a human-reviewed Research Thesis Ledger that records a falsifiable
+    hypothesis, confirmation and invalidation criteria, topic-matched official
+    evidence, and an explicit review state without letting AI infer direction.
 
 ## Product specifications
 
@@ -92,6 +95,9 @@ Build a web application that can:
 - [Evidence Delta Agent](docs/EVIDENCE_DELTA_AGENT_SPEC.md) defines the
   device-local checkpoint, bounded official-disclosure window, neutral change
   categories, same-day uncertainty, and non-advisory boundary.
+- [Research Thesis Ledger](docs/RESEARCH_THESIS_LEDGER_SPEC.md) defines the
+  device-local record, human-only direction decision, official-link validation,
+  export, privacy boundary, and future account migration path.
 
 ## Development principles
 
@@ -155,10 +161,12 @@ secret environment settings. It must never be committed to the repository.
   financial periods, and 23 publication vintages. The site clearly states
   that it is not a real-time trading terminal or commercial data substitute.
 - Keep up to six recently researched companies, five self-selected companies,
-  and five evidence-check timestamps in the visitor's own browser. The
-  shortcuts and evidence checkpoints require no login or server-side user
-  database, store only public company identity and access timestamps, and
-  disappear when the visitor clears this site's browser data. The saved local
+  five evidence-check timestamps, and ten human-authored research hypotheses in
+  the visitor's own browser. These records require no login or server-side user
+  database and disappear when the visitor clears this site's browser data.
+  Thesis records are sent into the current application session for display and
+  export but are not written to a server database; the interface warns users not
+  to enter positions, inside information, client data, or other secrets. The saved local
   watchlist also pre-fills the bounded Market Radar and can be scanned with one
   click without re-entering stock codes. Market Radar checks at most three
   companies concurrently, reports measured scan time, and isolates failures by
@@ -212,6 +220,12 @@ secret environment settings. It must never be committed to the repository.
   does not expose a reliable publication time. The request is capped at 365
   days, accepts only validated official disclosure domains, groups changes into
   five research questions, and exports a portable HTML brief.
+- Maintain a Research Thesis Ledger for one selected company. Each record must
+  state a falsifiable hypothesis, confirmation criteria, and invalidation
+  criteria. Recent Evidence Delta items can be matched by topic, but only the
+  user can label the hypothesis as pending, provisionally supported, challenged
+  by contrary evidence, or invalidated. Official links are allowlisted and the
+  human-reviewed ledger exports as a safe standalone HTML workpaper.
 - Find the latest complete annual report while excluding summaries, inquiry
   letters, cancellations, and replies; prefer the Chinese original over a
   later translation for the same reporting year.

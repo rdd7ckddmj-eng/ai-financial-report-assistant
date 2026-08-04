@@ -831,3 +831,30 @@ labels those records “same-day recheck” instead of claiming that all of them
 are definitely new. The request is capped at 365 days and 100 retained items;
 older or larger ranges are disclosed as limits rather than silently presented
 as complete.
+
+## 2026-08-04 — Human-reviewed Research Thesis Ledger
+
+### What I built or changed
+
+Added a device-local ledger that connects a selected company, a falsifiable
+research hypothesis, confirmation and invalidation criteria, a human-assigned
+review state, and one optional official disclosure. The ledger can reuse the
+latest Evidence Delta result, match announcements by topic, and export a safe
+standalone HTML workpaper.
+
+### One concept I can now explain
+
+A research Agent should not turn topic similarity into an investment conclusion.
+An announcement about financial results may be relevant to a cash-flow thesis,
+but only a human reading the underlying figures can decide whether it supports
+or challenges the hypothesis. Automation narrows the reading queue; it does not
+own the judgement.
+
+### Privacy and storage boundary
+
+The browser keeps at most ten hypotheses. They enter the current application
+session for rendering and export but are not written to a server database. The
+page therefore forbids positions, client data, inside information, and other
+sensitive material. A future login version must migrate authoritative records
+to access-controlled durable storage instead of treating browser storage as a
+cross-device database.

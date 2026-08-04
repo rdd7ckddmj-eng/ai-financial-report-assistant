@@ -5,12 +5,28 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse
 
 
-STORAGE_VERSION = 2
+STORAGE_VERSION = 3
 MAX_RECENT_RESEARCH = 6
 MAX_LOCAL_WATCHLIST = 5
 MAX_EVIDENCE_CHECKPOINTS = 5
+MAX_RESEARCH_THESES = 10
+
+THESIS_TOPICS = (
+    "财务与业绩",
+    "经营事项",
+    "资本运作",
+    "治理与风险",
+    "其他",
+)
+THESIS_STATUSES = (
+    "待核验",
+    "暂有证据支持",
+    "出现反方证据",
+    "已失效",
+)
 
 _COMPANY_FIELDS = (
     "code",
@@ -28,6 +44,7 @@ def empty_browser_research_state() -> dict[str, Any]:
         "recent": [],
         "watchlist": [],
         "evidence_checkpoints": [],
+        "research_theses": [],
         "last_command_id": None,
         "storage_status": "pending",
     }
@@ -126,6 +143,149 @@ def _normalise_checkpoint_list(value: object) -> list[dict[str, str]]:
     return result
 
 
+def _clean_text(
+    value: object,
+    *,
+    limit: int,
+    required: bool = False,
+) -> str | None:
+    if not isinstance(value, str):
+        return None if required else ""
+    cleaned = " ".join(value.split()).strip()[:limit]
+    if required and not cleaned:
+        return None
+    return cleaned
+
+
+def _is_iso_datetime(value: str) -> bool:
+    try:
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return True
+
+
+def _is_allowed_official_url(value: str) -> bool:
+    parsed = urlparse(value)
+    hostname = (parsed.hostname or "").lower()
+    allowed_hosts = (
+        "cninfo.com.cn",
+        "sse.com.cn",
+        "szse.cn",
+        "bse.cn",
+    )
+    return parsed.scheme in {"http", "https"} and any(
+        hostname == host or hostname.endswith(f".{host}")
+        for host in allowed_hosts
+    )
+
+
+def _normalise_research_thesis(value: object) -> dict[str, str] | None:
+    """Validate one browser-stored research hypothesis and review record."""
+    company = normalise_local_company(value)
+    if company is None or not isinstance(value, Mapping):
+        return None
+    thesis_id = _clean_text(value.get("thesis_id"), limit=80, required=True)
+    hypothesis = _clean_text(
+        value.get("hypothesis"),
+        limit=240,
+        required=True,
+    )
+    confirmation = _clean_text(
+        value.get("confirmation_criteria"),
+        limit=360,
+        required=True,
+    )
+    invalidation = _clean_text(
+        value.get("invalidation_criteria"),
+        limit=360,
+        required=True,
+    )
+    topic = value.get("topic")
+    status = value.get("status")
+    created_at = _clean_text(
+        value.get("created_at"),
+        limit=40,
+        required=True,
+    )
+    updated_at = _clean_text(
+        value.get("updated_at"),
+        limit=40,
+        required=True,
+    )
+    if (
+        thesis_id is None
+        or hypothesis is None
+        or confirmation is None
+        or invalidation is None
+        or topic not in THESIS_TOPICS
+        or status not in THESIS_STATUSES
+        or created_at is None
+        or updated_at is None
+        or not _is_iso_datetime(created_at)
+        or not _is_iso_datetime(updated_at)
+    ):
+        return None
+
+    company.update(
+        {
+            "thesis_id": thesis_id,
+            "hypothesis": hypothesis,
+            "confirmation_criteria": confirmation,
+            "invalidation_criteria": invalidation,
+            "topic": str(topic),
+            "status": str(status),
+            "created_at": created_at,
+            "updated_at": updated_at,
+        }
+    )
+    review_note = _clean_text(value.get("review_note"), limit=360)
+    if review_note:
+        company["review_note"] = review_note
+
+    evidence_title = _clean_text(value.get("evidence_title"), limit=300)
+    evidence_url = _clean_text(value.get("evidence_url"), limit=500)
+    evidence_date = _clean_text(value.get("evidence_date"), limit=10)
+    if (
+        evidence_title
+        and evidence_url
+        and evidence_date
+        and _is_allowed_official_url(evidence_url)
+    ):
+        try:
+            datetime.fromisoformat(evidence_date).date()
+        except ValueError:
+            pass
+        else:
+            company.update(
+                {
+                    "evidence_title": evidence_title,
+                    "evidence_url": evidence_url,
+                    "evidence_date": evidence_date,
+                }
+            )
+    return company
+
+
+def _normalise_thesis_list(value: object) -> list[dict[str, str]]:
+    if (
+        not isinstance(value, Sequence)
+        or isinstance(value, (str, bytes, bytearray))
+    ):
+        return []
+    result: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for raw in value:
+        thesis = _normalise_research_thesis(raw)
+        if thesis is None or thesis["thesis_id"] in seen:
+            continue
+        seen.add(thesis["thesis_id"])
+        result.append(thesis)
+        if len(result) >= MAX_RESEARCH_THESES:
+            break
+    return result
+
+
 def normalise_browser_research_state(value: object) -> dict[str, Any]:
     """Validate localStorage content before it reaches the product UI."""
     if not isinstance(value, Mapping):
@@ -154,6 +314,9 @@ def normalise_browser_research_state(value: object) -> dict[str, Any]:
         "evidence_checkpoints": _normalise_checkpoint_list(
             value.get("evidence_checkpoints")
         ),
+        "research_theses": _normalise_thesis_list(
+            value.get("research_theses")
+        ),
         "last_command_id": command_id,
         "storage_status": storage_status,
     }
@@ -179,6 +342,9 @@ def apply_browser_research_command(
             "record_research",
             "toggle_watchlist",
             "save_evidence_checkpoint",
+            "save_research_thesis",
+            "update_research_thesis",
+            "delete_research_thesis",
         }
         or company is None
     ):
@@ -186,12 +352,14 @@ def apply_browser_research_command(
 
     timestamp = command.get("timestamp")
     timestamp = timestamp[:40] if isinstance(timestamp, str) else ""
-    if action == "save_evidence_checkpoint":
+    if action in {
+        "save_evidence_checkpoint",
+        "save_research_thesis",
+        "update_research_thesis",
+    }:
         if not timestamp:
             return current
-        try:
-            datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-        except ValueError:
+        if not _is_iso_datetime(timestamp):
             return current
     canonical_code = company["canonical_code"]
 
@@ -219,7 +387,7 @@ def apply_browser_research_command(
             ][:MAX_LOCAL_WATCHLIST]
         else:
             current["watchlist"] = existing
-    else:
+    elif action == "save_evidence_checkpoint":
         if timestamp:
             company["evidence_checked_at"] = timestamp
         checkpoints = [
@@ -231,6 +399,80 @@ def apply_browser_research_command(
             company,
             *checkpoints,
         ][:MAX_EVIDENCE_CHECKPOINTS]
+    elif action == "save_research_thesis":
+        candidate = {
+            **company,
+            "thesis_id": command.get("thesis_id"),
+            "hypothesis": command.get("hypothesis"),
+            "confirmation_criteria": command.get("confirmation_criteria"),
+            "invalidation_criteria": command.get("invalidation_criteria"),
+            "topic": command.get("topic"),
+            "status": "待核验",
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        }
+        thesis = _normalise_research_thesis(candidate)
+        if thesis is None:
+            return current
+        existing = [
+            item
+            for item in current["research_theses"]
+            if item["thesis_id"] != thesis["thesis_id"]
+        ]
+        current["research_theses"] = [
+            thesis,
+            *existing,
+        ][:MAX_RESEARCH_THESES]
+    elif action == "update_research_thesis":
+        thesis_id = _clean_text(
+            command.get("thesis_id"),
+            limit=80,
+            required=True,
+        )
+        status = command.get("status")
+        existing = next(
+            (
+                item
+                for item in current["research_theses"]
+                if item["thesis_id"] == thesis_id
+                and item["canonical_code"] == canonical_code
+            ),
+            None,
+        )
+        if existing is None or status not in THESIS_STATUSES:
+            return current
+        candidate = {
+            **existing,
+            "status": status,
+            "updated_at": timestamp,
+            "review_note": command.get("review_note"),
+            "evidence_title": command.get("evidence_title"),
+            "evidence_url": command.get("evidence_url"),
+            "evidence_date": command.get("evidence_date"),
+        }
+        thesis = _normalise_research_thesis(candidate)
+        if thesis is None:
+            return current
+        current["research_theses"] = [
+            thesis if item["thesis_id"] == thesis_id else item
+            for item in current["research_theses"]
+        ]
+    else:
+        thesis_id = _clean_text(
+            command.get("thesis_id"),
+            limit=80,
+            required=True,
+        )
+        if thesis_id is None:
+            return current
+        current["research_theses"] = [
+            item
+            for item in current["research_theses"]
+            if not (
+                item["thesis_id"] == thesis_id
+                and item["canonical_code"] == canonical_code
+            )
+        ]
 
     current["last_command_id"] = command_id[:80]
     current["storage_status"] = "available"

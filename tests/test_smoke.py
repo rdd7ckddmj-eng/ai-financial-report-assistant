@@ -134,6 +134,7 @@ render_research_workspace_page()
     button_labels = [button.label for button in app_test.button]
     assert "运行一键综合研究 Agent" in button_labels
     assert "核验上次研究后的新证据" in button_labels
+    assert "维护研究结论账本" in button_labels
     assert "进入市场异动 Agent" in button_labels
     assert "进入年报与证据分析" in button_labels
     assert "查看方法、证据与产品边界" in button_labels
@@ -165,6 +166,50 @@ render_evidence_delta_page()
     )
     info_text = "\n".join(item.value for item in app_test.info)
     assert "首次运行会核验最近30天" in info_text
+
+
+def test_research_thesis_page_starts_without_live_requests() -> None:
+    """Keep hypothesis creation explicit and human-reviewed."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_research_thesis_page
+
+company = {
+    "code": "600519",
+    "name": "贵州茅台",
+    "exchange": "SH",
+    "exchange_name": "上海证券交易所",
+    "canonical_code": "600519.SH",
+}
+st.session_state["selected_company"] = company
+st.session_state["_wfz_browser_research_snapshot"] = {
+    "version": 3,
+    "recent": [],
+    "watchlist": [],
+    "evidence_checkpoints": [],
+    "research_theses": [],
+    "last_command_id": None,
+    "storage_status": "available",
+}
+render_research_thesis_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    page_markup = "\n".join(item.value for item in app_test.markdown)
+    assert "THESIS LEDGER" in page_markup
+    assert "研究结论账本" in page_markup
+    assert any(
+        button.label == "保存研究假设到当前浏览器"
+        for button in app_test.button
+    )
+    assert any(
+        button.label == "先去核验官方新证据"
+        for button in app_test.button
+    )
+    assert app_test.download_button[0].disabled
 
 
 def test_home_page_shows_device_local_recent_and_watchlist_entries() -> None:

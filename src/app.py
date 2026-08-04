@@ -48,6 +48,9 @@ from src.browser_research_state import (
     MAX_EVIDENCE_CHECKPOINTS,
     MAX_LOCAL_WATCHLIST,
     MAX_RECENT_RESEARCH,
+    MAX_RESEARCH_THESES,
+    THESIS_STATUSES,
+    THESIS_TOPICS,
     normalise_browser_research_state,
 )
 from src.baijiu_operating_quality import (
@@ -158,6 +161,11 @@ from src.report_retriever import (
 )
 from src.report_metric_tool import MetricToolResult
 from src.research_queue_report import build_research_queue_report_html
+from src.research_thesis_ledger import (
+    build_thesis_ledger_report_html,
+    matching_evidence_items,
+    thesis_status_counts,
+)
 from src.volume_turnover_research import (
     VolumeTurnoverSnapshot,
     build_volume_turnover_history,
@@ -183,6 +191,35 @@ _BROWSER_RESEARCH_STORAGE = st.components.v2.component(
       const maxRecent = Number(data.max_recent) || 6;
       const maxWatchlist = Number(data.max_watchlist) || 5;
       const maxEvidenceCheckpoints = Number(data.max_evidence_checkpoints) || 5;
+      const maxResearchTheses = Number(data.max_research_theses) || 10;
+      const thesisTopics = [
+        "财务与业绩", "经营事项", "资本运作", "治理与风险", "其他"
+      ];
+      const thesisStatuses = [
+        "待核验", "暂有证据支持", "出现反方证据", "已失效"
+      ];
+
+      const cleanText = (raw, limit, required = false) => {
+        if (typeof raw !== "string") return required ? null : "";
+        const cleaned = raw.trim().replace(/\\s+/g, " ").slice(0, limit);
+        return required && !cleaned ? null : cleaned;
+      };
+
+      const isOfficialUrl = (raw) => {
+        if (typeof raw !== "string") return false;
+        try {
+          const parsed = new URL(raw);
+          const host = parsed.hostname.toLowerCase();
+          const allowed = [
+            "cninfo.com.cn", "sse.com.cn", "szse.cn", "bse.cn"
+          ];
+          return ["http:", "https:"].includes(parsed.protocol) && allowed.some(
+            (item) => host === item || host.endsWith(`.${item}`)
+          );
+        } catch (_) {
+          return false;
+        }
+      };
 
       const cleanCompany = (raw) => {
         if (!raw || typeof raw !== "object") return null;
@@ -248,11 +285,77 @@ _BROWSER_RESEARCH_STORAGE = st.components.v2.component(
         return result;
       };
 
+      const cleanThesis = (raw) => {
+        const company = cleanCompany(raw);
+        if (!company) return null;
+        const thesisId = cleanText(raw?.thesis_id, 80, true);
+        const hypothesis = cleanText(raw?.hypothesis, 240, true);
+        const confirmation = cleanText(
+          raw?.confirmation_criteria, 360, true
+        );
+        const invalidation = cleanText(
+          raw?.invalidation_criteria, 360, true
+        );
+        const createdAt = cleanText(raw?.created_at, 40, true);
+        const updatedAt = cleanText(raw?.updated_at, 40, true);
+        if (
+          !thesisId || !hypothesis || !confirmation || !invalidation ||
+          !thesisTopics.includes(raw?.topic) ||
+          !thesisStatuses.includes(raw?.status) ||
+          !createdAt || Number.isNaN(Date.parse(createdAt)) ||
+          !updatedAt || Number.isNaN(Date.parse(updatedAt))
+        ) {
+          return null;
+        }
+        Object.assign(company, {
+          thesis_id: thesisId,
+          hypothesis,
+          confirmation_criteria: confirmation,
+          invalidation_criteria: invalidation,
+          topic: raw.topic,
+          status: raw.status,
+          created_at: createdAt,
+          updated_at: updatedAt,
+        });
+        const reviewNote = cleanText(raw?.review_note, 360);
+        if (reviewNote) company.review_note = reviewNote;
+        const evidenceTitle = cleanText(raw?.evidence_title, 300);
+        const evidenceUrl = cleanText(raw?.evidence_url, 500);
+        const evidenceDate = cleanText(raw?.evidence_date, 10);
+        if (
+          evidenceTitle && evidenceUrl && evidenceDate &&
+          isOfficialUrl(evidenceUrl) &&
+          !Number.isNaN(Date.parse(evidenceDate))
+        ) {
+          Object.assign(company, {
+            evidence_title: evidenceTitle,
+            evidence_url: evidenceUrl,
+            evidence_date: evidenceDate,
+          });
+        }
+        return company;
+      };
+
+      const cleanThesisList = (raw) => {
+        if (!Array.isArray(raw)) return [];
+        const seen = new Set();
+        const result = [];
+        for (const item of raw) {
+          const thesis = cleanThesis(item);
+          if (!thesis || seen.has(thesis.thesis_id)) continue;
+          seen.add(thesis.thesis_id);
+          result.push(thesis);
+          if (result.length >= maxResearchTheses) break;
+        }
+        return result;
+      };
+
       const cleanSnapshot = (raw, status = "pending") => ({
-        version: 2,
+        version: 3,
         recent: cleanList(raw?.recent, maxRecent),
         watchlist: cleanList(raw?.watchlist, maxWatchlist),
         evidence_checkpoints: cleanCheckpointList(raw?.evidence_checkpoints),
+        research_theses: cleanThesisList(raw?.research_theses),
         last_command_id:
           typeof raw?.last_command_id === "string"
             ? raw.last_command_id.slice(0, 80)
@@ -284,16 +387,25 @@ _BROWSER_RESEARCH_STORAGE = st.components.v2.component(
           "record_research",
           "toggle_watchlist",
           "save_evidence_checkpoint",
+          "save_research_thesis",
+          "update_research_thesis",
+          "delete_research_thesis",
         ].includes(command.action) &&
         command.id !== snapshot.last_command_id
       ) {
         const code = company.canonical_code;
+        const timestamp = String(command.timestamp || "").slice(0, 40);
+        const timestampIsValid = Boolean(timestamp) && !Number.isNaN(
+          Date.parse(timestamp)
+        );
+        let applied = false;
         if (command.action === "record_research") {
-          company.last_researched_at = String(command.timestamp || "").slice(0, 40);
+          company.last_researched_at = timestamp;
           snapshot.recent = [
             company,
             ...snapshot.recent.filter((item) => item.canonical_code !== code),
           ].slice(0, maxRecent);
+          applied = true;
         } else if (command.action === "toggle_watchlist") {
           const exists = snapshot.watchlist.some(
             (item) => item.canonical_code === code
@@ -309,28 +421,83 @@ _BROWSER_RESEARCH_STORAGE = st.components.v2.component(
               maxWatchlist
             );
           }
+          applied = true;
         } else if (command.action === "save_evidence_checkpoint") {
-          company.evidence_checked_at = String(
-            command.timestamp || ""
-          ).slice(0, 40);
-          if (
-            company.evidence_checked_at &&
-            !Number.isNaN(Date.parse(company.evidence_checked_at))
-          ) {
+          company.evidence_checked_at = timestamp;
+          if (timestampIsValid) {
             snapshot.evidence_checkpoints = [
               company,
               ...snapshot.evidence_checkpoints.filter(
                 (item) => item.canonical_code !== code
               ),
             ].slice(0, maxEvidenceCheckpoints);
+            applied = true;
+          }
+        } else if (
+          command.action === "save_research_thesis" && timestampIsValid
+        ) {
+          const thesis = cleanThesis({
+            ...company,
+            thesis_id: command.thesis_id,
+            hypothesis: command.hypothesis,
+            confirmation_criteria: command.confirmation_criteria,
+            invalidation_criteria: command.invalidation_criteria,
+            topic: command.topic,
+            status: "待核验",
+            created_at: timestamp,
+            updated_at: timestamp,
+          });
+          if (thesis) {
+            snapshot.research_theses = [
+              thesis,
+              ...snapshot.research_theses.filter(
+                (item) => item.thesis_id !== thesis.thesis_id
+              ),
+            ].slice(0, maxResearchTheses);
+            applied = true;
+          }
+        } else if (
+          command.action === "update_research_thesis" && timestampIsValid
+        ) {
+          const thesisId = cleanText(command.thesis_id, 80, true);
+          const index = snapshot.research_theses.findIndex(
+            (item) => item.thesis_id === thesisId &&
+              item.canonical_code === code
+          );
+          if (index >= 0 && thesisStatuses.includes(command.status)) {
+            const thesis = cleanThesis({
+              ...snapshot.research_theses[index],
+              status: command.status,
+              updated_at: timestamp,
+              review_note: command.review_note,
+              evidence_title: command.evidence_title,
+              evidence_url: command.evidence_url,
+              evidence_date: command.evidence_date,
+            });
+            if (thesis) {
+              snapshot.research_theses[index] = thesis;
+              applied = true;
+            }
+          }
+        } else if (command.action === "delete_research_thesis") {
+          const thesisId = cleanText(command.thesis_id, 80, true);
+          if (thesisId) {
+            snapshot.research_theses = snapshot.research_theses.filter(
+              (item) => !(
+                item.thesis_id === thesisId && item.canonical_code === code
+              )
+            );
+            applied = true;
           }
         }
-        snapshot.last_command_id = command.id.slice(0, 80);
-        if (storageAvailable) {
-          try {
-            localStorage.setItem(storageKey, JSON.stringify(snapshot));
-          } catch (_) {
-            snapshot.storage_status = "unavailable";
+        if (applied) {
+          snapshot.last_command_id = command.id.slice(0, 80);
+          if (storageAvailable) {
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(snapshot));
+            } catch (_) {
+              snapshot.storage_status = "unavailable";
+            }
           }
         }
       }
@@ -1908,14 +2075,17 @@ def _browser_research_snapshot() -> dict[str, object]:
 def _queue_browser_research_command(
     action: str,
     company: CompanyIdentity,
+    **payload: object,
 ) -> None:
     """Queue one idempotent browser-storage update for the next rerun."""
-    st.session_state["_wfz_browser_research_command"] = {
+    command: dict[str, object] = {
         "id": f"{action}:{company['canonical_code']}:{time_ns()}",
         "action": action,
         "company": dict(company),
         "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
+    command.update(payload)
+    st.session_state["_wfz_browser_research_command"] = command
 
 
 def _sync_browser_research_state() -> None:
@@ -1928,6 +2098,7 @@ def _sync_browser_research_state() -> None:
             "max_recent": MAX_RECENT_RESEARCH,
             "max_watchlist": MAX_LOCAL_WATCHLIST,
             "max_evidence_checkpoints": MAX_EVIDENCE_CHECKPOINTS,
+            "max_research_theses": MAX_RESEARCH_THESES,
             "known_snapshot": known_snapshot,
             "command": command,
         },
@@ -3113,11 +3284,15 @@ def render_research_workspace_page() -> None:
             "description": (
                 "已经确定公司，希望先建立身份、行情、公告和年报的整体认识。"
             ),
-            "flow": "公司概览 → 一键汇总五条证据链 → 下载研究底稿",
+            "flow": (
+                "公司概览 → 一键汇总五条证据链 → 核验新证据 → "
+                "更新研究假设"
+            ),
             "tools": (
                 ("打开公司研究中心", "company"),
                 ("运行一键综合研究 Agent", "comprehensive"),
                 ("核验上次研究后的新证据", "evidence_delta"),
+                ("维护研究结论账本", "thesis_ledger"),
             ),
         },
         {
@@ -3380,6 +3555,314 @@ def render_evidence_delta_page() -> None:
     st.warning(
         "公告分类和关注程度用于安排阅读顺序，不预测股价，也不代表利好、"
         "利空或买卖建议。"
+    )
+    if st.button(
+        "把新证据带入研究结论账本",
+        width="stretch",
+        key=f"evidence_delta_to_thesis_{company['canonical_code']}",
+    ):
+        _switch_page("thesis_ledger")
+    show_product_footer()
+
+
+def _research_theses_for(
+    company: CompanyIdentity,
+) -> list[Mapping[str, object]]:
+    """Return this company's validated device-local research theses."""
+    snapshot = _browser_research_snapshot()
+    return [
+        thesis
+        for thesis in snapshot["research_theses"]
+        if isinstance(thesis, Mapping)
+        and thesis.get("canonical_code") == company["canonical_code"]
+    ]
+
+
+def _latest_evidence_items_for(
+    company: CompanyIdentity,
+) -> list[Mapping[str, object]]:
+    """Reuse only the latest in-session Evidence Delta result."""
+    result = st.session_state.get(
+        f"_wfz_evidence_delta_result_{company['canonical_code']}"
+    )
+    if not isinstance(result, Mapping):
+        return []
+    result_company = result.get("company")
+    if (
+        not isinstance(result_company, Mapping)
+        or result_company.get("canonical_code") != company["canonical_code"]
+    ):
+        return []
+    items = result.get("items")
+    if not isinstance(items, list):
+        return []
+    return [item for item in items if isinstance(item, Mapping)]
+
+
+def _iso_date(value: object) -> str:
+    """Return a small ISO date string for one validated evidence item."""
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return str(value).strip()[:10]
+
+
+def render_research_thesis_page() -> None:
+    """Maintain human-reviewed hypotheses against official evidence."""
+    apply_product_theme()
+    show_compact_page_header(
+        "04 / 研究结论账本 · THESIS LEDGER",
+        "研究结论账本",
+        "把研究假设、支持条件、失效条件和官方新证据放在同一条可追溯"
+        "记录中。系统只匹配主题，证据方向和结论状态必须由用户确认。",
+    )
+    company = _selected_company()
+    if company is None:
+        st.warning("请先选择要建立研究结论账本的上市公司。")
+        company = _render_company_search(
+            key_prefix="thesis_ledger",
+            navigate_on_success=False,
+        )
+    if company is None:
+        show_product_footer()
+        return
+
+    _show_company_banner(company)
+    notice = st.session_state.pop("_wfz_thesis_ledger_notice", None)
+    if isinstance(notice, str):
+        st.success(notice)
+
+    theses = _research_theses_for(company)
+    counts = thesis_status_counts(theses)
+    metric_columns = st.columns(4)
+    for column, status in zip(metric_columns, THESIS_STATUSES):
+        column.metric(status, counts[status])
+
+    st.subheader("建立一条可证伪的研究假设")
+    st.caption(
+        "不要只写“公司很好”。同时写清楚什么公开证据会支持它，以及出现"
+        "什么情况时应放弃或修改它。"
+    )
+    with st.form(
+        f"create_thesis_{company['canonical_code']}",
+        clear_on_submit=True,
+    ):
+        hypothesis = st.text_area(
+            "研究假设",
+            max_chars=240,
+            placeholder=(
+                "例如：公司收入增长能够转化为持续的经营现金流改善。"
+            ),
+        )
+        topic = st.selectbox("对应研究主题", THESIS_TOPICS)
+        confirmation = st.text_area(
+            "支持条件",
+            max_chars=360,
+            placeholder=(
+                "例如：连续两个报告期经营现金流增速不低于收入增速，"
+                "且应收账款占收入比例未明显上升。"
+            ),
+        )
+        invalidation = st.text_area(
+            "失效条件",
+            max_chars=360,
+            placeholder=(
+                "例如：利润增长但经营现金流持续下降，或应收账款增速"
+                "长期显著高于收入增速。"
+            ),
+        )
+        create_submitted = st.form_submit_button(
+            "保存研究假设到当前浏览器",
+            type="primary",
+            width="stretch",
+        )
+    if create_submitted:
+        if not all(
+            value.strip()
+            for value in (hypothesis, confirmation, invalidation)
+        ):
+            st.error("研究假设、支持条件和失效条件都需要填写。")
+        else:
+            _queue_browser_research_command(
+                "save_research_thesis",
+                company,
+                thesis_id=f"{company['canonical_code']}:{time_ns()}",
+                hypothesis=hypothesis,
+                confirmation_criteria=confirmation,
+                invalidation_criteria=invalidation,
+                topic=topic,
+            )
+            st.session_state["_wfz_thesis_ledger_notice"] = (
+                "已请求把研究假设保存到当前浏览器；页面刷新后生效。"
+            )
+            st.rerun()
+
+    evidence_items = _latest_evidence_items_for(company)
+    if evidence_items:
+        st.info(
+            f"已连接本次会话中最近一次证据增量结果，共 "
+            f"{len(evidence_items)} 条官方公告。账本只按主题匹配，"
+            "不会自动判断支持或反驳。"
+        )
+    else:
+        st.info(
+            "当前会话还没有这家公司的证据增量结果。可以先建立假设，"
+            "再去证据增量 Agent 核验最新官方公告。"
+        )
+        if st.button(
+            "先去核验官方新证据",
+            width="stretch",
+            key=f"thesis_to_evidence_delta_{company['canonical_code']}",
+        ):
+            _switch_page("evidence_delta")
+
+    st.subheader(f"当前公司研究假设｜{len(theses)} 条")
+    if not theses:
+        st.caption("还没有保存研究假设。先完成上面的三项输入即可建立第一条。")
+
+    for thesis in theses:
+        thesis_id = str(thesis["thesis_id"])
+        safe_key = thesis_id.replace(":", "_").replace(".", "_")
+        matches = matching_evidence_items(thesis, evidence_items)
+        with st.container(border=True):
+            st.caption(
+                f"{thesis['topic']}｜人工状态：{thesis['status']}｜"
+                f"最后更新：{thesis['updated_at']}"
+            )
+            st.markdown(f"### {thesis['hypothesis']}")
+            criteria_columns = st.columns(2)
+            with criteria_columns[0]:
+                st.markdown("**支持条件**")
+                st.write(thesis["confirmation_criteria"])
+            with criteria_columns[1]:
+                st.markdown("**失效条件**")
+                st.write(thesis["invalidation_criteria"])
+
+            if thesis.get("review_note"):
+                st.markdown(f"**最近人工复核：** {thesis['review_note']}")
+            if thesis.get("evidence_url"):
+                st.caption(
+                    f"已引用官方证据：{thesis.get('evidence_date', '')}｜"
+                    f"{thesis.get('evidence_title', '')}"
+                )
+                st.link_button(
+                    "查看已引用的官方原文",
+                    str(thesis["evidence_url"]),
+                )
+
+            if matches:
+                st.markdown("**最近主题匹配证据｜方向待人工判断**")
+                for item in matches:
+                    st.caption(
+                        f"{_iso_date(item.get('published_date'))}｜"
+                        f"{item.get('title', '')}"
+                    )
+
+            evidence_labels = ["不引用官方证据"]
+            evidence_by_label: dict[str, Mapping[str, object]] = {}
+            for index, item in enumerate(matches, start=1):
+                label = (
+                    f"{index}｜{_iso_date(item.get('published_date'))}｜"
+                    f"{str(item.get('title', ''))[:80]}"
+                )
+                evidence_labels.append(label)
+                evidence_by_label[label] = item
+
+            with st.form(f"review_thesis_{safe_key}"):
+                current_status = str(thesis["status"])
+                status = st.selectbox(
+                    "人工复核状态",
+                    THESIS_STATUSES,
+                    index=THESIS_STATUSES.index(current_status),
+                    key=f"thesis_status_{safe_key}",
+                )
+                review_note = st.text_area(
+                    "复核备注",
+                    value=str(thesis.get("review_note", "")),
+                    max_chars=360,
+                    placeholder=(
+                        "说明为什么支持、为什么出现反方证据，或还缺少什么。"
+                    ),
+                    key=f"thesis_note_{safe_key}",
+                )
+                evidence_label = st.selectbox(
+                    "引用本次主题匹配的官方证据（可选）",
+                    evidence_labels,
+                    key=f"thesis_evidence_{safe_key}",
+                )
+                review_submitted = st.form_submit_button(
+                    "保存人工复核",
+                    width="stretch",
+                )
+            if review_submitted:
+                evidence = evidence_by_label.get(evidence_label)
+                _queue_browser_research_command(
+                    "update_research_thesis",
+                    company,
+                    thesis_id=thesis_id,
+                    status=status,
+                    review_note=review_note,
+                    evidence_title=(
+                        str(evidence.get("title", "")) if evidence else ""
+                    ),
+                    evidence_url=(
+                        str(evidence.get("source_url", ""))
+                        if evidence else ""
+                    ),
+                    evidence_date=(
+                        _iso_date(evidence.get("published_date"))
+                        if evidence else ""
+                    ),
+                )
+                st.session_state["_wfz_thesis_ledger_notice"] = (
+                    "已请求保存人工复核结果；页面刷新后生效。"
+                )
+                st.rerun()
+
+            if st.button(
+                "删除这条研究假设",
+                key=f"delete_thesis_{safe_key}",
+            ):
+                _queue_browser_research_command(
+                    "delete_research_thesis",
+                    company,
+                    thesis_id=thesis_id,
+                )
+                st.session_state["_wfz_thesis_ledger_notice"] = (
+                    "已请求从当前浏览器删除这条研究假设。"
+                )
+                st.rerun()
+
+    report_html = build_thesis_ledger_report_html(
+        company,
+        theses,
+        generated_on=date.today(),
+    )
+    st.download_button(
+        "下载研究结论账本（HTML）",
+        data=report_html,
+        file_name=(
+            f"{company['code']}_{company['name']}_研究结论账本_"
+            f"{date.today().isoformat()}.html"
+        ),
+        mime="text/html",
+        width="stretch",
+        disabled=not theses,
+    )
+
+    snapshot = _browser_research_snapshot()
+    if snapshot["storage_status"] == "unavailable":
+        st.warning("当前浏览器禁止本机存储，账本无法跨访问保留。")
+    else:
+        st.caption(
+            f"每台设备最多保存 {MAX_RESEARCH_THESES} 条研究假设。记录持久化"
+            "在当前浏览器；为显示和导出，内容会进入当前应用会话，但不会写入"
+            "服务器数据库。清除本站浏览数据后记录会消失。"
+        )
+    st.warning(
+        "请勿填写客户资料、持仓、未公开信息或其他敏感内容。主题匹配不代表"
+        "支持、反驳、利好或利空；账本不构成投资建议。"
     )
     show_product_footer()
 
@@ -8209,6 +8692,11 @@ def main() -> None:
         title="证据增量 Agent",
         icon="🔎",
     )
+    thesis_ledger_page = st.Page(
+        render_research_thesis_page,
+        title="研究结论账本",
+        icon="📚",
+    )
     market_page = st.Page(
         render_market_page,
         title="K线与市场表现",
@@ -8275,6 +8763,7 @@ def main() -> None:
         "comprehensive": comprehensive_page,
         "company": company_page,
         "evidence_delta": evidence_delta_page,
+        "thesis_ledger": thesis_ledger_page,
         "market": market_page,
         "volume_turnover": volume_turnover_page,
         "limit_up": limit_up_page,
@@ -8300,6 +8789,7 @@ def main() -> None:
                 comprehensive_page,
                 company_page,
                 evidence_delta_page,
+                thesis_ledger_page,
             ],
             "市场行为与复盘": [
                 market_page,

@@ -163,6 +163,9 @@
 - [x] Add a device-local Evidence Delta Agent that rechecks official
       disclosures since the previous successful review without requiring a
       login, cloud database, or paid AI API.
+- [x] Add a human-reviewed Research Thesis Ledger with falsifiable criteria,
+      topic-matched official evidence, browser-local persistence, and a safe
+      offline export.
 - [ ] Add comparable-company valuation only after business-mix, accounting, and same-date market checks.
 - [ ] Expand the 贵州茅台 flagship set from three to five events after review.
 - [x] GitHub publication and public Render website.

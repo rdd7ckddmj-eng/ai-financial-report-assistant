@@ -2,6 +2,7 @@ from src.browser_research_state import (
     MAX_EVIDENCE_CHECKPOINTS,
     MAX_LOCAL_WATCHLIST,
     MAX_RECENT_RESEARCH,
+    MAX_RESEARCH_THESES,
     apply_browser_research_command,
     normalise_browser_research_state,
 )
@@ -136,10 +137,102 @@ def test_untrusted_browser_state_is_sanitised() -> None:
 
     result = normalise_browser_research_state(raw)
 
-    assert result["version"] == 2
+    assert result["version"] == 3
     assert len(result["recent"]) == 1
     assert result["recent"][0]["name"] == "贵州茅台"
     assert result["watchlist"] == []
     assert result["evidence_checkpoints"] == []
     assert result["storage_status"] == "pending"
     assert len(result["last_command_id"]) == 80
+
+
+def _thesis_command(
+    code: str,
+    command_id: str,
+    *,
+    thesis_id: str = "thesis-1",
+) -> dict[str, object]:
+    return {
+        **_command("save_research_thesis", code, command_id),
+        "thesis_id": thesis_id,
+        "hypothesis": "收入增长能够转化为经营现金流改善",
+        "confirmation_criteria": "经营现金流增速不低于收入增速",
+        "invalidation_criteria": "经营现金流连续两个报告期下降",
+        "topic": "财务与业绩",
+    }
+
+
+def test_research_thesis_create_update_and_delete() -> None:
+    state = apply_browser_research_command(
+        {},
+        _thesis_command("600519", "thesis-create"),
+    )
+
+    assert len(state["research_theses"]) == 1
+    assert state["research_theses"][0]["status"] == "待核验"
+
+    state = apply_browser_research_command(
+        state,
+        {
+            **_command("update_research_thesis", "600519", "thesis-update"),
+            "thesis_id": "thesis-1",
+            "status": "暂有证据支持",
+            "review_note": "已人工核对公告原文，仍需等待下一期现金流。",
+            "evidence_title": "贵州茅台2025年年度报告",
+            "evidence_url": (
+                "https://static.cninfo.com.cn/finalpage/"
+                "2026-04-01/1234567890.PDF"
+            ),
+            "evidence_date": "2026-04-01",
+        },
+    )
+
+    thesis = state["research_theses"][0]
+    assert thesis["status"] == "暂有证据支持"
+    assert thesis["evidence_date"] == "2026-04-01"
+    assert "人工核对" in thesis["review_note"]
+
+    state = apply_browser_research_command(
+        state,
+        {
+            **_command("delete_research_thesis", "600519", "thesis-delete"),
+            "thesis_id": "thesis-1",
+        },
+    )
+    assert state["research_theses"] == []
+
+
+def test_research_theses_are_bounded_and_unofficial_links_are_dropped() -> None:
+    state: object = {}
+    for index in range(MAX_RESEARCH_THESES + 2):
+        state = apply_browser_research_command(
+            state,
+            _thesis_command(
+                "600519",
+                f"thesis-create-{index}",
+                thesis_id=f"thesis-{index}",
+            ),
+        )
+
+    assert len(state["research_theses"]) == MAX_RESEARCH_THESES
+    first_id = state["research_theses"][0]["thesis_id"]
+    state = apply_browser_research_command(
+        state,
+        {
+            **_command(
+                "update_research_thesis",
+                "600519",
+                "thesis-malicious-link",
+            ),
+            "thesis_id": first_id,
+            "status": "出现反方证据",
+            "review_note": "链接应被丢弃，但人工状态可以保留。",
+            "evidence_title": "伪造公告",
+            "evidence_url": "https://example.com/fake.pdf",
+            "evidence_date": "2026-08-04",
+        },
+    )
+
+    thesis = state["research_theses"][0]
+    assert thesis["status"] == "出现反方证据"
+    assert "evidence_url" not in thesis
