@@ -2934,6 +2934,12 @@ def render_home_page() -> None:
 
     show_home_value_proposition()
     show_home_capabilities()
+    if st.button(
+        "进入研究工作台｜按任务查看全部工具",
+        width="stretch",
+        key="home_to_research_workspace",
+    ):
+        _switch_page("workspace")
 
     st.markdown(
         '<div class="wfz-section-label">'
@@ -2996,6 +3002,123 @@ def render_home_page() -> None:
     st.caption(
         "第一阶段覆盖中国沪、深、北交所上市公司；"
         "本产品不预测短期涨跌，也不提供买卖建议。"
+    )
+    show_product_footer()
+
+
+def render_research_workspace_page() -> None:
+    """Group all research tools by the job the user needs to complete."""
+    apply_product_theme()
+    show_compact_page_header(
+        "00 / 研究工作台 · RESEARCH WORKSPACE",
+        "按研究任务选择工具",
+        "全部功能被组织成五个相互衔接的集合：先发现或选择标的，"
+        "再完成公司总览，随后根据问题进入市场、财务或证据核验。",
+    )
+
+    company = _selected_company()
+    if company is None:
+        st.info(
+            "尚未选择研究公司。可以先输入公司名称或代码，也可以直接从"
+            "“标的发现与跟踪”开始。"
+        )
+        _render_company_search(
+            key_prefix="workspace",
+            navigate_on_success=False,
+        )
+    else:
+        _show_company_banner(company)
+
+    st.markdown(
+        '<div class="wfz-section-label">'
+        "五个研究集合 · FIVE CONNECTED COLLECTIONS"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    st.write(
+        "推荐主线：**选择标的 → 综合研究 → 发现问题 → 专项核验 → "
+        "形成可复核底稿**。每个专项页面都服务于这条主线，而不是独立存在。"
+    )
+
+    collections = (
+        {
+            "title": "01｜标的发现与跟踪",
+            "description": (
+                "还没有确定研究对象，或需要管理已经关注的公司时使用。"
+            ),
+            "flow": "涨停板发现候选 → 自选股队列安排研究优先级",
+            "tools": (
+                ("查看每日涨停板观察台", "limit_up"),
+                ("扫描自选股任务队列", "radar"),
+            ),
+        },
+        {
+            "title": "02｜单家公司研究主线",
+            "description": (
+                "已经确定公司，希望先建立身份、行情、公告和年报的整体认识。"
+            ),
+            "flow": "公司概览 → 一键汇总五条证据链 → 下载研究底稿",
+            "tools": (
+                ("打开公司研究中心", "company"),
+                ("运行一键综合研究 Agent", "comprehensive"),
+            ),
+        },
+        {
+            "title": "03｜市场行为与历史复盘",
+            "description": (
+                "需要判断价格、成交和换手发生了什么，并检查当时有哪些公开信息。"
+            ),
+            "flow": "K线 → 成交与换手 → 异动识别 → 回到历史时点复盘",
+            "tools": (
+                ("查看K线与市场表现", "market"),
+                ("分析成交量与换手率", "volume_turnover"),
+                ("进入市场异动 Agent", "anomaly"),
+                ("使用 Historical Lens 复盘", "historical"),
+            ),
+        },
+        {
+            "title": "04｜财务报表与经营证据",
+            "description": (
+                "需要从年报原文核验财务变化、跨年趋势、公司差异或异常原因。"
+            ),
+            "flow": "年报原文 → 多年趋势 → 横向比较 → 异常解释",
+            "tools": (
+                ("进入年报与证据分析", "annual"),
+                ("打开财务趋势实验室", "financial_trend"),
+                ("进行跨公司横向比较", "comparison"),
+                ("解释财务异常", "financial_anomaly"),
+            ),
+        },
+        {
+            "title": "05｜证据质量与数据扩展",
+            "description": (
+                "需要了解数据边界、核验规则，或把新公司安全加入深度案例库。"
+            ),
+            "flow": "自动生成候选数据 → 人工审批 → 公开方法与局限",
+            "tools": (
+                ("扩展已核验公司目录", "onboarding"),
+                ("查看方法、证据与产品边界", "methodology"),
+            ),
+        },
+    )
+
+    workspace_columns = st.columns(2)
+    for index, collection in enumerate(collections):
+        with workspace_columns[index % 2].container(border=True):
+            st.markdown(f"### {collection['title']}")
+            st.write(collection["description"])
+            st.caption(f"建议顺序：{collection['flow']}。")
+            for label, target in collection["tools"]:
+                if st.button(
+                    label,
+                    width="stretch",
+                    key=f"workspace_to_{target}",
+                ):
+                    _switch_page(target)
+
+    st.warning(
+        "各集合用于组织研究流程，不代表评分、选股结果或买卖建议。"
+        "如果证据不足，专项页面会保留缺口并建议下一项核验任务。"
     )
     show_product_footer()
 
@@ -7805,6 +7928,11 @@ def main() -> None:
         icon="🏠",
         default=True,
     )
+    workspace_page = st.Page(
+        render_research_workspace_page,
+        title="研究工作台",
+        icon="🗂️",
+    )
     comprehensive_page = st.Page(
         render_comprehensive_research_page,
         title="一键综合研究 Agent",
@@ -7877,6 +8005,7 @@ def main() -> None:
     )
     st.session_state["_wfz_page_registry"] = {
         "home": home_page,
+        "workspace": workspace_page,
         "comprehensive": comprehensive_page,
         "company": company_page,
         "market": market_page,
@@ -7895,23 +8024,28 @@ def main() -> None:
 
     navigation = st.navigation(
         {
-            "开始": [home_page],
-            "上市公司研究": [
-                comprehensive_page,
-                company_page,
-                market_page,
-                volume_turnover_page,
+            "开始": [home_page, workspace_page],
+            "标的发现与跟踪": [
                 limit_up_page,
                 radar_page,
+            ],
+            "单家公司研究": [
+                comprehensive_page,
+                company_page,
+            ],
+            "市场行为与复盘": [
+                market_page,
+                volume_turnover_page,
                 anomaly_page,
                 historical_page,
+            ],
+            "财务与年报证据": [
                 annual_page,
-                onboarding_page,
                 financial_trend_page,
                 comparison_page,
                 financial_anomaly_page,
             ],
-            "产品说明": [methodology_page],
+            "数据与方法": [onboarding_page, methodology_page],
         }
     )
     navigation.run()

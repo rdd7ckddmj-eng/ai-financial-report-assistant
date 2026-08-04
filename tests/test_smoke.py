@@ -100,7 +100,42 @@ render_home_page()
         in home_markup
     )
     assert "不是实时交易终端或商业金融数据库的替代品" in home_markup
-    assert len(app_test.button) == 4
+    assert any(
+        button.label == "进入研究工作台｜按任务查看全部工具"
+        for button in app_test.button
+    )
+    assert len(app_test.button) == 5
+
+
+def test_research_workspace_groups_tools_by_user_task() -> None:
+    """Make the product structure understandable before opening a tool."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src.app import render_research_workspace_page
+
+render_research_workspace_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    workspace_markup = "\n".join(
+        item.value for item in app_test.markdown
+    )
+    for collection_title in (
+        "01｜标的发现与跟踪",
+        "02｜单家公司研究主线",
+        "03｜市场行为与历史复盘",
+        "04｜财务报表与经营证据",
+        "05｜证据质量与数据扩展",
+    ):
+        assert collection_title in workspace_markup
+
+    button_labels = [button.label for button in app_test.button]
+    assert "运行一键综合研究 Agent" in button_labels
+    assert "进入市场异动 Agent" in button_labels
+    assert "进入年报与证据分析" in button_labels
+    assert "查看方法、证据与产品边界" in button_labels
 
 
 def test_home_page_shows_device_local_recent_and_watchlist_entries() -> None:

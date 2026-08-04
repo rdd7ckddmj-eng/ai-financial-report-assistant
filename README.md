@@ -180,8 +180,10 @@ secret environment settings. It must never be committed to the repository.
   context are excluded. The fingerprint identifies an evidence payload but is
   not presented as a digital signature or third-party certification.
 - Use a responsive institutional research-terminal interface with a dark
-  grouped navigation rail, consistent page-introduction cards, a visible
-  sidebar close control, and a persistent reopen control after collapse.
+  navigation rail grouped by research task, a dedicated Research Workspace
+  that connects all tools into five user-facing collections, consistent
+  page-introduction cards, a visible sidebar close control, and a persistent
+  reopen control after collapse.
 - Provide a multi-page product structure: home, company research centre,
   K-line and market evidence, Daily Limit-Up Board, Watchlist Market Radar,
   Market Anomaly Agent, Historical Lens, annual-report evidence, Financial
