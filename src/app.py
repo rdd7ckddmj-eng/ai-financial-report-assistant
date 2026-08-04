@@ -45,6 +45,7 @@ from src.audited_company_onboarding import (
 )
 from src.balance_sheet_extractor import find_balance_sheet_figures
 from src.browser_research_state import (
+    MAX_EVIDENCE_CHECKPOINTS,
     MAX_LOCAL_WATCHLIST,
     MAX_RECENT_RESEARCH,
     normalise_browser_research_state,
@@ -82,6 +83,12 @@ from src.comprehensive_research_report import (
     build_comprehensive_research_report_html,
 )
 from src.cross_company_comparison import build_cross_company_comparison
+from src.evidence_delta import (
+    EvidenceDeltaReview,
+    build_evidence_delta_report_html,
+    build_evidence_delta_review,
+    build_evidence_window,
+)
 from src.financial_statement_extractor import find_income_statement_figures
 from src.financial_ratios import (
     current_ratio,
@@ -175,6 +182,7 @@ _BROWSER_RESEARCH_STORAGE = st.components.v2.component(
       const storageKey = data.storage_key;
       const maxRecent = Number(data.max_recent) || 6;
       const maxWatchlist = Number(data.max_watchlist) || 5;
+      const maxEvidenceCheckpoints = Number(data.max_evidence_checkpoints) || 5;
 
       const cleanCompany = (raw) => {
         if (!raw || typeof raw !== "object") return null;
@@ -215,10 +223,36 @@ _BROWSER_RESEARCH_STORAGE = st.components.v2.component(
         return result;
       };
 
+      const cleanCheckpointList = (raw) => {
+        if (!Array.isArray(raw)) return [];
+        const seen = new Set();
+        const result = [];
+        for (const item of raw) {
+          const company = cleanCompany(item);
+          const checkedAt = typeof item?.evidence_checked_at === "string"
+            ? item.evidence_checked_at.trim().slice(0, 40)
+            : "";
+          if (
+            !company ||
+            !checkedAt ||
+            Number.isNaN(Date.parse(checkedAt)) ||
+            seen.has(company.canonical_code)
+          ) {
+            continue;
+          }
+          seen.add(company.canonical_code);
+          company.evidence_checked_at = checkedAt;
+          result.push(company);
+          if (result.length >= maxEvidenceCheckpoints) break;
+        }
+        return result;
+      };
+
       const cleanSnapshot = (raw, status = "pending") => ({
-        version: 1,
+        version: 2,
         recent: cleanList(raw?.recent, maxRecent),
         watchlist: cleanList(raw?.watchlist, maxWatchlist),
+        evidence_checkpoints: cleanCheckpointList(raw?.evidence_checkpoints),
         last_command_id:
           typeof raw?.last_command_id === "string"
             ? raw.last_command_id.slice(0, 80)
@@ -246,7 +280,11 @@ _BROWSER_RESEARCH_STORAGE = st.components.v2.component(
         company &&
         typeof command?.id === "string" &&
         command.id &&
-        ["record_research", "toggle_watchlist"].includes(command.action) &&
+        [
+          "record_research",
+          "toggle_watchlist",
+          "save_evidence_checkpoint",
+        ].includes(command.action) &&
         command.id !== snapshot.last_command_id
       ) {
         const code = company.canonical_code;
@@ -270,6 +308,21 @@ _BROWSER_RESEARCH_STORAGE = st.components.v2.component(
               0,
               maxWatchlist
             );
+          }
+        } else if (command.action === "save_evidence_checkpoint") {
+          company.evidence_checked_at = String(
+            command.timestamp || ""
+          ).slice(0, 40);
+          if (
+            company.evidence_checked_at &&
+            !Number.isNaN(Date.parse(company.evidence_checked_at))
+          ) {
+            snapshot.evidence_checkpoints = [
+              company,
+              ...snapshot.evidence_checkpoints.filter(
+                (item) => item.canonical_code !== code
+              ),
+            ].slice(0, maxEvidenceCheckpoints);
           }
         }
         snapshot.last_command_id = command.id.slice(0, 80);
@@ -1485,7 +1538,8 @@ def show_home_capabilities() -> None:
                 <h3>输出一份可复核的研究底稿</h3>
                 <p>
                     汇总关键发现、反方问题、来源链接、年报页码和证据缺口，
-                    支持下载后继续核验、比较、复盘或与他人讨论。
+                    并可在下次回来时核验新增官方证据，支持下载后继续比较、
+                    复盘或与他人讨论。
                 </p>
             </article>
         </div>
@@ -1537,7 +1591,8 @@ def show_home_value_proposition() -> None:
         "优势不在于拥有比 Wind 等商业数据库更多的数据，而在于把公开资料"
         "转化为一条透明、低成本、可审计的研究工作流：官方披露优先；"
         "Python 负责数字，AI 只负责基于证据解释和质疑；历史回看隔离未来"
-        "信息；任何一条数据链失败都不会被 AI 猜测补齐。"
+        "信息；本机基准支持持续追踪新增证据；任何一条数据链失败都不会被"
+        " AI 猜测补齐。"
     )
 
 
@@ -1872,6 +1927,7 @@ def _sync_browser_research_state() -> None:
             "storage_key": "wfz.research.v1",
             "max_recent": MAX_RECENT_RESEARCH,
             "max_watchlist": MAX_LOCAL_WATCHLIST,
+            "max_evidence_checkpoints": MAX_EVIDENCE_CHECKPOINTS,
             "known_snapshot": known_snapshot,
             "command": command,
         },
@@ -3061,6 +3117,7 @@ def render_research_workspace_page() -> None:
             "tools": (
                 ("打开公司研究中心", "company"),
                 ("运行一键综合研究 Agent", "comprehensive"),
+                ("核验上次研究后的新证据", "evidence_delta"),
             ),
         },
         {
@@ -3119,6 +3176,210 @@ def render_research_workspace_page() -> None:
     st.warning(
         "各集合用于组织研究流程，不代表评分、选股结果或买卖建议。"
         "如果证据不足，专项页面会保留缺口并建议下一项核验任务。"
+    )
+    show_product_footer()
+
+
+def _evidence_checkpoint_for(
+    company: CompanyIdentity,
+) -> Mapping[str, object] | None:
+    """Return this company's validated device-local evidence checkpoint."""
+    snapshot = _browser_research_snapshot()
+    for checkpoint in snapshot["evidence_checkpoints"]:
+        if (
+            isinstance(checkpoint, Mapping)
+            and checkpoint.get("canonical_code")
+            == company["canonical_code"]
+        ):
+            return checkpoint
+    return None
+
+
+def _show_evidence_delta_review(review: EvidenceDeltaReview) -> None:
+    """Render one deterministic disclosure-change result."""
+    window = review["window"]
+    metric_columns = st.columns(4)
+    metric_columns[0].metric("本次官方公告", review["total_count"])
+    metric_columns[1].metric("高关注公告", review["high_attention_count"])
+    metric_columns[2].metric(
+        "财务与业绩",
+        review["group_counts"]["财务与业绩"],
+    )
+    metric_columns[3].metric(
+        "治理与风险",
+        review["group_counts"]["治理与风险"],
+    )
+
+    st.caption(
+        f"核验范围：{window['start_date'].isoformat()} 至 "
+        f"{window['end_date'].isoformat()}｜模式：{window['mode']}。"
+    )
+    if window["truncated"]:
+        st.warning(
+            "上次核验距今超过365天。为控制公开接口请求量，本次只核验最近"
+            "365天；更早区间仍是明确的数据缺口。"
+        )
+    if review["item_limit_reached"]:
+        st.warning(
+            "本页和下载简报最多保留最近100条公告；总数仍按全部已核验"
+            "记录计算。"
+        )
+
+    if not review["items"]:
+        st.info("本次范围内没有找到通过官方域名校验的公告。")
+    else:
+        st.subheader("按研究问题归类的证据变化")
+        for group, count in review["group_counts"].items():
+            if not count:
+                continue
+            with st.expander(f"{group}｜{count} 条", expanded=group in {
+                "财务与业绩",
+                "治理与风险",
+            }):
+                group_items = [
+                    item
+                    for item in review["items"]
+                    if item["evidence_group"] == group
+                ]
+                for item in group_items[:20]:
+                    with st.container(border=True):
+                        st.markdown(f"**{item['title']}**")
+                        st.caption(
+                            f"{item['published_date'].isoformat()}｜"
+                            f"{item['delta_status']}｜原类别："
+                            f"{item['source_category']}｜关注程度："
+                            f"{item['attention']}"
+                        )
+                        st.link_button(
+                            "查看官方原文",
+                            item["source_url"],
+                        )
+                if len(group_items) > 20:
+                    st.caption(
+                        f"页面先展示20条；下载简报还包含本次保留的其余 "
+                        f"{len(group_items) - 20} 条。该类别共核验 {count} 条。"
+                    )
+
+    report_html = build_evidence_delta_report_html(review)
+    company = review["company"]
+    st.download_button(
+        "下载证据变化简报（HTML）",
+        data=report_html,
+        file_name=(
+            f"{company['code']}_{company['name']}_证据变化简报_"
+            f"{review['generated_on'].isoformat()}.html"
+        ),
+        mime="text/html",
+        width="stretch",
+    )
+
+
+def render_evidence_delta_page() -> None:
+    """Compare official disclosures with a device-local research checkpoint."""
+    apply_product_theme()
+    show_compact_page_header(
+        "03 / 证据增量 · EVIDENCE DELTA",
+        "证据增量 Agent",
+        "再次研究同一家公司时，只核验上次检查后出现的官方披露，并把"
+        "变化归入财务、经营、资本运作和治理风险等研究问题。",
+    )
+    company = _selected_company()
+    if company is None:
+        st.warning("请先选择要持续跟踪的上市公司。")
+        company = _render_company_search(
+            key_prefix="evidence_delta",
+            navigate_on_success=False,
+        )
+    if company is None:
+        show_product_footer()
+        return
+
+    _show_company_banner(company)
+    checkpoint = _evidence_checkpoint_for(company)
+    checked_at = (
+        checkpoint.get("evidence_checked_at")
+        if checkpoint is not None
+        else None
+    )
+    window = build_evidence_window(
+        checked_at,
+        as_of_date=date.today(),
+    )
+    if checked_at:
+        st.success(f"本机上次证据核验时间：{checked_at}")
+        st.caption(
+            "为了避免漏掉上次核验当天晚些时候发布的公告，本次会重新包含"
+            "该日期，并把这些记录标为“同日待复核”。"
+        )
+    else:
+        st.info(
+            "当前浏览器还没有这家公司的证据基准。首次运行会核验最近30天，"
+            "成功后可保存为下次比较起点。"
+        )
+
+    notice = st.session_state.pop("_wfz_evidence_checkpoint_notice", None)
+    if isinstance(notice, str):
+        st.success(notice)
+
+    result_key = f"_wfz_evidence_delta_result_{company['canonical_code']}"
+    if st.button(
+        "核验上次研究后的官方证据",
+        type="primary",
+        width="stretch",
+        key=f"run_evidence_delta_{company['canonical_code']}",
+    ):
+        st.session_state.pop(result_key, None)
+        try:
+            with st.spinner("正在按时间窗口核验官方公告……"):
+                announcements = load_company_announcements(
+                    company["code"],
+                    window["start_date"].isoformat(),
+                    window["end_date"].isoformat(),
+                )
+                review = build_evidence_delta_review(
+                    company,
+                    announcements.to_dict("records"),
+                    window=window,
+                    generated_on=date.today(),
+                )
+                del announcements
+                gc.collect()
+        except (DataSourceError, ValueError) as error:
+            st.error(f"官方公告源本次未完成核验：{error}")
+            st.info("系统不会用新闻摘要、历史缓存或AI猜测填补这次失败。")
+        else:
+            st.session_state[result_key] = review
+
+    review = st.session_state.get(result_key)
+    if isinstance(review, dict):
+        _show_evidence_delta_review(review)  # type: ignore[arg-type]
+        if st.button(
+            "保存本次成功核验为下次基准",
+            width="stretch",
+            key=f"save_evidence_delta_{company['canonical_code']}",
+        ):
+            _queue_browser_research_command(
+                "save_evidence_checkpoint",
+                company,
+            )
+            st.session_state["_wfz_evidence_checkpoint_notice"] = (
+                "已请求把本次成功核验时间保存到当前浏览器；页面刷新后生效。"
+            )
+            st.rerun()
+
+    snapshot = _browser_research_snapshot()
+    if snapshot["storage_status"] == "unavailable":
+        st.warning(
+            "当前浏览器禁止本机存储，基准只能在本次访问中短暂保留。"
+        )
+    else:
+        st.caption(
+            f"每台设备最多保存 {MAX_EVIDENCE_CHECKPOINTS} 家公司的核验基准；"
+            "不保存姓名、联系方式、公告正文或年报文件，也不占用Render数据库。"
+        )
+    st.warning(
+        "公告分类和关注程度用于安排阅读顺序，不预测股价，也不代表利好、"
+        "利空或买卖建议。"
     )
     show_product_footer()
 
@@ -7943,6 +8204,11 @@ def main() -> None:
         title="公司研究中心",
         icon="🏢",
     )
+    evidence_delta_page = st.Page(
+        render_evidence_delta_page,
+        title="证据增量 Agent",
+        icon="🔎",
+    )
     market_page = st.Page(
         render_market_page,
         title="K线与市场表现",
@@ -8008,6 +8274,7 @@ def main() -> None:
         "workspace": workspace_page,
         "comprehensive": comprehensive_page,
         "company": company_page,
+        "evidence_delta": evidence_delta_page,
         "market": market_page,
         "volume_turnover": volume_turnover_page,
         "limit_up": limit_up_page,
@@ -8032,6 +8299,7 @@ def main() -> None:
             "单家公司研究": [
                 comprehensive_page,
                 company_page,
+                evidence_delta_page,
             ],
             "市场行为与复盘": [
                 market_page,

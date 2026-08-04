@@ -42,6 +42,9 @@ Build a web application that can:
 19. explain verified financial-direction mismatches through annual-report
     cash-flow bridges while separating confirmed arithmetic from unresolved
     business causes.
+20. revisit a company through an Evidence Delta Agent that compares official
+    disclosures with a device-local checkpoint and exports a source-linked
+    change brief without a login or server-side user database.
 
 ## Product specifications
 
@@ -86,6 +89,9 @@ Build a web application that can:
   defines official three-report discovery, statement and unit checks,
   restatement clues, the 32 MB free-server boundary, and the mandatory human
   approval gate before any catalogue write.
+- [Evidence Delta Agent](docs/EVIDENCE_DELTA_AGENT_SPEC.md) defines the
+  device-local checkpoint, bounded official-disclosure window, neutral change
+  categories, same-day uncertainty, and non-advisory boundary.
 
 ## Development principles
 
@@ -148,9 +154,10 @@ secret environment settings. It must never be committed to the repository.
   source-controlled audited catalogue of six deep-dive companies, 21
   financial periods, and 23 publication vintages. The site clearly states
   that it is not a real-time trading terminal or commercial data substitute.
-- Keep up to six recently researched companies and five self-selected companies
-  in the visitor's own browser. The shortcuts require no login or server-side
-  user database, store only public company identity and access timestamps, and
+- Keep up to six recently researched companies, five self-selected companies,
+  and five evidence-check timestamps in the visitor's own browser. The
+  shortcuts and evidence checkpoints require no login or server-side user
+  database, store only public company identity and access timestamps, and
   disappear when the visitor clears this site's browser data. The saved local
   watchlist also pre-fills the bounded Market Radar and can be scanned with one
   click without re-entering stock codes. Market Radar checks at most three
@@ -199,6 +206,12 @@ secret environment settings. It must never be committed to the repository.
 - Synchronise official CNINFO disclosures on demand with a one-hour cache,
   source links, topic classification, and a neutral attention level instead of
   unsupported bullish/bearish labels.
+- Recheck one selected company through an Evidence Delta Agent. The first run
+  builds a 30-day baseline; later runs include the locally saved checkpoint
+  date and label same-day records for re-verification because the public feed
+  does not expose a reliable publication time. The request is capped at 365
+  days, accepts only validated official disclosure domains, groups changes into
+  five research questions, and exports a portable HTML brief.
 - Find the latest complete annual report while excluding summaries, inquiry
   letters, cancellations, and replies; prefer the Chinese original over a
   later translation for the same reporting year.

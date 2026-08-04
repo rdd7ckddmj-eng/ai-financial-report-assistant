@@ -160,6 +160,9 @@
       page-linked cash-flow bridge and explicit unresolved-cause boundary.
 - [x] Prove the financial-anomaly explanation is reusable by adding BYD 2024
       with an 18-row page-linked cash-flow bridge and dynamic research questions.
+- [x] Add a device-local Evidence Delta Agent that rechecks official
+      disclosures since the previous successful review without requiring a
+      login, cloud database, or paid AI API.
 - [ ] Add comparable-company valuation only after business-mix, accounting, and same-date market checks.
 - [ ] Expand the 贵州茅台 flagship set from three to five events after review.
 - [x] GitHub publication and public Render website.

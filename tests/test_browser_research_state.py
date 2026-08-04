@@ -1,4 +1,5 @@
 from src.browser_research_state import (
+    MAX_EVIDENCE_CHECKPOINTS,
     MAX_LOCAL_WATCHLIST,
     MAX_RECENT_RESEARCH,
     apply_browser_research_command,
@@ -81,6 +82,39 @@ def test_duplicate_command_is_idempotent() -> None:
     assert len(twice["watchlist"]) == 1
 
 
+def test_evidence_checkpoint_is_replaced_and_bounded() -> None:
+    state: object = {}
+    for index in range(MAX_EVIDENCE_CHECKPOINTS + 2):
+        code = f"60{index:04d}"
+        state = apply_browser_research_command(
+            state,
+            _command(
+                "save_evidence_checkpoint",
+                code,
+                f"checkpoint-{index}",
+            ),
+        )
+
+    state = apply_browser_research_command(
+        state,
+        {
+            **_command(
+                "save_evidence_checkpoint",
+                "600003",
+                "checkpoint-replace",
+            ),
+            "timestamp": "2026-08-04T12:00:00+00:00",
+        },
+    )
+
+    checkpoints = state["evidence_checkpoints"]
+    assert len(checkpoints) == MAX_EVIDENCE_CHECKPOINTS
+    assert checkpoints[0]["canonical_code"] == "600003.SH"
+    assert checkpoints[0]["evidence_checked_at"] == (
+        "2026-08-04T12:00:00+00:00"
+    )
+
+
 def test_untrusted_browser_state_is_sanitised() -> None:
     raw = {
         "version": 999,
@@ -90,15 +124,22 @@ def test_untrusted_browser_state_is_sanitised() -> None:
             {"code": "<script>"},
         ],
         "watchlist": "not-a-list",
+        "evidence_checkpoints": [
+            {
+                **_company("600000"),
+                "evidence_checked_at": "not-a-date",
+            }
+        ],
         "last_command_id": "x" * 200,
         "storage_status": "invented",
     }
 
     result = normalise_browser_research_state(raw)
 
-    assert result["version"] == 1
+    assert result["version"] == 2
     assert len(result["recent"]) == 1
     assert result["recent"][0]["name"] == "贵州茅台"
     assert result["watchlist"] == []
+    assert result["evidence_checkpoints"] == []
     assert result["storage_status"] == "pending"
     assert len(result["last_command_id"]) == 80

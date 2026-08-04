@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Any
 
 
-STORAGE_VERSION = 1
+STORAGE_VERSION = 2
 MAX_RECENT_RESEARCH = 6
 MAX_LOCAL_WATCHLIST = 5
+MAX_EVIDENCE_CHECKPOINTS = 5
 
 _COMPANY_FIELDS = (
     "code",
@@ -25,6 +27,7 @@ def empty_browser_research_state() -> dict[str, Any]:
         "version": STORAGE_VERSION,
         "recent": [],
         "watchlist": [],
+        "evidence_checkpoints": [],
         "last_command_id": None,
         "storage_status": "pending",
     }
@@ -83,6 +86,46 @@ def _normalise_company_list(
     return result
 
 
+def _normalise_evidence_checkpoint(value: object) -> dict[str, str] | None:
+    """Validate one device-local evidence-check time and company identity."""
+    company = normalise_local_company(value)
+    if company is None or not isinstance(value, Mapping):
+        return None
+    checked_at = value.get("evidence_checked_at")
+    if not isinstance(checked_at, str) or not checked_at.strip():
+        return None
+    cleaned = checked_at.strip()[:40]
+    try:
+        datetime.fromisoformat(cleaned.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    company["evidence_checked_at"] = cleaned
+    return company
+
+
+def _normalise_checkpoint_list(value: object) -> list[dict[str, str]]:
+    """Deduplicate and bound browser-provided evidence checkpoints."""
+    if (
+        not isinstance(value, Sequence)
+        or isinstance(value, (str, bytes, bytearray))
+    ):
+        return []
+    result: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for raw in value:
+        checkpoint = _normalise_evidence_checkpoint(raw)
+        if checkpoint is None:
+            continue
+        canonical_code = checkpoint["canonical_code"]
+        if canonical_code in seen:
+            continue
+        seen.add(canonical_code)
+        result.append(checkpoint)
+        if len(result) >= MAX_EVIDENCE_CHECKPOINTS:
+            break
+    return result
+
+
 def normalise_browser_research_state(value: object) -> dict[str, Any]:
     """Validate localStorage content before it reaches the product UI."""
     if not isinstance(value, Mapping):
@@ -108,6 +151,9 @@ def normalise_browser_research_state(value: object) -> dict[str, Any]:
             value.get("watchlist"),
             limit=MAX_LOCAL_WATCHLIST,
         ),
+        "evidence_checkpoints": _normalise_checkpoint_list(
+            value.get("evidence_checkpoints")
+        ),
         "last_command_id": command_id,
         "storage_status": storage_status,
     }
@@ -129,13 +175,24 @@ def apply_browser_research_command(
         not isinstance(command_id, str)
         or not command_id.strip()
         or command_id == current["last_command_id"]
-        or action not in {"record_research", "toggle_watchlist"}
+        or action not in {
+            "record_research",
+            "toggle_watchlist",
+            "save_evidence_checkpoint",
+        }
         or company is None
     ):
         return current
 
     timestamp = command.get("timestamp")
     timestamp = timestamp[:40] if isinstance(timestamp, str) else ""
+    if action == "save_evidence_checkpoint":
+        if not timestamp:
+            return current
+        try:
+            datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        except ValueError:
+            return current
     canonical_code = company["canonical_code"]
 
     if action == "record_research":
@@ -147,7 +204,7 @@ def apply_browser_research_command(
             if item["canonical_code"] != canonical_code
         ]
         current["recent"] = [company, *recent][:MAX_RECENT_RESEARCH]
-    else:
+    elif action == "toggle_watchlist":
         existing = [
             item
             for item in current["watchlist"]
@@ -162,6 +219,18 @@ def apply_browser_research_command(
             ][:MAX_LOCAL_WATCHLIST]
         else:
             current["watchlist"] = existing
+    else:
+        if timestamp:
+            company["evidence_checked_at"] = timestamp
+        checkpoints = [
+            item
+            for item in current["evidence_checkpoints"]
+            if item["canonical_code"] != canonical_code
+        ]
+        current["evidence_checkpoints"] = [
+            company,
+            *checkpoints,
+        ][:MAX_EVIDENCE_CHECKPOINTS]
 
     current["last_command_id"] = command_id[:80]
     current["storage_status"] = "available"

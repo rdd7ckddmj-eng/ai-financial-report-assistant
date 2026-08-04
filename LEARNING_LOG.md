@@ -803,3 +803,31 @@ settlement policy remain questions until the relevant notes are checked. The
 trend signal also uses attributable net profit, while the official reconciliation
 starts from consolidated net profit; the product now states that accounting-scope
 difference instead of quietly treating the figures as identical.
+
+## 2026-08-04 — Evidence Delta Agent
+
+### What I built or changed
+
+Added a device-local continuity workflow for repeated company research. The
+first successful run checks the latest 30 days of official disclosures; the
+user can then save that check time in the current browser. Later runs use the
+checkpoint to classify new official evidence into financial performance,
+operations, capital actions, governance and risk, or other topics, and export
+a source-linked Chinese HTML change brief.
+
+### One concept I can now explain
+
+The product does not need to copy every company's documents into Render to
+remember where research stopped. A very small browser record containing the
+public company identity and last check time is enough to calculate the next
+official-disclosure window. This keeps the feature useful without a login,
+cloud database, paid AI API, or persistent server file storage.
+
+### Evidence boundary
+
+Official announcement metadata reliably exposes a publication date but not a
+precise publication time. The Agent therefore includes the checkpoint date and
+labels those records “same-day recheck” instead of claiming that all of them
+are definitely new. The request is capped at 365 days and 100 retained items;
+older or larger ranges are disclosed as limits rather than silently presented
+as complete.

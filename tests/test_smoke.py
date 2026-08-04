@@ -133,9 +133,38 @@ render_research_workspace_page()
 
     button_labels = [button.label for button in app_test.button]
     assert "运行一键综合研究 Agent" in button_labels
+    assert "核验上次研究后的新证据" in button_labels
     assert "进入市场异动 Agent" in button_labels
     assert "进入年报与证据分析" in button_labels
     assert "查看方法、证据与产品边界" in button_labels
+
+
+def test_evidence_delta_page_starts_without_live_requests() -> None:
+    """Keep the new continuity workflow explicit before a user runs it."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_evidence_delta_page
+
+st.session_state["selected_company"] = {
+    "code": "600519",
+    "name": "贵州茅台",
+    "exchange": "SH",
+    "exchange_name": "上海证券交易所",
+    "canonical_code": "600519.SH",
+}
+render_evidence_delta_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    assert any(
+        button.label == "核验上次研究后的官方证据"
+        for button in app_test.button
+    )
+    info_text = "\n".join(item.value for item in app_test.info)
+    assert "首次运行会核验最近30天" in info_text
 
 
 def test_home_page_shows_device_local_recent_and_watchlist_entries() -> None:
