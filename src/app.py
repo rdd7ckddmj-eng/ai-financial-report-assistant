@@ -147,6 +147,11 @@ from src.market_radar import (
     parse_watchlist_codes,
     rank_research_queue,
 )
+from src.on_demand_financial_snapshot import (
+    OnDemandFinancialSnapshot,
+    build_financial_snapshot_report_html,
+    build_on_demand_financial_snapshot,
+)
 from src.pdf_extractor import ExtractedPage, extract_pdf_pages
 from src.qa_benchmark import (
     BenchmarkCaseResult,
@@ -3315,6 +3320,7 @@ def render_research_workspace_page() -> None:
             ),
             "flow": "年报原文 → 多年趋势 → 横向比较 → 异常解释",
             "tools": (
+                ("生成全市场按需财务快照", "financial_snapshot"),
                 ("进入年报与证据分析", "annual"),
                 ("打开财务趋势实验室", "financial_trend"),
                 ("进行跨公司横向比较", "comparison"),
@@ -7538,6 +7544,269 @@ def render_company_onboarding_page() -> None:
     show_product_footer()
 
 
+def _format_snapshot_amount(value: object) -> str:
+    """Format a normalised RMB amount without implying false precision."""
+    if value is None:
+        return "待核验"
+    return f"¥{float(value) / 100_000_000:,.2f}亿"
+
+
+def _format_snapshot_ratio(value: object) -> str:
+    """Format one deterministic ratio or retain its evidence gap."""
+    if value is None:
+        return "待核验"
+    return f"{float(value):.1%}"
+
+
+def _format_snapshot_pages(pages: object) -> str:
+    """Format an inclusive PDF page range from compact provenance."""
+    if not isinstance(pages, Mapping):
+        return "待核验"
+    start = int(pages["start"])
+    end = int(pages["end"])
+    return str(start) if start == end else f"{start}–{end}"
+
+
+def render_financial_snapshot_page() -> None:
+    """Generate one temporary, page-linked snapshot for an A-share company."""
+    apply_product_theme()
+    show_compact_page_header(
+        "财务 / 按需快照 · ON-DEMAND FINANCIAL SNAPSHOT",
+        "全市场按需财务快照 Agent",
+        "输入或选择普通A股公司后，系统临时取得最新完整年度报告，"
+        "完成三表勾稽、金额单位校验和核心指标计算；只保留小型结果，"
+        "不预先囤积全市场PDF。",
+    )
+    company = _selected_company()
+    if company is None:
+        st.warning("请先输入要生成财务快照的A股公司名称或6位代码。")
+        company = _render_company_search(
+            key_prefix="financial_snapshot",
+            navigate_on_success=False,
+        )
+    if company is None:
+        show_product_footer()
+        return
+
+    _show_company_banner(company)
+    with st.container(border=True):
+        st.markdown("#### 一次请求，完成五步资料整理")
+        st.write(
+            "核验公司身份 → 查找最新完整年报 → 临时下载PDF → "
+            "勾稽三张报表 → 输出带原文页码的候选快照。"
+        )
+        st.caption(
+            "只有点击按钮后才访问公开数据源。PDF不会写入项目仓库或"
+            "服务器数据库；本页完成解析后只在当前会话保留结构化结果。"
+        )
+        generate_requested = st.button(
+            "生成最新年报财务快照",
+            type="primary",
+            width="stretch",
+            key=f"generate_financial_snapshot_{company['canonical_code']}",
+        )
+
+    if generate_requested:
+        st.session_state.pop("on_demand_financial_snapshot", None)
+        pdf_bytes: bytes | None = None
+        extracted_pages: list[ExtractedPage] | None = None
+        try:
+            with st.spinner("正在定位最新完整年度报告……"):
+                end_date = date.today()
+                start_date = end_date - timedelta(days=550)
+                announcements = load_company_announcements(
+                    company["code"],
+                    start_date.isoformat(),
+                    end_date.isoformat(),
+                    "年报",
+                )
+                latest_report = select_latest_annual_report(announcements)
+                if latest_report is None:
+                    raise ValueError(
+                        "最近550天内没有找到可自动载入的完整年度报告。"
+                    )
+                report_candidates = select_recent_annual_reports(
+                    [latest_report.to_dict()],
+                    limit=1,
+                )
+                if not report_candidates:
+                    raise ValueError(
+                        "最新公告的报告期或官方来源未通过自动校验。"
+                    )
+                report = report_candidates[0]
+
+            with st.spinner("正在临时下载年报并勾稽三张报表……"):
+                # Keep the free service stable: this focused workflow does not
+                # retain the PDF in a Streamlit cache and rejects oversized
+                # source files before parsing them.
+                pdf_bytes = download_official_pdf(
+                    report["url"],
+                    max_bytes=45 * 1024 * 1024,
+                )
+                extracted_pages = extract_pdf_pages(pdf_bytes)
+                candidate_result = build_candidate_report_result(
+                    company,
+                    report,
+                    pdf_bytes,
+                    extracted_pages,
+                )
+                snapshot = build_on_demand_financial_snapshot(
+                    company,
+                    candidate_result,
+                )
+                st.session_state["on_demand_financial_snapshot"] = snapshot
+        except (DataSourceError, ValueError) as error:
+            st.error(str(error))
+            st.info(
+                "系统没有猜测缺失数值。你仍可进入“年报与证据”页面，"
+                "通过官方链接下载后手工上传分析。"
+            )
+        except MemoryError:
+            st.error(
+                "该报告解析所需内存超过当前免费服务器的安全范围，"
+                "系统已停止本次任务。"
+            )
+        finally:
+            # Drop all request-local references.  The retained session object
+            # contains only metrics, checks, page ranges and source metadata.
+            extracted_pages = None
+            pdf_bytes = None
+            gc.collect()
+
+    stored_snapshot = st.session_state.get("on_demand_financial_snapshot")
+    snapshot: OnDemandFinancialSnapshot | None = None
+    if (
+        isinstance(stored_snapshot, dict)
+        and isinstance(stored_snapshot.get("company"), dict)
+        and stored_snapshot["company"].get("canonical_code")
+        == company["canonical_code"]
+    ):
+        snapshot = stored_snapshot  # type: ignore[assignment]
+
+    if snapshot is None:
+        st.info(
+            "尚未生成当前公司的快照。本功能面向普通A股年度报告；"
+            "银行、保险、扫描版或特殊报表版式可能需要人工分析。"
+        )
+        st.warning(
+            "自动提取结果只是候选数据，不是审计意见、估值结论或买卖建议。"
+        )
+        show_product_footer()
+        return
+
+    if snapshot["status"] == "ready_for_human_review":
+        st.success(snapshot["status_label"])
+    else:
+        st.warning(snapshot["status_label"])
+
+    report = snapshot["report"]
+    with st.container(border=True):
+        st.markdown("#### 官方来源与处理状态")
+        st.write(str(report["title"]))
+        st.caption(
+            f"报告期：{report['report_year']}｜公告日："
+            f"{report['published_date']}｜PDF共 {report['page_count']} 页。"
+        )
+        st.link_button(
+            "查看官方年报原文",
+            str(report["source_url"]),
+            width="stretch",
+        )
+        st.caption(snapshot["unit_note"])
+
+    st.subheader("三张报表自动勾稽")
+    statement_labels = {
+        "income_statement_reconciled": "利润表",
+        "balance_sheet_reconciled": "资产负债表",
+        "cash_flow_statement_reconciled": "现金流量表",
+    }
+    statement_columns = st.columns(3)
+    for column, (key, label) in zip(
+        statement_columns,
+        statement_labels.items(),
+    ):
+        passed = snapshot["statement_checks"].get(key, False)
+        column.metric(label, "通过" if passed else "待人工检查")
+
+    st.subheader("核心财务快照")
+    metric_columns = st.columns(3)
+    for index, metric in enumerate(snapshot["metrics"]):
+        delta = (
+            None
+            if metric["change_rate"] is None
+            else f"同比/较上年末 {metric['change_rate']:+.1%}"
+        )
+        metric_columns[index % 3].metric(
+            metric["label"],
+            _format_snapshot_amount(metric["current_yuan"]),
+            delta=delta,
+            delta_color="off",
+            help=(
+                f"来源：{metric['statement']} PDF第"
+                f"{_format_snapshot_pages(metric['pages'])}页。"
+            ),
+        )
+
+    st.caption(
+        "变化率使用最新年报内的比较栏计算；利润表和现金流量表是同比，"
+        "资产负债表是较上年末。比较栏可能包含追溯调整。"
+    )
+    st.subheader("确定性比例")
+    ratio_columns = st.columns(3)
+    ratio_columns[0].metric(
+        "净利率（同一提取口径）",
+        _format_snapshot_ratio(snapshot["ratios"]["net_profit_margin"]),
+    )
+    ratio_columns[1].metric(
+        "经营现金流 / 净利润",
+        _format_snapshot_ratio(
+            snapshot["ratios"]["operating_cash_conversion"]
+        ),
+    )
+    ratio_columns[2].metric(
+        "资产负债率",
+        _format_snapshot_ratio(snapshot["ratios"]["liabilities_to_assets"]),
+    )
+    st.caption(
+        "公式：净利率 = 净利润 ÷ 营业收入；现金利润比 = 经营活动现金流量"
+        "净额 ÷ 净利润；资产负债率 = 负债总额 ÷ 资产总额。"
+    )
+    st.caption(
+        "如果分母为0、数值缺失或三表未全部通过，系统显示“待核验”，"
+        "不会用0代替缺失值。"
+    )
+
+    with st.expander("查看证据页码、文件指纹与使用边界"):
+        for metric in snapshot["metrics"]:
+            st.write(
+                f"- {metric['label']}：本期 "
+                f"{_format_snapshot_amount(metric['current_yuan'])}｜比较栏 "
+                f"{_format_snapshot_amount(metric['previous_yuan'])}｜"
+                f"{metric['statement']} PDF第"
+                f"{_format_snapshot_pages(metric['pages'])}页"
+            )
+        st.code(snapshot["source_fingerprint_sha256"], language=None)
+        for limitation in snapshot["limitations"]:
+            st.write(f"- {limitation}")
+
+    report_html = build_financial_snapshot_report_html(snapshot)
+    st.download_button(
+        "下载财务快照核验底稿（HTML）",
+        data=report_html,
+        file_name=(
+            f"{company['code']}_{company['name']}_财务快照_"
+            f"{report['report_year']}.html"
+        ),
+        mime="text/html",
+        width="stretch",
+    )
+    st.warning(
+        "自动提取候选，未经人工复核。请打开官方年报核对页码、合并口径"
+        "和单位后再使用；本页不构成投资建议。"
+    )
+    show_product_footer()
+
+
 def render_annual_report_page() -> None:
     """Render the existing PDF evidence workflow as a dedicated subpage."""
     apply_product_theme()
@@ -8732,6 +9001,11 @@ def main() -> None:
         title="年报与证据",
         icon="📄",
     )
+    financial_snapshot_page = st.Page(
+        render_financial_snapshot_page,
+        title="按需财务快照 Agent",
+        icon="⚡",
+    )
     onboarding_page = st.Page(
         render_company_onboarding_page,
         title="已核验公司扩展 Agent",
@@ -8770,6 +9044,7 @@ def main() -> None:
         "radar": radar_page,
         "anomaly": anomaly_page,
         "historical": historical_page,
+        "financial_snapshot": financial_snapshot_page,
         "annual": annual_page,
         "onboarding": onboarding_page,
         "financial_trend": financial_trend_page,
@@ -8798,6 +9073,7 @@ def main() -> None:
                 historical_page,
             ],
             "财务与年报证据": [
+                financial_snapshot_page,
                 annual_page,
                 financial_trend_page,
                 comparison_page,

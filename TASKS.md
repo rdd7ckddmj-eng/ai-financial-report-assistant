@@ -166,6 +166,9 @@
 - [x] Add a human-reviewed Research Thesis Ledger with falsifiable criteria,
       topic-matched official evidence, browser-local persistence, and a safe
       offline export.
+- [x] Add an on-demand, single-report financial snapshot for ordinary A-share
+      companies with three-statement reconciliation, page provenance, bounded
+      PDF memory, safe HTML export, and a mandatory human-review status.
 - [ ] Add comparable-company valuation only after business-mix, accounting, and same-date market checks.
 - [ ] Expand the 贵州茅台 flagship set from three to five events after review.
 - [x] GitHub publication and public Render website.

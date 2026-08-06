@@ -48,6 +48,9 @@ Build a web application that can:
 21. maintain a human-reviewed Research Thesis Ledger that records a falsifiable
     hypothesis, confirmation and invalidation criteria, topic-matched official
     evidence, and an explicit review state without letting AI infer direction.
+22. generate a one-report, page-linked financial snapshot for an on-demand
+    A-share company without pre-downloading or permanently storing a full-market
+    annual-report database, while retaining a mandatory human-review label.
 
 ## Product specifications
 
@@ -98,6 +101,10 @@ Build a web application that can:
 - [Research Thesis Ledger](docs/RESEARCH_THESIS_LEDGER_SPEC.md) defines the
   device-local record, human-only direction decision, official-link validation,
   export, privacy boundary, and future account migration path.
+- [On-Demand Financial Snapshot](docs/ON_DEMAND_FINANCIAL_SNAPSHOT_SPEC.md)
+  defines official report discovery, three-statement reconciliation, RMB unit
+  normalisation, page-linked export, human-review status, and free-server memory
+  boundary.
 
 ## Development principles
 

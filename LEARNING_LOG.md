@@ -858,3 +858,32 @@ page therefore forbids positions, client data, inside information, and other
 sensitive material. A future login version must migrate authoritative records
 to access-controlled durable storage instead of treating browser storage as a
 cross-device database.
+
+## 2026-08-06 — On-demand A-share financial snapshot
+
+### What I built or changed
+
+Added a focused financial snapshot Agent between broad A-share search and the
+small audited multi-year catalogue. After the user selects one company and
+explicitly starts the task, the page finds the latest complete official annual
+report, temporarily parses it, reconciles the income statement, balance sheet,
+and cash-flow statement, normalises supported RMB units, and exports five core
+metrics with source pages and a SHA-256 file fingerprint.
+
+### One concept I can now explain
+
+The website does not need to download and permanently store every listed
+company's reports in advance. It can retrieve one official report only when a
+user asks for that company, turn it into a compact structured snapshot, release
+the source PDF, and retain only the values, checks, page ranges, and source
+metadata needed for review. This improves coverage without pretending to own a
+commercial full-market database.
+
+### Evidence and server boundary
+
+The focused workflow caps a source PDF at 45 MB and does not put PDF bytes or
+page text into Streamlit's long-lived cache. A result is labelled ready for
+human review only after all three statement reconciliations and the common-unit
+check pass. It never receives audited status, never enters the verified
+multi-year catalogue automatically, and leaves zero or missing denominators as
+explicitly unavailable rather than replacing them with zero or an AI guess.

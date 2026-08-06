@@ -136,6 +136,7 @@ render_research_workspace_page()
     assert "核验上次研究后的新证据" in button_labels
     assert "维护研究结论账本" in button_labels
     assert "进入市场异动 Agent" in button_labels
+    assert "生成全市场按需财务快照" in button_labels
     assert "进入年报与证据分析" in button_labels
     assert "查看方法、证据与产品边界" in button_labels
 
@@ -210,6 +211,121 @@ render_research_thesis_page()
         for button in app_test.button
     )
     assert app_test.download_button[0].disabled
+
+
+def test_financial_snapshot_page_starts_without_live_requests() -> None:
+    """Keep the on-demand workflow idle until the user requests a report."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_financial_snapshot_page
+
+st.session_state["selected_company"] = {
+    "code": "600519",
+    "name": "贵州茅台",
+    "exchange": "SH",
+    "exchange_name": "上海证券交易所",
+    "canonical_code": "600519.SH",
+}
+render_financial_snapshot_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    page_markup = "\n".join(item.value for item in app_test.markdown)
+    assert "ON-DEMAND FINANCIAL SNAPSHOT" in page_markup
+    assert "全市场按需财务快照 Agent" in page_markup
+    assert any(
+        button.label == "生成最新年报财务快照"
+        for button in app_test.button
+    )
+    assert "尚未生成当前公司的快照" in "\n".join(
+        item.value for item in app_test.info
+    )
+
+
+def test_financial_snapshot_page_renders_reviewable_result() -> None:
+    """Render metrics, provenance and export without retaining a source PDF."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_financial_snapshot_page
+
+company = {
+    "code": "600519",
+    "name": "贵州茅台",
+    "exchange": "SH",
+    "exchange_name": "上海证券交易所",
+    "canonical_code": "600519.SH",
+}
+metric_specs = [
+    ("revenue", "营业收入", "利润表", 100),
+    ("net_profit", "净利润（优先归母口径）", "利润表", 100),
+    ("operating_cash_flow", "经营活动现金流量净额", "现金流量表", 102),
+    ("total_assets", "资产总额", "资产负债表", 98),
+    ("total_liabilities", "负债总额", "资产负债表", 98),
+]
+st.session_state["selected_company"] = company
+st.session_state["on_demand_financial_snapshot"] = {
+    "schema_version": "1.0",
+    "generated_at": "2026-08-06T00:00:00+00:00",
+    "status": "ready_for_human_review",
+    "status_label": "自动检查完成，等待人工复核",
+    "company": company,
+    "report": {
+        "report_year": 2025,
+        "published_date": "2026-04-20",
+        "title": "贵州茅台2025年年度报告",
+        "source_url": "https://static.cninfo.com.cn/example.pdf",
+        "page_count": 200,
+    },
+    "source_fingerprint_sha256": "a" * 64,
+    "statement_checks": {
+        "income_statement_reconciled": True,
+        "balance_sheet_reconciled": True,
+        "cash_flow_statement_reconciled": True,
+    },
+    "unit": "元",
+    "unit_note": "三张报表原始单位均为“元”。",
+    "metrics": [
+        {
+            "key": key,
+            "label": label,
+            "current_yuan": 10_000_000_000.0,
+            "previous_yuan": 9_000_000_000.0,
+            "change_rate": 1 / 9,
+            "statement": statement,
+            "pages": {"start": page, "end": page + 1},
+        }
+        for key, label, statement, page in metric_specs
+    ],
+    "ratios": {
+        "net_profit_margin": 0.1,
+        "operating_cash_conversion": 1.2,
+        "liabilities_to_assets": 0.4,
+    },
+    "limitations": ["自动提取，等待人工复核。"],
+}
+render_financial_snapshot_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    assert any(
+        item.value == "自动检查完成，等待人工复核"
+        for item in app_test.success
+    )
+    assert any(item.label == "营业收入" for item in app_test.metric)
+    assert any(item.label == "资产负债率" for item in app_test.metric)
+    assert app_test.download_button[0].label == "下载财务快照核验底稿（HTML）"
+    link_buttons = app_test.get("link_button")
+    assert any(
+        item.proto.label == "查看官方年报原文"
+        and item.proto.url == "https://static.cninfo.com.cn/example.pdf"
+        for item in link_buttons
+    )
 
 
 def test_home_page_shows_device_local_recent_and_watchlist_entries() -> None:
