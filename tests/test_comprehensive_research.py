@@ -86,6 +86,80 @@ def _financial_history():
     }
 
 
+def _financial_snapshot(
+    code: str = "601398",
+    status: str = "ready_for_human_review",
+):
+    company = build_company_identity(code, "工商银行")
+    metric_specs = (
+        ("revenue", "营业收入", "利润表", 100, 120_000_000_000.0),
+        ("net_profit", "净利润", "利润表", 100, 36_000_000_000.0),
+        (
+            "operating_cash_flow",
+            "经营活动现金流量净额",
+            "现金流量表",
+            102,
+            40_000_000_000.0,
+        ),
+        (
+            "total_assets",
+            "资产总额",
+            "资产负债表",
+            98,
+            800_000_000_000.0,
+        ),
+        (
+            "total_liabilities",
+            "负债总额",
+            "资产负债表",
+            98,
+            600_000_000_000.0,
+        ),
+    )
+    return {
+        "schema_version": "1.0",
+        "generated_at": "2026-08-06T00:00:00+00:00",
+        "status": status,
+        "status_label": "自动检查完成，等待人工复核",
+        "company": company,
+        "report": {
+            "report_year": 2025,
+            "published_date": "2026-04-20",
+            "title": "工商银行2025年年度报告",
+            "source_url": "https://static.cninfo.com.cn/example.pdf",
+            "page_count": 200,
+        },
+        "source_fingerprint_sha256": "a" * 64,
+        "statement_checks": {
+            "income_statement_reconciled": True,
+            "balance_sheet_reconciled": True,
+            "cash_flow_statement_reconciled": True,
+        },
+        "unit": "元",
+        "unit_note": "测试",
+        "metrics": [
+            {
+                "key": key,
+                "label": label,
+                "current_yuan": (
+                    amount if status == "ready_for_human_review" else None
+                ),
+                "previous_yuan": amount * 0.9,
+                "change_rate": 1 / 9,
+                "statement": statement,
+                "pages": {"start": page, "end": page + 1},
+            }
+            for key, label, statement, page, amount in metric_specs
+        ],
+        "ratios": {
+            "net_profit_margin": 0.3,
+            "operating_cash_conversion": 40 / 36,
+            "liabilities_to_assets": 0.75,
+        },
+        "limitations": ["自动提取，等待人工复核。"],
+    }
+
+
 def test_complete_brief_combines_five_independent_evidence_lanes() -> None:
     company = build_company_identity("600519", "贵州茅台")
     annual_url = (
@@ -181,3 +255,110 @@ def test_untrusted_disclosure_link_is_not_exported_as_verified_evidence() -> Non
     assert disclosure_lane["source_url"] is None
     assert annual_lane["status"] == "partial"
     assert annual_lane["source_url"] is None
+
+
+def test_same_company_snapshot_fills_financial_lane_as_partial_evidence() -> None:
+    company = build_company_identity("601398", "工商银行")
+
+    brief = build_comprehensive_research_brief(
+        company,
+        financial_snapshot=_financial_snapshot(),
+        generated_on=date(2026, 8, 7),
+    )
+
+    financial_lane = next(
+        lane
+        for lane in brief["evidence_lanes"]
+        if lane["key"] == "financial_history"
+    )
+    assert financial_lane["status"] == "partial"
+    assert financial_lane["label"] == "单期财务快照（待复核）"
+    assert financial_lane["as_of_date"] == "2026-04-20"
+    assert financial_lane["source_url"] == (
+        "https://static.cninfo.com.cn/example.pdf"
+    )
+    finding = next(
+        item for item in brief["findings"] if item["category"] == "财务快照"
+    )
+    assert finding["status"] == "partial"
+    assert "营业收入 ¥1,200.00亿元" in finding["statement"]
+    assert "利润表第100–101页" in finding["basis"]
+    assert any(
+        action["page"] == "financial_snapshot"
+        and action["label"] == "复核并更新财务快照"
+        for action in brief["actions"]
+    )
+
+
+def test_verified_history_wins_over_an_automatic_snapshot() -> None:
+    company = build_company_identity("600519", "贵州茅台")
+
+    brief = build_comprehensive_research_brief(
+        company,
+        financial_history=_financial_history(),
+        financial_snapshot=_financial_snapshot(code="600519"),
+        generated_on=date(2026, 8, 7),
+    )
+
+    financial_lane = next(
+        lane
+        for lane in brief["evidence_lanes"]
+        if lane["key"] == "financial_history"
+    )
+    assert financial_lane["status"] == "verified"
+    assert financial_lane["label"] == "已核验财务历史"
+    assert not any(
+        item["category"] == "财务快照" for item in brief["findings"]
+    )
+    assert not any(
+        "单期财务快照由程序" in item for item in brief["limitations"]
+    )
+
+
+def test_snapshot_that_needs_review_does_not_publish_amounts() -> None:
+    company = build_company_identity("601398", "工商银行")
+
+    brief = build_comprehensive_research_brief(
+        company,
+        financial_snapshot=_financial_snapshot(status="needs_review"),
+        generated_on=date(2026, 8, 7),
+    )
+
+    financial_lane = next(
+        lane
+        for lane in brief["evidence_lanes"]
+        if lane["key"] == "financial_history"
+    )
+    assert financial_lane["status"] == "partial"
+    assert "暂不输出金额观察" in financial_lane["summary"]
+    assert not any(
+        item["category"] == "财务快照" for item in brief["findings"]
+    )
+
+
+def test_mismatched_or_untrusted_snapshot_is_not_reused() -> None:
+    company = build_company_identity("601398", "工商银行")
+    mismatched = _financial_snapshot(code="600519")
+    unsafe = _financial_snapshot()
+    unsafe["report"]["source_url"] = "https://example.com/report.pdf"
+
+    for snapshot in (mismatched, unsafe):
+        brief = build_comprehensive_research_brief(
+            company,
+            financial_snapshot=snapshot,
+            generated_on=date(2026, 8, 7),
+        )
+        financial_lane = next(
+            lane
+            for lane in brief["evidence_lanes"]
+            if lane["key"] == "financial_history"
+        )
+        assert financial_lane["status"] == "unavailable"
+        assert not any(
+            item["category"] == "财务快照" for item in brief["findings"]
+        )
+        assert any(
+            action["page"] == "financial_snapshot"
+            and action["label"] == "生成最新年报财务快照"
+            for action in brief["actions"]
+        )

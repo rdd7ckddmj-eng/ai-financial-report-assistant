@@ -204,3 +204,74 @@ def test_audit_fingerprint_changes_with_evidence_payload() -> None:
     assert original["evidence_fingerprint"]["value"] != changed[
         "evidence_fingerprint"
     ]["value"]
+
+
+def test_snapshot_candidate_keeps_review_warning_pages_and_official_link() -> None:
+    company = build_company_identity("601398", "工商银行")
+    snapshot = {
+        "status": "ready_for_human_review",
+        "company": company,
+        "report": {
+            "report_year": 2025,
+            "published_date": "2026-04-20",
+            "title": "工商银行2025年年度报告",
+            "source_url": "https://static.cninfo.com.cn/example.pdf",
+        },
+        "metrics": [
+            {
+                "key": key,
+                "label": label,
+                "current_yuan": amount,
+                "statement": statement,
+                "pages": {"start": page, "end": page},
+            }
+            for key, label, statement, page, amount in (
+                ("revenue", "营业收入", "利润表", 100, 120_000_000_000.0),
+                ("net_profit", "净利润", "利润表", 100, 36_000_000_000.0),
+                (
+                    "operating_cash_flow",
+                    "经营活动现金流量净额",
+                    "现金流量表",
+                    102,
+                    40_000_000_000.0,
+                ),
+                (
+                    "total_assets",
+                    "资产总额",
+                    "资产负债表",
+                    98,
+                    800_000_000_000.0,
+                ),
+                (
+                    "total_liabilities",
+                    "负债总额",
+                    "资产负债表",
+                    98,
+                    600_000_000_000.0,
+                ),
+            )
+        ],
+        "ratios": {
+            "net_profit_margin": 0.3,
+            "operating_cash_conversion": 40 / 36,
+            "liabilities_to_assets": 0.75,
+        },
+    }
+    brief = build_comprehensive_research_brief(
+        company,
+        financial_snapshot=snapshot,
+        generated_on=date(2026, 8, 7),
+    )
+
+    html = build_comprehensive_research_report_html(brief)
+    payload = build_comprehensive_research_audit_payload(brief)
+
+    assert "单期财务快照（待复核）" in html
+    assert "自动提取候选，未经人工复核" in html
+    assert "利润表第100页" in html
+    assert "https://static.cninfo.com.cn/example.pdf" in html
+    assert payload["evidence_lanes"][-1]["status"] == "partial"
+    assert payload["deterministic_findings"][-1]["status"] == "partial"
+    assert "现金流量表第102页" in payload["deterministic_findings"][-1][
+        "basis"
+    ]

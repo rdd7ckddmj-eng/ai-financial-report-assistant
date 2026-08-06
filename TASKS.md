@@ -1,6 +1,9 @@
 # Current task board
 
 ## Now
+- [x] Connect a same-company on-demand financial snapshot to the Comprehensive
+      Research Agent as partial evidence, while keeping verified multi-year
+      history first and avoiding duplicate PDF parsing.
 - [x] Convert a completed onboarding package into a production-shaped CSV
       candidate with deterministic RMB-unit conversion, official PDF links,
       page provenance, and a non-importable candidate status.

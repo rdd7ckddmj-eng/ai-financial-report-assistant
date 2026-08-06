@@ -8,6 +8,7 @@ be used for the next verification step.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping, Sequence
 from datetime import date, datetime
 from typing import Literal, TypedDict
@@ -264,6 +265,8 @@ def _annual_report_lane(
 
 def _financial_lane(
     financial_history: FinancialHistoryResult | None,
+    company: CompanyIdentity,
+    financial_snapshot: Mapping[str, object] | None,
 ) -> EvidenceLane:
     points = financial_history["points"] if financial_history else []
     if len(points) >= 2:
@@ -293,6 +296,34 @@ def _financial_lane(
             "source_url": _safe_official_url(latest["source_url"]),
             "limitation": "单一年度不足以形成可靠的多年趋势。",
         }
+    snapshot = _matching_financial_snapshot(company, financial_snapshot)
+    if snapshot is not None:
+        report = snapshot["report"]
+        report_year = report.get("report_year")
+        ready = (
+            snapshot.get("status") == "ready_for_human_review"
+            and _snapshot_has_reviewable_metrics(snapshot)
+        )
+        return {
+            "key": "financial_history",
+            "label": "单期财务快照（待复核）",
+            "status": "partial",
+            "summary": (
+                f"已复用 {report_year} 年最新年报的单期自动提取候选；"
+                + (
+                    "五项核心金额可进入人工复核。"
+                    if ready
+                    else "自动检查未全部通过，暂不输出金额观察。"
+                )
+            ),
+            "source": "最新完整年度报告自动提取候选",
+            "as_of_date": _as_iso_date(report.get("published_date")),
+            "source_url": _safe_official_url(report.get("source_url")),
+            "limitation": (
+                "仅为单期自动提取候选，未经人工复核，不等于逐页核验的"
+                "多年财务历史。"
+            ),
+        }
     return {
         "key": "financial_history",
         "label": "已核验财务历史",
@@ -303,6 +334,104 @@ def _financial_lane(
         "source_url": None,
         "limitation": "可以先使用官方年报解析，不会套用其他公司的数据。",
     }
+
+
+def _matching_financial_snapshot(
+    company: CompanyIdentity,
+    financial_snapshot: Mapping[str, object] | None,
+) -> Mapping[str, object] | None:
+    """Accept only one same-company snapshot backed by an official report."""
+    if not isinstance(financial_snapshot, Mapping):
+        return None
+    snapshot_company = financial_snapshot.get("company")
+    report = financial_snapshot.get("report")
+    status = financial_snapshot.get("status")
+    if not isinstance(snapshot_company, Mapping) or not isinstance(
+        report, Mapping
+    ):
+        return None
+    if snapshot_company.get("canonical_code") != company["canonical_code"]:
+        return None
+    if status not in {"ready_for_human_review", "needs_review"}:
+        return None
+    if _safe_official_url(report.get("source_url")) is None:
+        return None
+    if not _as_iso_date(report.get("published_date")):
+        return None
+    try:
+        report_year = int(report["report_year"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if report_year < 1990 or report_year > date.today().year:
+        return None
+    return financial_snapshot
+
+
+def _finite_number(value: object) -> float | None:
+    """Normalise one candidate number without turning missing data into zero."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _snapshot_metric_map(
+    snapshot: Mapping[str, object],
+) -> dict[str, Mapping[str, object]]:
+    raw_metrics = snapshot.get("metrics")
+    if not isinstance(raw_metrics, Sequence) or isinstance(
+        raw_metrics, (str, bytes)
+    ):
+        return {}
+    metrics: dict[str, Mapping[str, object]] = {}
+    for metric in raw_metrics:
+        if not isinstance(metric, Mapping):
+            continue
+        key = str(metric.get("key", "")).strip()
+        if key:
+            metrics[key] = metric
+    return metrics
+
+
+def _format_snapshot_amount(value: object) -> str:
+    number = _finite_number(value)
+    return "数据不足" if number is None else f"¥{number / 100_000_000:,.2f}亿元"
+
+
+def _format_snapshot_pages(value: object) -> str:
+    if not isinstance(value, Mapping):
+        return "页码待核验"
+    try:
+        start = int(value["start"])
+        end = int(value["end"])
+    except (KeyError, TypeError, ValueError):
+        return "页码待核验"
+    if start <= 0 or end < start:
+        return "页码待核验"
+    return f"第{start}页" if start == end else f"第{start}–{end}页"
+
+
+def _snapshot_has_reviewable_metrics(
+    snapshot: Mapping[str, object],
+) -> bool:
+    """Require all five finite values and usable PDF page provenance."""
+    metrics = _snapshot_metric_map(snapshot)
+    required_keys = {
+        "revenue",
+        "net_profit",
+        "operating_cash_flow",
+        "total_assets",
+        "total_liabilities",
+    }
+    return required_keys.issubset(metrics) and all(
+        _finite_number(metrics[key].get("current_yuan")) is not None
+        and _format_snapshot_pages(metrics[key].get("pages"))
+        != "页码待核验"
+        for key in required_keys
+    )
 
 
 def _market_findings(
@@ -421,28 +550,77 @@ def _disclosure_findings(
 
 def _financial_finding(
     financial_history: FinancialHistoryResult | None,
+    company: CompanyIdentity,
+    financial_snapshot: Mapping[str, object] | None,
 ) -> ResearchFinding | None:
     points = financial_history["points"] if financial_history else []
-    if not points:
+    if points:
+        latest = points[-1]
+        return {
+            "category": "财务质量",
+            "headline": f"{latest['period_year']} 年已核验财务快照",
+            "statement": (
+                f"营业收入同比 {_format_percent(latest['revenue_growth'])}；"
+                f"归母净利润同比 {_format_percent(latest['net_profit_growth'])}；"
+                f"净利率 {_format_percent(latest['net_margin'])}；"
+                f"经营现金流/净利润 {latest['cash_conversion']:.2f} 倍；"
+                f"资产负债率 {_format_percent(latest['liabilities_to_assets'])}。"
+            ),
+            "basis": (
+                f"利润表/摘要页 {latest['summary_page']}；"
+                f"资产负债表页 {latest['balance_sheet_page']}；"
+                f"证据等级 {latest['evidence_grade']}。"
+            ),
+            "status": "verified" if len(points) >= 2 else "partial",
+            "source_url": _safe_official_url(latest["source_url"]),
+        }
+
+    snapshot = _matching_financial_snapshot(company, financial_snapshot)
+    if (
+        snapshot is None
+        or snapshot.get("status") != "ready_for_human_review"
+        or not _snapshot_has_reviewable_metrics(snapshot)
+    ):
         return None
-    latest = points[-1]
+    metrics = _snapshot_metric_map(snapshot)
+    required_keys = (
+        "revenue",
+        "net_profit",
+        "operating_cash_flow",
+        "total_assets",
+        "total_liabilities",
+    )
+    report = snapshot["report"]
+    ratios = snapshot.get("ratios")
+    ratio_values = ratios if isinstance(ratios, Mapping) else {}
+    page_basis = "；".join(
+        f"{metrics[key].get('label', key)}："
+        f"{metrics[key].get('statement', '报表')}"
+        f"{_format_snapshot_pages(metrics[key].get('pages'))}"
+        for key in required_keys
+    )
     return {
-        "category": "财务质量",
-        "headline": f"{latest['period_year']} 年已核验财务快照",
+        "category": "财务快照",
+        "headline": f"{report.get('report_year')} 年单期候选（待人工复核）",
         "statement": (
-            f"营业收入同比 {_format_percent(latest['revenue_growth'])}；"
-            f"归母净利润同比 {_format_percent(latest['net_profit_growth'])}；"
-            f"净利率 {_format_percent(latest['net_margin'])}；"
-            f"经营现金流/净利润 {latest['cash_conversion']:.2f} 倍；"
-            f"资产负债率 {_format_percent(latest['liabilities_to_assets'])}。"
+            "营业收入 "
+            f"{_format_snapshot_amount(metrics['revenue'].get('current_yuan'))}；"
+            "净利润 "
+            f"{_format_snapshot_amount(metrics['net_profit'].get('current_yuan'))}；"
+            "经营活动现金流量净额 "
+            f"{_format_snapshot_amount(metrics['operating_cash_flow'].get('current_yuan'))}；"
+            "资产总额 "
+            f"{_format_snapshot_amount(metrics['total_assets'].get('current_yuan'))}；"
+            "负债总额 "
+            f"{_format_snapshot_amount(metrics['total_liabilities'].get('current_yuan'))}。"
+            f"净利率 {_format_percent(ratio_values.get('net_profit_margin'))}；"
+            "经营现金流/净利润 "
+            f"{_format_multiple(ratio_values.get('operating_cash_conversion'))}；"
+            f"资产负债率 {_format_percent(ratio_values.get('liabilities_to_assets'))}。"
         ),
-        "basis": (
-            f"利润表/摘要页 {latest['summary_page']}；"
-            f"资产负债表页 {latest['balance_sheet_page']}；"
-            f"证据等级 {latest['evidence_grade']}。"
-        ),
-        "status": "verified" if len(points) >= 2 else "partial",
-        "source_url": _safe_official_url(latest["source_url"]),
+        "basis": f"{page_basis}；自动提取候选，未经人工复核。",
+        "status": "partial",
+        "source_url": _safe_official_url(report.get("source_url")),
     }
 
 
@@ -503,6 +681,32 @@ def _build_actions(
                 "reason": "已有至少两个年度的逐页核验财务数据。",
             }
         )
+    elif lane_by_key["financial_history"]["source"] == (
+        "最新完整年度报告自动提取候选"
+    ):
+        actions.append(
+            {
+                "priority": 2,
+                "page": "financial_snapshot",
+                "label": "复核并更新财务快照",
+                "reason": (
+                    "本次只复用了单期自动提取候选，仍需核对原文"
+                    "页码与口径。"
+                ),
+            }
+        )
+    elif lane_by_key["financial_history"]["status"] == "unavailable":
+        actions.append(
+            {
+                "priority": 2,
+                "page": "financial_snapshot",
+                "label": "生成最新年报财务快照",
+                "reason": (
+                    "当前没有该公司的财务数据，可按需生成单期候选"
+                    "后重新运行。"
+                ),
+            }
+        )
     else:
         actions.append(
             {
@@ -529,7 +733,10 @@ def _build_trace(lanes: list[EvidenceLane]) -> list[ResearchTraceStep]:
         "market": ("Market Evidence Agent", "计算行情与交易活跃度"),
         "disclosures": ("Disclosure Agent", "筛选官方公告并保留原始链接"),
         "annual_report": ("Report Agent", "定位最新完整年度报告"),
-        "financial_history": ("Financial Audit Agent", "读取逐页核验财务历史"),
+        "financial_history": (
+            "Financial Evidence Agent",
+            "优先读取逐页核验财务历史，否则复用当前会话的单期候选",
+        ),
     }
     trace: list[ResearchTraceStep] = []
     for lane in lanes:
@@ -570,6 +777,7 @@ def build_comprehensive_research_brief(
     announcements_status: str = "",
     latest_annual_report: Mapping[str, object] | None = None,
     financial_history: FinancialHistoryResult | None = None,
+    financial_snapshot: Mapping[str, object] | None = None,
     generated_on: date | None = None,
     data_errors: Sequence[str] = (),
 ) -> ComprehensiveResearchBrief:
@@ -595,7 +803,7 @@ def build_comprehensive_research_brief(
         _market_lane(market_metrics, market_activity, market_source),
         _disclosure_lane(announcements, announcements_status),
         _annual_report_lane(latest_annual_report),
-        _financial_lane(financial_history),
+        _financial_lane(financial_history, company, financial_snapshot),
     ]
     status_points = {"verified": 1.0, "partial": 0.5, "unavailable": 0.0}
     coverage_ratio = sum(status_points[lane["status"]] for lane in lanes) / len(lanes)
@@ -610,7 +818,11 @@ def build_comprehensive_research_brief(
         *_market_findings(market_metrics, market_activity),
         *_disclosure_findings(announcements, latest_annual_report),
     ]
-    financial_finding = _financial_finding(financial_history)
+    financial_finding = _financial_finding(
+        financial_history,
+        company,
+        financial_snapshot,
+    )
     if financial_finding is not None:
         findings.append(financial_finding)
 
@@ -623,6 +835,11 @@ def build_comprehensive_research_brief(
     limitations.extend(str(error).strip() for error in data_errors if str(error).strip())
     if turnover_source:
         limitations.append(f"普通换手率来源：{turnover_source}；不等同于有效换手率。")
+    if lanes[-1]["source"] == "最新完整年度报告自动提取候选":
+        limitations.append(
+            "单期财务快照由程序从最新完整年报自动提取，未经人工复核；"
+            "它不会替代逐页核验的多年财务历史。"
+        )
 
     return {
         "company": company,

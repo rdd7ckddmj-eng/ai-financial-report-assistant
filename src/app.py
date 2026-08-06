@@ -2919,6 +2919,19 @@ def _run_comprehensive_research(
         except ValueError as error:
             data_errors.append(f"财务历史证据链：{error}")
 
+    # Reuse only a compact same-company result already created by the user.
+    # The comprehensive run must not download and parse another large PDF.
+    financial_snapshot: Mapping[str, object] | None = None
+    stored_snapshot = st.session_state.get("on_demand_financial_snapshot")
+    if isinstance(stored_snapshot, Mapping):
+        snapshot_company = stored_snapshot.get("company")
+        if (
+            isinstance(snapshot_company, Mapping)
+            and snapshot_company.get("canonical_code")
+            == company["canonical_code"]
+        ):
+            financial_snapshot = stored_snapshot
+
     return build_comprehensive_research_brief(
         company,
         market_metrics=market_metrics,
@@ -2929,6 +2942,7 @@ def _run_comprehensive_research(
         announcements_status=announcements_status,
         latest_annual_report=latest_annual_report,
         financial_history=financial_history,
+        financial_snapshot=financial_snapshot,
         generated_on=end_date,
         data_errors=data_errors,
     )
@@ -3092,7 +3106,8 @@ def render_comprehensive_research_page() -> None:
         "旗舰 / 一键综合研究 · COMPREHENSIVE AGENT",
         "一键综合研究 Agent",
         "输入一家中国上市公司，自动串联行情、交易活跃度、官方公告、"
-        "年度报告和已核验财务历史，生成可下载、可追溯的研究简报。",
+        "年度报告与财务证据，生成可下载、可追溯的研究简报。多年已核验"
+        "数据优先；普通公司可复用当前会话的单期财务快照。",
     )
     company = _selected_company()
     if company is None:
@@ -3111,6 +3126,8 @@ def render_comprehensive_research_page() -> None:
     st.info(
         "这次运行按需读取公开数据，不会提前下载全市场资料；"
         "某个来源失败时，其他证据链仍会继续，并明确标记缺口。"
+        "综合研究不会重复解析大型PDF；如需单期财务数据，请先生成"
+        "财务快照再重新运行。"
     )
     run_key = "comprehensive_research_brief"
     elapsed_key = "comprehensive_research_elapsed_seconds"

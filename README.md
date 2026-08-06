@@ -51,6 +51,9 @@ Build a web application that can:
 22. generate a one-report, page-linked financial snapshot for an on-demand
     A-share company without pre-downloading or permanently storing a full-market
     annual-report database, while retaining a mandatory human-review label.
+23. reuse that compact same-company snapshot in the Comprehensive Research
+    Agent as partial evidence, while always preferring verified multi-year
+    history and never re-parsing a large PDF during the comprehensive run.
 
 ## Product specifications
 
@@ -190,7 +193,11 @@ secret environment settings. It must never be committed to the repository.
 - Run a one-click Comprehensive Research Agent for one selected A-share
   company. It independently checks company identity, market/activity evidence,
   official disclosures, the latest complete annual report, and any available
-  page-linked financial history. The page shows evidence coverage rather than
+  page-linked financial evidence. Verified multi-year history takes priority;
+  otherwise the run can reuse a same-company on-demand snapshot already held in
+  the current session, preserving its five core values, official link, PDF
+  pages, and mandatory partial/human-review label. The comprehensive run never
+  downloads and parses that PDF again. The page shows evidence coverage rather than
   an investment score, preserves failed lanes, exposes a six-step Agent trace,
   recommends the next verification page, and exports both a safe offline HTML
   brief and a versioned JSON audit package with a SHA-256 evidence fingerprint.

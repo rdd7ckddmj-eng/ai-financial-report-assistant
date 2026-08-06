@@ -10,7 +10,9 @@ one research task. The product then checks five independent evidence lanes:
 2. validated market history and latest-session activity;
 3. official disclosures;
 4. the latest complete annual report;
-5. manually verified multi-year financial history, when available.
+5. financial evidence: manually verified multi-year history first, otherwise a
+   same-company on-demand single-period snapshot already created in the current
+   session.
 
 The output is an auditable research brief, not a valuation, price forecast, or
 investment recommendation.
@@ -69,6 +71,16 @@ The first version may display:
 - the latest complete official annual-report entry;
 - the latest page-linked financial snapshot for companies already present in
   the verified financial-history catalogue.
+- for other companies, five core values and deterministic ratios from a
+  same-company on-demand snapshot, always marked `partial` and awaiting human
+  review.
+
+The financial lane follows a strict hierarchy. Verified report-by-report
+history always wins. A current-session on-demand snapshot is a fallback only;
+it must match the selected company and retain a validated official report URL.
+If its automatic checks did not pass, the lane can record that a candidate
+exists but must not publish numerical findings. A snapshot never becomes
+verified history merely because it was reused by the coordinator.
 
 Every observation retains its calculation basis or official source. Ordinary
 turnover remains separate from effective turnover.
@@ -124,8 +136,11 @@ certification.
 
 One run makes bounded, cached requests for a single company. It does not
 pre-download the full market, persist annual-report PDFs, or store a user's
-research history. User accounts and persistent watchlists remain a later
-database-backed phase.
+research history. It also does not download and parse a large PDF inside the
+comprehensive run. The user explicitly creates an on-demand financial snapshot
+first; a later comprehensive run reuses only that compact same-company session
+result. User accounts and persistent watchlists remain a later database-backed
+phase.
 
 The identity fast path resolves a valid six-digit code or a verified flagship
 name locally before considering the full live company directory. Market and

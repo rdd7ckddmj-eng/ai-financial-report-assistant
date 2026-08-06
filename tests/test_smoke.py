@@ -778,6 +778,28 @@ def test_comprehensive_runner_keeps_independent_sources_auditable(
         for lane in brief["evidence_lanes"]
     )
 
+    app.st.session_state["on_demand_financial_snapshot"] = {
+        "status": "needs_review",
+        "company": company,
+        "report": {
+            "report_year": 2025,
+            "published_date": "2026-04-01",
+            "source_url": annual_url,
+        },
+    }
+    try:
+        brief_with_snapshot = app._run_comprehensive_research(company)
+    finally:
+        app.st.session_state.pop("on_demand_financial_snapshot", None)
+
+    assert brief_with_snapshot["coverage_ratio"] == 0.9
+    assert brief_with_snapshot["partial_lane_count"] == 1
+    assert any(
+        lane["key"] == "financial_history"
+        and lane["label"] == "单期财务快照（待复核）"
+        for lane in brief_with_snapshot["evidence_lanes"]
+    )
+
 
 def test_event_evidence_chain_renderer_shows_auditable_limits() -> None:
     """Render the evidence chain as real Streamlit components."""

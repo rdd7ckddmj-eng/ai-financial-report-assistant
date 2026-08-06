@@ -887,3 +887,30 @@ human review only after all three statement reconciliations and the common-unit
 check pass. It never receives audited status, never enters the verified
 multi-year catalogue automatically, and leaves zero or missing denominators as
 explicitly unavailable rather than replacing them with zero or an AI guess.
+
+## 2026-08-07 — Financial snapshot handoff to Comprehensive Research
+
+### What I built or changed
+
+Connected the on-demand financial snapshot to the fifth evidence lane of the
+Comprehensive Research Agent. Verified multi-year history remains the first
+choice. For another A-share company, a matching snapshot already created in the
+current session can provide five page-linked values and deterministic ratios as
+partial evidence. The downloadable HTML brief and JSON audit package preserve
+the same official source, pages, status, and review warning.
+
+### One concept I can now explain
+
+An Agent workflow becomes useful when one bounded task can hand a compact,
+well-labelled result to the next task. The product does not need to repeat the
+expensive PDF download and parsing step every time. It can reuse the smaller
+structured result, provided that the company identity and official source still
+match and the evidence grade is not silently upgraded.
+
+### Evidence and server boundary
+
+The coordinator never treats an automatic single-period snapshot as verified
+history. If automatic checks failed, it records that a candidate exists but
+does not publish its amounts as a deterministic finding. If no matching
+snapshot exists, the next action opens the snapshot page instead of borrowing
+another company's data or starting a hidden PDF request.
