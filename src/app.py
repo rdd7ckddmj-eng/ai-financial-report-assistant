@@ -184,7 +184,6 @@ CHINESE_USER_GUIDE_PATH = (
 )
 DEFAULT_RESEARCH_LOOKBACK_DAYS = 420
 RADAR_RESEARCH_CONTEXT_KEY = "radar_research_context"
-COMPREHENSIVE_AUTO_RUN_KEY = "comprehensive_auto_run_company"
 COMPREHENSIVE_BRIEF_KEY = "comprehensive_research_brief"
 COMPREHENSIVE_ELAPSED_KEY = "comprehensive_research_elapsed_seconds"
 
@@ -2265,14 +2264,6 @@ def _show_radar_research_context(company: CompanyIdentity) -> None:
         )
 
 
-def _queue_comprehensive_auto_run(company: CompanyIdentity) -> None:
-    """Queue one run after an explicit company-search submission."""
-    st.session_state[COMPREHENSIVE_AUTO_RUN_KEY] = company["canonical_code"]
-    # Never show a previous company's brief while the new run is starting.
-    st.session_state.pop(COMPREHENSIVE_BRIEF_KEY, None)
-    st.session_state.pop(COMPREHENSIVE_ELAPSED_KEY, None)
-
-
 def _render_company_search(
     *,
     key_prefix: str,
@@ -2323,7 +2314,7 @@ def _render_company_search(
             company = matches[0]
             _store_selected_company(company)
             if auto_run_comprehensive:
-                _queue_comprehensive_auto_run(company)
+                _execute_comprehensive_research(company)
             if navigate_on_success:
                 _switch_page(navigate_target)
             return company
@@ -2351,7 +2342,7 @@ def _render_company_search(
             company = options[selection]
             _store_selected_company(company)
             if auto_run_comprehensive:
-                _queue_comprehensive_auto_run(company)
+                _execute_comprehensive_research(company)
             if navigate_on_success:
                 _switch_page(navigate_target)
             return company
@@ -3165,6 +3156,29 @@ def _show_comprehensive_research_brief(
             st.write(f"- {limitation}")
 
 
+def _execute_comprehensive_research(company: CompanyIdentity) -> None:
+    """Run and store one brief before navigation or after manual refresh."""
+    # Never show a previous company's brief while the new run is starting.
+    st.session_state.pop(COMPREHENSIVE_BRIEF_KEY, None)
+    st.session_state.pop(COMPREHENSIVE_ELAPSED_KEY, None)
+    started_at = perf_counter()
+    with st.status(
+        "正在并行读取行情与官方公告……",
+        expanded=True,
+    ) as run_status:
+        st.write("公司身份已确认，正在同时执行两条外部数据链。")
+        brief_result = _run_comprehensive_research(company)
+        st.write("公开数据读取完成，正在生成证据覆盖与核验任务。")
+        elapsed_seconds = perf_counter() - started_at
+        run_status.update(
+            label=f"综合研究已完成｜用时 {elapsed_seconds:.1f} 秒",
+            state="complete",
+            expanded=False,
+        )
+    st.session_state[COMPREHENSIVE_BRIEF_KEY] = brief_result
+    st.session_state[COMPREHENSIVE_ELAPSED_KEY] = elapsed_seconds
+
+
 def render_comprehensive_research_page() -> None:
     """Render the one-click coordinator across existing research modules."""
     apply_product_theme()
@@ -3196,8 +3210,6 @@ def render_comprehensive_research_page() -> None:
         "综合研究不会重复解析大型PDF；如需单期财务数据，请先生成"
         "财务快照再重新运行。"
     )
-    auto_run_code = st.session_state.pop(COMPREHENSIVE_AUTO_RUN_KEY, None)
-    auto_run_requested = auto_run_code == company["canonical_code"]
     brief = st.session_state.get(COMPREHENSIVE_BRIEF_KEY)
     has_matching_brief = isinstance(brief, dict) and brief.get(
         "company", {}
@@ -3205,30 +3217,15 @@ def render_comprehensive_research_page() -> None:
     manual_run_requested = st.button(
         (
             "重新运行并刷新公开数据"
-            if has_matching_brief or auto_run_requested
+            if has_matching_brief
             else "运行一键综合研究 Agent"
         ),
         type="primary",
         width="stretch",
         key=f"run_comprehensive_{company['canonical_code']}",
     )
-    if auto_run_requested or manual_run_requested:
-        started_at = perf_counter()
-        with st.status(
-            "正在并行读取行情与官方公告……",
-            expanded=True,
-        ) as run_status:
-            st.write("公司身份已确认，正在同时执行两条外部数据链。")
-            brief_result = _run_comprehensive_research(company)
-            st.write("公开数据读取完成，正在生成证据覆盖与核验任务。")
-            elapsed_seconds = perf_counter() - started_at
-            run_status.update(
-                label=f"综合研究已完成｜用时 {elapsed_seconds:.1f} 秒",
-                state="complete",
-                expanded=False,
-            )
-        st.session_state[COMPREHENSIVE_BRIEF_KEY] = brief_result
-        st.session_state[COMPREHENSIVE_ELAPSED_KEY] = elapsed_seconds
+    if manual_run_requested:
+        _execute_comprehensive_research(company)
 
     brief = st.session_state.get(COMPREHENSIVE_BRIEF_KEY)
     if not isinstance(brief, dict) or brief.get("company", {}).get(

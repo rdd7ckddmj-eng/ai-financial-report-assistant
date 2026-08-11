@@ -948,10 +948,10 @@ buying opportunity.
 ### What I built or changed
 
 Connected the homepage company-search submission directly to the Comprehensive
-Research run. A one-use company-code flag survives the page switch, starts one
-matching run, and is immediately consumed. The previous rendered brief is
-cleared before the new company is researched; after completion, the page shows
-a separate refresh action.
+Research run. The matching brief is completed and stored before the page
+transition, so the destination opens directly on the conclusion. The previous
+rendered brief is cleared before the new company is researched; after
+completion, the page shows a separate refresh action.
 
 ### One concept I can now explain
 
@@ -963,7 +963,6 @@ confirmation while keeping the boundary between browsing and execution clear.
 
 ### Resource and advice boundary
 
-The flag contains only the selected public stock code and lasts for one page
-transition. It does not create a background scheduler, bulk-download A-share
-data, store user identity, or change the deterministic, non-advisory research
-rules.
+The one-action flow does not create a background scheduler, bulk-download
+A-share data, store user identity, or change the deterministic, non-advisory
+research rules.

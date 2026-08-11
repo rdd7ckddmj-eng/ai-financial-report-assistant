@@ -430,7 +430,7 @@ render_comprehensive_research_page()
     )
 
 
-def test_company_search_auto_runs_one_matching_comprehensive_brief() -> None:
+def test_company_search_run_stores_one_matching_comprehensive_brief() -> None:
     """Turn an explicit company search into one direct research result."""
     from streamlit.testing.v1 import AppTest
 
@@ -445,7 +445,6 @@ company = build_company_identity("600519", "贵州茅台")
 st.session_state["selected_company"] = company
 st.session_state[app.COMPREHENSIVE_BRIEF_KEY] = {"old": True}
 st.session_state[app.COMPREHENSIVE_ELAPSED_KEY] = 999.0
-app._queue_comprehensive_auto_run(company)
 
 def fake_run(selected_company):
     return build_comprehensive_research_brief(
@@ -458,6 +457,7 @@ def fake_run(selected_company):
 original_run = app._run_comprehensive_research
 try:
     app._run_comprehensive_research = fake_run
+    app._execute_comprehensive_research(company)
     app.render_comprehensive_research_page()
 finally:
     app._run_comprehensive_research = original_run
@@ -465,7 +465,6 @@ finally:
     app_test = AppTest.from_string(script).run()
 
     assert not app_test.exception
-    assert "comprehensive_auto_run_company" not in app_test.session_state
     brief = app_test.session_state["comprehensive_research_brief"]
     assert brief["company"]["canonical_code"] == "600519.SH"
     assert app_test.session_state[
@@ -667,13 +666,28 @@ def test_company_code_search_skips_the_live_directory() -> None:
     from streamlit.testing.v1 import AppTest
 
     script = """
+from datetime import date
 from src import app
+from src.comprehensive_research import build_comprehensive_research_brief
 
 def fail_if_called():
     raise AssertionError("the live directory should not be requested")
 
+def fake_run(selected_company):
+    return build_comprehensive_research_brief(
+        selected_company,
+        announcements=[],
+        announcements_status="已核验公告 0 条",
+        generated_on=date(2026, 8, 11),
+    )
+
 app.load_a_share_directory = fail_if_called
-app.render_home_page()
+original_run = app._run_comprehensive_research
+try:
+    app._run_comprehensive_research = fake_run
+    app.render_home_page()
+finally:
+    app._run_comprehensive_research = original_run
 """
     app_test = AppTest.from_string(script).run()
     app_test.text_input[0].set_value("600519")
@@ -686,9 +700,8 @@ app.render_home_page()
     selected = app_test.session_state["selected_company"]
     assert selected["canonical_code"] == "600519.SH"
     assert selected["name"] == "贵州茅台"
-    assert app_test.session_state[
-        "comprehensive_auto_run_company"
-    ] == "600519.SH"
+    brief = app_test.session_state["comprehensive_research_brief"]
+    assert brief["company"]["canonical_code"] == "600519.SH"
 
 
 def test_company_research_sources_start_independently(

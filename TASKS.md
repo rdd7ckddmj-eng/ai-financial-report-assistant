@@ -190,7 +190,7 @@
 ## 2026-08-11 — One-action company research entry
 
 - [x] Treat “开始研究” as the explicit request for one bounded public-data run.
-- [x] Carry a one-use, company-matched auto-run flag into Comprehensive Research.
+- [x] Complete and store the matching brief before the page transition.
 - [x] Clear the previous company's rendered brief before the new run.
 - [x] Keep passive page navigation free from automatic external requests.
 - [x] Offer “重新运行并刷新公开数据” after a matching result exists.
