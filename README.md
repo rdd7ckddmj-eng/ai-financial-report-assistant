@@ -58,6 +58,8 @@ Build a web application that can:
     user immediately sees the current research priority, its evidence basis,
     the next verification question, and explicit evidence gaps without an
     investment score or recommendation.
+25. turn an explicit company search into that conclusion in one action, while
+    keeping passive page navigation free from unexpected public-data requests.
 
 ## Product specifications
 

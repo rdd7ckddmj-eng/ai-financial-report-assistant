@@ -17,6 +17,19 @@ one research task. The product then checks five independent evidence lanes:
 The output is an auditable research brief, not a valuation, price forecast, or
 investment recommendation.
 
+## One-action company-search entry
+
+Submitting a company name or six-digit code with `Start Research` is the
+user's explicit request to run one bounded research task. After identity
+resolution, the application carries a one-use company-code flag to this page,
+consumes it, and directly generates the brief. A previous company's rendered
+brief and elapsed time are cleared before the new run.
+
+Merely opening this page from navigation does not set the flag and therefore
+does not start external requests. Once a matching brief exists, the interface
+offers a separate `Rerun and refresh public data` action. A stale or
+different-company flag is consumed without starting a run.
+
 ## Radar-triggered entry
 
 The bounded Watchlist Market Radar can open this page with a lightweight

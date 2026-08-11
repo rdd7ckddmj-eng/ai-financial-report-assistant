@@ -942,3 +942,28 @@ automatic single-period candidate, and the candidate always retains its human-
 review warning. “No preset anomaly triggered” only describes the current rules
 and evidence window; it does not mean the company is safe, high quality, or a
 buying opportunity.
+
+## 2026-08-11 — One-action company research entry
+
+### What I built or changed
+
+Connected the homepage company-search submission directly to the Comprehensive
+Research run. A one-use company-code flag survives the page switch, starts one
+matching run, and is immediately consumed. The previous rendered brief is
+cleared before the new company is researched; after completion, the page shows
+a separate refresh action.
+
+### One concept I can now explain
+
+“Automatic” does not have to mean “hidden”. Clicking “开始研究” is already an
+explicit user instruction, so the product can safely remove the redundant
+second click. By contrast, merely opening a navigation page does not express
+permission to fetch data, so it still waits. Good product flow removes repeated
+confirmation while keeping the boundary between browsing and execution clear.
+
+### Resource and advice boundary
+
+The flag contains only the selected public stock code and lasts for one page
+transition. It does not create a background scheduler, bulk-download A-share
+data, store user identity, or change the deterministic, non-advisory research
+rules.

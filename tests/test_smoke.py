@@ -430,6 +430,55 @@ render_comprehensive_research_page()
     )
 
 
+def test_company_search_auto_runs_one_matching_comprehensive_brief() -> None:
+    """Turn an explicit company search into one direct research result."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from datetime import date
+from src import app
+from src.china_stock import build_company_identity
+from src.comprehensive_research import build_comprehensive_research_brief
+
+company = build_company_identity("600519", "贵州茅台")
+st.session_state["selected_company"] = company
+st.session_state[app.COMPREHENSIVE_BRIEF_KEY] = {"old": True}
+st.session_state[app.COMPREHENSIVE_ELAPSED_KEY] = 999.0
+app._queue_comprehensive_auto_run(company)
+
+def fake_run(selected_company):
+    return build_comprehensive_research_brief(
+        selected_company,
+        announcements=[],
+        announcements_status="已核验公告 0 条",
+        generated_on=date(2026, 8, 11),
+    )
+
+original_run = app._run_comprehensive_research
+try:
+    app._run_comprehensive_research = fake_run
+    app.render_comprehensive_research_page()
+finally:
+    app._run_comprehensive_research = original_run
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    assert "comprehensive_auto_run_company" not in app_test.session_state
+    brief = app_test.session_state["comprehensive_research_brief"]
+    assert brief["company"]["canonical_code"] == "600519.SH"
+    assert app_test.session_state[
+        "comprehensive_research_elapsed_seconds"
+    ] < 999.0
+    assert any(
+        button.label == "重新运行并刷新公开数据"
+        for button in app_test.button
+    )
+    page_markup = "\n".join(item.value for item in app_test.markdown)
+    assert "当前最值得关注" in page_markup
+
+
 def test_audited_company_onboarding_waits_for_explicit_discovery() -> None:
     """Keep the expansion Agent lightweight until the user starts a task."""
     from streamlit.testing.v1 import AppTest
@@ -637,6 +686,9 @@ app.render_home_page()
     selected = app_test.session_state["selected_company"]
     assert selected["canonical_code"] == "600519.SH"
     assert selected["name"] == "贵州茅台"
+    assert app_test.session_state[
+        "comprehensive_auto_run_company"
+    ] == "600519.SH"
 
 
 def test_company_research_sources_start_independently(

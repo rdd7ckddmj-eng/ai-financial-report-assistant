@@ -184,6 +184,9 @@ CHINESE_USER_GUIDE_PATH = (
 )
 DEFAULT_RESEARCH_LOOKBACK_DAYS = 420
 RADAR_RESEARCH_CONTEXT_KEY = "radar_research_context"
+COMPREHENSIVE_AUTO_RUN_KEY = "comprehensive_auto_run_company"
+COMPREHENSIVE_BRIEF_KEY = "comprehensive_research_brief"
+COMPREHENSIVE_ELAPSED_KEY = "comprehensive_research_elapsed_seconds"
 
 
 _BROWSER_RESEARCH_STORAGE = st.components.v2.component(
@@ -2194,8 +2197,8 @@ def _handoff_market_radar_to_comprehensive(
     )
     # A prior brief may describe an older run.  Clear only the rendered result;
     # the one-hour source cache can still make the next explicit run fast.
-    st.session_state.pop("comprehensive_research_brief", None)
-    st.session_state.pop("comprehensive_research_elapsed_seconds", None)
+    st.session_state.pop(COMPREHENSIVE_BRIEF_KEY, None)
+    st.session_state.pop(COMPREHENSIVE_ELAPSED_KEY, None)
     _switch_page("comprehensive")
 
 
@@ -2262,11 +2265,20 @@ def _show_radar_research_context(company: CompanyIdentity) -> None:
         )
 
 
+def _queue_comprehensive_auto_run(company: CompanyIdentity) -> None:
+    """Queue one run after an explicit company-search submission."""
+    st.session_state[COMPREHENSIVE_AUTO_RUN_KEY] = company["canonical_code"]
+    # Never show a previous company's brief while the new run is starting.
+    st.session_state.pop(COMPREHENSIVE_BRIEF_KEY, None)
+    st.session_state.pop(COMPREHENSIVE_ELAPSED_KEY, None)
+
+
 def _render_company_search(
     *,
     key_prefix: str,
     navigate_on_success: bool,
     navigate_target: str = "company",
+    auto_run_comprehensive: bool = False,
 ) -> CompanyIdentity | None:
     """Resolve a company code/name with a live directory and safe fallback."""
     matches_key = f"{key_prefix}_company_matches"
@@ -2310,6 +2322,8 @@ def _render_company_search(
         if len(matches) == 1:
             company = matches[0]
             _store_selected_company(company)
+            if auto_run_comprehensive:
+                _queue_comprehensive_auto_run(company)
             if navigate_on_success:
                 _switch_page(navigate_target)
             return company
@@ -2336,6 +2350,8 @@ def _render_company_search(
         ):
             company = options[selection]
             _store_selected_company(company)
+            if auto_run_comprehensive:
+                _queue_comprehensive_auto_run(company)
             if navigate_on_success:
                 _switch_page(navigate_target)
             return company
@@ -3165,6 +3181,7 @@ def render_comprehensive_research_page() -> None:
         _render_company_search(
             key_prefix="comprehensive",
             navigate_on_success=False,
+            auto_run_comprehensive=True,
         )
         company = _selected_company()
     if company is None:
@@ -3179,14 +3196,23 @@ def render_comprehensive_research_page() -> None:
         "综合研究不会重复解析大型PDF；如需单期财务数据，请先生成"
         "财务快照再重新运行。"
     )
-    run_key = "comprehensive_research_brief"
-    elapsed_key = "comprehensive_research_elapsed_seconds"
-    if st.button(
-        "运行一键综合研究 Agent",
+    auto_run_code = st.session_state.pop(COMPREHENSIVE_AUTO_RUN_KEY, None)
+    auto_run_requested = auto_run_code == company["canonical_code"]
+    brief = st.session_state.get(COMPREHENSIVE_BRIEF_KEY)
+    has_matching_brief = isinstance(brief, dict) and brief.get(
+        "company", {}
+    ).get("canonical_code") == company["canonical_code"]
+    manual_run_requested = st.button(
+        (
+            "重新运行并刷新公开数据"
+            if has_matching_brief or auto_run_requested
+            else "运行一键综合研究 Agent"
+        ),
         type="primary",
         width="stretch",
         key=f"run_comprehensive_{company['canonical_code']}",
-    ):
+    )
+    if auto_run_requested or manual_run_requested:
         started_at = perf_counter()
         with st.status(
             "正在并行读取行情与官方公告……",
@@ -3201,10 +3227,10 @@ def render_comprehensive_research_page() -> None:
                 state="complete",
                 expanded=False,
             )
-        st.session_state[run_key] = brief_result
-        st.session_state[elapsed_key] = elapsed_seconds
+        st.session_state[COMPREHENSIVE_BRIEF_KEY] = brief_result
+        st.session_state[COMPREHENSIVE_ELAPSED_KEY] = elapsed_seconds
 
-    brief = st.session_state.get(run_key)
+    brief = st.session_state.get(COMPREHENSIVE_BRIEF_KEY)
     if not isinstance(brief, dict) or brief.get("company", {}).get(
         "canonical_code"
     ) != company["canonical_code"]:
@@ -3216,7 +3242,7 @@ def render_comprehensive_research_page() -> None:
         return
 
     _show_comprehensive_research_brief(brief)  # type: ignore[arg-type]
-    elapsed_seconds = st.session_state.get(elapsed_key)
+    elapsed_seconds = st.session_state.get(COMPREHENSIVE_ELAPSED_KEY)
     if isinstance(elapsed_seconds, (int, float)):
         st.caption(
             f"本次综合研究用时 {elapsed_seconds:.1f} 秒；一小时内重复研究"
@@ -3248,13 +3274,15 @@ def render_home_page() -> None:
     )
     st.header("输入公司名称或股票代码")
     st.write(
-        "系统将核验上市公司身份，并逐步连接官方披露、年报证据与"
-        "历史市场数据。普通功能不依赖付费AI额度。"
+        "点击“开始研究”后，系统会核验上市公司身份，并直接生成"
+        "一页式研究结论；结论连接官方披露、年报证据与历史市场数据。"
+        "普通功能不依赖付费AI额度。"
     )
     _render_company_search(
         key_prefix="home",
         navigate_on_success=True,
         navigate_target="comprehensive",
+        auto_run_comprehensive=True,
     )
     discovery_columns = st.columns(3)
     if discovery_columns[0].button(

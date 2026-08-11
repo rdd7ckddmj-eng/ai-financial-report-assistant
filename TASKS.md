@@ -186,3 +186,11 @@
 - [x] Make low evidence coverage override attention-grabbing market signals.
 - [x] Preserve the same conclusion in HTML and JSON exports.
 - [x] Keep numeric priorities internal and retain the non-advisory boundary.
+
+## 2026-08-11 — One-action company research entry
+
+- [x] Treat “开始研究” as the explicit request for one bounded public-data run.
+- [x] Carry a one-use, company-matched auto-run flag into Comprehensive Research.
+- [x] Clear the previous company's rendered brief before the new run.
+- [x] Keep passive page navigation free from automatic external requests.
+- [x] Offer “重新运行并刷新公开数据” after a matching result exists.
