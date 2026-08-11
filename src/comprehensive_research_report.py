@@ -119,6 +119,26 @@ def build_comprehensive_research_audit_payload(
             ),
             "lane_count": len(brief["evidence_lanes"]),
         },
+        "research_conclusion": {
+            "headline": str(brief["conclusion"]["headline"]),
+            "explanation": str(brief["conclusion"]["explanation"]),
+            "next_question": str(brief["conclusion"]["next_question"]),
+            "evidence_summary": str(
+                brief["conclusion"]["evidence_summary"]
+            ),
+            "primary_key": str(brief["conclusion"]["primary_key"]),
+            "pillars": [
+                {
+                    "key": str(pillar["key"]),
+                    "label": str(pillar["label"]),
+                    "state": str(pillar["state"]),
+                    "status_label": str(pillar["status_label"]),
+                    "summary": str(pillar["summary"]),
+                    "basis": str(pillar["basis"]),
+                }
+                for pillar in brief["conclusion"]["pillars"]
+            ],
+        },
         "research_trigger": _safe_radar_context(
             radar_context,
             canonical_code=canonical_code,
@@ -251,6 +271,56 @@ def _finding_html(finding: dict[str, object]) -> str:
             if finding.get("source_url")
             else None
         ),
+    )
+
+
+def _conclusion_html(brief: ComprehensiveResearchBrief) -> str:
+    conclusion = brief["conclusion"]
+    pillars = "".join(
+        """
+        <div class="conclusion-pillar {state}">
+          <div class="pillar-head">
+            <strong>{label}</strong><span>{status_label}</span>
+          </div>
+          <p>{summary}</p>
+          <div class="meta">依据：{basis}</div>
+        </div>
+        """.format(
+            state=_text(pillar["state"]),
+            label=_text(pillar["label"]),
+            status_label=_text(pillar["status_label"]),
+            summary=_text(pillar["summary"]),
+            basis=_text(pillar["basis"]),
+        )
+        for pillar in conclusion["pillars"]
+    )
+    return """
+    <h2>公司研究结论卡</h2>
+    <section class="conclusion-card">
+      <div class="conclusion-label">CURRENT RESEARCH PRIORITY</div>
+      <h3>{headline}</h3>
+      <p class="conclusion-explanation">{explanation}</p>
+      <div class="conclusion-grid">{pillars}</div>
+      <div class="conclusion-footer">
+        <div>
+          <span>下一步最值得核验的问题</span>
+          <strong>{next_question}</strong>
+        </div>
+        <div>
+          <span>本次证据状态</span>
+          <strong>{evidence_summary}</strong>
+        </div>
+      </div>
+      <div class="conclusion-boundary">
+        这是研究阅读顺序，不是公司评分、上涨概率或买卖建议。
+      </div>
+    </section>
+    """.format(
+        headline=_text(conclusion["headline"]),
+        explanation=_text(conclusion["explanation"]),
+        pillars=pillars,
+        next_question=_text(conclusion["next_question"]),
+        evidence_summary=_text(conclusion["evidence_summary"]),
     )
 
 
@@ -399,6 +469,7 @@ def build_comprehensive_research_report_html(
         radar_context,
         canonical_code=company["canonical_code"],
     )
+    conclusion_html = _conclusion_html(brief)
 
     return """<!doctype html>
 <html lang="zh-CN">
@@ -436,6 +507,23 @@ def build_comprehensive_research_report_html(
     .summary span {{ display:block; color:var(--muted); font-size:13px; }}
     .summary strong {{ display:block; margin-top:5px; font-size:22px; }}
     h2 {{ margin:32px 0 14px; font-size:22px; }}
+    .conclusion-card {{ border:1px solid #9ed9d3; border-radius:19px; padding:24px; background:linear-gradient(135deg,#f4fbfa,#edf4f7); }}
+    .conclusion-label {{ color:#087f74; font-size:12px; font-weight:900; letter-spacing:.12em; }}
+    .conclusion-card > h3 {{ margin:8px 0 6px; font-size:25px; line-height:1.35; }}
+    .conclusion-explanation {{ margin:0 0 18px; color:#425b70; }}
+    .conclusion-grid {{ display:grid; grid-template-columns:repeat(3,1fr); gap:11px; }}
+    .conclusion-pillar {{ padding:14px; border-radius:13px; background:#fff; border:1px solid var(--line); }}
+    .pillar-head {{ display:flex; justify-content:space-between; gap:8px; align-items:center; }}
+    .pillar-head span {{ padding:3px 7px; border-radius:999px; font-size:11px; font-weight:800; }}
+    .conclusion-pillar.attention .pillar-head span {{ color:#96601e; background:#fff1d9; }}
+    .conclusion-pillar.clear .pillar-head span {{ color:#087f74; background:#e3f5f2; }}
+    .conclusion-pillar.insufficient .pillar-head span {{ color:#8a4650; background:#fbe8eb; }}
+    .conclusion-pillar p {{ margin:9px 0 6px; }}
+    .conclusion-footer {{ display:grid; grid-template-columns:3fr 2fr; gap:11px; margin-top:12px; }}
+    .conclusion-footer div {{ padding:14px; border-radius:13px; background:#fff; border:1px solid #cce9e5; }}
+    .conclusion-footer span {{ display:block; color:var(--muted); font-size:12px; }}
+    .conclusion-footer strong {{ display:block; margin-top:4px; }}
+    .conclusion-boundary {{ margin-top:12px; color:var(--muted); font-size:12px; }}
     .lanes {{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }}
     .lane,.finding {{ border:1px solid var(--line); border-radius:16px; padding:19px; break-inside:avoid; }}
     .lane-head,.finding-head {{ display:flex; justify-content:space-between; gap:12px; align-items:center; }}
@@ -471,7 +559,7 @@ def build_comprehensive_research_report_html(
     footer {{ padding:24px 48px; background:var(--navy); color:#c8d9e2; font-size:13px; }}
     @media(max-width:760px) {{
       header,main,footer {{ padding-left:24px; padding-right:24px; }}
-      .summary,.lanes,.findings,.trigger-grid {{ grid-template-columns:1fr; }}
+      .summary,.lanes,.findings,.trigger-grid,.conclusion-grid,.conclusion-footer {{ grid-template-columns:1fr; }}
       table {{ display:block; overflow-x:auto; }}
     }}
     @media print {{ body {{ background:#fff; }} .report {{ width:100%; margin:0; box-shadow:none; }} }}
@@ -492,6 +580,8 @@ def build_comprehensive_research_report_html(
       <div><span>已核验证据链</span><strong>{verified_count} / 5</strong></div>
       <div><span>确定性观察</span><strong>{finding_count} 项</strong></div>
     </section>
+
+    {conclusion_html}
 
     {radar_context_html}
 
@@ -529,6 +619,7 @@ def build_comprehensive_research_report_html(
         coverage_label=_text(brief["coverage_label"]),
         verified_count=brief["verified_lane_count"],
         finding_count=len(brief["findings"]),
+        conclusion_html=conclusion_html,
         radar_context_html=radar_context_html,
         lane_items=lane_items,
         finding_items=finding_items,

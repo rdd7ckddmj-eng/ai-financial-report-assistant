@@ -20,6 +20,10 @@ from src.china_stock import (
     is_allowed_disclosure_url,
 )
 from src.financial_history import FinancialHistoryResult
+from src.research_conclusion import (
+    ResearchConclusion,
+    build_research_conclusion,
+)
 
 
 EvidenceStatus = Literal["verified", "partial", "unavailable"]
@@ -78,6 +82,7 @@ class ComprehensiveResearchBrief(TypedDict):
     verified_lane_count: int
     partial_lane_count: int
     unavailable_lane_count: int
+    conclusion: ResearchConclusion
     evidence_lanes: list[EvidenceLane]
     findings: list[ResearchFinding]
     actions: list[ResearchAction]
@@ -841,6 +846,15 @@ def build_comprehensive_research_brief(
             "它不会替代逐页核验的多年财务历史。"
         )
 
+    conclusion = build_research_conclusion(
+        coverage_ratio=coverage_ratio,
+        evidence_lanes=lanes,
+        market_activity=market_activity,
+        announcements=announcements,
+        financial_history=financial_history,
+        financial_snapshot=financial_snapshot,
+    )
+
     return {
         "company": company,
         "generated_on": run_date.isoformat(),
@@ -851,6 +865,7 @@ def build_comprehensive_research_brief(
         "unavailable_lane_count": sum(
             lane["status"] == "unavailable" for lane in lanes
         ),
+        "conclusion": conclusion,
         "evidence_lanes": lanes,
         "findings": findings,
         "actions": _build_actions(lanes, market_activity),

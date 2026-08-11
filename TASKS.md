@@ -177,3 +177,12 @@
 - [x] GitHub publication and public Render website.
 - [ ] Complete recruitment materials.
 - [ ] Complete any remaining standalone Python exercises if useful.
+
+## 2026-08-11 — Conclusion-first company research
+
+- [x] Add a deterministic important-question ranking engine.
+- [x] Put one company research conclusion card above detailed evidence.
+- [x] Keep financial, market, and official-disclosure states separate.
+- [x] Make low evidence coverage override attention-grabbing market signals.
+- [x] Preserve the same conclusion in HTML and JSON exports.
+- [x] Keep numeric priorities internal and retain the non-advisory boundary.

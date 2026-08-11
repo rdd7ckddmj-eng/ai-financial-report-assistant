@@ -59,6 +59,29 @@ This ratio measures how much evidence the current run obtained. It is not a
 company-quality score, confidence probability, expected-return score, or
 investment ranking.
 
+## Conclusion-first layer
+
+Before the detailed evidence lanes, the page shows one **company research
+conclusion card**. The card answers four questions in the first viewport:
+
+1. what is currently most worth investigating;
+2. why the available evidence supports that reading order;
+3. what should be verified next;
+4. whether financial, market, and official-disclosure evidence is sufficient.
+
+The ranking is deterministic and deliberately conservative. Evidence coverage
+below 50% always produces an evidence-gap conclusion. With sufficient evidence,
+verified financial-direction mismatches rank first, followed by supported
+market-activity triggers and high-attention official disclosures. An automatic
+single-period snapshot can only create a human-review candidate, never a
+verified conclusion. When no rule triggers, the card says so neutrally and
+does not describe the company as safe, high quality, or investable.
+
+The internal rule priority is not shown as a score. It means “read this first”,
+not “more risky”, “more likely to rise”, or “better investment”. Each of the
+three status pillars uses only `needs attention`, `no preset anomaly triggered`,
+or `insufficient evidence`.
+
 ## Research observations
 
 The first version may display:
@@ -110,6 +133,8 @@ The page exports the same verified run in two formats:
 Both exports include:
 
 - company identity and generation date;
+- the same conclusion card, three evidence pillars, and next verification
+  question shown on the web page;
 - the matching Market Radar trigger context, when the workflow started from a
   radar candidate, including queue priority, dates, signals, task reasons, and
   the validated latest-disclosure clue;

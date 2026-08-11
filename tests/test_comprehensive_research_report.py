@@ -22,6 +22,8 @@ def test_report_exports_coverage_trace_and_safety_boundary() -> None:
     assert "Agent 执行轨迹" in html
     assert "不构成投资建议" in html
     assert "证据覆盖率" in html
+    assert "公司研究结论卡" in html
+    assert "这是研究阅读顺序" in html
 
 
 def test_report_escapes_dynamic_company_and_source_text() -> None:
@@ -147,6 +149,8 @@ def test_audit_payload_preserves_trace_and_matching_radar_context() -> None:
     assert payload["report_type"] == "wfz_comprehensive_research_audit"
     assert payload["company"]["canonical_code"] == "600519.SH"
     assert payload["coverage"]["lane_count"] == 5
+    assert payload["research_conclusion"]["primary_key"] == "evidence_gap"
+    assert len(payload["research_conclusion"]["pillars"]) == 3
     assert len(payload["agent_trace"]) == 6
     assert payload["research_trigger"]["research_priority"] == (
         "P2｜重点核查"

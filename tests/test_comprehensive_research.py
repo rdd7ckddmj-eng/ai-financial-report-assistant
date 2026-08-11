@@ -194,6 +194,7 @@ def test_complete_brief_combines_five_independent_evidence_lanes() -> None:
     assert brief["coverage_ratio"] == pytest.approx(1)
     assert brief["coverage_label"] == "证据覆盖较完整"
     assert brief["verified_lane_count"] == 5
+    assert brief["conclusion"]["primary_key"] == "market_limit_up"
     assert [lane["key"] for lane in brief["evidence_lanes"]] == [
         "identity",
         "market",
@@ -222,6 +223,7 @@ def test_missing_sources_stay_unavailable_instead_of_becoming_zero() -> None:
     assert brief["unavailable_lane_count"] == 4
     assert brief["coverage_ratio"] == pytest.approx(0.2)
     assert brief["coverage_label"] == "证据不足，优先补充来源"
+    assert brief["conclusion"]["primary_key"] == "evidence_gap"
     assert brief["findings"] == []
     assert any("行情源暂不可用" in item for item in brief["limitations"])
 

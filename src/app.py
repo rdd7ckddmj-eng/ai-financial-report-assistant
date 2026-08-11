@@ -2948,6 +2948,54 @@ def _run_comprehensive_research(
     )
 
 
+def _show_research_conclusion_card(
+    brief: ComprehensiveResearchBrief,
+) -> None:
+    """Show the ranked first-pass conclusion before detailed evidence."""
+    conclusion = brief["conclusion"]
+    primary_key = conclusion["primary_key"]
+    with st.container(border=True):
+        st.caption("公司研究结论卡 · FIRST-PASS RESEARCH")
+        st.markdown("## 当前最值得关注")
+        if primary_key == "evidence_gap":
+            st.error(conclusion["headline"])
+        elif primary_key in {"no_rule_triggered", "initial_research"}:
+            st.info(conclusion["headline"])
+        else:
+            st.warning(conclusion["headline"])
+        st.write(conclusion["explanation"])
+
+        st.markdown("#### 财务、市场与官方动态")
+        pillar_columns = st.columns(3)
+        for column, pillar in zip(
+            pillar_columns,
+            conclusion["pillars"],
+            strict=True,
+        ):
+            with column:
+                with st.container(border=True):
+                    st.markdown(f"**{pillar['label']}**")
+                    if pillar["state"] == "attention":
+                        st.warning(pillar["status_label"])
+                    elif pillar["state"] == "clear":
+                        st.info(pillar["status_label"])
+                    else:
+                        st.error(pillar["status_label"])
+                    st.write(pillar["summary"])
+                    st.caption(f"依据：{pillar['basis']}")
+
+        question_column, evidence_column = st.columns([3, 2])
+        with question_column:
+            st.markdown("**下一步最值得核验的问题**")
+            st.write(conclusion["next_question"])
+        with evidence_column:
+            st.markdown("**本次证据状态**")
+            st.write(conclusion["evidence_summary"])
+        st.caption(
+            "这是研究阅读顺序，不是公司评分、上涨概率或买卖建议。"
+        )
+
+
 def _show_comprehensive_research_brief(
     brief: ComprehensiveResearchBrief,
 ) -> None:
@@ -2957,7 +3005,9 @@ def _show_comprehensive_research_brief(
         "partial": "部分证据",
         "unavailable": "暂不可用",
     }
-    st.markdown("### 综合研究状态")
+    _show_research_conclusion_card(brief)
+    st.markdown("### 详细证据与分析")
+    st.markdown("#### 综合研究状态")
     summary_columns = st.columns(4)
     summary_columns[0].metric(
         "证据覆盖率",

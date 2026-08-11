@@ -914,3 +914,31 @@ history. If automatic checks failed, it records that a candidate exists but
 does not publish its amounts as a deterministic finding. If no matching
 snapshot exists, the next action opens the snapshot page instead of borrowing
 another company's data or starting a hidden PDF request.
+
+## 2026-08-11 — Conclusion-first company research
+
+### What I built or changed
+
+Added a deterministic important-question ranking engine and placed its company
+research conclusion card above the detailed Comprehensive Research evidence.
+The card selects one current research priority, explains the supporting facts,
+shows separate financial, market, and official-disclosure states, and asks one
+next verification question. The same structure is saved in both the portable
+HTML brief and JSON audit package.
+
+### One concept I can now explain
+
+A useful research product does not need to show every capability at once. It
+can keep specialised tools underneath one clear decision-support layer. Here,
+the system first tells the user what to investigate, then lets the user drill
+into the exact evidence chain. The ranking number stays internal because it
+orders reading work; it is not a company score or expected-return estimate.
+
+### Evidence and advice boundary
+
+Coverage below 50% always becomes the primary conclusion, even if an isolated
+market signal looks interesting. Verified multi-year evidence outranks an
+automatic single-period candidate, and the candidate always retains its human-
+review warning. “No preset anomaly triggered” only describes the current rules
+and evidence window; it does not mean the company is safe, high quality, or a
+buying opportunity.

@@ -54,6 +54,10 @@ Build a web application that can:
 23. reuse that compact same-company snapshot in the Comprehensive Research
     Agent as partial evidence, while always preferring verified multi-year
     history and never re-parsing a large PDF during the comprehensive run.
+24. show one deterministic conclusion card before the detailed modules so a
+    user immediately sees the current research priority, its evidence basis,
+    the next verification question, and explicit evidence gaps without an
+    investment score or recommendation.
 
 ## Product specifications
 

@@ -389,6 +389,9 @@ _show_comprehensive_research_brief(brief)
         "综合研究状态" in item.value for item in app_test.markdown
     )
     assert any(
+        "当前最值得关注" in item.value for item in app_test.markdown
+    )
+    assert any(
         "五条证据链" in item.value for item in app_test.markdown
     )
     download_labels = [item.label for item in app_test.download_button]
