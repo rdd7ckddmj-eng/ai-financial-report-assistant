@@ -1,6 +1,31 @@
 # Current task board
 
 ## Now
+- [x] Reorganise the product home page around two connected primary modules:
+      Researcher Mission Bureau and Company Research Terminal.
+- [x] Add a first game-module hub that explains the six-stage learning loop and
+      clearly marks the first case as under development.
+- [x] Preserve all existing research tools under the Company Research Terminal
+      and reorganise the sidebar labels without removing functionality.
+- [x] Verify desktop and mobile layouts, both module entry points, the
+      collapsible sidebar recovery control, and browser-console health.
+- [x] Build the first playable slice of 《消失的现金》 with player naming,
+      beginner profit-versus-cash teaching, and a changing guided calculation.
+- [x] Replace the practice sheet after every wrong answer without deducting a
+      life.
+- [x] Build the first evidence-reading node with six changing documents, four
+      required evidence links, and two plausible distractions; unlock the
+      Historical Lens mission only after the complete chain is submitted.
+- [ ] Reserve the three-life rule for the later conclusion-defence node, after
+      the user has been taught how to distinguish clues from evidence.
+- [x] Replace the Historical Lens date picker with a form-backed daily time
+      rail that avoids repeated public-data requests while dragging.
+- [x] Add exactly one cross-module open investigation that asks the player to
+      find an official evidence publication boundary inside Historical Lens.
+- [x] Derive the mission answer from the verified flagship event catalogue and
+      distinguish publication time from the effective market trading date.
+- [ ] Add the horizontal honour archive and optional vertical social poster
+      only after the first case can be completed end to end.
 - [x] Connect a same-company on-demand financial snapshot to the Comprehensive
       Research Agent as partial evidence, while keeping verified multi-year
       history first and avoiding duplicate PDF parsing.

@@ -1,65 +1,77 @@
-# WFZ Chinese Listed Company Research Agent
+# FANGZHENG AI Financial Research Lab
 
-A Chinese-first portfolio product combining listed-company research,
-financial analysis, public market data, annual-report evidence, and auditable
-Agent workflows.
+A Chinese-first financial learning and research portfolio product with two
+connected modules: the **Researcher Mission Bureau** teaches evidence-based
+financial reasoning through story-led cases, while the **Company Research
+Terminal** connects public market data, official disclosures, annual-report
+evidence, and auditable Agent workflows.
 
 Its purpose is to help retail investors, junior analysts, and finance students
 complete a traceable first-pass review of a mainland listed company. Starting
 from one company name or stock code, it connects public market data, official
 disclosures, and annual-report evidence; performs deterministic calculations;
 surfaces questions that need further verification; and produces a source-linked
-research workpaper. It competes on transparent workflow and auditability rather
-than commercial-database breadth or investment predictions.
+research workpaper. Both modules use the same evidence standards and
+point-in-time discipline. The product competes on learning transfer,
+transparent workflow, and auditability rather than commercial-database breadth
+or investment predictions.
 
 ## Project objective
 
 Build a web application that can:
 
-1. identify a mainland listed company from its name or six-digit code;
-2. show source-linked official disclosures that refresh on demand;
-3. display validated daily K-lines and deterministic market-risk statistics;
-4. separate volume, ordinary turnover, and verified effective turnover;
-5. organise one recent public limit-up pool into a daily research wall;
-6. combine watchlist activity evidence and recent official disclosures into a
+1. provide two clear entry points for learning by doing and researching a real
+   listed company;
+2. teach beginners to move from explanation and guided practice to evidence
+   search, defence, and transfer instead of memorising isolated answers;
+3. identify a mainland listed company from its name or six-digit code;
+4. show source-linked official disclosures that refresh on demand;
+5. display validated daily K-lines and deterministic market-risk statistics;
+6. separate volume, ordinary turnover, and verified effective turnover;
+7. organise one recent public limit-up pool into a daily research wall;
+8. combine watchlist activity evidence and recent official disclosures into a
    deterministic research task queue;
-7. connect a selected candidate to point-in-time official disclosures;
-8. locate and temporarily load the latest official annual report;
-9. extract and calculate key financial indicators;
-10. answer questions using retrieved report evidence and PDF pages;
-11. show source references, limitations, and the Agent audit trail;
-12. revisit a past date without leaking later information into the snapshot;
-13. export a selected anomaly date as an auditable offline research report;
-14. compare audited multi-year financial trends without losing report versions;
-15. compare multiple verified companies on one common financial year while
+9. connect a selected candidate to point-in-time official disclosures;
+10. locate and temporarily load the latest official annual report;
+11. extract and calculate key financial indicators;
+12. answer questions using retrieved report evidence and PDF pages;
+13. show source references, limitations, and the Agent audit trail;
+14. revisit a past date without leaking later information into the snapshot;
+15. export a selected anomaly date as an auditable offline research report;
+16. compare audited multi-year financial trends without losing report versions;
+17. compare multiple verified companies on one common financial year while
     retaining each annual-report source and page;
-16. avoid presenting AI output as investment advice.
-17. run one bounded Comprehensive Research Agent that joins identity, market,
+18. avoid presenting AI output as investment advice;
+19. run one bounded Comprehensive Research Agent that joins identity, market,
     disclosure, annual-report, and verified-financial evidence into a
-    downloadable brief without hiding missing sources.
-18. build a three-report, page-linked candidate package for expanding the
-    audited company catalogue while retaining a mandatory human approval gate.
-19. explain verified financial-direction mismatches through annual-report
+    downloadable brief without hiding missing sources;
+20. build a three-report, page-linked candidate package for expanding the
+    audited company catalogue while retaining a mandatory human approval gate;
+21. explain verified financial-direction mismatches through annual-report
     cash-flow bridges while separating confirmed arithmetic from unresolved
-    business causes.
-20. revisit a company through an Evidence Delta Agent that compares official
+    business causes;
+22. revisit a company through an Evidence Delta Agent that compares official
     disclosures with a device-local checkpoint and exports a source-linked
-    change brief without a login or server-side user database.
-21. maintain a human-reviewed Research Thesis Ledger that records a falsifiable
+    change brief without a login or server-side user database;
+23. maintain a human-reviewed Research Thesis Ledger that records a falsifiable
     hypothesis, confirmation and invalidation criteria, topic-matched official
-    evidence, and an explicit review state without letting AI infer direction.
-22. generate a one-report, page-linked financial snapshot for an on-demand
+    evidence, and an explicit review state without letting AI infer direction;
+24. generate a one-report, page-linked financial snapshot for an on-demand
     A-share company without pre-downloading or permanently storing a full-market
-    annual-report database, while retaining a mandatory human-review label.
-23. reuse that compact same-company snapshot in the Comprehensive Research
+    annual-report database, while retaining a mandatory human-review label;
+25. reuse that compact same-company snapshot in the Comprehensive Research
     Agent as partial evidence, while always preferring verified multi-year
-    history and never re-parsing a large PDF during the comprehensive run.
-24. show one deterministic conclusion card before the detailed modules so a
+    history and never re-parsing a large PDF during the comprehensive run;
+26. show one deterministic conclusion card before the detailed modules so a
     user immediately sees the current research priority, its evidence basis,
     the next verification question, and explicit evidence gaps without an
-    investment score or recommendation.
-25. turn an explicit company search into that conclusion in one action, while
+    investment score or recommendation;
+27. turn an explicit company search into that conclusion in one action, while
     keeping passive page navigation free from unexpected public-data requests.
+28. run the first two sequential nodes of a beginner finance case: a changing
+    profit-versus-cash calculation followed by a six-document office search
+    where only a complete four-link evidence chain unlocks the real Historical
+    Lens investigation.
 
 ## Product specifications
 
@@ -170,7 +182,12 @@ secret environment settings. It must never be committed to the repository.
 
 ## Current working features
 
-- Present two explicit coverage layers on the home page: on-demand identity,
+- Present two clear top-level modules on the home page and preserve all
+  existing real-company tools inside the Company Research Terminal. The game
+  hub currently documents the six-stage learning loop and accurately labels
+  the first playable case as under development.
+- Present two explicit coverage layers in the Company Research Terminal:
+  on-demand identity,
   market, disclosure, and annual-report entry points for Shanghai, Shenzhen,
   and Beijing listed-company codes when public sources are available; plus a
   source-controlled audited catalogue of six deep-dive companies, 21

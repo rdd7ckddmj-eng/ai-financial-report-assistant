@@ -70,14 +70,38 @@ show_compact_page_header(
     assert "证据 &amp; 审计" in header_markup
 
 
-def test_redesigned_home_page_renders_without_live_requests() -> None:
-    """Keep the new terminal hero and entry controls lightweight and stable."""
+def test_platform_home_page_exposes_two_primary_modules() -> None:
+    """Keep the platform purpose and its two entry points immediately clear."""
     from streamlit.testing.v1 import AppTest
 
     script = """
 from src.app import render_home_page
 
 render_home_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    home_markup = "\n".join(item.value for item in app_test.markdown)
+    assert "FINANCIAL RESEARCH LAB" in home_markup
+    assert "从学会分析开始" in home_markup
+    assert "研究员任务局" in home_markup
+    assert "公司研究终端" in home_markup
+    button_labels = [button.label for button in app_test.button]
+    assert button_labels == [
+        "进入研究员任务局",
+        "进入公司研究终端",
+    ]
+
+
+def test_research_terminal_renders_without_live_requests() -> None:
+    """Keep the existing real-company research entry intact after the split."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src.app import render_research_terminal_page
+
+render_research_terminal_page()
 """
     app_test = AppTest.from_string(script).run()
 
@@ -101,10 +125,231 @@ render_home_page()
     )
     assert "不是实时交易终端或商业金融数据库的替代品" in home_markup
     assert any(
-        button.label == "进入研究工作台｜按任务查看全部工具"
+        button.label == "进入研究工具导航｜按任务查看全部功能"
         for button in app_test.button
     )
     assert len(app_test.button) == 5
+
+
+def test_game_hub_opens_the_first_teaching_node_and_locks_later_mission() -> None:
+    """Open role creation while keeping the later research tool sequential."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src.app import render_game_hub_page
+
+render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    page_markup = "\n".join(item.value for item in app_test.markdown)
+    assert "研究员任务局" in page_markup
+    assert any(
+        item.value == "《消失的现金》"
+        for item in app_test.subheader
+    )
+    for label in ("教学", "练习", "调查", "证据链", "答辩", "迁移"):
+        assert label in page_markup
+    assert any(
+        item.label == "建立角色档案并进入案件"
+        for item in app_test.button
+    )
+    assert any(
+        item.value == "开放调查 01｜两只时钟"
+        for item in app_test.subheader
+    )
+    assert "2024-09-18 — 2024-09-24" in "\n".join(
+        item.value for item in app_test.caption
+    )
+    historical_button = next(
+        button for button in app_test.button
+        if button.label == "完成办公室证据调查后解锁 Historical Lens"
+    )
+    assert historical_button.disabled
+
+
+def test_cash_case_wrong_answer_replaces_the_business_sheet() -> None:
+    """A wrong practice answer must create a new sheet without losing life."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_game_hub_page
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state["cash_case_stage"] = "practice"
+st.session_state.setdefault("cash_case_attempt_index", 0)
+render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    first_radio = next(
+        item for item in app_test.radio
+        if item.label == "选择最准确的计算结果"
+    )
+    first_options = list(first_radio.options)
+    first_radio.set_value("利润 +120万元；本月现金 0万元")
+    next(
+        item for item in app_test.button
+        if item.label == "提交判断"
+    ).click().run()
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_case_attempt_index"] == 1
+    second_radio = next(
+        item for item in app_test.radio
+        if item.label == "选择最准确的计算结果"
+    )
+    assert list(second_radio.options) != first_options
+    assert "没有扣除生命" in "\n".join(
+        item.value for item in app_test.warning
+    )
+
+
+def test_cash_case_correct_answer_opens_evidence_room_but_keeps_mission_locked() -> None:
+    """The calculation node should lead to evidence, not skip the sequence."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_game_hub_page
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state.setdefault("cash_case_stage", "practice")
+st.session_state.setdefault("cash_case_attempt_index", 0)
+render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    next(
+        item for item in app_test.radio
+        if item.label == "选择最准确的计算结果"
+    ).set_value("利润 +50万元；本月现金 -70万元")
+    next(
+        item for item in app_test.button
+        if item.label == "提交判断"
+    ).click().run()
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_case_stage"] == "timing_completed"
+    assert "第一教学节点完成" in "\n".join(
+        item.value for item in app_test.success
+    )
+    assert any(
+        button.label == "进入项目办公室｜开始证据调查"
+        for button in app_test.button
+    )
+    historical_button = next(
+        item for item in app_test.button
+        if item.label == "完成办公室证据调查后解锁 Historical Lens"
+    )
+    assert historical_button.disabled
+
+
+def test_cash_evidence_wrong_chain_replaces_the_office_file() -> None:
+    """A weak four-document chain should trigger a fresh no-life-loss file."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_game_hub_page
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state.setdefault("cash_case_stage", "evidence")
+st.session_state.setdefault("cash_case_attempt_index", 0)
+st.session_state.setdefault("cash_evidence_attempt_index", 0)
+render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    first_multiselect = next(
+        item for item in app_test.multiselect
+        if item.label == "选择恰好4份材料"
+    )
+    first_options = list(first_multiselect.options)
+    weak_chain = [
+        option for option in first_options
+        if any(
+            clue in option
+            for clue in (
+                "会议室投影幕布",
+                "上锁的合同柜",
+                "茶水间遗落的手机",
+                "打印机出纸托盘",
+            )
+        )
+    ]
+    first_multiselect.set_value(weak_chain)
+    next(
+        item for item in app_test.button
+        if item.label == "提交证据链"
+    ).click().run()
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_evidence_attempt_index"] == 1
+    second_multiselect = next(
+        item for item in app_test.multiselect
+        if item.label == "选择恰好4份材料"
+    )
+    assert list(second_multiselect.options) != first_options
+    warning_text = "\n".join(item.value for item in app_test.warning)
+    assert "没有扣除生命" in warning_text
+    assert "不能沿用上一轮的文件编号" in warning_text
+
+
+def test_complete_cash_evidence_chain_unlocks_historical_mission() -> None:
+    """Only the exact four-link evidence chain should unlock the real mission."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_game_hub_page
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state.setdefault("cash_case_stage", "evidence")
+st.session_state.setdefault("cash_case_attempt_index", 0)
+st.session_state.setdefault("cash_evidence_attempt_index", 0)
+render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    evidence_picker = next(
+        item for item in app_test.multiselect
+        if item.label == "选择恰好4份材料"
+    )
+    complete_chain = [
+        option for option in evidence_picker.options
+        if any(
+            clue in option
+            for clue in (
+                "上锁的合同柜",
+                "打印机出纸托盘",
+                "财务共享盘的深层文件夹",
+                "碎纸机旁的待归档纸袋",
+            )
+        )
+    ]
+    evidence_picker.set_value(complete_chain)
+    next(
+        item for item in app_test.button
+        if item.label == "提交证据链"
+    ).click().run()
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_case_stage"] == "evidence_completed"
+    assert any(
+        "第二节点完成" in item.value for item in app_test.success
+    )
+    historical_button = next(
+        item for item in app_test.button
+        if item.label == "开始开放调查｜进入 Historical Lens"
+    )
+    assert not historical_button.disabled
 
 
 def test_research_workspace_groups_tools_by_user_task() -> None:
@@ -328,13 +573,13 @@ render_financial_snapshot_page()
     )
 
 
-def test_home_page_shows_device_local_recent_and_watchlist_entries() -> None:
+def test_research_terminal_shows_device_local_recent_and_watchlist_entries() -> None:
     """Keep local research shortcuts useful without a login or database."""
     from streamlit.testing.v1 import AppTest
 
     script = """
 import streamlit as st
-from src.app import render_home_page
+from src.app import render_research_terminal_page
 
 company = {
     "code": "600519",
@@ -350,7 +595,7 @@ st.session_state["_wfz_browser_research_snapshot"] = {
     "last_command_id": None,
     "storage_status": "available",
 }
-render_home_page()
+render_research_terminal_page()
 """
     app_test = AppTest.from_string(script).run()
 
@@ -685,7 +930,7 @@ app.load_a_share_directory = fail_if_called
 original_run = app._run_comprehensive_research
 try:
     app._run_comprehensive_research = fake_run
-    app.render_home_page()
+    app.render_research_terminal_page()
 finally:
     app._run_comprehensive_research = original_run
 """

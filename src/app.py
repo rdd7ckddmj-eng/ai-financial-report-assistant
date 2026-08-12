@@ -58,6 +58,11 @@ from src.baijiu_operating_quality import (
     load_baijiu_operating_quality,
 )
 from src.cash_flow_extractor import find_cash_flow_figures
+from src.cash_case_game import (
+    build_cash_evidence_case,
+    build_cash_timing_question,
+    evaluate_cash_evidence_selection,
+)
 from src.china_stock import (
     CompanyIdentity,
     DataSourceError,
@@ -126,6 +131,11 @@ from src.historical_lens import (
     slice_market_as_of,
 )
 from src.historical_deep_link import parse_historical_deep_link
+from src.historical_game_mission import (
+    HISTORICAL_GAME_MISSION,
+    HISTORICAL_MISSION_ID,
+    evaluate_historical_mission_date,
+)
 from src.llm_analyst import (
     LLMAnalystRun,
     run_llm_analyst,
@@ -1385,6 +1395,142 @@ def apply_product_theme() -> None:
             letter-spacing: 0.08em;
         }
 
+        .wfz-platform-hero {
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 1.7rem;
+            padding: 3.4rem;
+            border: 1px solid rgba(22, 61, 103, 0.10);
+            border-radius: 30px;
+            background:
+                radial-gradient(
+                    circle at 88% 16%,
+                    rgba(86, 185, 217, 0.20),
+                    transparent 25rem
+                ),
+                linear-gradient(135deg, #ffffff 0%, #edf7fb 100%);
+            box-shadow: 0 24px 64px rgba(17, 49, 80, 0.10);
+        }
+
+        .wfz-platform-hero::after {
+            content: "";
+            position: absolute;
+            width: 330px;
+            height: 330px;
+            right: -95px;
+            bottom: -180px;
+            border: 1px solid rgba(22, 61, 103, 0.10);
+            border-radius: 50%;
+            box-shadow:
+                0 0 0 58px rgba(22, 61, 103, 0.025),
+                0 0 0 116px rgba(22, 61, 103, 0.018);
+        }
+
+        .wfz-platform-kicker {
+            position: relative;
+            z-index: 1;
+            margin-bottom: 1.05rem;
+            color: #23749b;
+            font-size: 0.75rem;
+            font-weight: 850;
+            letter-spacing: 0.17em;
+        }
+
+        .wfz-platform-title {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+            margin: 0;
+            color: #102d4a;
+            font-size: clamp(2.5rem, 5.7vw, 4.8rem);
+            font-weight: 760;
+            letter-spacing: -0.055em;
+            line-height: 1.02;
+        }
+
+        .wfz-platform-title span {
+            color: #277ca4;
+        }
+
+        .wfz-platform-subtitle {
+            position: relative;
+            z-index: 1;
+            max-width: 760px;
+            margin: 1.35rem 0 0;
+            color: #597188;
+            font-size: 1.02rem;
+            line-height: 1.75;
+        }
+
+        .wfz-module-card {
+            min-height: 285px;
+            margin-bottom: 0.7rem;
+            padding: 1.7rem;
+            border: 1px solid rgba(22, 61, 103, 0.12);
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.92);
+            box-shadow: 0 18px 42px rgba(17, 49, 80, 0.07);
+        }
+
+        .wfz-module-card--game {
+            background:
+                linear-gradient(145deg, rgba(255,255,255,0.98), rgba(233,247,252,0.92));
+        }
+
+        .wfz-module-card--research {
+            background:
+                linear-gradient(145deg, rgba(255,255,255,0.98), rgba(239,244,251,0.92));
+        }
+
+        .wfz-module-number {
+            color: #2c7ca2;
+            font-size: 0.68rem;
+            font-weight: 850;
+            letter-spacing: 0.14em;
+        }
+
+        .wfz-module-card h2 {
+            margin: 1.1rem 0 0.55rem;
+            padding: 0;
+            font-size: 1.55rem;
+        }
+
+        .wfz-module-card p {
+            min-height: 4.7rem;
+            margin: 0;
+            color: #5f7185;
+            font-size: 0.88rem;
+            line-height: 1.7;
+        }
+
+        .wfz-module-path {
+            margin-top: 1rem;
+            padding-top: 0.9rem;
+            border-top: 1px solid rgba(22, 61, 103, 0.10);
+            color: #214b6d;
+            font-size: 0.74rem;
+            font-weight: 720;
+            letter-spacing: 0.03em;
+        }
+
+        .wfz-learning-loop {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 0.65rem;
+            margin: 1rem 0 1.4rem;
+        }
+
+        .wfz-learning-step {
+            padding: 0.9rem 0.55rem;
+            border: 1px solid rgba(22, 61, 103, 0.11);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.90);
+            color: #1d4b6e;
+            text-align: center;
+            font-size: 0.79rem;
+            font-weight: 760;
+        }
+
         .wfz-page-intro {
             margin-bottom: 1.7rem;
             padding: 1.55rem 1.7rem;
@@ -1561,6 +1707,10 @@ def apply_product_theme() -> None:
                 grid-template-columns: 1fr;
             }
 
+            .wfz-learning-loop {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
             .wfz-scope-grid,
             .wfz-scope-boundary {
                 grid-template-columns: 1fr;
@@ -1578,6 +1728,15 @@ def apply_product_theme() -> None:
                 min-height: auto;
                 padding: 2rem 1.4rem;
                 border-radius: 22px;
+            }
+
+            .wfz-platform-hero {
+                padding: 2rem 1.4rem;
+                border-radius: 22px;
+            }
+
+            .wfz-platform-title {
+                font-size: 2.45rem;
             }
 
             .wfz-title {
@@ -1681,6 +1840,77 @@ def show_product_identity() -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def show_platform_identity() -> None:
+    """Introduce the two connected halves of the platform."""
+    st.markdown(
+        """
+        <section class="wfz-platform-hero">
+            <div class="wfz-platform-kicker">
+                FANGZHENG AI · FINANCIAL RESEARCH LAB
+            </div>
+            <h1 class="wfz-platform-title">
+                从学会分析开始<br><span>到独立完成一份研究判断</span>
+            </h1>
+            <p class="wfz-platform-subtitle">
+                一个平台，两种使用方式：在剧情案件中训练金融研究思维，
+                或进入真实公司研究终端，核验行情、公告、年报和历史证据。
+                两个模块共享同一套证据标准与时间纪律。
+            </p>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def show_platform_modules() -> None:
+    """Render the platform's two primary and connected entry points."""
+    game_column, research_column = st.columns(2)
+    with game_column:
+        st.markdown(
+            """
+            <article class="wfz-module-card wfz-module-card--game">
+                <div class="wfz-module-number">MODULE 01 / LEARN BY DOING</div>
+                <h2>研究员任务局</h2>
+                <p>
+                    通过剧情、调查和答辩，从零学习怎样阅读材料、寻找证据、
+                    控制前视偏差，并形成有边界的金融判断。
+                </p>
+                <div class="wfz-module-path">教 → 练 → 查 → 证 → 辩 → 迁</div>
+            </article>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "进入研究员任务局",
+            type="primary",
+            width="stretch",
+            key="home_to_game_hub",
+        ):
+            _switch_page("game")
+
+    with research_column:
+        st.markdown(
+            """
+            <article class="wfz-module-card wfz-module-card--research">
+                <div class="wfz-module-number">MODULE 02 / RESEARCH WITH EVIDENCE</div>
+                <h2>公司研究终端</h2>
+                <p>
+                    输入公司名称或股票代码，把公开行情、官方公告、年度报告
+                    和历史时点接成一条可以回到来源核验的研究链。
+                </p>
+                <div class="wfz-module-path">选择公司 → 核验资料 → 形成研究底稿</div>
+            </article>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "进入公司研究终端",
+            width="stretch",
+            key="home_to_research_terminal",
+        ):
+            _switch_page("research_terminal")
 
 
 def show_home_capabilities() -> None:
@@ -2049,10 +2279,10 @@ def show_product_footer() -> None:
     st.markdown(
         """
         <div class="wfz-footer">
-            <strong>WFZ 中国上市公司自主研究 Agent</strong> · 产品设计与研发：
+            <strong>FANGZHENG AI 金融研究实验室</strong> · 产品设计与研发：
             <strong>王方正 · Durham University</strong><br>
-            以证据为核心的上市公司研究，用于教育、求职演示与作品集展示；
-            不构成投资建议。
+            通过剧情训练与真实公司研究培养有证据边界的金融判断；
+            用于学习、求职演示与作品集展示，不构成投资建议。
         </div>
         """,
         unsafe_allow_html=True,
@@ -2385,7 +2615,7 @@ def _show_company_banner(company: CompanyIdentity) -> None:
         width="stretch",
     ):
         st.session_state.pop("selected_company", None)
-        _switch_page("home")
+        _switch_page("research_terminal")
 
 
 def _render_local_research_hub() -> None:
@@ -3249,7 +3479,404 @@ def render_comprehensive_research_page() -> None:
 
 
 def render_home_page() -> None:
-    """Render the single-entry home page for the research product."""
+    """Render the platform home with two clear primary modules."""
+    apply_product_theme()
+    show_platform_identity()
+    show_platform_modules()
+    st.info(
+        "研究员任务局负责学习与能力训练；公司研究终端负责真实公开资料的"
+        "检索、计算和核验。游戏中的开放调查会逐步连接研究终端，但不会"
+        "把研究结果包装成股价预测或买卖建议。"
+    )
+    show_product_footer()
+
+
+def _start_historical_game_mission() -> None:
+    """Open the one cross-module investigation at its earliest search date."""
+    mission = HISTORICAL_GAME_MISSION
+    company = build_company_identity(
+        mission["company_code"],
+        mission["company_name"],
+    )
+    _store_selected_company(company)
+    st.session_state["historical_game_mission_id"] = mission["mission_id"]
+    st.session_state["historical_prefill_date"] = (
+        mission["initial_date"].isoformat()
+    )
+    st.session_state["historical_prefill_context"] = (
+        "研究员任务局｜开放调查01"
+    )
+    _switch_page("historical")
+
+
+def _render_cash_evidence_node(player_name: str) -> None:
+    """Render the changing office search and exact evidence-chain check."""
+    evidence_completed = (
+        st.session_state.get("cash_case_stage") == "evidence_completed"
+    )
+    attempt_index = int(
+        st.session_state.get("cash_evidence_attempt_index", 0)
+    )
+    evidence_case = build_cash_evidence_case(attempt_index)
+
+    st.divider()
+    st.caption("案件调查 · EVIDENCE ROOM 02")
+    st.subheader("第二节点：办公室里的六份材料")
+    with st.container(border=True):
+        st.markdown(f"#### 调查员 {escape(player_name)}，项目办公室已解锁")
+        st.write(
+            "系统不会告诉你哪份材料是线索、证据或干扰项。请打开不同"
+            "位置找到的文件，阅读日期、条款、签章、金额和证据来源，再"
+            "选择恰好4份材料组成证据链。"
+        )
+        st.caption(
+            f"动态卷宗第 {evidence_case['attempt_number']} 版｜报告截止日："
+            f"{evidence_case['reporting_date'].isoformat()}｜答错不扣生命，"
+            "但会更换客户、金额、付款期限和材料顺序。"
+        )
+
+    document_columns = st.columns(2)
+    option_labels: dict[str, str] = {}
+    for index, document in enumerate(evidence_case["documents"]):
+        document_label = (
+            f"{index + 1}. {document['location']}｜{document['title']}"
+        )
+        option_labels[document_label] = document["document_id"]
+        with document_columns[index % 2]:
+            with st.expander(
+                f"📁 {document['location']}｜{document['title']}"
+            ):
+                st.caption(document["document_type"])
+                st.write(document["body"])
+                st.caption(document["footer"])
+
+    feedback = st.session_state.pop("cash_evidence_feedback", None)
+    if isinstance(feedback, str):
+        st.warning(feedback)
+
+    if not evidence_completed:
+        with st.form(
+            key=f"cash_evidence_form_{evidence_case['case_id']}",
+            border=True,
+        ):
+            st.markdown("#### 提交你的证据链")
+            st.write(evidence_case["question"])
+            selected_labels = st.multiselect(
+                "选择恰好4份材料",
+                options=list(option_labels),
+                max_selections=4,
+                placeholder="阅读文件后再选择，不要只看标题",
+                key=f"cash_evidence_selection_{evidence_case['case_id']}",
+            )
+            evidence_submitted = st.form_submit_button(
+                "提交证据链",
+                type="primary",
+                width="stretch",
+            )
+
+        if evidence_submitted:
+            if len(selected_labels) != 4:
+                st.warning("证据链必须包含恰好4份材料。请继续搜索和取舍。")
+                return
+            selected_ids = [
+                option_labels[label] for label in selected_labels
+            ]
+            evaluation = evaluate_cash_evidence_selection(
+                evidence_case,
+                selected_ids,
+            )
+            if evaluation["is_correct"]:
+                st.session_state["cash_case_stage"] = "evidence_completed"
+                st.session_state["cash_evidence_explanation"] = evidence_case[
+                    "explanation"
+                ]
+                st.rerun()
+            else:
+                st.session_state["cash_evidence_attempt_index"] = (
+                    attempt_index + 1
+                )
+                st.session_state["cash_evidence_feedback"] = (
+                    f"{evaluation['feedback']} 没有扣除生命；办公室卷宗已经"
+                    "更换，请重新阅读，不能沿用上一轮的文件编号。"
+                )
+                st.rerun()
+        return
+
+    st.success("第二节点完成｜你已经把线索整理成一条可相互核验的证据链。")
+    explanation = str(
+        st.session_state.get("cash_evidence_explanation", "")
+    )
+    if explanation:
+        with st.container(border=True):
+            st.markdown("#### 审查官证据复盘")
+            st.write(explanation)
+            st.caption(
+                "结论边界：本卷宗能够解释这一项业务的时间差，不能据此"
+                "推断其他客户、其他期间或整家公司的现金质量。"
+            )
+
+
+def _render_cash_case_first_node() -> None:
+    """Teach and practise the first profit-versus-cash reasoning node."""
+    st.divider()
+    st.caption("案件序章 · PLAYABLE CASE 01")
+    st.subheader("《消失的现金》｜第一节点：利润不等于现金")
+
+    player_name = str(st.session_state.get("game_player_name", "")).strip()
+    if not player_name:
+        st.write(
+            "进入案件前，请为主人公设置一个调查员代号。它只保存在当前"
+            "浏览器会话，用于剧情称呼；请不要填写身份证号、电话或其他"
+            "敏感信息。"
+        )
+        with st.form("game_player_identity_form", border=True):
+            entered_name = st.text_input(
+                "调查员代号",
+                placeholder="例如：方正、北辰、Lin",
+                max_chars=12,
+            )
+            identity_submitted = st.form_submit_button(
+                "建立角色档案并进入案件",
+                type="primary",
+                width="stretch",
+            )
+        if identity_submitted:
+            normalised_name = " ".join(entered_name.strip().split())
+            if not normalised_name:
+                st.error("请先填写一个调查员代号。")
+                return
+            st.session_state["game_player_name"] = normalised_name
+            st.session_state["cash_case_stage"] = "briefing"
+            st.session_state["cash_case_attempt_index"] = 0
+            st.rerun()
+        return
+
+    stage = str(st.session_state.get("cash_case_stage", "briefing"))
+    with st.container(border=True):
+        st.caption("22:17 · FANGZHENG AI 调查部")
+        st.markdown(f"#### 调查员 {escape(player_name)}，第一份案卷已经送达")
+        st.write(
+            "岚桥智能报告显示：利润增长38%，经营现金流却下降22%。"
+            "有人据此断言公司一定造假，也有人认为利润增长就代表现金"
+            "充足。你的第一项任务不是选边站，而是先弄清两种数字各自在"
+            "回答什么问题。"
+        )
+
+    teaching_columns = st.columns(3)
+    with teaching_columns[0].container(border=True):
+        st.caption("01 / PROFIT")
+        st.markdown("#### 利润看什么？")
+        st.write(
+            "利润先问：这段期间完成了多少业务、为这些业务承担了多少"
+            "成本。符合确认条件的收入，不必等客户真正付款后才进入利润。"
+        )
+    with teaching_columns[1].container(border=True):
+        st.caption("02 / CASH")
+        st.markdown("#### 现金看什么？")
+        st.write(
+            "现金只问：钱在什么时候真正进入或离开账户。已经确认的收入"
+            "如果尚未收款，会形成应收款，但不会变成本月收到的现金。"
+        )
+    with teaching_columns[2].container(border=True):
+        st.caption("03 / JUDGEMENT")
+        st.markdown("#### 差异代表什么？")
+        st.write(
+            "利润与现金不一致是一条调查线索，不是自动定罪。还要检查合同、"
+            "验收、回款期限、应收账款和期后收款，才能解释差异。"
+        )
+
+    if stage == "briefing":
+        st.info(
+            "记住两个问题：利润看“业务是否完成”，现金看“钱是否真的"
+            "收付”。准备好后进入引导练习。"
+        )
+        if st.button(
+            "我理解了，打开第一份业务档案",
+            type="primary",
+            width="stretch",
+            key="cash_case_start_practice",
+        ):
+            st.session_state["cash_case_stage"] = "practice"
+            st.rerun()
+        return
+
+    feedback = st.session_state.pop("cash_case_feedback", None)
+    if isinstance(feedback, str):
+        st.warning(feedback)
+
+    if stage == "practice":
+        attempt_index = int(
+            st.session_state.get("cash_case_attempt_index", 0)
+        )
+        question = build_cash_timing_question(attempt_index)
+        with st.form(
+            key=f"cash_case_question_{question['question_id']}",
+            border=True,
+        ):
+            st.caption(
+                f"动态业务档案 · 第 {question['attempt_number']} 份｜"
+                "本节点答错不扣生命"
+            )
+            st.markdown("#### 分别计算利润影响与现金影响")
+            st.write(question["prompt"])
+            selected_option = st.radio(
+                "选择最准确的计算结果",
+                options=question["options"],
+                index=None,
+                key=f"cash_case_answer_{question['question_id']}",
+            )
+            answer_submitted = st.form_submit_button(
+                "提交判断",
+                type="primary",
+                width="stretch",
+            )
+
+        if answer_submitted:
+            if selected_option is None:
+                st.warning("请先选择一个答案，再提交判断。")
+            elif selected_option == question["correct_option"]:
+                st.session_state["cash_case_stage"] = "timing_completed"
+                st.session_state["cash_case_last_explanation"] = question[
+                    "explanation"
+                ]
+                st.rerun()
+            else:
+                st.session_state["cash_case_attempt_index"] = (
+                    attempt_index + 1
+                )
+                st.session_state["cash_case_feedback"] = (
+                    "这次计算还没有同时分清“确认了多少业务”和“实际收付"
+                    "了多少钱”。没有扣除生命；档案数据已经更换，请用同一"
+                    "方法重新判断，不能背上一题的答案。"
+                )
+                st.rerun()
+        return
+
+    explanation = str(
+        st.session_state.get("cash_case_last_explanation", "")
+    )
+    st.success("第一教学节点完成｜利润与现金的两只计量表已经分开。")
+    if explanation:
+        with st.container(border=True):
+            st.markdown("#### 审查官复盘")
+            st.write(explanation)
+    if stage in {"completed", "timing_completed"}:
+        st.info(
+            "你现在只证明自己掌握了基础计算。下一节点会把合同、应收"
+            "明细、验收文件和期后回款放进同一办公室，要求你自己寻找"
+            "材料并判断差异是否值得警惕。"
+        )
+        if st.button(
+            "进入项目办公室｜开始证据调查",
+            type="primary",
+            width="stretch",
+            key="open_cash_evidence_room",
+        ):
+            st.session_state["cash_case_stage"] = "evidence"
+            st.session_state["cash_evidence_attempt_index"] = 0
+            st.rerun()
+        return
+
+    if stage in {"evidence", "evidence_completed"}:
+        _render_cash_evidence_node(player_name)
+
+
+def render_game_hub_page() -> None:
+    """Introduce the game learning loop before the first playable case."""
+    apply_product_theme()
+    show_compact_page_header(
+        "模块一 / 沉浸式金融研究训练",
+        "研究员任务局",
+        "先在故事中理解金融概念，再进入调查、证据拼接和结论答辩。"
+        "真正的难度来自材料阅读、时间判断和证据边界，而不是文字陷阱。",
+    )
+    st.markdown(
+        """
+        <div class="wfz-learning-loop">
+            <div class="wfz-learning-step">01｜教学</div>
+            <div class="wfz-learning-step">02｜练习</div>
+            <div class="wfz-learning-step">03｜调查</div>
+            <div class="wfz-learning-step">04｜证据链</div>
+            <div class="wfz-learning-step">05｜答辩</div>
+            <div class="wfz-learning-step">06｜迁移</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    case_column, progression_column = st.columns([1.35, 1])
+    with case_column.container(border=True):
+        st.caption("首个教学案件 · CASE 01")
+        st.subheader("《消失的现金》")
+        st.write(
+            "一家虚构公司的利润增长38%，经营现金流却下降22%。玩家将先"
+            "理解利润与现金的区别，再阅读合同、验收、应收账款、银行流水"
+            "和期后材料，判断差异意味着什么、又不能证明什么。"
+        )
+        st.success(
+            "前两节点已开放：零基础讲解、动态换题，以及六份材料中的"
+            "证据链调查。"
+        )
+    with progression_column.container(border=True):
+        st.caption("成长路径 · SEQUENTIAL PROGRESSION")
+        st.subheader("不能跳关，但可以真正成长")
+        st.write(
+            "完成基础教学后，系统会逐步减少提示。最终进入真实历史开放案件，"
+            "玩家只获得研究问题与时间截点，需要自行使用公司研究终端寻找"
+            "证据，并接受审查官追问。"
+        )
+        st.progress(0.27, text="教学计算与证据调查可玩｜下一步开发结论答辩")
+
+    _render_cash_case_first_node()
+
+    st.divider()
+    with st.container(border=True):
+        mission = HISTORICAL_GAME_MISSION
+        st.caption("跨模块开放调查 · ONE DELIBERATE TOOL MISSION")
+        st.subheader(mission["title"])
+        st.markdown(f"**案卷：{mission['case_file']}**")
+        st.write(mission["question"])
+        st.caption(
+            f"调查区间：{mission['window_start'].isoformat()} — "
+            f"{mission['window_end'].isoformat()}。进入 Historical Lens 后，"
+            "拖动时点滑轨并比较相邻日期；页面不会直接标出答案。"
+        )
+        st.info(
+            "这类“离开游戏、调用真实研究工具、再带回结论”的任务只安排"
+            "一次。它考查时间边界，不考股价预测，也不扣除三条生命。"
+        )
+        mission_completed = (
+            st.session_state.get("historical_game_mission_completed")
+            == HISTORICAL_MISSION_ID
+        )
+        if mission_completed:
+            st.success("开放调查已完成｜你已经识别两只不同的时间时钟。")
+        evidence_node_completed = (
+            st.session_state.get("cash_case_stage") == "evidence_completed"
+        )
+        mission_label = "完成办公室证据调查后解锁 Historical Lens"
+        if mission_completed:
+            mission_label = "重新查看调查证据"
+        elif evidence_node_completed:
+            mission_label = "开始开放调查｜进入 Historical Lens"
+        if st.button(
+            mission_label,
+            type="primary" if evidence_node_completed else "secondary",
+            disabled=not evidence_node_completed and not mission_completed,
+            width="stretch",
+            key="start_historical_game_mission",
+        ):
+            _start_historical_game_mission()
+
+    st.warning(
+        "教学、练习和当前的引导调查不扣生命。三条生命只在后续正式"
+        "结论答辩时启用；答错后更换数据和题目，不重复背答案。"
+    )
+    show_product_footer()
+
+
+def render_research_terminal_page() -> None:
+    """Render the primary entry page for real-company research tools."""
     apply_product_theme()
     show_product_identity()
     show_chinese_user_guide()
@@ -3257,7 +3884,7 @@ def render_home_page() -> None:
     show_home_value_proposition()
     show_home_capabilities()
     if st.button(
-        "进入研究工作台｜按任务查看全部工具",
+        "进入研究工具导航｜按任务查看全部功能",
         width="stretch",
         key="home_to_research_workspace",
     ):
@@ -3334,8 +3961,8 @@ def render_research_workspace_page() -> None:
     """Group all research tools by the job the user needs to complete."""
     apply_product_theme()
     show_compact_page_header(
-        "00 / 研究工作台 · RESEARCH WORKSPACE",
-        "按研究任务选择工具",
+        "公司研究终端 / 工具导航 · RESEARCH WORKSPACE",
+        "按研究问题选择工具",
         "全部功能被组织成五个相互衔接的集合：先发现或选择标的，"
         "再完成公司总览，随后根据问题进入市场、财务或证据核验。",
     )
@@ -5843,6 +6470,21 @@ def render_historical_lens_page() -> None:
         st.info("尚未选择公司，已载入首个演示对象：贵州茅台。")
 
     _show_company_banner(company)
+    historical_mission_active = (
+        st.session_state.get("historical_game_mission_id")
+        == HISTORICAL_MISSION_ID
+        and company["code"] == HISTORICAL_GAME_MISSION["company_code"]
+    )
+    if historical_mission_active:
+        mission = HISTORICAL_GAME_MISSION
+        with st.container(border=True):
+            st.caption("研究员任务局已连接 · OPEN INVESTIGATION")
+            st.markdown(f"#### {mission['title']}")
+            st.write(mission["question"])
+            st.caption(
+                "请比较相邻日期中“当时已经公开的官方证据”是否发生变化。"
+                "目标是找到证据第一次可见的边界，而不是猜测股价涨跌。"
+            )
     st.info(
         "时间隔离规则：只有发布日期不晚于所选日期的信息，"
         "才允许进入“当时已知”。后来行情在点击前不会显示。"
@@ -5873,8 +6515,10 @@ def render_historical_lens_page() -> None:
         ):
             prefill_date = candidate_date
 
+    earliest_date = today - timedelta(days=365 * 5)
     default_date = prefill_date or today - timedelta(days=365)
     selected_event = None
+    flagship_events = []
     if company["code"] == "600519":
         try:
             flagship_events = load_moutai_flagship_events()
@@ -5882,7 +6526,7 @@ def render_historical_lens_page() -> None:
             flagship_events = []
             st.warning("已核验的重要日期暂时无法读取，可继续自由选择日期。")
 
-        if flagship_events:
+        if flagship_events and not historical_mission_active:
             event_options = {"自由选择日期": None}
             for event in flagship_events:
                 label = (
@@ -5930,23 +6574,55 @@ def render_historical_lens_page() -> None:
         else "custom"
     )
     date_input_key = (
-        f"historical_date_{company['code']}_{date_key_suffix}"
+        f"historical_timeline_{company['code']}_{date_key_suffix}"
     )
     if prefill_date is not None:
         st.session_state.pop(date_input_key, None)
-    selected_date = st.date_input(
-        "选择历史研究截止日",
-        value=default_date,
-        min_value=today - timedelta(days=365 * 5),
-        max_value=today,
-        key=date_input_key,
-        help=(
-            "若所选日期不是交易日，系统会使用该日期之前最近一个交易日，"
-            "并同时显示两个日期。"
-        ),
+    timeline_min = earliest_date
+    timeline_max = today
+    if historical_mission_active:
+        timeline_min = max(
+            earliest_date,
+            HISTORICAL_GAME_MISSION["window_start"],
+        )
+        timeline_max = min(
+            today,
+            HISTORICAL_GAME_MISSION["window_end"],
+        )
+        if not timeline_min <= default_date <= timeline_max:
+            default_date = HISTORICAL_GAME_MISSION["initial_date"]
+
+    st.markdown("#### Historical Lens 时点滑轨")
+    st.caption(
+        "像调节滑动变阻器一样移动截止日，再锁定时点生成快照。"
+        "控件放在表单中，拖动过程不会每天重复请求公开数据。"
     )
-    if isinstance(selected_date, tuple):
-        selected_date = selected_date[0]
+    with st.form(
+        key=f"{date_input_key}_form",
+        border=True,
+    ):
+        selected_date = st.slider(
+            "拖动历史研究截止日",
+            value=default_date,
+            min_value=timeline_min,
+            max_value=timeline_max,
+            step=timedelta(days=1),
+            format="YYYY-MM-DD",
+            key=date_input_key,
+            help=(
+                "若所选日期不是交易日，系统会使用该日期之前最近一个"
+                "交易日；证据仍按真实公开日期过滤。"
+            ),
+        )
+        st.form_submit_button(
+            "锁定这个时点并生成研究快照",
+            type="primary",
+            width="stretch",
+        )
+    st.caption(
+        f"当前镜头日期：{selected_date.isoformat()}｜可调查范围："
+        f"{timeline_min.isoformat()} — {timeline_max.isoformat()}"
+    )
 
     if selected_event is not None:
         with st.container(border=True):
@@ -6148,6 +6824,83 @@ def render_historical_lens_page() -> None:
                 "报告期早于截止日并不代表当时已经知道；"
                 "系统以公开发布日期作为准入条件。"
             )
+
+    if historical_mission_active:
+        mission_event = next(
+            (
+                event
+                for event in flagship_events
+                if event["event_id"]
+                == HISTORICAL_GAME_MISSION["answer_event_id"]
+            ),
+            None,
+        )
+        st.divider()
+        with st.container(border=True):
+            st.caption("调查结论提交 · NO LIFE LOST")
+            st.markdown("#### 这一天是目标证据第一次可见的日期吗？")
+            st.write(
+                f"你当前锁定：**{selected_date.isoformat()}**。先检查上方"
+                "官方证据和实际采用交易日，再提交结论。"
+            )
+            mission_completed = (
+                st.session_state.get("historical_game_mission_completed")
+                == HISTORICAL_MISSION_ID
+            )
+            if mission_event is None:
+                st.warning(
+                    "任务所需的已核验事件暂时无法读取，本次不允许盲猜提交。"
+                )
+            elif mission_event["published_date"] <= selected_date:
+                st.success(
+                    "边界传感器：目标回购方案已经进入当前时点的官方证据集。"
+                    "它是否刚刚出现，需要继续与前一日比较。"
+                )
+            else:
+                st.info(
+                    "边界传感器：目标回购方案尚未进入当前时点的官方证据集。"
+                    "它可能尚未公开，也可能需要继续向后调查。"
+                )
+            if (
+                mission_event is not None
+                and not mission_completed
+                and st.button(
+                    "锁定当前日期为调查答案",
+                    type="primary",
+                    width="stretch",
+                    key=(
+                        "submit_historical_game_mission_"
+                        f"{selected_date.isoformat()}"
+                    ),
+                )
+            ):
+                evaluation = evaluate_historical_mission_date(
+                    selected_date,
+                    mission_event["published_date"],
+                )
+                if evaluation["is_correct"]:
+                    st.session_state["historical_game_mission_completed"] = (
+                        HISTORICAL_MISSION_ID
+                    )
+                    st.session_state["historical_game_mission_answer"] = (
+                        selected_date.isoformat()
+                    )
+                    mission_completed = True
+                    st.success(evaluation["feedback"])
+                else:
+                    st.warning(evaluation["feedback"])
+
+            if mission_completed:
+                st.success(
+                    "调查完成：9月20日的复盘越过了信息截止线。你找到的"
+                    "是公开证据边界，不是行情预测答案。"
+                )
+                if st.button(
+                    "带着调查结论返回研究员任务局",
+                    width="stretch",
+                    key="return_to_game_after_historical_mission",
+                ):
+                    _switch_page("game")
 
     st.divider()
     st.subheader("历史快照边界")
@@ -9020,8 +9773,8 @@ def render_annual_report_page() -> None:
 def main() -> None:
     """Configure and run the product's multi-page navigation."""
     st.set_page_config(
-        page_title="王方正｜中国上市公司研究Agent",
-        page_icon="📊",
+        page_title="FANGZHENG AI｜金融研究实验室",
+        page_icon="🔎",
         layout="wide",
         initial_sidebar_state="expanded",
     )
@@ -9033,9 +9786,19 @@ def main() -> None:
         icon="🏠",
         default=True,
     )
+    game_page = st.Page(
+        render_game_hub_page,
+        title="研究员任务局",
+        icon="🧩",
+    )
+    research_terminal_page = st.Page(
+        render_research_terminal_page,
+        title="公司研究终端",
+        icon="🔎",
+    )
     workspace_page = st.Page(
         render_research_workspace_page,
-        title="研究工作台",
+        title="研究工具导航",
         icon="🗂️",
     )
     comprehensive_page = st.Page(
@@ -9125,6 +9888,8 @@ def main() -> None:
     )
     st.session_state["_wfz_page_registry"] = {
         "home": home_page,
+        "game": game_page,
+        "research_terminal": research_terminal_page,
         "workspace": workspace_page,
         "comprehensive": comprehensive_page,
         "company": company_page,
@@ -9147,31 +9912,33 @@ def main() -> None:
 
     navigation = st.navigation(
         {
-            "开始": [home_page, workspace_page],
-            "标的发现与跟踪": [
+            "开始": [home_page],
+            "两大模块": [game_page, research_terminal_page],
+            "研究终端｜工具导航": [workspace_page],
+            "研究终端｜发现与跟踪": [
                 limit_up_page,
                 radar_page,
             ],
-            "单家公司研究": [
+            "研究终端｜公司主线": [
                 comprehensive_page,
                 company_page,
                 evidence_delta_page,
                 thesis_ledger_page,
             ],
-            "市场行为与复盘": [
+            "研究终端｜市场与复盘": [
                 market_page,
                 volume_turnover_page,
                 anomaly_page,
                 historical_page,
             ],
-            "财务与年报证据": [
+            "研究终端｜财务与年报": [
                 financial_snapshot_page,
                 annual_page,
                 financial_trend_page,
                 comparison_page,
                 financial_anomaly_page,
             ],
-            "数据与方法": [onboarding_page, methodology_page],
+            "研究终端｜数据与方法": [onboarding_page, methodology_page],
         }
     )
     navigation.run()
