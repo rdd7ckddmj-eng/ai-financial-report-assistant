@@ -31,7 +31,7 @@
       the effective K-line date, the next trading session, and causality before
       the first case is marked complete; reshuffle wrong answers without using
       the three formal-defence lives.
-- [ ] Add the horizontal honour archive and optional vertical social poster
+- [x] Add the horizontal honour archive and optional vertical social poster
       only after the first case can be completed end to end.
 - [x] Connect a same-company on-demand financial snapshot to the Comprehensive
       Research Agent as partial evidence, while keeping verified multi-year

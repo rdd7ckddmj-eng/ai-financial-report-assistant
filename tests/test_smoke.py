@@ -169,6 +169,43 @@ render_game_hub_page()
     assert historical_button.disabled
 
 
+def test_completed_game_unlocks_bounded_honour_archive() -> None:
+    """Only a fully migrated case should show the archive and poster."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+from src.historical_game_mission import HISTORICAL_MISSION_ID
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state["cash_case_stage"] = "migration_completed"
+st.session_state["historical_game_mission_completed"] = HISTORICAL_MISSION_ID
+app._HONOUR_ARCHIVE_STORAGE = lambda **kwargs: SimpleNamespace(
+    record=kwargs["default"]["record"], storage_status="available"
+)
+app._HONOUR_POSTER = lambda **kwargs: None
+app.render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    page_markup = "\n".join(item.value for item in app_test.markdown)
+    assert any(
+        item.value == "首案封存｜你的研究员荣誉档案"
+        for item in app_test.subheader
+    )
+    assert "wfz-honour-archive" in page_markup
+    assert "北辰" in page_markup
+    assert "测试赛季 · 本设备通关位次" in page_markup
+    assert "000001" in page_markup
+    assert "不是全站排行榜" in "\n".join(
+        item.value for item in app_test.caption
+    )
+    assert "你也想发抖音吗" in page_markup
+
+
 def test_cash_case_wrong_answer_replaces_the_business_sheet() -> None:
     """A wrong practice answer must create a new sheet without losing life."""
     from streamlit.testing.v1 import AppTest

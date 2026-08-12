@@ -140,6 +140,16 @@ from src.historical_game_mission import (
     evaluate_historical_mission_reasoning,
     resolve_historical_mission_clock_boundary,
 )
+from src.honour_archive import (
+    FIRST_CASE_HONOUR_PREFIX,
+    FIRST_CASE_MISSION_ID,
+    FIRST_CASE_TITLE,
+    HonourRecord,
+    build_honour_archive_html,
+    build_honour_poster_payload,
+    build_honour_record,
+    normalise_honour_record,
+)
 from src.llm_analyst import (
     LLMAnalystRun,
     run_llm_analyst,
@@ -527,6 +537,416 @@ _BROWSER_RESEARCH_STORAGE = st.components.v2.component(
       if (JSON.stringify(snapshot) !== JSON.stringify(known)) {
         setStateValue("snapshot", snapshot);
       }
+    }
+    """,
+)
+
+
+_HONOUR_ARCHIVE_STORAGE = st.components.v2.component(
+    name="wfz_honour_archive_storage",
+    html='<span class="wfz-honour-storage" aria-hidden="true"></span>',
+    css=".wfz-honour-storage { display: none; }",
+    js="""
+    export default function({ data, setStateValue }) {
+      const storageKey = data.storage_key;
+      const missionId = data.mission_id;
+      const caseTitle = data.case_title;
+      const cleanName = (raw) => {
+        if (typeof raw !== "string") return null;
+        const value = raw.trim().replace(/\\s+/g, " ").slice(0, 12);
+        return value || null;
+      };
+      const normaliseDate = (raw) => {
+        const parsed = raw instanceof Date
+          ? raw
+          : new Date(String(raw || ""));
+        if (Number.isNaN(parsed.getTime())) return null;
+        return `${parsed.toISOString().slice(0, 19)}+00:00`;
+      };
+      const cleanStoredRecord = (raw) => {
+        if (!raw || typeof raw !== "object") return null;
+        const rank = Number(raw.completion_rank);
+        const name = cleanName(raw.player_name);
+        const completedAt = normaliseDate(raw.completed_at);
+        const storedMissionId = String(raw.mission_id || "").slice(0, 80);
+        const storedCaseTitle = String(raw.case_title || "").slice(0, 80);
+        if (
+          raw.version !== 1 || !storedMissionId || !storedCaseTitle || !name ||
+          !Number.isInteger(rank) || rank < 1 || rank > 999999999 ||
+          !completedAt
+        ) return null;
+        const honourNumber = String(rank).padStart(6, "0");
+        if (raw.honour_number !== honourNumber) return null;
+        return {
+          version: 1,
+          mission_id: storedMissionId,
+          case_title: storedCaseTitle,
+          player_name: name,
+          completion_rank: rank,
+          honour_number: honourNumber,
+          completed_at: completedAt,
+        };
+      };
+
+      let records = [];
+      let storageStatus = "available";
+      try {
+        const stored = JSON.parse(localStorage.getItem(storageKey) || "[]");
+        if (Array.isArray(stored)) {
+          records = stored.map(cleanStoredRecord).filter(Boolean).slice(-50);
+        }
+      } catch (_) {
+        storageStatus = "unavailable";
+      }
+
+      let record = records.find((item) => item.mission_id === missionId) || null;
+      const playerName = cleanName(data.player_name);
+      if (!record && data.completed === true && playerName) {
+        const rank = records.reduce(
+          (highest, item) => Math.max(highest, item.completion_rank), 0
+        ) + 1;
+        record = {
+          version: 1,
+          mission_id: missionId,
+          case_title: caseTitle,
+          player_name: playerName,
+          completion_rank: rank,
+          honour_number: String(rank).padStart(6, "0"),
+          completed_at: normaliseDate(new Date()),
+        };
+        if (storageStatus === "available") {
+          try {
+            localStorage.setItem(
+              storageKey,
+              JSON.stringify([...records, record].slice(-50))
+            );
+          } catch (_) {
+            storageStatus = "unavailable";
+          }
+        }
+      }
+
+      const knownCandidate = cleanStoredRecord(data.known_record);
+      const known = knownCandidate?.mission_id === missionId &&
+        knownCandidate?.case_title === caseTitle ? knownCandidate : null;
+      if (JSON.stringify(record) !== JSON.stringify(known)) {
+        setStateValue("record", record);
+      }
+      if (storageStatus !== data.known_storage_status) {
+        setStateValue("storage_status", storageStatus);
+      }
+    }
+    """,
+)
+
+
+_HONOUR_POSTER = st.components.v2.component(
+    name="wfz_honour_poster",
+    html="""
+    <section class="poster-shell">
+      <div class="poster-preview" aria-label="抖音竖版荣誉档案预览"></div>
+      <div class="poster-actions">
+        <button type="button">下载抖音竖版荣誉海报（PNG）</button>
+        <span class="poster-status" aria-live="polite"></span>
+      </div>
+    </section>
+    """,
+    css="""
+    :host { color-scheme: light; }
+    .poster-shell {
+      display: grid;
+      justify-items: center;
+      gap: 18px;
+      padding: 4px 0 10px;
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    .poster-preview {
+      box-sizing: border-box;
+      position: relative;
+      overflow: hidden;
+      width: min(100%, 430px);
+      aspect-ratio: 9 / 16;
+      padding: 34px 30px;
+      border: 1px solid rgba(33, 78, 127, 0.16);
+      border-radius: 28px;
+      background:
+        radial-gradient(circle at 92% 12%, rgba(22, 156, 180, 0.22), transparent 30%),
+        radial-gradient(circle at 2% 88%, rgba(100, 126, 210, 0.20), transparent 32%),
+        linear-gradient(155deg, #f8fbff 0%, #e5f3fb 50%, #dfe8fb 100%);
+      box-shadow: 0 24px 70px rgba(34, 70, 113, 0.16);
+    }
+    .poster-preview::before {
+      content: "";
+      position: absolute;
+      width: 230px;
+      height: 230px;
+      top: -132px;
+      right: -102px;
+      border: 1px solid rgba(20, 78, 124, 0.17);
+      border-radius: 50%;
+      box-shadow: 0 0 0 34px rgba(255,255,255,.17), 0 0 0 68px rgba(255,255,255,.10);
+    }
+    .poster-brand, .poster-case, .poster-name-label, .poster-rank-label,
+    .poster-number-label, .poster-date, .poster-disclaimer {
+      text-transform: uppercase;
+      letter-spacing: .11em;
+    }
+    .poster-brand { color: #226e84; font-size: 10px; font-weight: 800; }
+    .poster-index {
+      margin-top: 24px;
+      color: rgba(31, 85, 134, 0.14);
+      font-size: 92px;
+      font-weight: 900;
+      line-height: .82;
+      letter-spacing: -.08em;
+    }
+    .poster-case { margin-top: 18px; color: #317184; font-size: 10px; font-weight: 800; }
+    .poster-headline {
+      max-width: 315px;
+      margin: 8px 0 0;
+      color: #102f52;
+      font-size: clamp(25px, 6.8vw, 34px);
+      font-weight: 850;
+      line-height: 1.16;
+      letter-spacing: -.045em;
+    }
+    .poster-identity {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: end;
+      margin-top: 24px;
+      padding: 16px 0;
+      border-top: 1px solid rgba(20, 68, 110, .16);
+      border-bottom: 1px solid rgba(20, 68, 110, .16);
+    }
+    .poster-name-label, .poster-rank-label, .poster-number-label {
+      color: #668096;
+      font-size: 8px;
+      font-weight: 800;
+    }
+    .poster-name { margin-top: 5px; color: #102f52; font-size: 25px; font-weight: 850; }
+    .poster-rank { color: #128c99; font-size: 48px; font-weight: 900; line-height: .9; text-align: right; }
+    .poster-story {
+      margin: 22px 0 0;
+      color: #2c4f6e;
+      font-size: 12px;
+      line-height: 1.85;
+      white-space: pre-line;
+    }
+    .poster-skills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 20px; }
+    .poster-skill {
+      padding: 6px 9px;
+      border: 1px solid rgba(18, 140, 153, .19);
+      border-radius: 999px;
+      background: rgba(255,255,255,.55);
+      color: #276278;
+      font-size: 9px;
+      font-weight: 700;
+    }
+    .poster-certificate {
+      position: absolute;
+      left: 30px;
+      right: 30px;
+      bottom: 52px;
+      padding: 17px 18px;
+      border: 1px solid rgba(255,255,255,.75);
+      border-radius: 16px;
+      background: rgba(255,255,255,.46);
+      backdrop-filter: blur(12px);
+    }
+    .poster-number { margin-top: 5px; color: #102f52; font: 850 18px "Avenir Next", sans-serif; letter-spacing: .12em; }
+    .poster-date { margin-top: 8px; color: #60778d; font-size: 8px; font-weight: 700; }
+    .poster-disclaimer {
+      position: absolute;
+      left: 30px;
+      right: 30px;
+      bottom: 22px;
+      color: #72879a;
+      font-size: 6px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+    .poster-actions { display: grid; justify-items: center; gap: 8px; width: min(100%, 430px); }
+    button {
+      width: 100%;
+      padding: 13px 18px;
+      border: 0;
+      border-radius: 13px;
+      background: linear-gradient(110deg, #174f7b, #109aa1);
+      color: white;
+      font: 750 14px "PingFang SC", sans-serif;
+      cursor: pointer;
+      box-shadow: 0 12px 24px rgba(23, 79, 123, .18);
+    }
+    button:hover { filter: brightness(1.06); }
+    button:focus-visible { outline: 3px solid rgba(16, 154, 161, .28); outline-offset: 3px; }
+    .poster-status { min-height: 18px; color: #47677f; font-size: 11px; }
+    @media (max-width: 420px) {
+      .poster-preview { padding: 27px 24px; border-radius: 24px; }
+      .poster-brand { font-size: 8px; }
+      .poster-index { margin-top: 18px; font-size: 74px; }
+      .poster-case { margin-top: 12px; font-size: 8px; }
+      .poster-headline { margin-top: 6px; font-size: 25px; }
+      .poster-identity { margin-top: 15px; padding: 11px 0; }
+      .poster-name-label, .poster-rank-label, .poster-number-label { font-size: 7px; }
+      .poster-name { font-size: 21px; }
+      .poster-rank { font-size: 40px; }
+      .poster-story { margin-top: 13px; font-size: 10px; line-height: 1.65; }
+      .poster-skills { gap: 4px; margin-top: 11px; }
+      .poster-skill { padding: 4px 6px; font-size: 7px; }
+      .poster-certificate {
+        left: 24px;
+        right: 24px;
+        bottom: 37px;
+        padding: 11px 13px;
+        border-radius: 13px;
+      }
+      .poster-number { margin-top: 3px; font-size: 15px; }
+      .poster-date { margin-top: 5px; font-size: 6px; }
+      .poster-disclaimer { left: 24px; right: 24px; bottom: 14px; font-size: 5px; }
+    }
+    """,
+    js="""
+    export default function({ data, parentElement }) {
+      const root = parentElement.querySelector(".poster-preview");
+      const button = parentElement.querySelector("button");
+      const status = parentElement.querySelector(".poster-status");
+      if (!root || !button || !status) return;
+      root.replaceChildren();
+
+      const add = (parent, tag, className, text = "") => {
+        const node = document.createElement(tag);
+        node.className = className;
+        node.textContent = String(text);
+        parent.appendChild(node);
+        return node;
+      };
+      add(root, "div", "poster-brand", "FANGZHENG AI · RESEARCHER MISSION BUREAU");
+      add(root, "div", "poster-index", "01");
+      add(root, "div", "poster-case", `${data.case_title} · CASE ARCHIVED`);
+      add(root, "h2", "poster-headline", data.headline);
+      const identity = add(root, "div", "poster-identity");
+      const nameBox = add(identity, "div", "poster-name-box");
+      add(nameBox, "div", "poster-name-label", "ARCHIVED FOR / 调查员");
+      add(nameBox, "div", "poster-name", data.player_name);
+      const rankBox = add(identity, "div", "poster-rank-box");
+      add(rankBox, "div", "poster-rank-label", "本设备通关位次");
+      add(rankBox, "div", "poster-rank", data.rank_label);
+      add(root, "p", "poster-story", data.story_lines.join("\\n"));
+      const skills = add(root, "div", "poster-skills");
+      data.capabilities.forEach((item) => add(skills, "span", "poster-skill", item));
+      const certificate = add(root, "div", "poster-certificate");
+      add(certificate, "div", "poster-number-label", "HONOUR ARCHIVE / 荣誉编号");
+      add(certificate, "div", "poster-number", data.honour_number);
+      add(certificate, "div", "poster-date", `${data.completed_on} · 王方正 · DURHAM UNIVERSITY`);
+      add(root, "div", "poster-disclaimer", data.disclaimer);
+
+      const drawText = (ctx, text, x, y, font, color) => {
+        ctx.font = font;
+        ctx.fillStyle = color;
+        ctx.fillText(String(text), x, y);
+      };
+      const roundedRect = (ctx, x, y, width, height, radius) => {
+        ctx.beginPath();
+        ctx.roundRect(x, y, width, height, radius);
+        ctx.fill();
+      };
+      const drawPoster = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = Number(data.width) || 1080;
+        canvas.height = Number(data.height) || 1920;
+        const ctx = canvas.getContext("2d");
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, "#f8fbff");
+        gradient.addColorStop(.52, "#e4f3fb");
+        gradient.addColorStop(1, "#dce7fa");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.strokeStyle = "rgba(23,79,123,.12)";
+        ctx.lineWidth = 3;
+        [260, 360, 460].forEach((radius) => {
+          ctx.beginPath();
+          ctx.arc(1020, 20, radius, 0, Math.PI * 2);
+          ctx.stroke();
+        });
+        ctx.fillStyle = "rgba(37,106,159,.08)";
+        ctx.beginPath();
+        ctx.arc(45, 1740, 360, 0, Math.PI * 2);
+        ctx.fill();
+
+        drawText(ctx, "FANGZHENG AI · RESEARCHER MISSION BUREAU", 86, 105,
+          '800 26px "PingFang SC", sans-serif', "#226e84");
+        drawText(ctx, "01", 80, 380, '900 250px "Avenir Next", sans-serif',
+          "rgba(31,85,134,.12)");
+        drawText(ctx, `${data.case_title} · CASE ARCHIVED`, 88, 465,
+          '800 28px "PingFang SC", sans-serif', "#317184");
+        drawText(ctx, "首案封存", 84, 570, '900 74px "PingFang SC", sans-serif', "#102f52");
+        drawText(ctx, "拒绝用明天解释今天", 84, 660,
+          '900 68px "PingFang SC", sans-serif', "#102f52");
+
+        ctx.strokeStyle = "rgba(20,68,110,.18)";
+        ctx.beginPath(); ctx.moveTo(86, 725); ctx.lineTo(994, 725); ctx.stroke();
+        drawText(ctx, "ARCHIVED FOR / 调查员", 88, 782,
+          '800 22px "PingFang SC", sans-serif', "#668096");
+        drawText(ctx, data.player_name, 88, 855,
+          '900 58px "PingFang SC", sans-serif', "#102f52");
+        drawText(ctx, "本设备通关位次", 760, 782,
+          '800 22px "PingFang SC", sans-serif', "#668096");
+        ctx.textAlign = "right";
+        drawText(ctx, data.rank_label, 990, 865,
+          '900 110px "Avenir Next", sans-serif', "#128c99");
+        ctx.textAlign = "left";
+        ctx.beginPath(); ctx.moveTo(86, 910); ctx.lineTo(994, 910); ctx.stroke();
+
+        let storyY = 995;
+        data.story_lines.forEach((line) => {
+          drawText(ctx, line, 88, storyY,
+            '500 34px "PingFang SC", sans-serif', "#2c4f6e");
+          storyY += 58;
+        });
+        let skillX = 88;
+        data.capabilities.forEach((item) => {
+          ctx.font = '750 27px "PingFang SC", sans-serif';
+          const width = ctx.measureText(item).width + 54;
+          ctx.fillStyle = "rgba(255,255,255,.62)";
+          roundedRect(ctx, skillX, 1428, width, 64, 32);
+          drawText(ctx, item, skillX + 27, 1470,
+            '750 27px "PingFang SC", sans-serif', "#276278");
+          skillX += width + 16;
+        });
+
+        ctx.fillStyle = "rgba(255,255,255,.58)";
+        roundedRect(ctx, 82, 1545, 916, 230, 34);
+        drawText(ctx, "HONOUR ARCHIVE / 荣誉编号", 126, 1615,
+          '800 23px "PingFang SC", sans-serif', "#668096");
+        drawText(ctx, data.honour_number, 126, 1700,
+          '900 66px "Avenir Next", sans-serif', "#102f52");
+        drawText(ctx, `${data.completed_on} · 王方正 · DURHAM UNIVERSITY`, 126, 1746,
+          '750 21px "PingFang SC", sans-serif', "#60778d");
+        drawText(ctx, data.disclaimer, 86, 1842,
+          '700 19px "PingFang SC", sans-serif', "#72879a");
+        return canvas;
+      };
+
+      button.onclick = () => {
+        status.textContent = "正在生成 1080 × 1920 PNG…";
+        const canvas = drawPoster();
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            status.textContent = "生成失败，请刷新页面后重试。";
+            return;
+          }
+          const link = document.createElement("a");
+          const url = URL.createObjectURL(blob);
+          link.href = url;
+          link.download = String(data.file_name || "FANGZHENG_AI_荣誉档案.png");
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          status.textContent = "已生成竖版海报，可以去发抖音了。";
+        }, "image/png");
+      };
     }
     """,
 )
@@ -1683,6 +2103,181 @@ def apply_product_theme() -> None:
             line-height: 1.6;
         }
 
+        .wfz-honour-archive {
+            position: relative;
+            overflow: hidden;
+            margin: 1.2rem 0 1.5rem;
+            padding: 2rem 2.2rem 1.25rem;
+            border: 1px solid rgba(35, 82, 127, 0.15);
+            border-radius: 24px;
+            background:
+                radial-gradient(
+                    circle at 92% 6%,
+                    rgba(24, 155, 174, 0.17),
+                    transparent 22rem
+                ),
+                linear-gradient(145deg, #f8fbff 0%, #e9f4fb 56%, #e2eafa 100%);
+            box-shadow: 0 26px 58px rgba(36, 74, 116, 0.13);
+            color: #173653;
+        }
+
+        .wfz-honour-archive::after {
+            content: "01";
+            position: absolute;
+            right: -0.02em;
+            bottom: -0.2em;
+            color: rgba(28, 91, 137, 0.055);
+            font-family: "Avenir Next", sans-serif;
+            font-size: 14rem;
+            font-weight: 900;
+            line-height: 1;
+            pointer-events: none;
+        }
+
+        .wfz-honour-topline,
+        .wfz-honour-footer {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            color: #4f728a;
+            font-size: 0.68rem;
+            font-weight: 780;
+            letter-spacing: 0.12em;
+        }
+
+        .wfz-honour-seal {
+            color: #0a828a;
+        }
+
+        .wfz-honour-grid {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: minmax(0, 1.45fr) minmax(230px, 0.55fr);
+            gap: 2rem;
+            margin: 2.2rem 0 1.5rem;
+        }
+
+        .wfz-honour-kicker {
+            color: #0a828a;
+            font-size: 0.72rem;
+            font-weight: 820;
+            letter-spacing: 0.14em;
+        }
+
+        .wfz-honour-main h1 {
+            margin: 0.55rem 0 1rem;
+            color: #102f52;
+            font-size: clamp(2.5rem, 5.5vw, 4.7rem);
+            font-weight: 880;
+            letter-spacing: -0.06em;
+            line-height: 0.98;
+        }
+
+        .wfz-honour-main h1 span {
+            color: #168f99;
+        }
+
+        .wfz-honour-story {
+            max-width: 610px;
+            margin: 0;
+            color: #42647c;
+            font-size: 0.9rem;
+            line-height: 1.85;
+        }
+
+        .wfz-honour-name {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(35, 82, 127, 0.13);
+        }
+
+        .wfz-honour-name small,
+        .wfz-honour-meta span {
+            display: block;
+            color: #6b8396;
+            font-size: 0.62rem;
+            font-weight: 780;
+            letter-spacing: 0.1em;
+        }
+
+        .wfz-honour-name strong {
+            display: block;
+            margin-top: 0.3rem;
+            color: #102f52;
+            font-size: 1.65rem;
+            font-weight: 850;
+        }
+
+        .wfz-honour-rank {
+            padding: 1.35rem;
+            border: 1px solid rgba(255, 255, 255, 0.77);
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.48);
+            backdrop-filter: blur(10px);
+        }
+
+        .wfz-honour-rank-label {
+            color: #4e7187;
+            font-size: 0.68rem;
+            font-weight: 780;
+        }
+
+        .wfz-honour-rank-number {
+            margin: 0.3rem 0 0.8rem;
+            color: #108f99;
+            font-family: "Avenir Next", sans-serif;
+            font-size: 5rem;
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: -0.08em;
+        }
+
+        .wfz-honour-meta {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 0.8rem;
+            align-items: end;
+            padding: 0.8rem 0;
+            border-top: 1px solid rgba(35, 82, 127, 0.11);
+        }
+
+        .wfz-honour-meta strong {
+            color: #173653;
+            font-family: "Avenir Next", sans-serif;
+            font-size: 0.86rem;
+            letter-spacing: 0.08em;
+        }
+
+        .wfz-honour-skills {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+            margin-bottom: 1.3rem;
+        }
+
+        .wfz-honour-skill {
+            padding: 0.48rem 0.72rem;
+            border: 1px solid rgba(16, 143, 153, 0.19);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.54);
+            color: #28647a;
+            font-size: 0.7rem;
+            font-weight: 720;
+        }
+
+        .wfz-honour-footer {
+            padding-top: 1rem;
+            border-top: 1px solid rgba(35, 82, 127, 0.12);
+            font-size: 0.58rem;
+            letter-spacing: 0.05em;
+            line-height: 1.5;
+        }
+
         [data-testid="stTextInputRootElement"],
         [data-testid="stTextAreaRootElement"],
         [data-baseweb="select"] > div {
@@ -1717,6 +2312,10 @@ def apply_product_theme() -> None:
 
             .wfz-scope-grid,
             .wfz-scope-boundary {
+                grid-template-columns: 1fr;
+            }
+
+            .wfz-honour-grid {
                 grid-template-columns: 1fr;
             }
         }
@@ -1763,6 +2362,25 @@ def apply_product_theme() -> None:
             [data-testid="stExpandSidebarButton"] {
                 top: 0.35rem !important;
                 left: 0.45rem !important;
+            }
+
+            .wfz-honour-archive {
+                padding: 1.4rem 1.15rem 1rem;
+                border-radius: 20px;
+            }
+
+            .wfz-honour-topline,
+            .wfz-honour-footer {
+                flex-direction: column;
+            }
+
+            .wfz-honour-grid {
+                gap: 1.2rem;
+                margin: 1.5rem 0 1rem;
+            }
+
+            .wfz-honour-main h1 {
+                font-size: 3rem;
             }
         }
         </style>
@@ -2358,6 +2976,62 @@ def _sync_browser_research_state() -> None:
         snapshot.get("last_command_id") == command.get("id")
     ):
         st.session_state.pop("_wfz_browser_research_command", None)
+
+
+def _sync_honour_archive_record(
+    player_name: str,
+    *,
+    completed: bool,
+) -> HonourRecord | None:
+    """Load a browser record, creating it only after true completion."""
+    known_record = normalise_honour_record(
+        st.session_state.get("_wfz_honour_archive_record")
+    )
+    if known_record is None and completed:
+        # Keep the fallback stable while the browser component reads storage.
+        known_record = build_honour_record(player_name)
+        st.session_state["_wfz_honour_archive_record"] = known_record
+
+    known_status = str(
+        st.session_state.get("_wfz_honour_storage_status", "pending")
+    )
+    try:
+        result = _HONOUR_ARCHIVE_STORAGE(
+            data={
+                "storage_key": "wfz.honour.v1",
+                "mission_id": FIRST_CASE_MISSION_ID,
+                "case_title": FIRST_CASE_TITLE,
+                "player_name": player_name,
+                "completed": completed,
+                "known_record": known_record,
+                "known_storage_status": known_status,
+            },
+            default={
+                "record": known_record,
+                "storage_status": known_status,
+            },
+            key="wfz_honour_archive_storage",
+            on_record_change=lambda: None,
+            on_storage_status_change=lambda: None,
+        )
+    except ValueError as error:
+        # Streamlit's isolated page tester can clear the component registry
+        # between runs. Production browser/storage failures still surface via
+        # the component's explicit unavailable status.
+        if "is not registered" not in str(error):
+            raise
+        return known_record
+    raw_record = getattr(result, "record", None)
+    raw_status = getattr(result, "storage_status", None)
+    if isinstance(result, Mapping):
+        raw_record = raw_record or result.get("record")
+        raw_status = raw_status or result.get("storage_status")
+    record = normalise_honour_record(raw_record) or known_record
+    if record is not None:
+        st.session_state["_wfz_honour_archive_record"] = record
+    if raw_status in {"pending", "available", "unavailable"}:
+        st.session_state["_wfz_honour_storage_status"] = raw_status
+    return record
 
 
 def _store_selected_company(company: CompanyIdentity) -> None:
@@ -3968,10 +4642,27 @@ def render_game_hub_page() -> None:
         unsafe_allow_html=True,
     )
 
-    mission_completed = (
+    mission_completed_in_session = (
         st.session_state.get("historical_game_mission_completed")
         == HISTORICAL_MISSION_ID
     )
+    player_name = str(
+        st.session_state.get("game_player_name", "调查员")
+    ).strip() or "调查员"
+    honour_record = _sync_honour_archive_record(
+        player_name,
+        completed=mission_completed_in_session,
+    )
+    if honour_record is not None:
+        # The honour record is the durable proof that this browser completed
+        # the case; hydrate the short-lived Streamlit session after a refresh.
+        player_name = honour_record["player_name"]
+        st.session_state["game_player_name"] = player_name
+        st.session_state["cash_case_stage"] = "migration_completed"
+        st.session_state["historical_game_mission_completed"] = (
+            HISTORICAL_MISSION_ID
+        )
+    mission_completed = mission_completed_in_session or honour_record is not None
     case_column, progression_column = st.columns([1.35, 1])
     with case_column.container(border=True):
         st.caption("首个教学案件 · CASE 01")
@@ -4002,7 +4693,7 @@ def render_game_hub_page() -> None:
         if mission_completed:
             st.progress(
                 1.0,
-                text="首案六阶段完整通关｜下一步制作荣誉档案",
+                text="首案六阶段完整通关｜荣誉档案已解锁",
             )
         else:
             st.progress(
@@ -4050,6 +4741,41 @@ def render_game_hub_page() -> None:
             key="start_historical_game_mission",
         ):
             _start_historical_game_mission()
+
+    if mission_completed:
+        if honour_record is None:  # Defensive fallback for restricted storage.
+            honour_record = build_honour_record(player_name)
+        st.divider()
+        st.caption("CASE 01 · HONOUR ARCHIVE")
+        st.subheader("首案封存｜你的研究员荣誉档案")
+        st.markdown(
+            build_honour_archive_html(honour_record),
+            unsafe_allow_html=True,
+        )
+        storage_status = st.session_state.get("_wfz_honour_storage_status")
+        if storage_status == "unavailable":
+            st.warning(
+                "当前浏览器禁止本地存储，本次档案只保留到页面会话结束；"
+                "这不会影响你下载荣誉海报。"
+            )
+        else:
+            st.caption(
+                "位次来自当前浏览器保存的通关记录，不是全站排行榜；"
+                "荣誉编号保留六位格式，例如 000001。"
+            )
+
+        st.markdown("#### 你也想发抖音吗？")
+        st.write(
+            "这次不用截图拼接：下面是内容完整的 9:16 竖版预览，"
+            "点击按钮即可生成 1080 × 1920 PNG。"
+        )
+        _HONOUR_POSTER(
+            data=build_honour_poster_payload(honour_record),
+            key=(
+                "wfz_honour_poster_"
+                f"{FIRST_CASE_HONOUR_PREFIX}_{honour_record['honour_number']}"
+            ),
+        )
 
     st.warning(
         "教学、练习和引导调查不扣生命。三条生命只在正式结论答辩中"

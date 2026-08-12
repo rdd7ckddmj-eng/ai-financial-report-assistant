@@ -78,6 +78,11 @@ Build a web application that can:
 30. complete that Historical Lens migration in two stages: find the first
     official-publication date, then distinguish it from the effective K-line
     date and next trading session before marking the first case complete.
+31. unlock a bright horizontal Honour Archive only after the six-stage case is
+    complete, display an ordinary device-local completion rank separately from
+    its six-digit honour number, and generate an optional 1080-by-1920 social
+    poster without presenting the result as a professional qualification or a
+    platform-wide leaderboard position.
 
 ## Product specifications
 
