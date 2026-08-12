@@ -9,7 +9,9 @@ evidence, and auditable Agent workflows.
 The root URL opens a visible Chinese **首页** above the two product branches.
 Selecting the game opens one complete game screen immediately: alias creation
 and rules are the playable prologue, not a website introduction, and scenes
-01–07 continue inside that same screen. Selecting the Research Hub reveals
+01–07 continue inside that same screen. The game route locks the browser page
+to one viewport; only a dense clue panel can scroll inside the fixed case
+screen. Selecting the Research Hub reveals
 five task-based tool groups without crowding the top-level navigation.
 Game checkpoints and honour progress are stored in the current browser's local
 storage; they are not keyed by alias or IP. The interface responds to phone and

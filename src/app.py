@@ -2879,7 +2879,13 @@ def apply_cash_game_theme() -> None:
     st.markdown(
         """
         <style>
+        html,
+        body,
+        [data-testid="stAppViewContainer"],
+        [data-testid="stMain"],
         .stApp {
+            height: 100dvh !important;
+            overflow: hidden !important;
             background:
                 linear-gradient(rgba(124, 223, 229, 0.035) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(124, 223, 229, 0.035) 1px, transparent 1px),
@@ -2890,14 +2896,21 @@ def apply_cash_game_theme() -> None:
             color: #eaf8fb !important;
         }
 
-        [data-testid="stHeader"] {
-            background: rgba(5, 18, 32, 0.78) !important;
-            border-bottom-color: rgba(136, 227, 229, 0.09) !important;
+        [data-testid="stHeader"],
+        [data-testid="stSidebar"],
+        [data-testid="stSidebarCollapsedControl"],
+        [data-testid="stExpandSidebarButton"] {
+            display: none !important;
         }
 
+        [data-testid="stMainBlockContainer"],
         .block-container {
-            max-width: 1280px !important;
-            padding-top: 1.25rem !important;
+            box-sizing: border-box !important;
+            width: 100% !important;
+            max-width: none !important;
+            height: 100dvh !important;
+            padding: 0.65rem !important;
+            overflow: hidden !important;
         }
 
         .wfz-game-screen,
@@ -2906,8 +2919,11 @@ def apply_cash_game_theme() -> None:
         }
 
         .st-key-cash_game_shell {
+            box-sizing: border-box;
+            width: 100%;
+            height: calc(100dvh - 1.3rem);
+            min-height: 0;
             overflow: hidden;
-            min-height: calc(100vh - 6.5rem);
             padding: 1.15rem 1.15rem 1.35rem;
             border: 1px solid rgba(130, 225, 229, 0.16);
             border-radius: 30px;
@@ -2928,9 +2944,10 @@ def apply_cash_game_theme() -> None:
         }
 
         .wfz-game-screen {
-            z-index: 1;
+            position: relative;
+            z-index: 50;
             overflow: hidden;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
             border: 1px solid rgba(135, 228, 231, 0.17);
             border-radius: 24px;
             background:
@@ -2944,7 +2961,7 @@ def apply_cash_game_theme() -> None:
             justify-content: space-between;
             gap: 1rem;
             align-items: center;
-            padding: 1.15rem 1.3rem;
+            padding: 0.7rem 1rem;
             border-bottom: 1px solid rgba(143, 227, 229, 0.10);
             background: rgba(4, 17, 31, 0.48);
         }
@@ -3034,7 +3051,7 @@ def apply_cash_game_theme() -> None:
             grid-template-columns: repeat(7, minmax(112px, 1fr));
             gap: 0.55rem;
             margin: 0;
-            padding: 0.85rem 1.05rem;
+            padding: 0.5rem 0.75rem;
             overflow-x: auto;
             border-bottom: 1px solid rgba(143, 227, 229, 0.09);
             background: rgba(2, 15, 27, 0.36);
@@ -3047,7 +3064,7 @@ def apply_cash_game_theme() -> None:
             gap: 0.12rem 0.5rem;
             align-items: center;
             min-width: 0;
-            padding: 0.68rem 0.72rem;
+            padding: 0.48rem 0.58rem;
             border: 1px solid rgba(133, 215, 220, 0.10);
             border-radius: 12px;
             background: rgba(255, 255, 255, 0.025);
@@ -3105,7 +3122,7 @@ def apply_cash_game_theme() -> None:
             grid-template-columns: auto minmax(0, 1fr);
             gap: 1.3rem;
             align-items: start;
-            padding: 2rem 2rem 1.35rem;
+            padding: 0.9rem 1.15rem 0.65rem;
         }
 
         .wfz-game-scene-number {
@@ -3131,14 +3148,14 @@ def apply_cash_game_theme() -> None:
         .wfz-game-scene-heading h1 {
             margin: 0;
             color: #effcff !important;
-            font-size: clamp(1.7rem, 4vw, 3.1rem);
+            font-size: clamp(1.45rem, 3vw, 2.25rem);
             letter-spacing: -0.045em;
             line-height: 1.06;
         }
 
         .wfz-game-scene-heading p {
             max-width: 820px;
-            margin: 0.68rem 0 0;
+            margin: 0.35rem 0 0;
             color: #9bb4c3 !important;
             font-size: 0.9rem;
             line-height: 1.7;
@@ -3149,8 +3166,8 @@ def apply_cash_game_theme() -> None:
             grid-template-columns: auto 1fr;
             gap: 0.8rem;
             align-items: center;
-            margin: 0 2rem 1.75rem;
-            padding: 0.8rem 0.95rem;
+            margin: 0 1.15rem 0.85rem;
+            padding: 0.55rem 0.75rem;
             border-left: 3px solid #4fd4ca;
             background: rgba(75, 193, 190, 0.075);
         }
@@ -3168,6 +3185,41 @@ def apply_cash_game_theme() -> None:
             color: #c6dde3 !important;
             font-size: 0.78rem;
             line-height: 1.55;
+        }
+
+        .wfz-game-exit {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 2.1rem;
+            padding: 0.38rem 0.72rem;
+            border: 1px solid rgba(142, 226, 228, 0.16);
+            border-radius: 999px;
+            color: #9fc7d1 !important;
+            background: rgba(255, 255, 255, 0.035);
+            font-size: 0.64rem;
+            font-weight: 760;
+            text-decoration: none !important;
+            white-space: nowrap;
+        }
+
+        .wfz-game-exit:hover {
+            border-color: rgba(126, 233, 226, 0.4);
+            color: #ecfdff !important;
+            background: rgba(56, 172, 174, 0.12);
+        }
+
+        .st-key-cash_game_scene_content {
+            box-sizing: border-box;
+            height: calc(100dvh - 19.5rem);
+            min-height: 13rem;
+            overflow-x: hidden;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            padding: 0.2rem 0.25rem 0;
+            scrollbar-gutter: stable;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(92, 213, 207, 0.45) transparent;
         }
 
         .wfz-game-prologue,
@@ -3311,18 +3363,22 @@ def apply_cash_game_theme() -> None:
 
         @media (max-width: 760px) {
             .st-key-cash_game_shell {
-                min-height: calc(100vh - 4.5rem);
-                padding: 0.55rem 0.55rem 0.9rem;
+                height: calc(100dvh - 0.8rem);
+                padding: 0.4rem 0.4rem 0.75rem;
                 border-radius: 21px;
             }
 
             .wfz-game-commandbar {
                 align-items: flex-start;
-                padding: 0.9rem;
+                padding: 0.6rem 0.7rem;
+            }
+
+            .st-key-cash_game_scene_content {
+                height: calc(100dvh - 25rem);
+                min-height: 10rem;
             }
 
             .wfz-game-commandbar,
-            .wfz-game-hud,
             .wfz-game-scene-heading,
             .wfz-game-director-line {
                 grid-template-columns: 1fr;
@@ -3330,13 +3386,16 @@ def apply_cash_game_theme() -> None:
             }
 
             .wfz-game-hud {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
                 width: 100%;
                 justify-content: flex-start;
             }
 
             .wfz-game-hud-item,
             .wfz-game-save-state {
-                width: 100%;
+                box-sizing: border-box;
+                width: auto;
             }
 
             .wfz-learning-loop {
@@ -3346,12 +3405,12 @@ def apply_cash_game_theme() -> None:
 
             .wfz-game-scene-heading {
                 gap: 0.8rem;
-                padding: 1.35rem 1.05rem 1rem;
+                padding: 0.75rem 0.8rem 0.55rem;
             }
 
             .wfz-game-director-line {
                 gap: 0.4rem;
-                margin: 0 1rem 1.25rem;
+                margin: 0 0.8rem 0.7rem;
             }
 
             .wfz-game-rules {
@@ -5796,6 +5855,10 @@ def _show_cash_game_stage(
                     <div class="wfz-game-save-state">
                         <span></span> 本机进度自动保存
                     </div>
+                    <a class="wfz-game-exit" href="/" target="_self"
+                       aria-label="退出案件并返回首页">
+                        退出案件｜返回首页
+                    </a>
                 </div>
             </div>
             <div class="wfz-learning-loop">{"".join(steps)}</div>
@@ -6357,32 +6420,36 @@ def render_game_hub_page() -> None:
         else:
             step_number, title, subtitle, taunt = _cash_game_scene_meta(stage)
             _show_cash_game_stage(step_number, title, subtitle, taunt)
-        if not has_player:
-            _render_cash_teaching_node()
-        else:
-            player_name = str(st.session_state["game_player_name"]).strip()
-            if stage == "briefing":
+        with st.container(key="cash_game_scene_content"):
+            # The browser page never scrolls. Dense clues scroll only inside
+            # this scene viewport while the case HUD remains fixed above it.
+            if not has_player:
                 _render_cash_teaching_node()
-            elif stage in {"practice", "timing_completed", "completed"}:
-                _render_cash_practice_node(player_name)
-            elif stage == "investigation":
-                _render_cash_investigation_node(player_name)
-            elif stage in {"evidence", "evidence_completed"}:
-                _render_cash_evidence_node(player_name)
-            elif stage in {"defense", "defense_failed", "case_completed"}:
-                _render_cash_defense_node(player_name)
-            elif stage == "migration":
-                _render_cash_migration_node(player_name)
-            elif stage == "migration_completed":
-                _render_cash_honour_node(player_name)
             else:
-                st.session_state["cash_case_stage"] = "briefing"
-                st.warning("案件档案已校正｜正在返回 01 现场。")
-                st.rerun()
+                player_name = str(st.session_state["game_player_name"]).strip()
+                if stage == "briefing":
+                    _render_cash_teaching_node()
+                elif stage in {"practice", "timing_completed", "completed"}:
+                    _render_cash_practice_node(player_name)
+                elif stage == "investigation":
+                    _render_cash_investigation_node(player_name)
+                elif stage in {"evidence", "evidence_completed"}:
+                    _render_cash_evidence_node(player_name)
+                elif stage in {"defense", "defense_failed", "case_completed"}:
+                    _render_cash_defense_node(player_name)
+                elif stage == "migration":
+                    _render_cash_migration_node(player_name)
+                elif stage == "migration_completed":
+                    _render_cash_honour_node(player_name)
+                else:
+                    st.session_state["cash_case_stage"] = "briefing"
+                    st.warning("案件档案已校正｜正在返回 01 现场。")
+                    st.rerun()
         st.markdown(
             """
             <div class="wfz-game-shell-footer">
                 本案用于训练金融研究判断，不预测股价，也不构成投资建议。
+                当前案件画面固定为一屏；材料较多时，仅案卷内部滚动。
                 01—07 均属于同一案件；只有第 06 幕外勤调查会暂时离开。
             </div>
             """,

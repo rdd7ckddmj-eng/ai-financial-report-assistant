@@ -198,6 +198,27 @@ finally:
         )
 
 
+def test_game_route_uses_fixed_viewport_with_internal_scene_scroll() -> None:
+    """The game behaves like one screen, not a long scrolling web page."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src.app import apply_cash_game_theme
+
+apply_cash_game_theme()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    theme_markup = "\n".join(item.value for item in app_test.markdown)
+    assert "height: 100dvh !important" in theme_markup
+    assert '[data-testid="stMain"]' in theme_markup
+    assert "overflow: hidden !important" in theme_markup
+    assert ".st-key-cash_game_scene_content" in theme_markup
+    assert "overflow-y: auto" in theme_markup
+    assert ".wfz-game-exit" in theme_markup
+
+
 def test_research_terminal_renders_without_live_requests() -> None:
     """Keep the existing real-company research entry intact after the split."""
     from streamlit.testing.v1 import AppTest
