@@ -59,6 +59,7 @@ from src.baijiu_operating_quality import (
 )
 from src.cash_flow_extractor import find_cash_flow_figures
 from src.cash_case_game import (
+    build_cash_defense_question,
     build_cash_evidence_case,
     build_cash_timing_question,
     evaluate_cash_evidence_selection,
@@ -3614,6 +3615,155 @@ def _render_cash_evidence_node(player_name: str) -> None:
                 "结论边界：本卷宗能够解释这一项业务的时间差，不能据此"
                 "推断其他客户、其他期间或整家公司的现金质量。"
             )
+    st.info(
+        "证据已经找齐，但研究工作还没有结束。正式答辩不会重复问你"
+        "哪四份文件，而会换成新的公司情境，检查你能否形成结论、守住"
+        "边界，并提出下一步核验行动。"
+    )
+    if st.button(
+        "进入审查委员会｜开始三轮结论答辩",
+        type="primary",
+        width="stretch",
+        key="start_cash_defense",
+    ):
+        st.session_state["cash_case_stage"] = "defense"
+        st.session_state["cash_defense_lives"] = 3
+        st.session_state["cash_defense_round_index"] = 0
+        st.session_state["cash_defense_attempt_index"] = 0
+        st.session_state["cash_defense_completed_explanations"] = []
+        st.session_state.pop("cash_defense_feedback", None)
+        st.rerun()
+
+
+def _render_cash_defense_node(player_name: str) -> None:
+    """Render the three-round formal defence with one shared life pool."""
+    stage = str(st.session_state.get("cash_case_stage", "defense"))
+    lives = int(st.session_state.get("cash_defense_lives", 3))
+    round_index = int(st.session_state.get("cash_defense_round_index", 0))
+    attempt_index = int(
+        st.session_state.get("cash_defense_attempt_index", 0)
+    )
+
+    st.divider()
+    st.caption("正式考核 · REVIEW COMMITTEE 03")
+    st.subheader("第三节点：三轮结论答辩")
+
+    if stage == "defense_failed":
+        st.error("本轮三次容错机会已经用完｜案件退回重新调查。")
+        with st.container(border=True):
+            st.markdown(f"#### 调查员 {escape(player_name)}，委员会暂不签字")
+            st.write(
+                "你保留调查员代号和已学内容，但不能沿用上一套文件与"
+                "答案。返回办公室后，系统会更换客户、金额、期限和材料"
+                "顺序；重新组成证据链，才能再次进入答辩。"
+            )
+        if st.button(
+            "返回办公室｜领取全新调查卷宗",
+            type="primary",
+            width="stretch",
+            key="restart_cash_evidence_after_defense",
+        ):
+            st.session_state["cash_case_stage"] = "evidence"
+            st.session_state["cash_evidence_attempt_index"] = (
+                int(st.session_state.get("cash_evidence_attempt_index", 0))
+                + 1
+            )
+            st.session_state.pop("cash_evidence_explanation", None)
+            st.session_state.pop("cash_defense_feedback", None)
+            st.rerun()
+        return
+
+    if stage == "case_completed":
+        st.success("《消失的现金》前三节点通过｜委员会接受你的研究判断。")
+        with st.container(border=True):
+            st.markdown(f"#### 调查员 {escape(player_name)}的答辩记录")
+            for explanation in st.session_state.get(
+                "cash_defense_completed_explanations",
+                [],
+            ):
+                st.write(f"- {explanation}")
+            st.caption(
+                "你证明的不是会背一个结论，而是能在新材料中区分事实、"
+                "风险、判断边界和下一步行动。"
+            )
+        return
+
+    question = build_cash_defense_question(round_index, attempt_index)
+    life_display = "❤️" * lives + "🩶" * (3 - lives)
+    with st.container(border=True):
+        st.markdown(f"#### {life_display}　剩余 {lives} 次容错机会")
+        st.caption(
+            f"第 {question['round_number']} / 3 轮｜"
+            f"{question['round_title']}｜动态答辩卷第"
+            f" {question['attempt_number']} 版"
+        )
+        st.write(
+            "三轮共用三条生命。未选择答案不会扣生命；答错会扣除一次"
+            "机会，并立即换成新的公司和证据，不能记忆上一题。"
+        )
+
+    feedback = st.session_state.pop("cash_defense_feedback", None)
+    if isinstance(feedback, str):
+        st.warning(feedback)
+
+    with st.form(
+        key=f"cash_defense_form_{question['question_id']}",
+        border=True,
+    ):
+        st.markdown(f"#### 新案卷｜{question['company_name']}")
+        st.caption("委员会只确认以下材料，不允许添加题外假设：")
+        for evidence_item in question["evidence_items"]:
+            st.write(f"- {evidence_item}")
+        st.markdown(f"**{question['prompt']}**")
+        selected_option = st.radio(
+            "选择唯一最严谨的答辩意见",
+            options=question["options"],
+            index=None,
+            key=f"cash_defense_answer_{question['question_id']}",
+        )
+        submitted = st.form_submit_button(
+            "向委员会提交意见",
+            type="primary",
+            width="stretch",
+        )
+
+    if not submitted:
+        return
+    if selected_option is None:
+        st.warning("请先选择一项答辩意见。空白提交不会扣除生命。")
+        return
+    if selected_option == question["correct_option"]:
+        completed_explanations = list(
+            st.session_state.get(
+                "cash_defense_completed_explanations",
+                [],
+            )
+        )
+        completed_explanations.append(question["explanation"])
+        st.session_state["cash_defense_completed_explanations"] = (
+            completed_explanations
+        )
+        if round_index == 2:
+            st.session_state["cash_case_stage"] = "case_completed"
+        else:
+            st.session_state["cash_defense_round_index"] = round_index + 1
+            st.session_state["cash_defense_attempt_index"] = attempt_index + 1
+            st.session_state["cash_defense_feedback"] = (
+                f"第{round_index + 1}轮通过。{question['explanation']}"
+            )
+        st.rerun()
+
+    remaining_lives = lives - 1
+    st.session_state["cash_defense_lives"] = remaining_lives
+    st.session_state["cash_defense_attempt_index"] = attempt_index + 1
+    if remaining_lives <= 0:
+        st.session_state["cash_case_stage"] = "defense_failed"
+    else:
+        st.session_state["cash_defense_feedback"] = (
+            "这项意见没有同时尊重证据和判断边界，已扣除一次容错机会。"
+            "委员会已经换成新公司与新证据，请重新推理。"
+        )
+    st.rerun()
 
 
 def _render_cash_case_first_node() -> None:
@@ -3780,6 +3930,9 @@ def _render_cash_case_first_node() -> None:
     if stage in {"evidence", "evidence_completed"}:
         _render_cash_evidence_node(player_name)
 
+    if stage in {"defense", "defense_failed", "case_completed"}:
+        _render_cash_defense_node(player_name)
+
 
 def render_game_hub_page() -> None:
     """Introduce the game learning loop before the first playable case."""
@@ -3814,8 +3967,8 @@ def render_game_hub_page() -> None:
             "和期后材料，判断差异意味着什么、又不能证明什么。"
         )
         st.success(
-            "前两节点已开放：零基础讲解、动态换题，以及六份材料中的"
-            "证据链调查。"
+            "前三节点已开放：零基础讲解、六份材料调查，以及三轮动态"
+            "结论答辩。"
         )
     with progression_column.container(border=True):
         st.caption("成长路径 · SEQUENTIAL PROGRESSION")
@@ -3825,7 +3978,7 @@ def render_game_hub_page() -> None:
             "玩家只获得研究问题与时间截点，需要自行使用公司研究终端寻找"
             "证据，并接受审查官追问。"
         )
-        st.progress(0.27, text="教学计算与证据调查可玩｜下一步开发结论答辩")
+        st.progress(0.48, text="教学、证据调查与三轮答辩可玩｜下一步完成迁移关")
 
     _render_cash_case_first_node()
 
@@ -3851,26 +4004,26 @@ def render_game_hub_page() -> None:
         )
         if mission_completed:
             st.success("开放调查已完成｜你已经识别两只不同的时间时钟。")
-        evidence_node_completed = (
-            st.session_state.get("cash_case_stage") == "evidence_completed"
+        defense_completed = (
+            st.session_state.get("cash_case_stage") == "case_completed"
         )
-        mission_label = "完成办公室证据调查后解锁 Historical Lens"
+        mission_label = "通过三轮结论答辩后解锁 Historical Lens"
         if mission_completed:
             mission_label = "重新查看调查证据"
-        elif evidence_node_completed:
+        elif defense_completed:
             mission_label = "开始开放调查｜进入 Historical Lens"
         if st.button(
             mission_label,
-            type="primary" if evidence_node_completed else "secondary",
-            disabled=not evidence_node_completed and not mission_completed,
+            type="primary" if defense_completed else "secondary",
+            disabled=not defense_completed and not mission_completed,
             width="stretch",
             key="start_historical_game_mission",
         ):
             _start_historical_game_mission()
 
     st.warning(
-        "教学、练习和当前的引导调查不扣生命。三条生命只在后续正式"
-        "结论答辩时启用；答错后更换数据和题目，不重复背答案。"
+        "教学、练习和引导调查不扣生命。三条生命只在正式结论答辩中"
+        "启用；三轮共用生命，答错立即更换案件，三次失败退回重新调查。"
     )
     show_product_footer()
 

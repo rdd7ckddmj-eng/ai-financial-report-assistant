@@ -1,6 +1,7 @@
 import pytest
 
 from src.cash_case_game import (
+    build_cash_defense_question,
     build_cash_evidence_case,
     build_cash_timing_question,
     evaluate_cash_evidence_selection,
@@ -114,3 +115,55 @@ def test_evidence_selection_rejects_unknown_document() -> None:
             build_cash_evidence_case(0),
             ["invented-document"],
         )
+
+
+def test_cash_defense_has_three_distinct_reasoning_rounds() -> None:
+    questions = [build_cash_defense_question(index, 0) for index in range(3)]
+
+    assert [item["round_title"] for item in questions] == [
+        "形成初步结论",
+        "守住证据边界",
+        "决定核验行动",
+    ]
+    assert all(len(item["evidence_items"]) == 4 for item in questions)
+    assert all(len(item["options"]) == 6 for item in questions)
+    assert all(item["correct_option"] in item["options"] for item in questions)
+
+
+def test_cash_defense_rotates_four_real_reasoning_scenarios() -> None:
+    questions = [build_cash_defense_question(0, index) for index in range(4)]
+
+    assert {item["scenario_type"] for item in questions} == {
+        "explained_timing_gap",
+        "late_acceptance",
+        "overdue_uncollected",
+        "partial_acceptance",
+    }
+    assert len({item["question_id"] for item in questions}) == 4
+    assert len({tuple(item["evidence_items"]) for item in questions}) == 4
+    assert len({tuple(item["options"]) for item in questions}) == 4
+
+
+def test_cash_defense_conclusions_keep_evidence_boundaries() -> None:
+    explained = build_cash_defense_question(0, 0)
+    late_acceptance = build_cash_defense_question(0, 1)
+    overdue = build_cash_defense_question(0, 2)
+    partial = build_cash_defense_question(0, 3)
+
+    assert "不能据此代表整家公司" in explained["correct_option"]
+    assert "不足以直接认定故意造假" in late_acceptance["correct_option"]
+    assert "不自动推翻收入真实性" in overdue["correct_option"]
+    assert "不等于整个合同都没有商业实质" in partial["correct_option"]
+
+
+@pytest.mark.parametrize(
+    ("round_index", "attempt_index", "message"),
+    [(-1, 0, "答辩轮次"), (3, 0, "答辩轮次"), (0, -1, "答辩题序号")],
+)
+def test_cash_defense_rejects_invalid_indices(
+    round_index: int,
+    attempt_index: int,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        build_cash_defense_question(round_index, attempt_index)

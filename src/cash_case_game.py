@@ -56,6 +56,23 @@ class EvidenceSelectionEvaluation(TypedDict):
     feedback: str
 
 
+class CashDefenseQuestion(TypedDict):
+    """One changing formal-defence question with a defensible boundary."""
+
+    question_id: str
+    round_index: int
+    round_number: int
+    round_title: str
+    attempt_number: int
+    scenario_type: str
+    company_name: str
+    evidence_items: list[str]
+    prompt: str
+    options: list[str]
+    correct_option: str
+    explanation: str
+
+
 def _signed_wan(value: int) -> str:
     """Format one signed amount without hiding zero behind a plus sign."""
     if value > 0:
@@ -322,4 +339,224 @@ def evaluate_cash_evidence_selection(
         "missing_count": missing_count,
         "distraction_count": distraction_count,
         "feedback": feedback,
+    }
+
+
+def _rotate_options(options: list[str], offset: int) -> list[str]:
+    """Move a changing answer away from a memorisable fixed position."""
+    rotation = offset % len(options)
+    return options[rotation:] + options[:rotation]
+
+
+def build_cash_defense_question(
+    round_index: int,
+    attempt_index: int,
+) -> CashDefenseQuestion:
+    """Build one of three formal-defence rounds from a changing case.
+
+    Round 1 asks for the current conclusion, round 2 for its evidence boundary,
+    and round 3 for the next verification action.  Four scenario families
+    rotate after wrong answers so the player must transfer the method instead
+    of remembering one sentence.
+    """
+    if not isinstance(round_index, int) or not 0 <= round_index <= 2:
+        raise ValueError("答辩轮次必须是0、1或2。")
+    if not isinstance(attempt_index, int) or attempt_index < 0:
+        raise ValueError("答辩题序号必须是非负整数。")
+
+    scenario_index = (round_index + attempt_index) % 4
+    amount_wan = 480 + attempt_index * 17 + round_index * 11
+    company_names = ("澄海数据", "越岭医疗", "星港系统", "云川智造")
+    company_name = company_names[scenario_index]
+
+    if scenario_index == 0:
+        scenario_type = "explained_timing_gap"
+        evidence_items = [
+            f"双方合同总价{amount_wan}万元，客户应在最终验收后45日内付清尾款。",
+            "客户于2025-12-24签署最终验收确认书，遗留缺陷为0。",
+            "2025-12-31应收明细显示尾款账龄0—30天，尚未超过合同期限。",
+            "2026-01-29银行回单显示同一客户按合同编号付清全部尾款。",
+        ]
+        conclusion = (
+            "本项目现有证据支持年末前完成履约；年末未收尾款属于合同期限内"
+            "的时间差，且期后回款得到核验，但不能据此代表整家公司。"
+        )
+        boundary = (
+            "这组材料只能解释这个项目的确认与回款，不能证明其他客户都能"
+            "按期付款，也不能证明公司整体现金质量没有风险。"
+        )
+        next_step = (
+            "抽取其他重要客户样本，继续核对合同、验收、年末账龄和期后"
+            "银行回款，判断本项目是否具有代表性。"
+        )
+        conclusion_distractors = [
+            "本项目年末前完成履约且期后已回款，因此2025年末应把尾款"
+            "列为现金，而不是应收账款。",
+            "本项目未逾期且后来收回，可以据此判断公司整体经营现金流"
+            "下降都只是正常时间差。",
+            "客户年末尚未付清尾款，所以即使已经验收，也必须等实际回款"
+            "后才能确认这项收入。",
+            "客户验收书和期后回单能够相互核验，因此合同付款条款和年末"
+            "账龄不再影响判断。",
+            "年末应收明细标记未逾期，已经足以排除风险，不需要期后银行"
+            "回单或其他客户样本。",
+        ]
+    elif scenario_index == 1:
+        scenario_type = "late_acceptance"
+        evidence_items = [
+            f"公司在2025-12-30将项目全部{amount_wan}万元记入收入。",
+            "合同规定必须取得客户签署的最终验收书，才能视为履约完成。",
+            "项目经理12月28日的内部邮件写着“客户应该没有意见”。",
+            "客户最终验收书的签署日期为2026-01-08，未发现倒签证据。",
+        ]
+        conclusion = (
+            "现有外部证据未支持项目在年末前完成最终验收，收入截止时点需要"
+            "进一步调整或核验；但这些材料本身还不足以直接认定故意造假。"
+        )
+        boundary = (
+            "可以质疑这一个项目的收入截止，却不能仅凭一份跨期验收书推断"
+            "全部收入虚假、管理层存在主观故意或未来股价一定下跌。"
+        )
+        next_step = (
+            "核对年末前后的交付日志、客户往来和会计凭证，确认实际履约"
+            "完成日，并检查相应收入是否在正确期间调整。"
+        )
+        conclusion_distractors = [
+            "内部邮件写明客户应该没有意见，可以替代正式验收书，现有证据"
+            "足以支持全部收入留在2025年。",
+            "客户在2026年才最终验收，所以可以直接认定这项业务在2025年"
+            "没有发生任何履约活动。",
+            "验收日期跨期已经证明管理层故意造假，无须再检查交付日志和"
+            "会计调整。",
+            "客户后来完成验收，能够追溯修复年末证据缺口，因此原确认日期"
+            "不需要调整。",
+            "项目已经接近完成且客户后来接受交付，所以年末确认全部收入"
+            "属于合理估计，不需要合同约定的验收条件。",
+        ]
+    elif scenario_index == 2:
+        scenario_type = "overdue_uncollected"
+        evidence_items = [
+            f"客户已于2025-10-15验收，总合同金额{amount_wan}万元。",
+            "合同尾款到期日为2025-11-14，年末已经超过约定付款期限。",
+            "年末应收余额与合同尾款一致，但截至2026-02-28仍未见银行回款。",
+            "销售人员称客户经营正常，但没有客户确认或信用评估文件。",
+        ]
+        conclusion = (
+            "履约完成有证据支持，但尾款已经逾期且期后仍未收回，应重点评估"
+            "应收款可收回性和减值风险；逾期本身不自动推翻收入真实性。"
+        )
+        boundary = (
+            "可以识别逾期和可收回性风险，不能把“尚未回款”直接写成“收入"
+            "必然虚假”，也不能用销售人员口头判断替代客户外部证据。"
+        )
+        next_step = (
+            "取得客户询证或还款安排，核验最新银行流水与客户信用状况，并"
+            "复核公司对应收款减值的估计和会计处理。"
+        )
+        conclusion_distractors = [
+            "尾款逾期且期后未收回，已经足以证明原收入不存在，应直接冲销"
+            "全部收入。",
+            "客户已经验收，说明收入和应收款都没有风险，不再需要评估"
+            "可收回性。",
+            "销售人员认为客户经营正常，可以替代客户询证和信用资料，因此"
+            "无需确认减值。",
+            "截至2月底仍未回款，所以应直接对全部尾款计提100%减值，不需要"
+            "客户信用和还款安排。",
+            "逾期发生在收入确认之后，只影响销售部门催款，不会影响财务"
+            "报表中的应收款计量。",
+        ]
+    else:
+        scenario_type = "partial_acceptance"
+        phase_one_wan = amount_wan * 2 // 5
+        evidence_items = [
+            f"合同包含两个独立里程碑，总价{amount_wan}万元。",
+            f"客户12月27日只验收第一阶段，对应合同价{phase_one_wan}万元。",
+            "第二阶段仍有三项功能未上线，客户于2026-01-16才签署验收书。",
+            f"公司在2025年已经记录全部{amount_wan}万元收入。",
+        ]
+        conclusion = (
+            f"年末证据只支持第一阶段{phase_one_wan}万元的履约，全部"
+            f"{amount_wan}万元收入缺少同期间验收支持，应复核履约义务分拆"
+            "和收入计量；这不等于整个合同都没有商业实质。"
+        )
+        boundary = (
+            "可以指出全部收入的确认依据不足，但不能忽略第一阶段已获客户"
+            "验收的事实，也不能把部分跨期夸大成整个合同完全虚构。"
+        )
+        next_step = (
+            "把合同价分配到两个履约里程碑，核对各阶段交付和验收日期，再"
+            "重算年末能够获得证据支持的收入金额。"
+        )
+        conclusion_distractors = [
+            "客户已经接受第一阶段，说明其认可整个合同，因此年末确认全部"
+            "合同收入具有客户证据。",
+            "第二阶段在年末尚未验收，所以第一阶段已经取得的客户验收也"
+            "不能支持任何收入。",
+            "两个阶段对应同一份合同，应按照客户实际付款比例分配收入，"
+            "不需要分析各自履约义务。",
+            "第二阶段在次年1月完成，距离年末较近，可以作为2025年末已经"
+            "履约的替代证据。",
+            "合同签署时总价已经确定，所以两个里程碑的验收时间只影响回款，"
+            "不影响收入计量。",
+        ]
+
+    boundary_distractors = [
+        "这组材料不能预测股价，但只要合同类型相同，就可以推断其他客户"
+        "项目具有相同结论。",
+        "判断只限于当前报告期；不过期后材料可以反过来改变年末实际发生"
+        "的履约日期和现金余额。",
+        "这组材料能够形成项目结论，因此也足以评价管理层主观动机，只是"
+        "不能评价未来经营。",
+        "只要明确写出合同编号和金额，单一项目的结论就可以代表公司整体"
+        "收入质量。",
+        "证据边界只限制措辞强弱，不限制结论覆盖的客户、期间和会计问题。",
+    ]
+    action_distractors = [
+        "先比较同行业公司的平均回款周期，再用行业水平替代当前客户的"
+        "合同和回款证据。",
+        "先扩大到更多客户和更多年度，把当前项目尚未解决的问题留到样本"
+        "扩大后统一判断。",
+        "先复核公司五年经营现金流趋势；只要长期趋势改善，就不再处理"
+        "当前证据缺口。",
+        "先访谈负责该项目的销售人员，把其业务判断作为最主要的外部核验。",
+        "先观察事项公开后的市场反应，再用股价涨跌判断会计确认是否正确。",
+    ]
+
+    round_titles = ("形成初步结论", "守住证据边界", "决定核验行动")
+    if round_index == 0:
+        prompt = "审查官问：根据当前四项材料，哪一条初步结论最严谨？"
+        options = [conclusion, *conclusion_distractors]
+        explanation = f"合格结论必须同时容纳支持证据、风险信号和限制：{conclusion}"
+    elif round_index == 1:
+        prompt = "审查官追问：哪一句最准确地说明这项判断不能证明什么？"
+        options = [boundary, *boundary_distractors]
+        explanation = f"研究边界决定结论能覆盖谁、哪个期间和什么问题：{boundary}"
+    else:
+        prompt = "审查官最后问：为了减少当前最重要的不确定性，下一步先做什么？"
+        options = [next_step, *action_distractors]
+        explanation = f"下一步工作应直接对应当前最大的证据缺口：{next_step}"
+
+    options = _rotate_options(
+        list(dict.fromkeys(options)),
+        attempt_index * 2 + round_index + 1,
+    )
+    return {
+        "question_id": (
+            f"cash-defense-{round_index + 1}-{attempt_index + 1}-"
+            f"{scenario_type}-{amount_wan}"
+        ),
+        "round_index": round_index,
+        "round_number": round_index + 1,
+        "round_title": round_titles[round_index],
+        "attempt_number": attempt_index + 1,
+        "scenario_type": scenario_type,
+        "company_name": company_name,
+        "evidence_items": evidence_items,
+        "prompt": prompt,
+        "options": options,
+        "correct_option": (
+            conclusion if round_index == 0 else boundary
+            if round_index == 1 else next_step
+        ),
+        "explanation": explanation,
     }

@@ -164,7 +164,7 @@ render_game_hub_page()
     )
     historical_button = next(
         button for button in app_test.button
-        if button.label == "完成办公室证据调查后解锁 Historical Lens"
+        if button.label == "通过三轮结论答辩后解锁 Historical Lens"
     )
     assert historical_button.disabled
 
@@ -244,7 +244,7 @@ render_game_hub_page()
     )
     historical_button = next(
         item for item in app_test.button
-        if item.label == "完成办公室证据调查后解锁 Historical Lens"
+        if item.label == "通过三轮结论答辩后解锁 Historical Lens"
     )
     assert historical_button.disabled
 
@@ -301,8 +301,8 @@ render_game_hub_page()
     assert "不能沿用上一轮的文件编号" in warning_text
 
 
-def test_complete_cash_evidence_chain_unlocks_historical_mission() -> None:
-    """Only the exact four-link evidence chain should unlock the real mission."""
+def test_complete_cash_evidence_chain_opens_defense_but_keeps_mission_locked() -> None:
+    """The evidence chain should lead to defence without skipping it."""
     from streamlit.testing.v1 import AppTest
 
     script = """
@@ -345,6 +345,157 @@ render_game_hub_page()
     assert any(
         "第二节点完成" in item.value for item in app_test.success
     )
+    assert any(
+        item.label == "进入审查委员会｜开始三轮结论答辩"
+        for item in app_test.button
+    )
+    historical_button = next(
+        item for item in app_test.button
+        if item.label == "通过三轮结论答辩后解锁 Historical Lens"
+    )
+    assert historical_button.disabled
+
+
+def test_cash_defense_wrong_answer_costs_life_and_changes_case() -> None:
+    """A formal wrong answer should cost one life and replace the scenario."""
+    from streamlit.testing.v1 import AppTest
+
+    from src.cash_case_game import build_cash_defense_question
+
+    script = """
+import streamlit as st
+from src.app import render_game_hub_page
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state.setdefault("cash_case_stage", "defense")
+st.session_state.setdefault("cash_defense_lives", 3)
+st.session_state.setdefault("cash_defense_round_index", 0)
+st.session_state.setdefault("cash_defense_attempt_index", 0)
+st.session_state.setdefault("cash_defense_completed_explanations", [])
+render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    first_radio = next(
+        item for item in app_test.radio
+        if item.label == "选择唯一最严谨的答辩意见"
+    )
+    first_options = list(first_radio.options)
+    correct_option = build_cash_defense_question(0, 0)["correct_option"]
+    wrong_option = next(
+        option for option in first_radio.options
+        if option != correct_option
+    )
+    first_radio.set_value(wrong_option)
+    next(
+        item for item in app_test.button
+        if item.label == "向委员会提交意见"
+    ).click().run()
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_defense_lives"] == 2
+    assert app_test.session_state["cash_defense_attempt_index"] == 1
+    second_radio = next(
+        item for item in app_test.radio
+        if item.label == "选择唯一最严谨的答辩意见"
+    )
+    assert list(second_radio.options) != first_options
+    assert "已扣除一次容错机会" in "\n".join(
+        item.value for item in app_test.warning
+    )
+
+
+def test_cash_defense_three_failures_return_to_new_evidence_file() -> None:
+    """Using all lives should require a fresh office investigation."""
+    from streamlit.testing.v1 import AppTest
+
+    from src.cash_case_game import build_cash_defense_question
+
+    script = """
+import streamlit as st
+from src.app import render_game_hub_page
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state.setdefault("cash_case_stage", "defense")
+st.session_state.setdefault("cash_defense_lives", 3)
+st.session_state.setdefault("cash_defense_round_index", 0)
+st.session_state.setdefault("cash_defense_attempt_index", 0)
+st.session_state.setdefault("cash_defense_completed_explanations", [])
+render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+    for attempt_index in range(3):
+        answer_radio = next(
+            item for item in app_test.radio
+            if item.label == "选择唯一最严谨的答辩意见"
+        )
+        correct_option = build_cash_defense_question(
+            0,
+            attempt_index,
+        )["correct_option"]
+        wrong_option = next(
+            option for option in answer_radio.options
+            if option != correct_option
+        )
+        answer_radio.set_value(wrong_option)
+        next(
+            item for item in app_test.button
+            if item.label == "向委员会提交意见"
+        ).click().run()
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_case_stage"] == "defense_failed"
+    assert app_test.session_state["cash_defense_lives"] == 0
+    restart_button = next(
+        item for item in app_test.button
+        if item.label == "返回办公室｜领取全新调查卷宗"
+    )
+    restart_button.click().run()
+    assert app_test.session_state["cash_case_stage"] == "evidence"
+    assert app_test.session_state["cash_evidence_attempt_index"] == 1
+
+
+def test_cash_defense_three_correct_rounds_unlock_historical_mission() -> None:
+    """Passing conclusion, boundary and action rounds should complete the case."""
+    from streamlit.testing.v1 import AppTest
+
+    from src.cash_case_game import build_cash_defense_question
+
+    script = """
+import streamlit as st
+from src.app import render_game_hub_page
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state.setdefault("cash_case_stage", "defense")
+st.session_state.setdefault("cash_defense_lives", 3)
+st.session_state.setdefault("cash_defense_round_index", 0)
+st.session_state.setdefault("cash_defense_attempt_index", 0)
+st.session_state.setdefault("cash_defense_completed_explanations", [])
+render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    for round_index in range(3):
+        correct_option = build_cash_defense_question(
+            round_index,
+            round_index,
+        )["correct_option"]
+        next(
+            item for item in app_test.radio
+            if item.label == "选择唯一最严谨的答辩意见"
+        ).set_value(correct_option)
+        next(
+            item for item in app_test.button
+            if item.label == "向委员会提交意见"
+        ).click().run()
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_case_stage"] == "case_completed"
+    assert app_test.session_state["cash_defense_lives"] == 3
+    assert len(
+        app_test.session_state["cash_defense_completed_explanations"]
+    ) == 3
     historical_button = next(
         item for item in app_test.button
         if item.label == "开始开放调查｜进入 Historical Lens"

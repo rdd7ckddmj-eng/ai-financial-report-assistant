@@ -14,10 +14,13 @@
 - [x] Replace the practice sheet after every wrong answer without deducting a
       life.
 - [x] Build the first evidence-reading node with six changing documents, four
-      required evidence links, and two plausible distractions; unlock the
-      Historical Lens mission only after the complete chain is submitted.
-- [ ] Reserve the three-life rule for the later conclusion-defence node, after
-      the user has been taught how to distinguish clues from evidence.
+      required evidence links, and two plausible distractions.
+- [x] Add a three-round formal defence for conclusion, evidence boundary, and
+      next verification action; share three lives across the rounds, replace
+      the case after each error, and return failed players to a new evidence
+      file without deleting their identity or learned progress.
+- [x] Unlock the Historical Lens mission only after all three defence rounds,
+      rather than immediately after the guided evidence search.
 - [x] Replace the Historical Lens date picker with a form-backed daily time
       rail that avoids repeated public-data requests while dragging.
 - [x] Add exactly one cross-module open investigation that asks the player to

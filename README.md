@@ -68,10 +68,13 @@ Build a web application that can:
     investment score or recommendation;
 27. turn an explicit company search into that conclusion in one action, while
     keeping passive page navigation free from unexpected public-data requests.
-28. run the first two sequential nodes of a beginner finance case: a changing
-    profit-versus-cash calculation followed by a six-document office search
-    where only a complete four-link evidence chain unlocks the real Historical
-    Lens investigation.
+28. run the first three sequential nodes of a beginner finance case: a changing
+    profit-versus-cash calculation, a six-document office search, and a formal
+    three-round defence of conclusion, evidence boundary, and next action;
+29. share three lives only across the formal defence, replace the company and
+    evidence after every wrong answer, return failed players to a new office
+    file, and unlock the real Historical Lens investigation only after all
+    three rounds are passed.
 
 ## Product specifications
 
