@@ -2896,11 +2896,20 @@ def apply_cash_game_theme() -> None:
             color: #eaf8fb !important;
         }
 
-        [data-testid="stHeader"],
-        [data-testid="stSidebar"],
-        [data-testid="stSidebarCollapsedControl"],
-        [data-testid="stExpandSidebarButton"] {
+        html body section[data-testid="stSidebar"],
+        html body [data-testid="stSidebar"],
+        html body [data-testid="stHeader"],
+        html body [data-testid="stSidebarCollapseButton"],
+        html body [data-testid="stSidebarCollapsedControl"],
+        html body [data-testid="stExpandSidebarButton"] {
             display: none !important;
+            visibility: hidden !important;
+            width: 0 !important;
+            min-width: 0 !important;
+            max-width: 0 !important;
+            height: 0 !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
         }
 
         [data-testid="stMainBlockContainer"],
@@ -5835,7 +5844,9 @@ def _show_cash_game_stage(
             f'<span>{index:02d}</span><strong>{escape(label)}</strong>'
             f'<small>{state}</small></div>'
         )
-    st.markdown(
+    # ``st.html`` bypasses Markdown parsing. A missing optional HUD fragment
+    # must never turn the remaining tags into a visible code block.
+    st.html(
         f"""
         <section class="wfz-game-screen" data-wfz-game-screen="true"
                  data-game-step="{step_value}">
@@ -5877,8 +5888,7 @@ def _show_cash_game_stage(
                 <p>{escape(taunt)}</p>
             </div>
         </section>
-        """,
-        unsafe_allow_html=True,
+        """
     )
     storage_status = st.session_state.get("_wfz_cash_game_storage_status")
     if storage_status == "unavailable":

@@ -19,6 +19,18 @@ def teardown_function() -> None:
     _clear_streamlit_test_context()
 
 
+def _all_rendered_markup(app_test: object) -> str:
+    """Collect Markdown and direct HTML nodes emitted by an AppTest run."""
+    fragments = [item.value for item in app_test.markdown]
+    for node in app_test._tree:
+        if getattr(node, "type", None) != "html":
+            continue
+        body = getattr(getattr(node, "proto", None), "body", "")
+        if isinstance(body, str):
+            fragments.append(body)
+    return "\n".join(fragments)
+
+
 def test_app_uses_current_streamlit_width_api() -> None:
     """Keep removed container-width arguments out of production pages."""
     app_source = Path("src/app.py").read_text(encoding="utf-8")
@@ -187,7 +199,7 @@ finally:
         app_test = AppTest.from_string(script).run()
 
         assert not app_test.exception
-        page_markup = "\n".join(item.value for item in app_test.markdown)
+        page_markup = _all_rendered_markup(app_test)
         assert re.search(
             r'data-wfz-game-screen=["\']true["\']',
             page_markup,
@@ -217,6 +229,34 @@ apply_cash_game_theme()
     assert ".st-key-cash_game_scene_content" in theme_markup
     assert "overflow-y: auto" in theme_markup
     assert ".wfz-game-exit" in theme_markup
+    assert 'html body section[data-testid="stSidebar"]' in theme_markup
+    assert "visibility: hidden !important" in theme_markup
+
+
+def test_game_hud_uses_direct_html_instead_of_markdown_code_fences() -> None:
+    """Optional HUD fragments must never expose raw tags to the player."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+from src.app import _show_cash_game_stage
+
+_show_cash_game_stage(
+    0,
+    "序章｜建立调查身份",
+    "在案件终端取名。",
+    "别猜。",
+    prologue=True,
+)
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    rendered_markup = _all_rendered_markup(app_test)
+    assert 'data-game-step="prologue"' in rendered_markup
+    assert not any(
+        "<div class=" in item.value
+        for item in app_test.code
+    )
 
 
 def test_research_terminal_renders_without_live_requests() -> None:
@@ -268,7 +308,7 @@ render_game_hub_page()
     app_test = AppTest.from_string(script).run()
 
     assert not app_test.exception
-    page_markup = "\n".join(item.value for item in app_test.markdown)
+    page_markup = _all_rendered_markup(app_test)
     assert "《消失的现金》" in page_markup
     for label in (
         "教学",
@@ -318,7 +358,7 @@ finally:
     app_test = AppTest.from_string(script).run()
 
     assert not app_test.exception
-    page_markup = "\n".join(item.value for item in app_test.markdown)
+    page_markup = _all_rendered_markup(app_test)
     assert "首案封存｜拒绝用明天解释今天" in page_markup
     assert "wfz-honour-archive" in page_markup
     assert "北辰" in page_markup
