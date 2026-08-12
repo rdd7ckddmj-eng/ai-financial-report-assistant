@@ -16,7 +16,10 @@ from typing import Any, Mapping, MutableMapping
 import unicodedata
 
 
-CASH_GAME_PROGRESS_VERSION = 1
+# Version 2 deliberately starts a fresh case after the game-shell redesign.
+# The earlier prototype stored a player before the cinematic intake existed,
+# which could make returning testers skip the new in-game name scene entirely.
+CASH_GAME_PROGRESS_VERSION = 2
 
 _ALLOWED_STAGES = frozenset(
     {
@@ -155,6 +158,12 @@ def normalise_cash_game_progress_snapshot(
     if not isinstance(value, Mapping):
         return None
 
+    # Do not hydrate checkpoints created by the earlier page-like prototype.
+    # Version-less values are also rejected because every legitimate browser
+    # snapshot written by this module carries an explicit schema version.
+    if value.get("version") != CASH_GAME_PROGRESS_VERSION:
+        return None
+
     player_name = _clean_player_name(value.get("game_player_name"))
     if player_name is None:
         return None
@@ -216,7 +225,12 @@ def build_cash_game_progress_snapshot(
     state: Mapping[str, object],
 ) -> dict[str, Any] | None:
     """Build a safe browser-storage payload from session-like state."""
-    return normalise_cash_game_progress_snapshot(state)
+    # Streamlit session state does not carry a schema version. Add the current
+    # one only while serialising; browser-supplied snapshots remain subject to
+    # the strict version gate in ``normalise_cash_game_progress_snapshot``.
+    return normalise_cash_game_progress_snapshot(
+        {**state, "version": CASH_GAME_PROGRESS_VERSION}
+    )
 
 
 def restore_cash_game_progress_snapshot(
@@ -240,6 +254,14 @@ def restore_cash_game_progress_snapshot(
         if key != "version":
             state[key] = value
     return True
+
+
+def clear_cash_game_progress_state(
+    state: MutableMapping[str, object],
+) -> None:
+    """Remove only durable game fields during an explicit schema upgrade."""
+    for key in _MANAGED_SESSION_KEYS:
+        state.pop(key, None)
 
 
 def browser_cash_game_snapshot_wins(
@@ -299,6 +321,7 @@ __all__ = [
     "CASH_GAME_PROGRESS_VERSION",
     "browser_cash_game_snapshot_wins",
     "build_cash_game_progress_snapshot",
+    "clear_cash_game_progress_state",
     "normalise_cash_game_progress_snapshot",
     "normalize_cash_game_progress_snapshot",
     "restore_cash_game_progress_snapshot",

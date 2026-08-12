@@ -55,8 +55,10 @@ from src.browser_research_state import (
     normalise_browser_research_state,
 )
 from src.cash_game_progress import (
+    CASH_GAME_PROGRESS_VERSION,
     browser_cash_game_snapshot_wins,
     build_cash_game_progress_snapshot,
+    clear_cash_game_progress_state,
     normalise_cash_game_progress_snapshot,
     restore_cash_game_progress_snapshot,
 )
@@ -564,7 +566,7 @@ _CASH_GAME_PROGRESS_STORAGE = st.components.v2.component(
       const storageKey = data.storage_key;
       const cleanSnapshot = (raw) => {
         if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-        if (raw.version !== 1 || typeof raw.game_player_name !== "string") {
+        if (raw.version !== 2 || typeof raw.game_player_name !== "string") {
           return null;
         }
         const encoded = JSON.stringify(raw);
@@ -2905,6 +2907,7 @@ def apply_cash_game_theme() -> None:
 
         .st-key-cash_game_shell {
             overflow: hidden;
+            min-height: calc(100vh - 6.5rem);
             padding: 1.15rem 1.15rem 1.35rem;
             border: 1px solid rgba(130, 225, 229, 0.16);
             border-radius: 30px;
@@ -3183,6 +3186,22 @@ def apply_cash_game_theme() -> None:
             padding: 1.55rem 1.7rem;
         }
 
+        .st-key-cash_game_shell [data-testid="stForm"] {
+            position: relative;
+            overflow: hidden;
+            padding: 1.15rem 1.2rem 1.25rem;
+        }
+
+        .st-key-cash_game_shell [data-testid="stForm"]::before {
+            content: "IDENTITY TERMINAL · SECURE CHANNEL";
+            display: block;
+            margin-bottom: 0.8rem;
+            color: #66d8d0;
+            font-size: 0.62rem;
+            font-weight: 850;
+            letter-spacing: 0.13em;
+        }
+
         .wfz-game-prologue-kicker,
         .wfz-game-card-kicker {
             color: #6edbd2;
@@ -3292,6 +3311,7 @@ def apply_cash_game_theme() -> None:
 
         @media (max-width: 760px) {
             .st-key-cash_game_shell {
+                min-height: calc(100vh - 4.5rem);
                 padding: 0.55rem 0.55rem 0.9rem;
                 border-radius: 21px;
             }
@@ -4103,6 +4123,23 @@ def _sync_browser_research_state() -> None:
 
 def _sync_cash_game_progress() -> None:
     """Restore, then continuously save, this device's game checkpoint."""
+    session_schema_version = st.session_state.get(
+        "_wfz_cash_game_schema_version"
+    )
+    if session_schema_version != CASH_GAME_PROGRESS_VERSION:
+        # A running Streamlit session can survive a code refresh briefly. Do
+        # not let that older in-memory identity bypass the redesigned prologue.
+        clear_cash_game_progress_state(st.session_state)
+        for key in (
+            "_wfz_cash_game_last_synced_snapshot",
+            "_wfz_cash_game_pending_snapshot",
+            "_wfz_cash_game_progress_hydrated",
+            "_wfz_cash_game_restored",
+        ):
+            st.session_state.pop(key, None)
+        st.session_state["_wfz_cash_game_schema_version"] = (
+            CASH_GAME_PROGRESS_VERSION
+        )
     writer_id = str(
         st.session_state.get("_wfz_cash_game_writer_id", "")
     )
@@ -4169,7 +4206,7 @@ def _sync_cash_game_progress() -> None:
     try:
         result = _CASH_GAME_PROGRESS_STORAGE(
             data={
-                "storage_key": "wfz.cash-game.v1",
+                "storage_key": "wfz.cash-game.v2",
                 "known_snapshot": known_snapshot,
                 "known_storage_status": known_status,
                 "write_enabled": hydrated,
@@ -4406,7 +4443,7 @@ def _sync_honour_archive_record(
     try:
         result = _HONOUR_ARCHIVE_STORAGE(
             data={
-                "storage_key": "wfz.honour.v1",
+                "storage_key": "wfz.honour.v2",
                 "mission_id": FIRST_CASE_MISSION_ID,
                 "case_title": FIRST_CASE_TITLE,
                 "player_name": player_name,
@@ -6093,14 +6130,14 @@ def _render_cash_teaching_node() -> None:
             """
             <section class="wfz-game-prologue">
                 <div class="wfz-game-prologue-kicker">
-                    22:17 · 加密终端来讯 · 身份建立请求
+                    序章 · 22:17 · 加密终端来讯
                 </div>
-                <h2>建立临时调查身份</h2>
+                <h2>门已经打开，但案卷还不认识你。</h2>
                 <p>
                     案件编号 CASE 01：《消失的现金》。利润上涨 38%，
                     经营现金流却下降 22%。请先别急着定罪——桌上的每一份
-                    文件，都在争夺你的信任。完成身份建立与调查主任简报后，
-                    01 现场才会解除封条。
+                    文件，都在争夺你的信任。先在本页终端留下调查代号，
+                    读完守则并签收案件，01 现场才会在这里解除封条。
                 </p>
                 <div class="wfz-game-rules">
                     <div class="wfz-game-rule">
@@ -6125,17 +6162,18 @@ def _render_cash_teaching_node() -> None:
             unsafe_allow_html=True,
         )
         with st.form("game_player_identity_form", border=True):
-            st.markdown("#### 终端验证｜报上代号，签收案件")
+            st.markdown("#### 终端验证｜为这段故事取一个名字")
             st.caption(
-                "代号只用于剧情称呼，不是账号。请输入 1—12 个字符。"
+                "接下来，剧情中的调查主任会这样称呼你。代号不是账号，"
+                "请输入 1—12 个字符。"
             )
             entered_name = st.text_input(
-                "调查员代号",
-                placeholder="最多12个字符",
+                "在案件终端输入调查员代号",
+                placeholder="例如：北辰（最多12个字符）",
                 max_chars=12,
             )
             identity_submitted = st.form_submit_button(
-                "建立档案并接案｜进入 01 现场",
+                "确认代号并签收案件｜进入 01 现场",
                 type="primary",
                 width="stretch",
             )
@@ -6305,18 +6343,20 @@ def render_game_hub_page() -> None:
     has_player = bool(
         str(st.session_state.get("game_player_name", "")).strip()
     )
-    if not has_player:
-        _show_cash_game_stage(
-            0,
-            "案件接入｜建立调查身份",
-            "取好代号，读完调查守则，再决定是否签收这份案卷。",
-            "如果你只想猜答案，这起案件可能比你先看穿你。",
-            prologue=True,
-        )
-    else:
-        step_number, title, subtitle, taunt = _cash_game_scene_meta(stage)
-        _show_cash_game_stage(step_number, title, subtitle, taunt)
     with st.container(key="cash_game_shell"):
+        # Everything after choosing “消失的现金” belongs to this game screen.
+        # The name form and rules are the playable prologue, not a web intro.
+        if not has_player:
+            _show_cash_game_stage(
+                0,
+                "序章｜建立调查身份",
+                "在案件终端取名、阅读守则并签收第一份案卷。",
+                "如果你只想猜答案，这起案件可能比你先看穿你。",
+                prologue=True,
+            )
+        else:
+            step_number, title, subtitle, taunt = _cash_game_scene_meta(stage)
+            _show_cash_game_stage(step_number, title, subtitle, taunt)
         if not has_player:
             _render_cash_teaching_node()
         else:

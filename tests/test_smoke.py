@@ -260,10 +260,10 @@ render_game_hub_page()
     ):
         assert label in page_markup
     assert any(
-        item.label == "建立档案并接案｜进入 01 现场"
+        item.label == "确认代号并签收案件｜进入 01 现场"
         for item in app_test.button
     )
-    assert "最多12个字符" == app_test.text_input[0].placeholder
+    assert "例如：北辰（最多12个字符）" == app_test.text_input[0].placeholder
     assert "不按代号或 IP 保存" in "\n".join(
         item.value for item in app_test.markdown
     )

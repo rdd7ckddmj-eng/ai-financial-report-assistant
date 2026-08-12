@@ -4,6 +4,7 @@ from src.cash_game_progress import (
     CASH_GAME_PROGRESS_VERSION,
     browser_cash_game_snapshot_wins,
     build_cash_game_progress_snapshot,
+    clear_cash_game_progress_state,
     normalise_cash_game_progress_snapshot,
     restore_cash_game_progress_snapshot,
 )
@@ -58,7 +59,7 @@ def test_build_snapshot_preserves_complete_game_checkpoint() -> None:
 def test_snapshot_applies_strict_bounds_and_discards_unsafe_fields() -> None:
     snapshot = normalise_cash_game_progress_snapshot(
         {
-            "version": 999,
+            "version": CASH_GAME_PROGRESS_VERSION,
             "game_player_name": "超长调查员代号ABCDEFGHIJK\x00",
             "cash_case_stage": "admin",
             "cash_case_attempt_index": 99_999_999,
@@ -106,10 +107,21 @@ def test_snapshot_applies_strict_bounds_and_discards_unsafe_fields() -> None:
     assert "unknown" not in snapshot
 
 
+def test_legacy_game_checkpoint_is_not_restored_after_shell_redesign() -> None:
+    """Returning testers must see the new in-game identity prologue once."""
+    assert normalise_cash_game_progress_snapshot(
+        {
+            "version": CASH_GAME_PROGRESS_VERSION - 1,
+            "game_player_name": "旧版调查员",
+            "cash_case_stage": "evidence",
+        }
+    ) is None
+
+
 def test_inconsistent_completed_stage_returns_to_recoverable_mission() -> None:
     snapshot = normalise_cash_game_progress_snapshot(
         {
-            "version": 1,
+            "version": CASH_GAME_PROGRESS_VERSION,
             "game_player_name": "北辰",
             "cash_case_stage": "migration_completed",
             "cash_game_progress_revision": 123,
@@ -130,7 +142,7 @@ def test_restore_replaces_only_durable_game_state() -> None:
         "unrelated_research_page": "保留",
     }
     snapshot = {
-        "version": 1,
+        "version": CASH_GAME_PROGRESS_VERSION,
         "game_player_name": "新代号",
         "cash_case_stage": "evidence",
         "cash_case_attempt_index": 3,
@@ -165,6 +177,20 @@ def test_invalid_snapshot_does_not_mutate_state() -> None:
     assert state == original
 
 
+def test_schema_upgrade_clear_preserves_unrelated_research_state() -> None:
+    state: dict[str, object] = {
+        "game_player_name": "旧版调查员",
+        "cash_case_stage": "evidence",
+        "selected_company": {"code": "600519"},
+    }
+
+    clear_cash_game_progress_state(state)
+
+    assert "game_player_name" not in state
+    assert "cash_case_stage" not in state
+    assert state["selected_company"] == {"code": "600519"}
+
+
 def test_no_snapshot_is_created_before_player_enters_a_name() -> None:
     assert build_cash_game_progress_snapshot({}) is None
     assert build_cash_game_progress_snapshot({"game_player_name": "   "}) is None
@@ -172,7 +198,7 @@ def test_no_snapshot_is_created_before_player_enters_a_name() -> None:
 
 def test_newer_browser_checkpoint_replaces_an_older_tab() -> None:
     current = {
-        "version": 1,
+        "version": CASH_GAME_PROGRESS_VERSION,
         "game_player_name": "北辰",
         "cash_case_stage": "practice",
         "cash_game_progress_revision": 5,
@@ -192,7 +218,7 @@ def test_newer_browser_checkpoint_replaces_an_older_tab() -> None:
 
 def test_first_of_two_equal_revision_tab_writes_wins() -> None:
     stale_tab = {
-        "version": 1,
+        "version": CASH_GAME_PROGRESS_VERSION,
         "game_player_name": "北辰",
         "cash_case_stage": "evidence",
         "cash_game_progress_revision": 6,
@@ -216,7 +242,7 @@ def test_first_of_two_equal_revision_tab_writes_wins() -> None:
 
 def test_older_browser_checkpoint_never_replaces_newer_current_state() -> None:
     current = {
-        "version": 1,
+        "version": CASH_GAME_PROGRESS_VERSION,
         "game_player_name": "北辰",
         "cash_case_stage": "evidence",
         "cash_game_progress_revision": 7,
