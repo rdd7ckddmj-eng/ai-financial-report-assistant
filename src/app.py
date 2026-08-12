@@ -1823,17 +1823,17 @@ def apply_product_theme() -> None:
             position: relative;
             overflow: hidden;
             margin-bottom: 1.7rem;
-            padding: 3.4rem;
-            border: 1px solid rgba(22, 61, 103, 0.10);
-            border-radius: 30px;
+            padding: 4rem 3.8rem;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 32px;
             background:
                 radial-gradient(
-                    circle at 88% 16%,
-                    rgba(86, 185, 217, 0.20),
-                    transparent 25rem
+                    circle at 84% 4%,
+                    rgba(93, 215, 204, 0.24),
+                    transparent 22rem
                 ),
-                linear-gradient(135deg, #ffffff 0%, #edf7fb 100%);
-            box-shadow: 0 24px 64px rgba(17, 49, 80, 0.10);
+                linear-gradient(135deg, #07172d 0%, #123a5b 58%, #0b7778 100%);
+            box-shadow: 0 30px 72px rgba(7, 31, 55, 0.20);
         }
 
         .wfz-platform-hero::after {
@@ -1843,18 +1843,18 @@ def apply_product_theme() -> None:
             height: 330px;
             right: -95px;
             bottom: -180px;
-            border: 1px solid rgba(22, 61, 103, 0.10);
+            border: 1px solid rgba(255, 255, 255, 0.10);
             border-radius: 50%;
             box-shadow:
-                0 0 0 58px rgba(22, 61, 103, 0.025),
-                0 0 0 116px rgba(22, 61, 103, 0.018);
+                0 0 0 58px rgba(255, 255, 255, 0.025),
+                0 0 0 116px rgba(255, 255, 255, 0.018);
         }
 
         .wfz-platform-kicker {
             position: relative;
             z-index: 1;
             margin-bottom: 1.05rem;
-            color: #23749b;
+            color: #8fe2db;
             font-size: 0.75rem;
             font-weight: 850;
             letter-spacing: 0.17em;
@@ -1865,15 +1865,15 @@ def apply_product_theme() -> None:
             z-index: 1;
             max-width: 900px;
             margin: 0;
-            color: #102d4a;
-            font-size: clamp(2.5rem, 5.7vw, 4.8rem);
-            font-weight: 760;
+            color: #ffffff;
+            font-size: clamp(2.7rem, 5.9vw, 5rem);
+            font-weight: 780;
             letter-spacing: -0.055em;
             line-height: 1.02;
         }
 
         .wfz-platform-title span {
-            color: #277ca4;
+            color: #bcece7;
         }
 
         .wfz-platform-subtitle {
@@ -1881,19 +1881,46 @@ def apply_product_theme() -> None:
             z-index: 1;
             max-width: 760px;
             margin: 1.35rem 0 0;
-            color: #597188;
+            color: rgba(255, 255, 255, 0.72);
             font-size: 1.02rem;
             line-height: 1.75;
         }
 
         .wfz-module-card {
-            min-height: 285px;
+            position: relative;
+            overflow: hidden;
+            min-height: 300px;
             margin-bottom: 0.7rem;
-            padding: 1.7rem;
+            padding: 2rem;
             border: 1px solid rgba(22, 61, 103, 0.12);
             border-radius: 22px;
             background: rgba(255, 255, 255, 0.92);
-            box-shadow: 0 18px 42px rgba(17, 49, 80, 0.07);
+            box-shadow: 0 20px 48px rgba(17, 49, 80, 0.09);
+            transition: transform 180ms ease, box-shadow 180ms ease;
+        }
+
+        .wfz-module-card::after {
+            position: absolute;
+            right: 1.35rem;
+            bottom: -0.42rem;
+            color: rgba(21, 77, 105, 0.045);
+            font-family: "Avenir Next", sans-serif;
+            font-size: 7.4rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .wfz-module-card--game::after {
+            content: "01";
+        }
+
+        .wfz-module-card--research::after {
+            content: "02";
+        }
+
+        .wfz-module-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 28px 58px rgba(17, 49, 80, 0.13);
         }
 
         .wfz-module-card--game {
@@ -1916,10 +1943,13 @@ def apply_product_theme() -> None:
         .wfz-module-card h2 {
             margin: 1.1rem 0 0.55rem;
             padding: 0;
-            font-size: 1.55rem;
+            color: #102d4a;
+            font-size: 1.7rem;
         }
 
         .wfz-module-card p {
+            position: relative;
+            z-index: 1;
             min-height: 4.7rem;
             margin: 0;
             color: #5f7185;
@@ -1928,6 +1958,8 @@ def apply_product_theme() -> None:
         }
 
         .wfz-module-path {
+            position: relative;
+            z-index: 1;
             margin-top: 1rem;
             padding-top: 0.9rem;
             border-top: 1px solid rgba(22, 61, 103, 0.10);
@@ -1939,7 +1971,7 @@ def apply_product_theme() -> None:
 
         .wfz-learning-loop {
             display: grid;
-            grid-template-columns: repeat(6, minmax(0, 1fr));
+            grid-template-columns: repeat(7, minmax(0, 1fr));
             gap: 0.65rem;
             margin: 1rem 0 1.4rem;
         }
@@ -1953,6 +1985,117 @@ def apply_product_theme() -> None:
             text-align: center;
             font-size: 0.79rem;
             font-weight: 760;
+        }
+
+        .wfz-learning-step--done {
+            border-color: rgba(20, 143, 146, 0.18);
+            background: rgba(224, 246, 243, 0.82);
+            color: #176b70;
+        }
+
+        .wfz-learning-step--current {
+            border-color: transparent;
+            background: linear-gradient(135deg, #123d62, #0e9290);
+            box-shadow: 0 12px 26px rgba(16, 86, 111, 0.18);
+            color: #ffffff;
+        }
+
+        .wfz-learning-step--locked {
+            border-style: dashed;
+            background: rgba(244, 248, 250, 0.72);
+            color: #8a9aa7;
+        }
+
+        .wfz-game-opening {
+            position: relative;
+            overflow: hidden;
+            margin: 0.9rem 0 1.2rem;
+            padding: 2.1rem 2.2rem;
+            border: 1px solid rgba(31, 95, 122, 0.14);
+            border-radius: 24px;
+            background:
+                radial-gradient(circle at 92% 8%, rgba(58, 185, 180, 0.18), transparent 18rem),
+                linear-gradient(145deg, #ffffff 0%, #eaf6f8 100%);
+            box-shadow: 0 22px 50px rgba(17, 49, 80, 0.10);
+        }
+
+        .wfz-game-opening::after {
+            content: "01";
+            position: absolute;
+            right: 0.04em;
+            bottom: -0.25em;
+            color: rgba(20, 94, 120, 0.055);
+            font-family: "Avenir Next", sans-serif;
+            font-size: 11rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .wfz-game-opening-kicker {
+            position: relative;
+            z-index: 1;
+            color: #0a8588;
+            font-size: 0.7rem;
+            font-weight: 850;
+            letter-spacing: 0.15em;
+        }
+
+        .wfz-game-opening h2 {
+            position: relative;
+            z-index: 1;
+            margin: 0.75rem 0 0.8rem;
+            color: #102f52;
+            font-size: clamp(1.7rem, 3.2vw, 2.65rem);
+            line-height: 1.12;
+        }
+
+        .wfz-game-opening p {
+            position: relative;
+            z-index: 1;
+            max-width: 780px;
+            margin: 0;
+            color: #46677e;
+            font-size: 0.94rem;
+            line-height: 1.82;
+        }
+
+        .wfz-game-taunt {
+            position: relative;
+            z-index: 1;
+            display: inline-block;
+            margin-top: 1.15rem;
+            padding: 0.55rem 0.8rem;
+            border: 1px solid rgba(10, 133, 136, 0.16);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.66);
+            color: #176a78;
+            font-size: 0.76rem;
+            font-weight: 760;
+        }
+
+        .wfz-home-note {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.95rem;
+            align-items: start;
+            margin: 1.15rem 0 0.4rem;
+            padding: 1.2rem 1.35rem;
+            border: 1px solid rgba(27, 86, 116, 0.11);
+            border-radius: 18px;
+            background: rgba(237, 247, 249, 0.76);
+            color: #49687d;
+            font-size: 0.84rem;
+            line-height: 1.72;
+        }
+
+        .wfz-home-note strong {
+            color: #123d62;
+        }
+
+        .wfz-home-note-mark {
+            color: #0d8d8d;
+            font-size: 1.05rem;
+            font-weight: 900;
         }
 
         .wfz-page-intro {
@@ -2307,7 +2450,9 @@ def apply_product_theme() -> None:
             }
 
             .wfz-learning-loop {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
+                grid-template-columns: repeat(7, minmax(118px, 1fr));
+                overflow-x: auto;
+                padding-bottom: 0.4rem;
             }
 
             .wfz-scope-grid,
@@ -2340,6 +2485,16 @@ def apply_product_theme() -> None:
 
             .wfz-platform-title {
                 font-size: 2.45rem;
+            }
+
+            .wfz-game-opening {
+                padding: 1.55rem 1.35rem;
+                border-radius: 20px;
+            }
+
+            .wfz-game-opening::after {
+                right: -0.04em;
+                font-size: 8.5rem;
             }
 
             .wfz-title {
@@ -2473,12 +2628,11 @@ def show_platform_identity() -> None:
                 FANGZHENG AI · FINANCIAL RESEARCH LAB
             </div>
             <h1 class="wfz-platform-title">
-                从学会分析开始<br><span>到独立完成一份研究判断</span>
+                别急着下结论<br><span>先把证据找齐。</span>
             </h1>
             <p class="wfz-platform-subtitle">
-                一个平台，两种使用方式：在剧情案件中训练金融研究思维，
-                或进入真实公司研究终端，核验行情、公告、年报和历史证据。
-                两个模块共享同一套证据标准与时间纪律。
+                在案件中练习金融判断，在真实公开数据中验证推理——
+                两条路径，训练同一种能力：用证据读懂一家公司。
             </p>
         </section>
         """,
@@ -2494,18 +2648,19 @@ def show_platform_modules() -> None:
             """
             <article class="wfz-module-card wfz-module-card--game">
                 <div class="wfz-module-number">MODULE 01 / LEARN BY DOING</div>
-                <h2>研究员任务局</h2>
+                <h2>《消失的现金》</h2>
                 <p>
-                    通过剧情、调查和答辩，从零学习怎样阅读材料、寻找证据、
-                    控制前视偏差，并形成有边界的金融判断。
+                    一桩财务迷案，一场不靠猜的研究训练。搜查材料、识别干扰、
+                    拼接证据。到了审查委员会，你有三次容错；直觉可以进场，
+                    但必须由证据买单。
                 </p>
-                <div class="wfz-module-path">教 → 练 → 查 → 证 → 辩 → 迁</div>
+                <div class="wfz-module-path">七幕连贯剧情 · 不能跳关 · 错题自动换卷</div>
             </article>
             """,
             unsafe_allow_html=True,
         )
         if st.button(
-            "进入研究员任务局",
+            "进入第一案",
             type="primary",
             width="stretch",
             key="home_to_game_hub",
@@ -2517,22 +2672,22 @@ def show_platform_modules() -> None:
             """
             <article class="wfz-module-card wfz-module-card--research">
                 <div class="wfz-module-number">MODULE 02 / RESEARCH WITH EVIDENCE</div>
-                <h2>公司研究终端</h2>
+                <h2>上市公司调查局</h2>
                 <p>
                     输入公司名称或股票代码，把公开行情、官方公告、年度报告
-                    和历史时点接成一条可以回到来源核验的研究链。
+                    和历史时点集中到同一张研究桌。少翻页面，多验证结论。
                 </p>
-                <div class="wfz-module-path">选择公司 → 核验资料 → 形成研究底稿</div>
+                <div class="wfz-module-path">真实公开资料 · Python 计算 · 来源可追溯</div>
             </article>
             """,
             unsafe_allow_html=True,
         )
         if st.button(
-            "进入公司研究终端",
+            "打开研究桌",
             width="stretch",
-            key="home_to_research_terminal",
+            key="home_to_research_workspace",
         ):
-            _switch_page("research_terminal")
+            _switch_page("workspace")
 
 
 def show_home_capabilities() -> None:
@@ -4173,10 +4328,18 @@ def render_home_page() -> None:
     apply_product_theme()
     show_platform_identity()
     show_platform_modules()
-    st.info(
-        "《消失的现金》负责剧情学习与能力训练；上市公司调查局负责公开资料的"
-        "检索、计算和核验。游戏中的开放调查会逐步连接研究终端，但不会"
-        "把研究结果包装成股价预测或买卖建议。"
+    st.markdown(
+        """
+        <aside class="wfz-home-note">
+            <div class="wfz-home-note-mark">↗</div>
+            <div>
+                <strong>同一套判断力，两种训练场。</strong>
+                游戏负责让你学会提问，研究桌负责让你拿真实资料验证。
+                这里训练的是研究过程，不预测股价，也不提供买卖建议。
+            </div>
+        </aside>
+        """,
+        unsafe_allow_html=True,
     )
     show_product_footer()
 
@@ -4247,11 +4410,14 @@ def _show_cash_game_stage(
     )
     steps = []
     for index, (label, _) in enumerate(_CASH_GAME_STEPS, start=1):
-        state = "已完成" if index < step_number else (
-            "进行中" if index == step_number else "未解锁"
-        )
+        if index < step_number:
+            state, state_class = "已完成", "done"
+        elif index == step_number:
+            state, state_class = "进行中", "current"
+        else:
+            state, state_class = "未解锁", "locked"
         steps.append(
-            '<div class="wfz-learning-step">'
+            f'<div class="wfz-learning-step wfz-learning-step--{state_class}">'
             f"{index:02d}｜{escape(label)} · {state}</div>"
         )
     st.markdown(
@@ -4604,9 +4770,27 @@ def _render_cash_teaching_node() -> None:
     """Render role creation and the zero-assumption teaching scene."""
     player_name = str(st.session_state.get("game_player_name", "")).strip()
     if not player_name:
+        st.markdown(
+            """
+            <section class="wfz-game-opening">
+                <div class="wfz-game-opening-kicker">CASE 01 · INTAKE OPEN</div>
+                <h2>利润涨了 38%，钱却少了 22%。</h2>
+                <p>
+                    先别急着说造假。报表没有说谎——它只是很擅长只说一半。
+                    现金不见了，桌上的每份材料都声称自己很重要，
+                    其中几份确实只是嗓门大。
+                </p>
+                <div class="wfz-game-taunt">
+                    若你只是来猜答案，这一局可能比你想象得短。
+                </div>
+            </section>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.markdown("#### 报上代号，接案")
         st.write(
             "进入案件前，请为主人公设置一个调查员代号。它只保存在当前"
-        "浏览器当前游戏进度中，用于剧情称呼；最终通关档案按浏览器保存，不按"
+            "浏览器的游戏进度中，用于剧情称呼；最终通关档案按浏览器保存，不按"
             "代号或 IP 保存，因此同名不会冲突。请勿填写敏感信息。"
         )
         with st.form("game_player_identity_form", border=True):
@@ -4616,7 +4800,7 @@ def _render_cash_teaching_node() -> None:
                 max_chars=12,
             )
             identity_submitted = st.form_submit_button(
-                "建立角色档案并进入案件",
+                "报上代号｜接受第一案",
                 type="primary",
                 width="stretch",
             )
@@ -4811,7 +4995,7 @@ def render_game_hub_page() -> None:
     _show_cash_game_stage(
         1,
         "《消失的现金》",
-        "利润上涨了，钱却没有出现。先理解两只计量表，再开始调查。",
+        "利润涨了38%，钱却少了22%。先别急着说造假——答案藏得不深，偏见藏得更深。",
     )
     _render_cash_teaching_node()
     show_product_footer()
@@ -4823,7 +5007,7 @@ def render_cash_practice_page() -> None:
     _show_cash_game_stage(
         2,
         "第一份业务档案",
-        "用一份会变化的业务记录，分开计算利润影响和现金影响。",
+        "会算利润只够进门；分清现金，才算开始读懂业务。",
     )
     player_name = _cash_game_player()
     if player_name is not None and _cash_game_page_unlocked(
@@ -4839,7 +5023,7 @@ def render_cash_investigation_page() -> None:
     _show_cash_game_stage(
         3,
         "项目办公室搜查",
-        "自己打开六份材料，先读完事实，再决定什么值得带走。",
+        "六份材料里，有真线索，也有很努力扮演线索的废纸。",
     )
     player_name = _cash_game_player()
     if player_name is not None and _cash_game_page_unlocked(
@@ -4855,7 +5039,7 @@ def render_cash_evidence_page() -> None:
     _show_cash_game_stage(
         4,
         "证据链审查",
-        "从完整卷宗中选出四份材料，形成能够相互核验的解释。",
+        "四份刚好：少一份逻辑会断，多一份说明你还没学会取舍。",
     )
     player_name = _cash_game_player()
     if player_name is not None and _cash_game_page_unlocked(
@@ -4871,7 +5055,7 @@ def render_cash_defense_page() -> None:
     _show_cash_game_stage(
         5,
         "审查委员会",
-        "三轮动态答辩共用三次容错机会：结论、边界、下一步行动。",
+        "委员会不怕你答错，只怕你把一句猜测说成最终结论。三轮共享三次容错。",
     )
     player_name = _cash_game_player()
     if player_name is not None and _cash_game_page_unlocked(
@@ -4887,7 +5071,7 @@ def render_cash_migration_page() -> None:
     _show_cash_game_stage(
         6,
         "开放调查｜两只时钟",
-        "离开虚构卷宗，使用真实 Historical Lens 找到证据首次可见日。",
+        "这次没有提示词。市场只留下当时真正公开过的东西。",
     )
     player_name = _cash_game_player()
     if player_name is None or not _cash_game_page_unlocked(
@@ -4925,7 +5109,7 @@ def render_cash_honour_page() -> None:
     _show_cash_game_stage(
         7,
         "首案封存｜研究员荣誉档案",
-        "你的判断已通过时间边界核验，首案现在正式封存。",
+        "你赢过的不是题库，是自己的第一反应。首案正式封存。",
     )
     player_name = str(
         st.session_state.get("game_player_name", "调查员")
@@ -11003,13 +11187,13 @@ def main() -> None:
         render_home_page,
         title="首页",
         icon="🏠",
+        default=True,
         visibility="hidden",
     )
     game_page = st.Page(
         render_game_hub_page,
         title="消失的现金",
         icon="🕵️",
-        default=True,
     )
     game_practice_page = st.Page(
         render_cash_practice_page,
@@ -11192,6 +11376,7 @@ def main() -> None:
 
     navigation = st.navigation(
         [
+            home_page,
             game_page,
             workspace_page,
             game_practice_page,
@@ -11200,7 +11385,6 @@ def main() -> None:
             game_defense_page,
             game_migration_page,
             game_honour_page,
-            home_page,
             research_terminal_page,
             comprehensive_page,
             company_page,

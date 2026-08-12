@@ -232,3 +232,12 @@
 - [x] Clear the previous company's rendered brief before the new run.
 - [x] Keep passive page navigation free from automatic external requests.
 - [x] Offer “重新运行并刷新公开数据” after a matching result exists.
+
+## 2026-08-12 — Landing page and first-case presentation
+
+- [x] Restore a polished hidden default landing page at the root URL.
+- [x] Keep only 《消失的现金》 and 上市公司调查局 in the public sidebar.
+- [x] Route each landing-page card to its matching parent module.
+- [x] Add a distinct first-case intake scene with restrained challenge copy.
+- [x] Show all seven game stages with completed, current, and locked states.
+- [x] Keep the seven-stage navigator usable through horizontal scrolling on narrow screens.

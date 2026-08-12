@@ -84,14 +84,35 @@ render_home_page()
     assert not app_test.exception
     home_markup = "\n".join(item.value for item in app_test.markdown)
     assert "FINANCIAL RESEARCH LAB" in home_markup
-    assert "从学会分析开始" in home_markup
-    assert "研究员任务局" in home_markup
-    assert "公司研究终端" in home_markup
+    assert "别急着下结论" in home_markup
+    assert "《消失的现金》" in home_markup
+    assert "上市公司调查局" in home_markup
     button_labels = [button.label for button in app_test.button]
     assert button_labels == [
-        "进入研究员任务局",
-        "进入公司研究终端",
+        "进入第一案",
+        "打开研究桌",
     ]
+
+
+def test_navigation_keeps_hidden_home_default_and_two_public_entries() -> None:
+    """Open at the landing page without adding a third sidebar entry."""
+    from pathlib import Path
+
+    source = Path("src/app.py").read_text(encoding="utf-8")
+
+    home_start = source.index("home_page = st.Page(")
+    game_start = source.index("game_page = st.Page(")
+    home_definition = source[home_start:game_start]
+    assert "default=True" in home_definition
+    assert 'visibility="hidden"' in home_definition
+
+    navigation_start = source.index("navigation = st.navigation(")
+    navigation_definition = source[navigation_start:source.index(
+        "navigation.run()", navigation_start
+    )]
+    assert navigation_definition.index("home_page") < (
+        navigation_definition.index("game_page")
+    )
 
 
 def test_research_terminal_renders_without_live_requests() -> None:
@@ -156,7 +177,7 @@ render_game_hub_page()
     ):
         assert label in page_markup
     assert any(
-        item.label == "建立角色档案并进入案件"
+        item.label == "报上代号｜接受第一案"
         for item in app_test.button
     )
     assert "最多12个字符" == app_test.text_input[0].placeholder
