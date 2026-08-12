@@ -75,6 +75,9 @@ Build a web application that can:
     evidence after every wrong answer, return failed players to a new office
     file, and unlock the real Historical Lens investigation only after all
     three rounds are passed.
+30. complete that Historical Lens migration in two stages: find the first
+    official-publication date, then distinguish it from the effective K-line
+    date and next trading session before marking the first case complete.
 
 ## Product specifications
 

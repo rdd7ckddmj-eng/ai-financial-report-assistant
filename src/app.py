@@ -135,7 +135,10 @@ from src.historical_deep_link import parse_historical_deep_link
 from src.historical_game_mission import (
     HISTORICAL_GAME_MISSION,
     HISTORICAL_MISSION_ID,
+    build_historical_mission_reasoning_question,
     evaluate_historical_mission_date,
+    evaluate_historical_mission_reasoning,
+    resolve_historical_mission_clock_boundary,
 )
 from src.llm_analyst import (
     LLMAnalystRun,
@@ -3501,8 +3504,11 @@ def _start_historical_game_mission() -> None:
     )
     _store_selected_company(company)
     st.session_state["historical_game_mission_id"] = mission["mission_id"]
+    saved_answer = st.session_state.get("historical_game_mission_answer")
     st.session_state["historical_prefill_date"] = (
-        mission["initial_date"].isoformat()
+        str(saved_answer)
+        if saved_answer
+        else mission["initial_date"].isoformat()
     )
     st.session_state["historical_prefill_context"] = (
         "研究员任务局｜开放调查01"
@@ -3673,7 +3679,7 @@ def _render_cash_defense_node(player_name: str) -> None:
             st.rerun()
         return
 
-    if stage == "case_completed":
+    if stage in {"case_completed", "migration_completed"}:
         st.success("《消失的现金》前三节点通过｜委员会接受你的研究判断。")
         with st.container(border=True):
             st.markdown(f"#### 调查员 {escape(player_name)}的答辩记录")
@@ -3930,7 +3936,12 @@ def _render_cash_case_first_node() -> None:
     if stage in {"evidence", "evidence_completed"}:
         _render_cash_evidence_node(player_name)
 
-    if stage in {"defense", "defense_failed", "case_completed"}:
+    if stage in {
+        "defense",
+        "defense_failed",
+        "case_completed",
+        "migration_completed",
+    }:
         _render_cash_defense_node(player_name)
 
 
@@ -3957,6 +3968,10 @@ def render_game_hub_page() -> None:
         unsafe_allow_html=True,
     )
 
+    mission_completed = (
+        st.session_state.get("historical_game_mission_completed")
+        == HISTORICAL_MISSION_ID
+    )
     case_column, progression_column = st.columns([1.35, 1])
     with case_column.container(border=True):
         st.caption("首个教学案件 · CASE 01")
@@ -3966,10 +3981,16 @@ def render_game_hub_page() -> None:
             "理解利润与现金的区别，再阅读合同、验收、应收账款、银行流水"
             "和期后材料，判断差异意味着什么、又不能证明什么。"
         )
-        st.success(
-            "前三节点已开放：零基础讲解、六份材料调查，以及三轮动态"
-            "结论答辩。"
-        )
+        if mission_completed:
+            st.success(
+                "首案六阶段完整通关：你已经把虚构卷宗中的方法迁移到"
+                "真实历史证据。"
+            )
+        else:
+            st.success(
+                "前三节点已开放：零基础讲解、六份材料调查，以及三轮动态"
+                "结论答辩。"
+            )
     with progression_column.container(border=True):
         st.caption("成长路径 · SEQUENTIAL PROGRESSION")
         st.subheader("不能跳关，但可以真正成长")
@@ -3978,7 +3999,16 @@ def render_game_hub_page() -> None:
             "玩家只获得研究问题与时间截点，需要自行使用公司研究终端寻找"
             "证据，并接受审查官追问。"
         )
-        st.progress(0.48, text="教学、证据调查与三轮答辩可玩｜下一步完成迁移关")
+        if mission_completed:
+            st.progress(
+                1.0,
+                text="首案六阶段完整通关｜下一步制作荣誉档案",
+            )
+        else:
+            st.progress(
+                0.48,
+                text="教学、证据调查与三轮答辩可玩｜下一步完成迁移关",
+            )
 
     _render_cash_case_first_node()
 
@@ -3998,15 +4028,15 @@ def render_game_hub_page() -> None:
             "这类“离开游戏、调用真实研究工具、再带回结论”的任务只安排"
             "一次。它考查时间边界，不考股价预测，也不扣除三条生命。"
         )
-        mission_completed = (
-            st.session_state.get("historical_game_mission_completed")
-            == HISTORICAL_MISSION_ID
-        )
         if mission_completed:
-            st.success("开放调查已完成｜你已经识别两只不同的时间时钟。")
-        defense_completed = (
-            st.session_state.get("cash_case_stage") == "case_completed"
-        )
+            st.success(
+                "开放调查已完成｜你已经区分证据时钟与行情时钟，并守住"
+                "后续市场观察的归因边界。"
+            )
+        defense_completed = st.session_state.get("cash_case_stage") in {
+            "case_completed",
+            "migration_completed",
+        }
         mission_label = "通过三轮结论答辩后解锁 Historical Lens"
         if mission_completed:
             mission_label = "重新查看调查证据"
@@ -6988,17 +7018,33 @@ def render_historical_lens_page() -> None:
             ),
             None,
         )
+        mission_completed = (
+            st.session_state.get("historical_game_mission_completed")
+            == HISTORICAL_MISSION_ID
+        )
+        date_boundary_completed = (
+            st.session_state.get(
+                "historical_game_mission_date_completed"
+            )
+            == HISTORICAL_MISSION_ID
+            or mission_completed
+        )
+        clock_boundary = None
+        if mission_event is not None:
+            try:
+                clock_boundary = resolve_historical_mission_clock_boundary(
+                    market_frame["date"].tolist(),
+                    mission_event["published_date"],
+                )
+            except ValueError:
+                clock_boundary = None
         st.divider()
         with st.container(border=True):
             st.caption("调查结论提交 · NO LIFE LOST")
-            st.markdown("#### 这一天是目标证据第一次可见的日期吗？")
+            st.markdown("#### 第一步｜锁定目标证据的首次可见日")
             st.write(
                 f"你当前锁定：**{selected_date.isoformat()}**。先检查上方"
                 "官方证据和实际采用交易日，再提交结论。"
-            )
-            mission_completed = (
-                st.session_state.get("historical_game_mission_completed")
-                == HISTORICAL_MISSION_ID
             )
             if mission_event is None:
                 st.warning(
@@ -7016,7 +7062,7 @@ def render_historical_lens_page() -> None:
                 )
             if (
                 mission_event is not None
-                and not mission_completed
+                and not date_boundary_completed
                 and st.button(
                     "锁定当前日期为调查答案",
                     type="primary",
@@ -7032,21 +7078,112 @@ def render_historical_lens_page() -> None:
                     mission_event["published_date"],
                 )
                 if evaluation["is_correct"]:
-                    st.session_state["historical_game_mission_completed"] = (
+                    st.session_state[
+                        "historical_game_mission_date_completed"
+                    ] = (
                         HISTORICAL_MISSION_ID
                     )
                     st.session_state["historical_game_mission_answer"] = (
                         selected_date.isoformat()
                     )
-                    mission_completed = True
-                    st.success(evaluation["feedback"])
+                    st.session_state[
+                        "historical_game_mission_reasoning_attempt"
+                    ] = 0
+                    st.rerun()
                 else:
                     st.warning(evaluation["feedback"])
 
+            if date_boundary_completed and not mission_completed:
+                st.success(
+                    "第一步通过｜你已经找到目标证据第一次进入历史快照的"
+                    "日期。找到日期还不等于理解时间边界，请完成最后判断。"
+                )
+
+                if clock_boundary is None:
+                    st.warning(
+                        "当前行情不足，无法同时核验公告前后两个交易时点。"
+                        "本次不允许盲猜，也不会扣除生命。"
+                    )
+                else:
+                    attempt_index = int(
+                        st.session_state.get(
+                            "historical_game_mission_reasoning_attempt",
+                            0,
+                        )
+                    )
+                    reasoning_question = (
+                        build_historical_mission_reasoning_question(
+                            clock_boundary,
+                            attempt_index,
+                        )
+                    )
+                    reasoning_feedback = st.session_state.pop(
+                        "historical_game_mission_reasoning_feedback",
+                        None,
+                    )
+                    if isinstance(reasoning_feedback, str):
+                        st.warning(reasoning_feedback)
+
+                    st.markdown("#### 第二步｜对齐两只时钟")
+                    st.caption(
+                        "请同时核对证据公开日、页面实际采用交易日，以及"
+                        "行情时钟下一次跳动的日期。六项答案只有一项完整"
+                        "守住时间与因果边界。"
+                    )
+                    with st.form(
+                        key=reasoning_question["question_id"],
+                        border=True,
+                    ):
+                        st.write(reasoning_question["prompt"])
+                        selected_reasoning = st.radio(
+                            "选择唯一完整且严谨的调查结论",
+                            options=reasoning_question["options"],
+                            index=None,
+                            key=(
+                                "historical_game_mission_reasoning_answer_"
+                                f"{attempt_index}"
+                            ),
+                        )
+                        reasoning_submitted = st.form_submit_button(
+                            "提交最终调查结论",
+                            type="primary",
+                            width="stretch",
+                        )
+
+                    if reasoning_submitted:
+                        if selected_reasoning is None:
+                            st.warning("请先选择一项结论。空白提交不会扣除生命。")
+                        else:
+                            reasoning_evaluation = (
+                                evaluate_historical_mission_reasoning(
+                                    selected_reasoning,
+                                    reasoning_question,
+                                )
+                            )
+                            if reasoning_evaluation["is_correct"]:
+                                st.session_state[
+                                    "historical_game_mission_completed"
+                                ] = HISTORICAL_MISSION_ID
+                                st.session_state[
+                                    "historical_game_mission_reasoning"
+                                ] = selected_reasoning
+                                st.session_state["cash_case_stage"] = (
+                                    "migration_completed"
+                                )
+                                st.rerun()
+                            st.session_state[
+                                "historical_game_mission_reasoning_attempt"
+                            ] = attempt_index + 1
+                            st.session_state[
+                                "historical_game_mission_reasoning_feedback"
+                            ] = reasoning_evaluation["feedback"]
+                            st.rerun()
+
             if mission_completed:
                 st.success(
-                    "调查完成：9月20日的复盘越过了信息截止线。你找到的"
-                    "是公开证据边界，不是行情预测答案。"
+                    "首案完整通关｜9月20日的复盘越过了信息截止线；"
+                    "9月21日是证据公开日，行情仍停在9月20日，下一交易日"
+                    "是9月23日。后续涨跌不能自动证明公告造成了变化。"
                 )
                 if st.button(
                     "带着调查结论返回研究员任务局",

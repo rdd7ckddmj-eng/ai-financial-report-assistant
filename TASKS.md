@@ -27,6 +27,10 @@
       find an official evidence publication boundary inside Historical Lens.
 - [x] Derive the mission answer from the verified flagship event catalogue and
       distinguish publication time from the effective market trading date.
+- [x] Require a second migration judgement that separates evidence publication,
+      the effective K-line date, the next trading session, and causality before
+      the first case is marked complete; reshuffle wrong answers without using
+      the three formal-defence lives.
 - [ ] Add the horizontal honour archive and optional vertical social poster
       only after the first case can be completed end to end.
 - [x] Connect a same-company on-demand financial snapshot to the Comprehensive
