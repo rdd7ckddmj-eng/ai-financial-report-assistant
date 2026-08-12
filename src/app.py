@@ -8,6 +8,7 @@ from html import escape
 from io import BytesIO
 from pathlib import Path
 from time import perf_counter, time_ns
+from uuid import uuid4
 
 import pandas as pd
 import streamlit as st
@@ -53,6 +54,12 @@ from src.browser_research_state import (
     THESIS_TOPICS,
     normalise_browser_research_state,
 )
+from src.cash_game_progress import (
+    browser_cash_game_snapshot_wins,
+    build_cash_game_progress_snapshot,
+    normalise_cash_game_progress_snapshot,
+    restore_cash_game_progress_snapshot,
+)
 from src.baijiu_operating_quality import (
     build_baijiu_operating_quality,
     load_baijiu_operating_quality,
@@ -92,6 +99,12 @@ from src.comprehensive_research_report import (
     build_comprehensive_research_report_html,
 )
 from src.cross_company_comparison import build_cross_company_comparison
+from src.device_experience import (
+    DEVICE_LABELS,
+    effective_device_mode,
+    infer_device_from_user_agent,
+    normalise_device_preference,
+)
 from src.evidence_delta import (
     EvidenceDeltaReview,
     build_evidence_delta_report_html,
@@ -536,6 +549,157 @@ _BROWSER_RESEARCH_STORAGE = st.components.v2.component(
       const known = cleanSnapshot(data.known_snapshot);
       if (JSON.stringify(snapshot) !== JSON.stringify(known)) {
         setStateValue("snapshot", snapshot);
+      }
+    }
+    """,
+)
+
+
+_CASH_GAME_PROGRESS_STORAGE = st.components.v2.component(
+    name="wfz_cash_game_progress_storage",
+    html='<span class="wfz-game-progress-storage" aria-hidden="true"></span>',
+    css=".wfz-game-progress-storage { display: none; }",
+    js="""
+    export default function({ data, setStateValue }) {
+      const storageKey = data.storage_key;
+      const cleanSnapshot = (raw) => {
+        if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+        if (raw.version !== 1 || typeof raw.game_player_name !== "string") {
+          return null;
+        }
+        const encoded = JSON.stringify(raw);
+        if (encoded.length > 30000) return null;
+        try {
+          return JSON.parse(encoded);
+        } catch (_) {
+          return null;
+        }
+      };
+      const publicSnapshot = (raw) => {
+        const cleaned = cleanSnapshot(raw);
+        if (!cleaned) return null;
+        const result = { ...cleaned };
+        delete result._wfz_writer_id;
+        return result;
+      };
+
+      const writerId = (
+        typeof data.writer_id === "string" ? data.writer_id : ""
+      );
+
+      let snapshot = null;
+      let storageStatus = "available";
+      try {
+        const encoded = localStorage.getItem(storageKey);
+        if (encoded && encoded.length <= 30000) {
+          try {
+            snapshot = cleanSnapshot(JSON.parse(encoded));
+          } catch (_) {
+            snapshot = null;
+          }
+          if (!snapshot) localStorage.removeItem(storageKey);
+        } else if (encoded) {
+          localStorage.removeItem(storageKey);
+        }
+      } catch (_) {
+        storageStatus = "unavailable";
+      }
+
+      if (data.write_enabled === true) {
+        const known = cleanSnapshot(data.known_snapshot);
+        const knownRevision = Number(known?.cash_game_progress_revision) || 0;
+        const storedRevision = Number(snapshot?.cash_game_progress_revision) || 0;
+        const baseRevision = Number(data.base_revision) || 0;
+        const sameRevisionAndPayload = Boolean(
+          known && snapshot && knownRevision === storedRevision &&
+          JSON.stringify(known) === JSON.stringify(publicSnapshot(snapshot))
+        );
+        const ownsStoredRevision = Boolean(
+          known && (
+            !snapshot ||
+            storedRevision === baseRevision ||
+            (writerId && snapshot._wfz_writer_id === writerId)
+          )
+        );
+        if (
+          ownsStoredRevision &&
+          (knownRevision > storedRevision || sameRevisionAndPayload || !snapshot)
+        ) {
+          snapshot = {
+            ...known,
+            ...(writerId ? { _wfz_writer_id: writerId } : {}),
+          };
+        }
+        if (
+          storageStatus === "available" &&
+          ownsStoredRevision &&
+          (knownRevision > storedRevision || sameRevisionAndPayload || !snapshot)
+        ) {
+          try {
+            if (snapshot) {
+              localStorage.setItem(storageKey, JSON.stringify(snapshot));
+            } else {
+              localStorage.removeItem(storageKey);
+            }
+          } catch (_) {
+            storageStatus = "unavailable";
+          }
+        }
+      }
+
+      const knownSnapshot = publicSnapshot(data.known_snapshot);
+      const returnedSnapshot = publicSnapshot(snapshot);
+      if (
+        JSON.stringify(returnedSnapshot) !== JSON.stringify(knownSnapshot) ||
+        storageStatus !== data.known_storage_status
+      ) {
+        setStateValue("snapshot", returnedSnapshot);
+        setStateValue("storage_status", storageStatus);
+      }
+    }
+    """,
+)
+
+
+_DEVICE_EXPERIENCE_STORAGE = st.components.v2.component(
+    name="wfz_device_experience_storage",
+    html='<span class="wfz-device-storage" aria-hidden="true"></span>',
+    css=".wfz-device-storage { display: none; }",
+    js="""
+    export default function({ data, setStateValue }) {
+      const valid = new Set(["auto", "mobile", "desktop"]);
+      const cleanPreference = (raw) => valid.has(raw) ? raw : "auto";
+      let preference = "auto";
+      let storageStatus = "available";
+      try {
+        preference = cleanPreference(localStorage.getItem(data.storage_key));
+      } catch (_) {
+        storageStatus = "unavailable";
+      }
+
+      const command = cleanPreference(data.preference_command);
+      if (valid.has(data.preference_command)) {
+        preference = command;
+        if (storageStatus === "available") {
+          try {
+            localStorage.setItem(data.storage_key, preference);
+          } catch (_) {
+            storageStatus = "unavailable";
+          }
+        }
+      }
+
+      const viewportWidth = Math.min(
+        Number(window.innerWidth) || 9999,
+        Number(window.screen?.width) || 9999
+      );
+      const detected = viewportWidth <= 720
+        ? "mobile"
+        : "desktop";
+      const effective = preference === "auto" ? detected : preference;
+      const state = { preference, detected, effective, storage_status: storageStatus };
+      if (JSON.stringify(state) !== JSON.stringify(data.known_state)) {
+        setStateValue("state", state);
       }
     }
     """,
@@ -1664,6 +1828,33 @@ def apply_product_theme() -> None:
             box-shadow: 18px 0 50px rgba(7, 24, 46, 0.12);
         }
 
+        section[data-testid="stSidebar"] p,
+        section[data-testid="stSidebar"] label,
+        section[data-testid="stSidebar"] summary,
+        section[data-testid="stSidebar"] [role="radiogroup"] span,
+        section[data-testid="stSidebar"] [data-testid="stPageLink"] span,
+        section[data-testid="stSidebar"] [data-testid="stPageLink"] p {
+            color: #d9e5f2 !important;
+            -webkit-text-fill-color: #d9e5f2 !important;
+        }
+
+        section[data-testid="stSidebar"]
+        [data-testid="stCaptionContainer"] p {
+            color: #aebfd0 !important;
+            -webkit-text-fill-color: #aebfd0 !important;
+        }
+
+        section[data-testid="stSidebar"] [data-testid="stExpander"] {
+            border-color: rgba(255, 255, 255, 0.12) !important;
+            background: rgba(255, 255, 255, 0.035);
+        }
+
+        section[data-testid="stSidebar"] [data-testid="stPageLink"] a:hover,
+        section[data-testid="stSidebar"] [data-testid="stPageLink"] a:focus-visible {
+            background: rgba(77, 214, 202, 0.12) !important;
+            outline-color: #71ded5 !important;
+        }
+
         [data-testid="stSidebarHeader"] {
             min-height: 5.5rem;
             padding: 1.15rem 1rem 0.8rem;
@@ -2472,6 +2663,16 @@ def apply_product_theme() -> None:
                 padding-right: 1rem;
             }
 
+            [data-testid="stHorizontalBlock"] {
+                flex-direction: column;
+                gap: 0.85rem;
+            }
+
+            [data-testid="column"] {
+                width: 100% !important;
+                min-width: 0 !important;
+            }
+
             .wfz-hero {
                 min-height: auto;
                 padding: 2rem 1.4rem;
@@ -2542,6 +2743,133 @@ def apply_product_theme() -> None:
         """,
         unsafe_allow_html=True,
     )
+    device_preference = normalise_device_preference(
+        st.session_state.get("_wfz_device_preference", "auto")
+    )
+    if device_preference == "mobile":
+        st.markdown(
+            """
+            <style>
+            /* A deliberately vertical canvas for phones, including when the
+               visitor manually selects it from a wide desktop window. */
+            .block-container {
+                width: 100% !important;
+                max-width: 540px !important;
+                padding: 0.8rem 0.9rem 3.5rem !important;
+            }
+
+            [data-testid="stHorizontalBlock"] {
+                flex-direction: column !important;
+                gap: 0.85rem !important;
+            }
+
+            [data-testid="column"] {
+                width: 100% !important;
+                min-width: 0 !important;
+            }
+
+            .wfz-hero,
+            .wfz-platform-hero,
+            .wfz-page-intro,
+            .wfz-game-opening {
+                padding: 1.45rem 1.15rem !important;
+                border-radius: 20px !important;
+            }
+
+            .wfz-hero-grid,
+            .wfz-capability-grid,
+            .wfz-scope-grid,
+            .wfz-scope-boundary,
+            .wfz-honour-grid {
+                grid-template-columns: 1fr !important;
+            }
+
+            .wfz-terminal {
+                display: none !important;
+            }
+
+            .wfz-honour-topline,
+            .wfz-honour-footer {
+                flex-direction: column !important;
+            }
+
+            .wfz-platform-title {
+                font-size: clamp(2.2rem, 13vw, 3.5rem) !important;
+            }
+
+            .wfz-title {
+                font-size: clamp(2.15rem, 12vw, 3.35rem) !important;
+            }
+
+            .wfz-learning-loop,
+            .wfz-game-stepper {
+                overflow-x: auto !important;
+                overscroll-behavior-inline: contain;
+            }
+
+            .stButton > button,
+            .stDownloadButton > button,
+            .stFormSubmitButton > button {
+                min-height: 3.15rem !important;
+                touch-action: manipulation;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+    elif device_preference == "desktop":
+        st.markdown(
+            """
+            <style>
+            /* Manual desktop mode preserves the horizontal research canvas
+               even in a narrow embedded browser. */
+            .block-container {
+                max-width: 1180px !important;
+            }
+
+            @media (max-width: 720px) {
+                .block-container {
+                    min-width: 900px;
+                    padding-left: 1.2rem !important;
+                    padding-right: 1.2rem !important;
+                }
+
+                [data-testid="stHorizontalBlock"] {
+                    flex-direction: row !important;
+                }
+
+                [data-testid="column"] {
+                    width: auto !important;
+                    min-width: 0 !important;
+                }
+
+                .wfz-hero-grid {
+                    grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.7fr) !important;
+                }
+
+                .wfz-capability-grid {
+                    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                }
+
+                .wfz-scope-grid,
+                .wfz-scope-boundary,
+                .wfz-honour-grid {
+                    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                }
+
+                .wfz-honour-topline,
+                .wfz-honour-footer {
+                    flex-direction: row !important;
+                }
+
+                .wfz-terminal {
+                    display: block !important;
+                }
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 def show_product_identity() -> None:
@@ -2672,7 +3000,7 @@ def show_platform_modules() -> None:
             """
             <article class="wfz-module-card wfz-module-card--research">
                 <div class="wfz-module-number">MODULE 02 / RESEARCH WITH EVIDENCE</div>
-                <h2>上市公司调查局</h2>
+                <h2>上市公司研究中枢</h2>
                 <p>
                     输入公司名称或股票代码，把公开行情、官方公告、年度报告
                     和历史时点集中到同一张研究桌。少翻页面，多验证结论。
@@ -2683,7 +3011,7 @@ def show_platform_modules() -> None:
             unsafe_allow_html=True,
         )
         if st.button(
-            "打开研究桌",
+            "进入研究中枢",
             width="stretch",
             key="home_to_research_workspace",
         ):
@@ -3066,6 +3394,149 @@ def show_product_footer() -> None:
     )
 
 
+_RESEARCH_COLLECTIONS = (
+    {
+        "title": "01｜发现研究对象",
+        "sidebar_title": "发现研究对象",
+        "description": (
+            "还没有确定研究对象，或需要安排已经关注公司的研究顺序时使用。"
+        ),
+        "flow": "涨停板发现候选 → 自选股队列安排研究优先级",
+        "tools": (
+            ("查看每日涨停板", "limit_up"),
+            ("扫描自选股任务队列", "radar"),
+        ),
+    },
+    {
+        "title": "02｜完成公司初研",
+        "sidebar_title": "完成公司初研",
+        "description": (
+            "已经确定公司，希望先建立身份、行情、公告和年报的整体认识。"
+        ),
+        "flow": "公司与公告概览 → 一键汇总核心证据链",
+        "tools": (
+            ("查看公司与公告概览", "company"),
+            ("运行一键综合研究", "comprehensive"),
+        ),
+    },
+    {
+        "title": "03｜调查市场事件",
+        "sidebar_title": "调查市场事件",
+        "description": (
+            "判断价格、成交和换手发生了什么，并检查当时有哪些公开信息。"
+        ),
+        "flow": "K线 → 成交与换手 → 异动识别 → 回到历史时点复盘",
+        "tools": (
+            ("查看K线与市场表现", "market"),
+            ("分析成交量与换手率", "volume_turnover"),
+            ("调查市场异动", "anomaly"),
+            ("进入历史时点复盘", "historical"),
+        ),
+    },
+    {
+        "title": "04｜核验财务证据",
+        "sidebar_title": "核验财务证据",
+        "description": (
+            "从年报原文核验财务变化、跨年趋势、公司差异或异常原因。"
+        ),
+        "flow": "年报快照 → 原文证据 → 多年趋势 → 异常与横向比较",
+        "tools": (
+            ("生成最新年报财务快照", "financial_snapshot"),
+            ("核验年报原文与证据", "annual"),
+            ("查看多年财务趋势", "financial_trend"),
+            ("解释财务异常", "financial_anomaly"),
+            ("进行跨公司横向比较", "comparison"),
+        ),
+    },
+    {
+        "title": "05｜跟踪与治理研究",
+        "sidebar_title": "跟踪与治理研究",
+        "description": (
+            "延续已经开始的研究，维护判断，并审查方法与数据边界。"
+        ),
+        "flow": "核验新增证据 → 更新结论 → 审查方法 → 扩展深度案例",
+        "tools": (
+            ("核验上次研究后的新证据", "evidence_delta"),
+            ("维护研究结论账本", "thesis_ledger"),
+            ("查看方法与审计", "methodology"),
+            ("扩展已核验公司目录（高级）", "onboarding"),
+        ),
+    },
+)
+
+
+def _research_collection_for_page(page_name: str) -> int | None:
+    """Return the research collection containing one hidden tool page."""
+    for index, collection in enumerate(_RESEARCH_COLLECTIONS):
+        if any(
+            target == page_name
+            for _, target in collection["tools"]
+        ):
+            return index
+    return None
+
+
+def _current_page_name(
+    current_page: object,
+    page_registry: Mapping[str, object],
+) -> str | None:
+    """Resolve the registry key for the Page selected by ``st.navigation``."""
+    for page_name, page in page_registry.items():
+        if page is current_page:
+            return page_name
+
+    # Streamlit normally returns one of the registered Page objects. The URL
+    # fallback keeps this helper testable and robust if that implementation
+    # detail changes in a later compatible release.
+    current_url = getattr(current_page, "url_path", None)
+    for page_name, page in page_registry.items():
+        if getattr(page, "url_path", None) == current_url:
+            return page_name
+    return None
+
+
+def _render_research_sidebar_navigation(
+    current_page: object,
+    page_registry: Mapping[str, object],
+) -> None:
+    """Show task-group links only inside the listed-company research branch."""
+    current_page_name = _current_page_name(current_page, page_registry)
+    research_page_names = {
+        "workspace",
+        "research_terminal",
+        *(
+            target
+            for collection in _RESEARCH_COLLECTIONS
+            for _, target in collection["tools"]
+        ),
+    }
+    if current_page_name not in research_page_names:
+        return
+
+    active_collection = _research_collection_for_page(
+        current_page_name or ""
+    )
+    with st.sidebar:
+        st.markdown("**研究子任务**")
+        st.page_link(
+            page_registry["workspace"],
+            label="返回研究中枢总览",
+            icon="🏛️",
+            width="stretch",
+        )
+        for index, collection in enumerate(_RESEARCH_COLLECTIONS):
+            with st.expander(
+                str(collection["sidebar_title"]),
+                expanded=index == active_collection,
+            ):
+                for label, target in collection["tools"]:
+                    st.page_link(
+                        page_registry[target],
+                        label=label,
+                        width="stretch",
+                    )
+
+
 def _page_target(name: str) -> object | None:
     """Return a page object registered by the main navigation."""
     registry = st.session_state.get("_wfz_page_registry", {})
@@ -3096,6 +3567,19 @@ def _browser_research_snapshot() -> dict[str, object]:
     return normalise_browser_research_state(
         st.session_state.get("_wfz_browser_research_snapshot")
     )
+
+
+def _cash_game_progress_payload(
+    snapshot: Mapping[str, object] | None,
+) -> dict[str, object] | None:
+    """Return durable content without its stale-tab conflict counter."""
+    if snapshot is None:
+        return None
+    return {
+        key: value
+        for key, value in snapshot.items()
+        if key != "cash_game_progress_revision"
+    }
 
 
 def _queue_browser_research_command(
@@ -3143,6 +3627,291 @@ def _sync_browser_research_state() -> None:
         snapshot.get("last_command_id") == command.get("id")
     ):
         st.session_state.pop("_wfz_browser_research_command", None)
+
+
+def _sync_cash_game_progress() -> None:
+    """Restore, then continuously save, this device's game checkpoint."""
+    writer_id = str(
+        st.session_state.get("_wfz_cash_game_writer_id", "")
+    )
+    if len(writer_id) != 32:
+        writer_id = uuid4().hex
+        st.session_state["_wfz_cash_game_writer_id"] = writer_id
+    known_snapshot = build_cash_game_progress_snapshot(st.session_state)
+    hydrated = bool(
+        st.session_state.get("_wfz_cash_game_progress_hydrated", False)
+    )
+    last_synced_snapshot = normalise_cash_game_progress_snapshot(
+        st.session_state.get("_wfz_cash_game_last_synced_snapshot")
+    )
+    pending_snapshot = normalise_cash_game_progress_snapshot(
+        st.session_state.get("_wfz_cash_game_pending_snapshot")
+    )
+    if hydrated and known_snapshot is not None:
+        reference_snapshot = pending_snapshot or last_synced_snapshot
+        if reference_snapshot is None:
+            pending_snapshot = known_snapshot
+            st.session_state[
+                "_wfz_cash_game_pending_snapshot"
+            ] = pending_snapshot
+        elif (
+            _cash_game_progress_payload(known_snapshot)
+            != _cash_game_progress_payload(reference_snapshot)
+        ):
+            current_revision = int(
+                known_snapshot.get("cash_game_progress_revision", 0)
+            )
+            reference_revision = int(
+                reference_snapshot.get("cash_game_progress_revision", 0)
+            )
+            st.session_state["cash_game_progress_revision"] = min(
+                max(current_revision, reference_revision) + 1,
+                9_000_000_000_000_000,
+            )
+            known_snapshot = build_cash_game_progress_snapshot(
+                st.session_state
+            )
+            pending_snapshot = known_snapshot
+            st.session_state[
+                "_wfz_cash_game_pending_snapshot"
+            ] = pending_snapshot
+        else:
+            # Keep the pending revision stable while the browser component
+            # acknowledges the write; repeated Streamlit reruns must not turn
+            # one user action into multiple revisions.
+            reference_revision = int(
+                reference_snapshot.get("cash_game_progress_revision", 0)
+            )
+            if int(
+                known_snapshot.get("cash_game_progress_revision", 0)
+            ) != reference_revision:
+                st.session_state["cash_game_progress_revision"] = (
+                    reference_revision
+                )
+                known_snapshot = build_cash_game_progress_snapshot(
+                    st.session_state
+                )
+    known_status = str(
+        st.session_state.get("_wfz_cash_game_storage_status", "pending")
+    )
+    try:
+        result = _CASH_GAME_PROGRESS_STORAGE(
+            data={
+                "storage_key": "wfz.cash-game.v1",
+                "known_snapshot": known_snapshot,
+                "known_storage_status": known_status,
+                "write_enabled": hydrated,
+                "writer_id": writer_id,
+                "base_revision": int(
+                    (last_synced_snapshot or {}).get(
+                        "cash_game_progress_revision",
+                        0,
+                    )
+                ),
+            },
+            default={
+                "snapshot": known_snapshot,
+                "storage_status": "pending",
+            },
+            key="wfz_cash_game_progress_storage",
+            on_snapshot_change=lambda: None,
+            on_storage_status_change=lambda: None,
+        )
+    except ValueError as error:
+        if "is not registered" not in str(error):
+            raise
+        # Streamlit's isolated page tester can reset the component registry.
+        # Keep the same in-memory state rather than making tests depend on a
+        # browser implementation detail.
+        st.session_state["_wfz_cash_game_progress_hydrated"] = True
+        st.session_state["_wfz_cash_game_storage_status"] = "unavailable"
+        return
+
+    raw_snapshot = getattr(result, "snapshot", None)
+    raw_status = getattr(result, "storage_status", None)
+    if isinstance(result, Mapping):
+        raw_snapshot = result.get("snapshot", raw_snapshot)
+        raw_status = result.get("storage_status", raw_status)
+
+    if raw_status in {"pending", "available", "unavailable"}:
+        st.session_state["_wfz_cash_game_storage_status"] = raw_status
+
+    # Never regard the component's Python default as a successful browser
+    # read.  Waiting for an explicit available/unavailable state prevents a
+    # fresh server session from overwriting a valid local checkpoint.
+    if not hydrated and raw_status in {"available", "unavailable"}:
+        snapshot = normalise_cash_game_progress_snapshot(raw_snapshot)
+        if snapshot is not None:
+            restore_cash_game_progress_snapshot(st.session_state, snapshot)
+            st.session_state["_wfz_cash_game_restored"] = True
+            st.session_state["_wfz_cash_game_last_synced_snapshot"] = snapshot
+            st.session_state.pop("_wfz_cash_game_pending_snapshot", None)
+        st.session_state["_wfz_cash_game_progress_hydrated"] = True
+
+    # A newer checkpoint from another tab always wins. Restore it instead of
+    # allowing this older tab to roll the device back on its next interaction.
+    if hydrated:
+        browser_snapshot = normalise_cash_game_progress_snapshot(raw_snapshot)
+        current_snapshot = build_cash_game_progress_snapshot(st.session_state)
+        base_revision = int(
+            (last_synced_snapshot or {}).get(
+                "cash_game_progress_revision",
+                0,
+            )
+        )
+        if browser_cash_game_snapshot_wins(
+            current_snapshot,
+            browser_snapshot,
+            base_revision=base_revision,
+        ):
+            restore_cash_game_progress_snapshot(
+                st.session_state,
+                browser_snapshot,
+            )
+            st.session_state["_wfz_cash_game_restored"] = True
+            st.session_state[
+                "_wfz_cash_game_last_synced_snapshot"
+            ] = browser_snapshot
+            st.session_state.pop("_wfz_cash_game_pending_snapshot", None)
+        elif (
+            current_snapshot is not None
+            and (
+                raw_status == "unavailable"
+                or (
+                    raw_status == "available"
+                    and browser_snapshot == current_snapshot
+                )
+            )
+        ):
+            # Only an exact browser echo acknowledges a durable write.  A
+            # component default or an older value must not advance the base
+            # revision used for stale-tab protection.
+            st.session_state[
+                "_wfz_cash_game_last_synced_snapshot"
+            ] = current_snapshot
+            st.session_state.pop("_wfz_cash_game_pending_snapshot", None)
+
+
+def _request_user_agent() -> str:
+    """Return a user-agent when available without coupling tests to context."""
+    try:
+        headers = st.context.headers
+        return str(headers.get("User-Agent", headers.get("user-agent", "")))
+    except (AttributeError, RuntimeError):
+        return ""
+
+
+def _sync_device_experience() -> None:
+    """Synchronise a bounded manual layout preference with this browser."""
+    fallback_detected = infer_device_from_user_agent(_request_user_agent())
+    known_preference = normalise_device_preference(
+        st.session_state.get("_wfz_device_preference", "auto")
+    )
+    known_detected = str(
+        st.session_state.get("_wfz_detected_device_mode", fallback_detected)
+    )
+    if known_detected not in {"mobile", "desktop"}:
+        known_detected = fallback_detected
+    known_state = {
+        "preference": known_preference,
+        "detected": known_detected,
+        "effective": effective_device_mode(
+            known_preference,
+            known_detected,
+        ),
+        "storage_status": str(
+            st.session_state.get("_wfz_device_storage_status", "pending")
+        ),
+    }
+    command = st.session_state.get("_wfz_device_preference_command")
+    try:
+        result = _DEVICE_EXPERIENCE_STORAGE(
+            data={
+                "storage_key": "wfz.device-layout.v1",
+                "known_state": known_state,
+                "preference_command": command,
+            },
+            default={"state": known_state},
+            key="wfz_device_experience_storage",
+            on_state_change=lambda: None,
+        )
+    except ValueError as error:
+        if "is not registered" not in str(error):
+            raise
+        result = {"state": known_state}
+
+    raw_state = getattr(result, "state", None)
+    if isinstance(result, Mapping):
+        raw_state = result.get("state", raw_state)
+    if not isinstance(raw_state, Mapping):
+        raw_state = known_state
+
+    preference = normalise_device_preference(
+        raw_state.get("preference", known_preference)
+    )
+    detected = str(raw_state.get("detected", known_detected))
+    if detected not in {"mobile", "desktop"}:
+        detected = known_detected
+    effective = effective_device_mode(preference, detected)
+    storage_status = str(raw_state.get("storage_status", "pending"))
+    if storage_status not in {"pending", "available", "unavailable"}:
+        storage_status = "pending"
+
+    st.session_state["_wfz_device_preference"] = preference
+    st.session_state["_wfz_detected_device_mode"] = detected
+    st.session_state["_wfz_effective_device_mode"] = effective
+    st.session_state["_wfz_device_storage_status"] = storage_status
+    if command == preference:
+        st.session_state.pop("_wfz_device_preference_command", None)
+
+
+def _queue_device_preference() -> None:
+    """Queue the device selector's manual choice before Streamlit reruns."""
+    chosen_label = st.session_state.get("_wfz_device_selector")
+    reverse_labels = {label: key for key, label in DEVICE_LABELS.items()}
+    preference = reverse_labels.get(str(chosen_label), "auto")
+    st.session_state["_wfz_device_preference"] = preference
+    st.session_state["_wfz_device_preference_command"] = preference
+    detected = st.session_state.get("_wfz_detected_device_mode", "desktop")
+    st.session_state["_wfz_effective_device_mode"] = effective_device_mode(
+        preference,
+        detected,
+    )
+
+
+def _render_device_experience_sidebar() -> None:
+    """Offer a persistent fallback when automatic responsive layout is wrong."""
+    preference = normalise_device_preference(
+        st.session_state.get("_wfz_device_preference", "auto")
+    )
+    preferred_label = DEVICE_LABELS[preference]
+    if st.session_state.get("_wfz_device_selector") != preferred_label:
+        st.session_state["_wfz_device_selector"] = preferred_label
+
+    with st.sidebar.expander("选择浏览设备", expanded=False):
+        st.caption(
+            "已根据当前设备为你匹配布局"
+            if preference == "auto"
+            else "当前采用你手动选择的布局"
+        )
+        st.radio(
+            "设备布局",
+            options=list(DEVICE_LABELS.values()),
+            key="_wfz_device_selector",
+            on_change=_queue_device_preference,
+            horizontal=True,
+            label_visibility="collapsed",
+        )
+        st.caption(
+            "系统会自动识别设备；如果页面比例不合适，也可以手动切换。"
+            "选择正确的设备布局，图表、线索和操作区域会更清晰。"
+        )
+        if preference != "auto":
+            st.caption(
+                "当前使用：手机布局"
+                if preference == "mobile"
+                else "当前使用：电脑布局"
+            )
 
 
 def _sync_honour_archive_record(
@@ -4345,7 +5114,7 @@ def render_home_page() -> None:
 
 
 def _start_historical_game_mission() -> None:
-    """Open the one cross-module investigation at its earliest search date."""
+    """Save the cross-module brief before the player finds its research tool."""
     mission = HISTORICAL_GAME_MISSION
     company = build_company_identity(
         mission["company_code"],
@@ -4362,7 +5131,7 @@ def _start_historical_game_mission() -> None:
     st.session_state["historical_prefill_context"] = (
         "《消失的现金》｜开放调查01"
     )
-    _switch_page("historical")
+    _switch_page("workspace")
 
 
 _CASH_GAME_STEPS = (
@@ -4431,10 +5200,18 @@ def _show_cash_game_stage(
             "时，系统会明确告诉你研究问题，但不会标出正确线索。"
         )
         st.caption(
-            "最终通关档案保存在当前浏览器，不按调查员代号建账号，也不"
-            "读取 IP 地址。同名代号互不冲突；清理浏览器网站数据会删除"
-            "本地档案。"
+            "当前关卡、剩余生命、答题轮次和最终通关档案都保存在当前"
+            "浏览器，不按调查员代号建账号，也不读取 IP 地址。退出、"
+            "刷新或手机误触后可继续；清理浏览器网站数据会删除本地进度。"
         )
+    storage_status = st.session_state.get("_wfz_cash_game_storage_status")
+    if storage_status == "unavailable":
+        st.warning(
+            "当前浏览器禁止本地存储：本次仍可继续，但关闭页面后可能"
+            "无法恢复进度。可允许网站存储后再开始正式挑战。"
+        )
+    elif st.session_state.pop("_wfz_cash_game_restored", False):
+        st.success("已恢复这台设备上一次保存的案件进度。")
 
 
 def _cash_game_player() -> str | None:
@@ -4791,7 +5568,8 @@ def _render_cash_teaching_node() -> None:
         st.write(
             "进入案件前，请为主人公设置一个调查员代号。它只保存在当前"
             "浏览器的游戏进度中，用于剧情称呼；最终通关档案按浏览器保存，不按"
-            "代号或 IP 保存，因此同名不会冲突。请勿填写敏感信息。"
+            "代号或 IP 保存。不同浏览器中的同名不会互相影响；同一浏览器"
+            "只保存一份当前进度。请勿填写敏感信息。"
         )
         with st.form("game_player_identity_form", border=True):
             entered_name = st.text_input(
@@ -5086,15 +5864,16 @@ def render_cash_migration_page() -> None:
         st.write(mission["question"])
         st.caption(
             f"调查区间：{mission['window_start'].isoformat()} — "
-            f"{mission['window_end'].isoformat()}。进入 Historical Lens 后，"
-            "拖动时点滑轨并比较相邻日期；页面不会直接标出答案。"
+            f"{mission['window_end'].isoformat()}。请离开案件，在真实研究"
+            "工具中找到能够冻结信息截止线的入口，再比较相邻日期；"
+            "系统不会替你标出正确工具或答案。"
         )
     st.info(
         "这是首案唯一一次跨模块开放调查。它考查证据时钟、行情时钟"
         "和因果边界，不考股价预测，也不扣除三次容错机会。"
     )
     if st.button(
-        "接受委托｜进入 Historical Lens",
+        "接受委托｜前往研究中枢",
         type="primary",
         width="stretch",
         key="start_historical_game_mission",
@@ -5260,7 +6039,7 @@ def render_research_workspace_page() -> None:
     """Group all research tools by the job the user needs to complete."""
     apply_product_theme()
     show_compact_page_header(
-        "上市公司调查局 · LISTED COMPANY BUREAU",
+        "上市公司研究中枢 · LISTED COMPANY RESEARCH HUB",
         "按研究任务进入子工作台",
         "全部功能被组织成五个相互衔接的集合：先发现或选择标的，"
         "再完成公司总览，随后根据问题进入市场、财务或证据核验。",
@@ -5270,7 +6049,7 @@ def render_research_workspace_page() -> None:
     if company is None:
         st.info(
             "尚未选择研究公司。可以先输入公司名称或代码，也可以直接从"
-            "“标的发现与跟踪”开始。"
+            "“发现研究对象”开始。"
         )
         _render_company_search(
             key_prefix="workspace",
@@ -5278,6 +6057,19 @@ def render_research_workspace_page() -> None:
         )
     else:
         _show_company_banner(company)
+
+    historical_mission_pending = (
+        st.session_state.get("historical_game_mission_id")
+        == HISTORICAL_MISSION_ID
+        and st.session_state.get("historical_game_mission_completed")
+        != HISTORICAL_MISSION_ID
+    )
+    if historical_mission_pending:
+        st.info(
+            "开放调查仍在进行：请在下方研究集合中寻找一项能够冻结过去"
+            "信息截止线、并区分证据公开日与行情交易日的工具。"
+            "系统不会替你标出入口。"
+        )
 
     st.markdown(
         '<div class="wfz-section-label">'
@@ -5290,87 +6082,22 @@ def render_research_workspace_page() -> None:
         "形成可复核底稿**。每个专项页面都服务于这条主线，而不是独立存在。"
     )
 
-    collections = (
-        {
-            "title": "01｜标的发现与跟踪",
-            "description": (
-                "还没有确定研究对象，或需要管理已经关注的公司时使用。"
-            ),
-            "flow": "涨停板发现候选 → 自选股队列安排研究优先级",
-            "tools": (
-                ("查看每日涨停板观察台", "limit_up"),
-                ("扫描自选股任务队列", "radar"),
-            ),
-        },
-        {
-            "title": "02｜单家公司研究主线",
-            "description": (
-                "已经确定公司，希望先建立身份、行情、公告和年报的整体认识。"
-            ),
-            "flow": (
-                "公司概览 → 一键汇总五条证据链 → 核验新证据 → "
-                "更新研究假设"
-            ),
-            "tools": (
-                ("打开公司研究中心", "company"),
-                ("运行一键综合研究 Agent", "comprehensive"),
-                ("核验上次研究后的新证据", "evidence_delta"),
-                ("维护研究结论账本", "thesis_ledger"),
-            ),
-        },
-        {
-            "title": "03｜市场行为与历史复盘",
-            "description": (
-                "需要判断价格、成交和换手发生了什么，并检查当时有哪些公开信息。"
-            ),
-            "flow": "K线 → 成交与换手 → 异动识别 → 回到历史时点复盘",
-            "tools": (
-                ("查看K线与市场表现", "market"),
-                ("分析成交量与换手率", "volume_turnover"),
-                ("进入市场异动 Agent", "anomaly"),
-                ("使用 Historical Lens 复盘", "historical"),
-            ),
-        },
-        {
-            "title": "04｜财务报表与经营证据",
-            "description": (
-                "需要从年报原文核验财务变化、跨年趋势、公司差异或异常原因。"
-            ),
-            "flow": "年报原文 → 多年趋势 → 横向比较 → 异常解释",
-            "tools": (
-                ("生成全市场按需财务快照", "financial_snapshot"),
-                ("进入年报与证据分析", "annual"),
-                ("打开财务趋势实验室", "financial_trend"),
-                ("进行跨公司横向比较", "comparison"),
-                ("解释财务异常", "financial_anomaly"),
-            ),
-        },
-        {
-            "title": "05｜证据质量与数据扩展",
-            "description": (
-                "需要了解数据边界、核验规则，或把新公司安全加入深度案例库。"
-            ),
-            "flow": "自动生成候选数据 → 人工审批 → 公开方法与局限",
-            "tools": (
-                ("扩展已核验公司目录", "onboarding"),
-                ("查看方法、证据与产品边界", "methodology"),
-            ),
-        },
-    )
-
-    workspace_columns = st.columns(2)
-    for index, collection in enumerate(collections):
-        with workspace_columns[index % 2].container(border=True):
-            st.markdown(f"### {collection['title']}")
-            st.write(collection["description"])
-            st.caption(f"建议顺序：{collection['flow']}。")
-            for label, target in collection["tools"]:
-                if st.button(
-                    label,
-                    width="stretch",
-                    key=f"workspace_to_{target}",
-                ):
-                    _switch_page(target)
+    for row_start in range(0, len(_RESEARCH_COLLECTIONS), 2):
+        workspace_columns = st.columns(2)
+        for offset, collection in enumerate(
+            _RESEARCH_COLLECTIONS[row_start : row_start + 2]
+        ):
+            with workspace_columns[offset].container(border=True):
+                st.markdown(f"### {collection['title']}")
+                st.write(collection["description"])
+                st.caption(f"建议顺序：{collection['flow']}。")
+                for label, target in collection["tools"]:
+                    if st.button(
+                        label,
+                        width="stretch",
+                        key=f"workspace_to_{target}",
+                    ):
+                        _switch_page(target)
 
     st.warning(
         "各集合用于组织研究流程，不代表评分、选股结果或买卖建议。"
@@ -6158,7 +6885,7 @@ def render_market_page() -> None:
     )
     company = _selected_company()
     if company is None:
-        st.warning("请先在首页选择一家中国上市公司。")
+        st.warning("请先在上市公司研究中枢选择一家中国上市公司。")
         _render_company_search(
             key_prefix="market",
             navigate_on_success=False,
@@ -6427,7 +7154,7 @@ def render_volume_turnover_page() -> None:
     )
     company = _selected_company()
     if company is None:
-        st.warning("请先在首页选择一家中国上市公司。")
+        st.warning("请先在上市公司研究中枢选择一家中国上市公司。")
         _render_company_search(
             key_prefix="volume_turnover",
             navigate_on_success=False,
@@ -7301,7 +8028,7 @@ def render_market_anomaly_page() -> None:
     )
     company = _selected_company()
     if company is None:
-        st.warning("请先在首页选择一家中国上市公司。")
+        st.warning("请先在上市公司研究中枢选择一家中国上市公司。")
         _render_company_search(
             key_prefix="anomaly",
             navigate_on_success=False,
@@ -11179,16 +11906,17 @@ def main() -> None:
         page_title="FANGZHENG AI｜金融研究实验室",
         page_icon="🔎",
         layout="wide",
-        initial_sidebar_state="expanded",
+        initial_sidebar_state="auto",
     )
     _sync_browser_research_state()
+    _sync_cash_game_progress()
+    _sync_device_experience()
 
     home_page = st.Page(
         render_home_page,
-        title="首页",
+        title="Home Page",
         icon="🏠",
         default=True,
-        visibility="hidden",
     )
     game_page = st.Page(
         render_game_hub_page,
@@ -11239,7 +11967,7 @@ def main() -> None:
     )
     workspace_page = st.Page(
         render_research_workspace_page,
-        title="上市公司调查局",
+        title="上市公司研究中枢",
         icon="🏛️",
     )
     comprehensive_page = st.Page(
@@ -11405,6 +12133,11 @@ def main() -> None:
             methodology_page,
         ]
     )
+    _render_research_sidebar_navigation(
+        navigation,
+        st.session_state["_wfz_page_registry"],
+    )
+    _render_device_experience_sidebar()
     navigation.run()
 
 

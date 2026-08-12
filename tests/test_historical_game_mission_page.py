@@ -105,6 +105,97 @@ finally:
 """
 
 
+MIGRATION_HANDOFF_SCRIPT = """
+import streamlit as st
+
+from src import app
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state.setdefault("cash_case_stage", "migration")
+
+original_switch_page = app._switch_page
+try:
+    def capture_route(target):
+        st.session_state["captured_game_handoff_route"] = target
+
+    app._switch_page = capture_route
+    app.render_cash_migration_page()
+finally:
+    app._switch_page = original_switch_page
+"""
+
+
+WORKSPACE_MISSION_HINT_SCRIPT = """
+import streamlit as st
+
+from src import app
+from src.historical_game_mission import HISTORICAL_MISSION_ID
+
+st.session_state["historical_game_mission_id"] = HISTORICAL_MISSION_ID
+
+originals = {
+    "apply_product_theme": app.apply_product_theme,
+    "show_compact_page_header": app.show_compact_page_header,
+    "show_product_footer": app.show_product_footer,
+}
+try:
+    app.apply_product_theme = lambda: None
+    app.show_compact_page_header = lambda *args: None
+    app.show_product_footer = lambda: None
+    app.render_research_workspace_page()
+finally:
+    app.apply_product_theme = originals["apply_product_theme"]
+    app.show_compact_page_header = originals["show_compact_page_header"]
+    app.show_product_footer = originals["show_product_footer"]
+"""
+
+
+def test_migration_brief_requires_player_to_find_the_research_tool() -> None:
+    """Accepting the brief should preserve context but open only the hub."""
+    app_test = AppTest.from_string(MIGRATION_HANDOFF_SCRIPT).run()
+
+    page_copy = "\n".join(
+        [
+            *(item.value for item in app_test.markdown),
+            *(item.value for item in app_test.caption),
+            *(item.value for item in app_test.info),
+            *(item.label for item in app_test.button),
+        ]
+    )
+    assert "Historical Lens" not in page_copy
+
+    next(
+        item
+        for item in app_test.button
+        if item.label == "接受委托｜前往研究中枢"
+    ).click().run()
+
+    assert not app_test.exception
+    assert app_test.session_state["captured_game_handoff_route"] == "workspace"
+    assert (
+        app_test.session_state["historical_game_mission_id"]
+        == HISTORICAL_MISSION_ID
+    )
+    assert app_test.session_state["selected_company"]["code"] == "600519"
+    assert app_test.session_state["historical_prefill_date"] == "2024-09-18"
+    assert app_test.session_state["cash_case_stage"] == "migration"
+
+
+def test_workspace_only_hints_at_the_pending_game_tool() -> None:
+    """The hub should describe the capability without naming the destination."""
+    app_test = AppTest.from_string(WORKSPACE_MISSION_HINT_SCRIPT).run()
+
+    assert not app_test.exception
+    mission_hints = [
+        item.value
+        for item in app_test.info
+        if "开放调查仍在进行" in item.value
+    ]
+    assert len(mission_hints) == 1
+    assert "冻结过去信息截止线" in mission_hints[0]
+    assert "Historical Lens" not in mission_hints[0]
+
+
 def test_historical_mission_page_requires_date_and_reasoning() -> None:
     """The real page should reshuffle a wrong answer and complete both steps."""
     app_test = AppTest.from_string(MISSION_PAGE_SCRIPT).run()

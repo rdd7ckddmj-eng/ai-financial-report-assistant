@@ -86,16 +86,16 @@ render_home_page()
     assert "FINANCIAL RESEARCH LAB" in home_markup
     assert "别急着下结论" in home_markup
     assert "《消失的现金》" in home_markup
-    assert "上市公司调查局" in home_markup
+    assert "上市公司研究中枢" in home_markup
     button_labels = [button.label for button in app_test.button]
     assert button_labels == [
         "进入第一案",
-        "打开研究桌",
+        "进入研究中枢",
     ]
 
 
-def test_navigation_keeps_hidden_home_default_and_two_public_entries() -> None:
-    """Open at the landing page without adding a third sidebar entry."""
+def test_navigation_exposes_home_as_root_before_two_primary_modules() -> None:
+    """Keep a visible root page above the game and research branches."""
     from pathlib import Path
 
     source = Path("src/app.py").read_text(encoding="utf-8")
@@ -104,7 +104,8 @@ def test_navigation_keeps_hidden_home_default_and_two_public_entries() -> None:
     game_start = source.index("game_page = st.Page(")
     home_definition = source[home_start:game_start]
     assert "default=True" in home_definition
-    assert 'visibility="hidden"' in home_definition
+    assert 'title="Home Page"' in home_definition
+    assert 'visibility="hidden"' not in home_definition
 
     navigation_start = source.index("navigation = st.navigation(")
     navigation_definition = source[navigation_start:source.index(
@@ -565,22 +566,94 @@ render_research_workspace_page()
         item.value for item in app_test.markdown
     )
     for collection_title in (
-        "01｜标的发现与跟踪",
-        "02｜单家公司研究主线",
-        "03｜市场行为与历史复盘",
-        "04｜财务报表与经营证据",
-        "05｜证据质量与数据扩展",
+        "01｜发现研究对象",
+        "02｜完成公司初研",
+        "03｜调查市场事件",
+        "04｜核验财务证据",
+        "05｜跟踪与治理研究",
     ):
         assert collection_title in workspace_markup
 
     button_labels = [button.label for button in app_test.button]
-    assert "运行一键综合研究 Agent" in button_labels
+    assert "运行一键综合研究" in button_labels
     assert "核验上次研究后的新证据" in button_labels
     assert "维护研究结论账本" in button_labels
-    assert "进入市场异动 Agent" in button_labels
-    assert "生成全市场按需财务快照" in button_labels
-    assert "进入年报与证据分析" in button_labels
-    assert "查看方法、证据与产品边界" in button_labels
+    assert "调查市场异动" in button_labels
+    assert "生成最新年报财务快照" in button_labels
+    assert "核验年报原文与证据" in button_labels
+    assert "查看方法与审计" in button_labels
+
+
+def test_research_collection_config_assigns_every_tool_once() -> None:
+    """Keep the research hub and sidebar driven by one unambiguous map."""
+    from src.app import _RESEARCH_COLLECTIONS, _research_collection_for_page
+
+    targets = [
+        target
+        for collection in _RESEARCH_COLLECTIONS
+        for _, target in collection["tools"]
+    ]
+
+    assert len(_RESEARCH_COLLECTIONS) == 5
+    assert len(targets) == len(set(targets))
+    assert _research_collection_for_page("limit_up") == 0
+    assert _research_collection_for_page("comprehensive") == 1
+    assert _research_collection_for_page("historical") == 2
+    assert _research_collection_for_page("annual") == 3
+    assert _research_collection_for_page("thesis_ledger") == 4
+    assert _research_collection_for_page("game") is None
+
+
+def test_research_sidebar_only_renders_inside_research_branch() -> None:
+    """Do not leak the research task menu into the game or platform home."""
+    from types import SimpleNamespace
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+
+page_names = [
+    "home", "game", "workspace",
+    *(
+        target
+        for collection in app._RESEARCH_COLLECTIONS
+        for _, target in collection["tools"]
+    ),
+]
+registry = {
+    name: SimpleNamespace(url_path=name)
+    for name in page_names
+}
+current = registry[st.session_state.get("current_page", "game")]
+original_page_link = st.page_link
+try:
+    st.page_link = lambda page, **kwargs: st.write(kwargs["label"])
+    app._render_research_sidebar_navigation(current, registry)
+finally:
+    st.page_link = original_page_link
+"""
+    game_page = AppTest.from_string(script).run()
+    assert not game_page.exception
+    assert "研究子任务" not in "\n".join(
+        item.value for item in game_page.markdown
+    )
+
+    research_page = AppTest.from_string(script)
+    research_page.session_state["current_page"] = "annual"
+    research_page.run()
+    assert not research_page.exception
+    research_markup = "\n".join(
+        item.value for item in research_page.markdown
+    )
+    assert "研究子任务" in research_markup
+    assert "返回研究中枢总览" in research_markup
+    assert next(
+        expander
+        for expander in research_page.expander
+        if expander.label == "核验财务证据"
+    ).proto.expanded
 
 
 def test_evidence_delta_page_starts_without_live_requests() -> None:
