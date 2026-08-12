@@ -2872,6 +2872,482 @@ def apply_product_theme() -> None:
         )
 
 
+def apply_cash_game_theme() -> None:
+    """Turn the canonical game route into one responsive investigation set."""
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background:
+                linear-gradient(rgba(124, 223, 229, 0.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(124, 223, 229, 0.035) 1px, transparent 1px),
+                radial-gradient(circle at 82% 5%, rgba(31, 177, 187, 0.22), transparent 25rem),
+                radial-gradient(circle at 8% 35%, rgba(49, 103, 175, 0.18), transparent 30rem),
+                linear-gradient(145deg, #071526 0%, #0b2138 48%, #0b3142 100%) !important;
+            background-size: 34px 34px, 34px 34px, auto, auto, auto !important;
+            color: #eaf8fb !important;
+        }
+
+        [data-testid="stHeader"] {
+            background: rgba(5, 18, 32, 0.78) !important;
+            border-bottom-color: rgba(136, 227, 229, 0.09) !important;
+        }
+
+        .block-container {
+            max-width: 1280px !important;
+            padding-top: 1.25rem !important;
+        }
+
+        .wfz-game-screen,
+        .st-key-cash_game_shell {
+            position: relative;
+        }
+
+        .st-key-cash_game_shell {
+            overflow: hidden;
+            padding: 1.15rem 1.15rem 1.35rem;
+            border: 1px solid rgba(130, 225, 229, 0.16);
+            border-radius: 30px;
+            background:
+                radial-gradient(circle at 95% 0%, rgba(60, 201, 207, 0.13), transparent 23rem),
+                linear-gradient(155deg, rgba(9, 28, 48, 0.94), rgba(8, 38, 53, 0.91));
+            box-shadow:
+                0 34px 90px rgba(0, 6, 16, 0.42),
+                inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        }
+
+        .st-key-cash_game_shell::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(120deg, transparent 0 55%, rgba(143, 235, 232, 0.025) 55% 56%, transparent 56%);
+        }
+
+        .wfz-game-screen {
+            z-index: 1;
+            overflow: hidden;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(135, 228, 231, 0.17);
+            border-radius: 24px;
+            background:
+                radial-gradient(circle at 91% 6%, rgba(78, 214, 215, 0.14), transparent 22rem),
+                linear-gradient(145deg, rgba(13, 39, 62, 0.97), rgba(9, 29, 47, 0.94));
+            box-shadow: 0 24px 52px rgba(0, 8, 19, 0.28);
+        }
+
+        .wfz-game-commandbar {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: center;
+            padding: 1.15rem 1.3rem;
+            border-bottom: 1px solid rgba(143, 227, 229, 0.10);
+            background: rgba(4, 17, 31, 0.48);
+        }
+
+        .wfz-game-case-mark small,
+        .wfz-game-hud-item small {
+            display: block;
+            margin-bottom: 0.28rem;
+            color: #7091a7;
+            font-size: 0.58rem;
+            font-weight: 820;
+            letter-spacing: 0.13em;
+            text-transform: uppercase;
+        }
+
+        .wfz-game-case-mark strong {
+            color: #eefcff;
+            font-size: 0.96rem;
+            font-weight: 840;
+            letter-spacing: 0.035em;
+        }
+
+        .wfz-game-hud {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 0.55rem;
+            align-items: center;
+        }
+
+        .wfz-game-hud-item,
+        .wfz-game-save-state {
+            min-width: 104px;
+            padding: 0.55rem 0.72rem;
+            border: 1px solid rgba(136, 227, 229, 0.11);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.035);
+        }
+
+        .wfz-game-hud-item strong {
+            display: block;
+            color: #dff8fa;
+            font-size: 0.74rem;
+        }
+
+        .wfz-game-save-state {
+            min-width: auto;
+            color: #9fe8df;
+            font-size: 0.67rem;
+            font-weight: 730;
+        }
+
+        .wfz-game-save-state span {
+            display: inline-block;
+            width: 0.45rem;
+            height: 0.45rem;
+            margin-right: 0.35rem;
+            border-radius: 50%;
+            background: #66e0cf;
+            box-shadow: 0 0 0 0.2rem rgba(102, 224, 207, 0.11);
+        }
+
+        .wfz-game-lives {
+            display: flex !important;
+            gap: 0.32rem;
+            align-items: center;
+            min-height: 0.9rem;
+        }
+
+        .wfz-game-life {
+            display: inline-block;
+            width: 0.57rem;
+            height: 0.57rem;
+            border: 1px solid #62798b;
+            border-radius: 50%;
+            background: transparent;
+        }
+
+        .wfz-game-life--live {
+            border-color: #71e2d3;
+            background: #71e2d3;
+            box-shadow: 0 0 0.55rem rgba(113, 226, 211, 0.45);
+        }
+
+        .wfz-learning-loop {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(112px, 1fr));
+            gap: 0.55rem;
+            margin: 0;
+            padding: 0.85rem 1.05rem;
+            overflow-x: auto;
+            border-bottom: 1px solid rgba(143, 227, 229, 0.09);
+            background: rgba(2, 15, 27, 0.36);
+            scrollbar-width: thin;
+        }
+
+        .wfz-learning-step {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.12rem 0.5rem;
+            align-items: center;
+            min-width: 0;
+            padding: 0.68rem 0.72rem;
+            border: 1px solid rgba(133, 215, 220, 0.10);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.025);
+            color: #7690a2;
+            text-align: left;
+        }
+
+        .wfz-learning-step span {
+            grid-row: 1 / 3;
+            color: #48697f;
+            font-size: 0.68rem;
+            font-weight: 900;
+        }
+
+        .wfz-learning-step strong {
+            overflow: hidden;
+            color: inherit;
+            font-size: 0.69rem;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .wfz-learning-step small {
+            color: inherit;
+            font-size: 0.54rem;
+            font-weight: 720;
+            letter-spacing: 0.06em;
+        }
+
+        .wfz-learning-step--done {
+            border-color: rgba(86, 193, 181, 0.18);
+            background: rgba(43, 140, 139, 0.09);
+            color: #73c9c2;
+        }
+
+        .wfz-learning-step--current {
+            border-color: rgba(122, 232, 226, 0.42);
+            background: linear-gradient(135deg, rgba(29, 108, 143, 0.72), rgba(18, 144, 145, 0.63));
+            box-shadow: 0 10px 24px rgba(0, 12, 27, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.09);
+            color: #ffffff;
+        }
+
+        .wfz-learning-step--current span {
+            color: #b9f5ef;
+        }
+
+        .wfz-learning-step--locked {
+            border-style: solid;
+            background: rgba(255, 255, 255, 0.018);
+            color: #5b7182;
+        }
+
+        .wfz-game-scene-heading {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 1.3rem;
+            align-items: start;
+            padding: 2rem 2rem 1.35rem;
+        }
+
+        .wfz-game-scene-number {
+            padding: 0.55rem 0.7rem;
+            border: 1px solid rgba(127, 226, 225, 0.22);
+            border-radius: 10px;
+            background: rgba(46, 170, 171, 0.10);
+            color: #87e3dd;
+            font-size: 0.64rem;
+            font-weight: 850;
+            letter-spacing: 0.12em;
+            white-space: nowrap;
+        }
+
+        .wfz-game-location {
+            margin-bottom: 0.35rem;
+            color: #5f8399;
+            font-size: 0.62rem;
+            font-weight: 820;
+            letter-spacing: 0.14em;
+        }
+
+        .wfz-game-scene-heading h1 {
+            margin: 0;
+            color: #effcff !important;
+            font-size: clamp(1.7rem, 4vw, 3.1rem);
+            letter-spacing: -0.045em;
+            line-height: 1.06;
+        }
+
+        .wfz-game-scene-heading p {
+            max-width: 820px;
+            margin: 0.68rem 0 0;
+            color: #9bb4c3 !important;
+            font-size: 0.9rem;
+            line-height: 1.7;
+        }
+
+        .wfz-game-director-line {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.8rem;
+            align-items: center;
+            margin: 0 2rem 1.75rem;
+            padding: 0.8rem 0.95rem;
+            border-left: 3px solid #4fd4ca;
+            background: rgba(75, 193, 190, 0.075);
+        }
+
+        .wfz-game-director-line span {
+            color: #75d9d2;
+            font-size: 0.65rem;
+            font-weight: 850;
+            letter-spacing: 0.08em;
+            white-space: nowrap;
+        }
+
+        .wfz-game-director-line p {
+            margin: 0;
+            color: #c6dde3 !important;
+            font-size: 0.78rem;
+            line-height: 1.55;
+        }
+
+        .wfz-game-prologue,
+        .wfz-game-scene-card,
+        .st-key-cash_game_shell [data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-cash_game_shell [data-testid="stForm"] {
+            border: 1px solid rgba(132, 224, 226, 0.15) !important;
+            border-radius: 18px !important;
+            background:
+                linear-gradient(145deg, rgba(18, 48, 70, 0.82), rgba(11, 33, 51, 0.88)) !important;
+            box-shadow: 0 18px 38px rgba(0, 8, 19, 0.18) !important;
+        }
+
+        .wfz-game-prologue {
+            margin: 0.2rem 0 1rem;
+            padding: 1.55rem 1.7rem;
+        }
+
+        .wfz-game-prologue-kicker,
+        .wfz-game-card-kicker {
+            color: #6edbd2;
+            font-size: 0.65rem;
+            font-weight: 850;
+            letter-spacing: 0.13em;
+        }
+
+        .wfz-game-prologue h2,
+        .wfz-game-scene-card h3 {
+            margin: 0.65rem 0 0.7rem;
+            color: #f0fcff !important;
+        }
+
+        .wfz-game-prologue p,
+        .wfz-game-scene-card p,
+        .st-key-cash_game_shell p,
+        .st-key-cash_game_shell label,
+        .st-key-cash_game_shell [data-testid="stCaptionContainer"] {
+            color: #b1c7d2 !important;
+        }
+
+        .wfz-game-rules {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin-top: 1.1rem;
+        }
+
+        .wfz-game-rule {
+            padding: 0.85rem 0.9rem;
+            border: 1px solid rgba(126, 218, 220, 0.11);
+            border-radius: 13px;
+            background: rgba(255, 255, 255, 0.032);
+        }
+
+        .wfz-game-rule strong {
+            display: block;
+            margin-bottom: 0.3rem;
+            color: #dff7f8;
+            font-size: 0.75rem;
+        }
+
+        .wfz-game-rule span {
+            color: #8fa9b8;
+            font-size: 0.69rem;
+            line-height: 1.55;
+        }
+
+        .st-key-cash_game_shell h1,
+        .st-key-cash_game_shell h2,
+        .st-key-cash_game_shell h3,
+        .st-key-cash_game_shell h4 {
+            color: #edfaff !important;
+        }
+
+        .st-key-cash_game_shell [data-testid="stAlert"] {
+            border: 1px solid rgba(132, 224, 226, 0.13) !important;
+            background: rgba(24, 65, 84, 0.72) !important;
+        }
+
+        .st-key-cash_game_shell [data-testid="stExpander"] {
+            border: 1px solid rgba(132, 224, 226, 0.13) !important;
+            background: rgba(12, 35, 53, 0.86) !important;
+        }
+
+        .st-key-cash_game_shell [data-testid="stExpander"] summary,
+        .st-key-cash_game_shell [data-testid="stExpander"] svg,
+        .st-key-cash_game_shell [data-testid="stExpander"] p {
+            color: #c8e0e6 !important;
+        }
+
+        .st-key-cash_game_shell [data-testid="stTextInputRootElement"],
+        .st-key-cash_game_shell [data-testid="stTextAreaRootElement"],
+        .st-key-cash_game_shell [data-baseweb="select"] > div {
+            border-color: rgba(132, 224, 226, 0.18) !important;
+            background: rgba(3, 20, 34, 0.72) !important;
+        }
+
+        .st-key-cash_game_shell input,
+        .st-key-cash_game_shell textarea,
+        .st-key-cash_game_shell [role="option"],
+        .st-key-cash_game_shell [role="radiogroup"] p,
+        .st-key-cash_game_shell [data-baseweb="select"] span {
+            color: #e9f8fb !important;
+            -webkit-text-fill-color: #e9f8fb !important;
+        }
+
+        .st-key-cash_game_shell .stButton > button,
+        .st-key-cash_game_shell .stFormSubmitButton > button,
+        .st-key-cash_game_shell .stDownloadButton > button {
+            min-height: 3.1rem;
+            border: 1px solid rgba(157, 240, 235, 0.22) !important;
+            background: linear-gradient(105deg, #155985, #119c9a) !important;
+            box-shadow: 0 13px 28px rgba(0, 18, 31, 0.32) !important;
+        }
+
+        .wfz-game-shell-footer {
+            margin-top: 1.15rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(132, 224, 226, 0.09);
+            color: #688497;
+            font-size: 0.65rem;
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        @media (max-width: 760px) {
+            .st-key-cash_game_shell {
+                padding: 0.55rem 0.55rem 0.9rem;
+                border-radius: 21px;
+            }
+
+            .wfz-game-commandbar {
+                align-items: flex-start;
+                padding: 0.9rem;
+            }
+
+            .wfz-game-commandbar,
+            .wfz-game-hud,
+            .wfz-game-scene-heading,
+            .wfz-game-director-line {
+                grid-template-columns: 1fr;
+                flex-direction: column;
+            }
+
+            .wfz-game-hud {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .wfz-game-hud-item,
+            .wfz-game-save-state {
+                width: 100%;
+            }
+
+            .wfz-learning-loop {
+                grid-template-columns: repeat(7, minmax(108px, 1fr));
+                padding: 0.7rem 0.75rem;
+            }
+
+            .wfz-game-scene-heading {
+                gap: 0.8rem;
+                padding: 1.35rem 1.05rem 1rem;
+            }
+
+            .wfz-game-director-line {
+                gap: 0.4rem;
+                margin: 0 1rem 1.25rem;
+            }
+
+            .wfz-game-rules {
+                grid-template-columns: 1fr;
+            }
+
+            .wfz-game-prologue {
+                padding: 1.15rem 1.05rem;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def show_product_identity() -> None:
     """Render the portfolio brand and developer attribution."""
     st.markdown(
@@ -3550,16 +4026,12 @@ def _switch_page(name: str) -> None:
         st.switch_page(target)
 
 
-def _advance_game(stage: str, page_name: str) -> None:
-    """Persist one legitimate game transition and open its own page."""
+def _advance_game(stage: str) -> None:
+    """Persist one legitimate transition inside the canonical game screen."""
     st.session_state["cash_case_stage"] = stage
-    target = _page_target(page_name)
-    if target is not None:
-        st.switch_page(target)
-    else:
-        # Bare Streamlit tests do not register multipage targets. A rerun keeps
-        # the same state-machine behaviour while production opens a new URL.
-        st.rerun()
+    # Scenes no longer own Streamlit URLs: one rerun changes the scene without
+    # leaving ``消失的现金``.
+    st.rerun()
 
 
 def _browser_research_snapshot() -> dict[str, object]:
@@ -5135,116 +5607,186 @@ def _start_historical_game_mission() -> None:
 
 
 _CASH_GAME_STEPS = (
-    ("教学", "game"),
-    ("练习", "game_practice"),
-    ("调查", "game_investigation"),
-    ("证据链", "game_evidence"),
-    ("答辩", "game_defense"),
-    ("迁移", "game_migration"),
-    ("封存", "game_honour"),
+    ("教学", "入案简报｜两种真相"),
+    ("练习", "时间校准｜钱还在路上"),
+    ("调查", "现场搜查｜失序办公室"),
+    ("证据链", "证据拼合｜四环闭合"),
+    ("答辩", "结论答辩｜审查席"),
+    ("外勤", "开放调查｜两只时钟"),
+    ("封存", "首案封存｜荣誉档案"),
 )
 
 
-def _cash_game_route_for_stage(stage: str) -> str:
-    """Return the only page that corresponds to the saved game stage."""
-    if stage in {"practice", "timing_completed", "completed"}:
-        return "game_practice"
-    if stage == "investigation":
-        return "game_investigation"
-    if stage in {"evidence", "evidence_completed"}:
-        return "game_evidence"
-    if stage in {
-        "defense",
-        "defense_failed",
-        "case_completed",
-    }:
-        return "game_defense"
-    if stage == "migration":
-        return "game_migration"
-    if stage == "migration_completed":
-        return "game_honour"
-    return "game"
+_CASH_GAME_SCENE_META: dict[str, tuple[int, str, str, str]] = {
+    "briefing": (
+        1,
+        "入案简报｜两种真相",
+        "分清利润与现金分别在回答什么问题。",
+        "如果你认为利润等于到账，这起案件已经领先你一步。",
+    ),
+    "practice": (
+        2,
+        "时间校准｜钱还在路上",
+        "分别计算一项业务对利润与现金的影响。",
+        "会算并不稀奇，别把两只时钟看成同一只。",
+    ),
+    "timing_completed": (
+        2,
+        "时间校准｜钱还在路上",
+        "复盘计算，再决定下一处调查现场。",
+        "短期记住答案不算本事，换一份档案仍能判断才算。",
+    ),
+    "completed": (
+        2,
+        "时间校准｜钱还在路上",
+        "复盘计算，再决定下一处调查现场。",
+        "短期记住答案不算本事，换一份档案仍能判断才算。",
+    ),
+    "investigation": (
+        3,
+        "现场搜查｜失序办公室",
+        "搜查六份文件，记录日期、金额、条款、签章与来源。",
+        "文件看起来越正式，越不代表它有资格作证。",
+    ),
+    "evidence": (
+        4,
+        "证据拼合｜四环闭合",
+        "选出恰好四份能够相互核验的材料。",
+        "多选一份不是谨慎，是你还没有决定相信什么。",
+    ),
+    "evidence_completed": (
+        4,
+        "证据拼合｜四环闭合",
+        "复核已经闭合的证据链，并守住结论边界。",
+        "材料找齐只是开始，知道它们不能证明什么才是研究。",
+    ),
+    "defense": (
+        5,
+        "结论答辩｜审查席",
+        "连续完成结论、边界与核验行动三轮答辩。",
+        "委员会允许你犹豫，不允许你把猜测包装成结论。",
+    ),
+    "defense_failed": (
+        5,
+        "结论答辩｜审查席",
+        "案件被退回；领取新卷宗，重新建立证据链。",
+        "失败不可怕，拿着旧答案审新案才可怕。",
+    ),
+    "case_completed": (
+        5,
+        "结论答辩｜审查席",
+        "核对委员会记录，并接收真实历史调查委托。",
+        "你通过的不是一道题，而是一轮对判断边界的追问。",
+    ),
+    "migration": (
+        6,
+        "开放调查｜两只时钟",
+        "离开案件，在真实研究区域寻找首次可见的公开证据。",
+        "这一次，系统不发线索。真正公开过的东西才算存在。",
+    ),
+    "migration_completed": (
+        7,
+        "首案封存｜拒绝用明天解释今天",
+        "核验通关记录并生成荣誉档案。",
+        "你没有猜中真相。你证明了自己配得上结论。",
+    ),
+}
+
+
+def _cash_game_scene_meta(stage: str) -> tuple[int, str, str, str]:
+    """Return bounded display metadata for a durable game stage."""
+    return _CASH_GAME_SCENE_META.get(stage, _CASH_GAME_SCENE_META["briefing"])
 
 
 def _show_cash_game_stage(
     step_number: int,
     title: str,
     subtitle: str,
+    taunt: str,
+    *,
+    prologue: bool = False,
 ) -> None:
-    """Show the in-story guide shared by every independent game page."""
-    show_compact_page_header(
-        f"《消失的现金》 / 第 {step_number} 幕",
-        title,
-        subtitle,
-    )
+    """Render the single in-game HUD shared by the prologue and all scenes."""
+    player_name = str(st.session_state.get("game_player_name", "")).strip()
+    display_player = escape(player_name) if player_name else "身份待建立"
+    step_value = "prologue" if prologue else f"{step_number:02d}"
+    progress_text = "接案前" if prologue else f"第 {step_number} / 07 幕"
+    lives = int(st.session_state.get("cash_defense_lives", 3))
+    lives_html = ""
+    if not prologue and step_number == 5:
+        life_dots = "".join(
+            '<span class="wfz-game-life wfz-game-life--live"></span>'
+            if index < lives
+            else '<span class="wfz-game-life"></span>'
+            for index in range(3)
+        )
+        lives_html = (
+            '<div class="wfz-game-hud-item"><small>审查机会</small>'
+            f'<strong class="wfz-game-lives">{life_dots}</strong></div>'
+        )
     steps = []
     for index, (label, _) in enumerate(_CASH_GAME_STEPS, start=1):
-        if index < step_number:
-            state, state_class = "已完成", "done"
+        if prologue:
+            state, state_class = "未授权", "locked"
+        elif index < step_number:
+            state, state_class = "已通过", "done"
         elif index == step_number:
-            state, state_class = "进行中", "current"
+            state, state_class = "执行中", "current"
         else:
-            state, state_class = "未解锁", "locked"
+            state, state_class = "未授权", "locked"
         steps.append(
             f'<div class="wfz-learning-step wfz-learning-step--{state_class}">'
-            f"{index:02d}｜{escape(label)} · {state}</div>"
+            f'<span>{index:02d}</span><strong>{escape(label)}</strong>'
+            f'<small>{state}</small></div>'
         )
     st.markdown(
-        '<div class="wfz-learning-loop">' + "".join(steps) + "</div>",
+        f"""
+        <section class="wfz-game-screen" data-wfz-game-screen="true"
+                 data-game-step="{step_value}">
+            <div class="wfz-game-commandbar">
+                <div class="wfz-game-case-mark">
+                    <small>FANGZHENG AI · INVESTIGATION FILE</small>
+                    <strong>CASE 01｜消失的现金</strong>
+                </div>
+                <div class="wfz-game-hud">
+                    <div class="wfz-game-hud-item">
+                        <small>调查员</small><strong>{display_player}</strong>
+                    </div>
+                    <div class="wfz-game-hud-item">
+                        <small>案件位置</small><strong>{progress_text}</strong>
+                    </div>
+                    {lives_html}
+                    <div class="wfz-game-save-state">
+                        <span></span> 本机进度自动保存
+                    </div>
+                </div>
+            </div>
+            <div class="wfz-learning-loop">{"".join(steps)}</div>
+            <div class="wfz-game-scene-heading">
+                <div class="wfz-game-scene-number">
+                    {"序章" if prologue else f"SCENE {step_number:02d}"}
+                </div>
+                <div>
+                    <div class="wfz-game-location">当前现场</div>
+                    <h1>{escape(title)}</h1>
+                    <p>{escape(subtitle)}</p>
+                </div>
+            </div>
+            <div class="wfz-game-director-line">
+                <span>调查主任留言</span>
+                <p>{escape(taunt)}</p>
+            </div>
+        </section>
+        """,
         unsafe_allow_html=True,
     )
-    with st.expander("本幕怎么玩｜游戏说明"):
-        st.write(
-            "按剧情顺序完成任务，不能跳关。教学和调查阶段答错不扣"
-            "生命；正式答辩三轮共用三次容错机会。需要使用真实研究工具"
-            "时，系统会明确告诉你研究问题，但不会标出正确线索。"
-        )
-        st.caption(
-            "当前关卡、剩余生命、答题轮次和最终通关档案都保存在当前"
-            "浏览器，不按调查员代号建账号，也不读取 IP 地址。退出、"
-            "刷新或手机误触后可继续；清理浏览器网站数据会删除本地进度。"
-        )
     storage_status = st.session_state.get("_wfz_cash_game_storage_status")
     if storage_status == "unavailable":
         st.warning(
-            "当前浏览器禁止本地存储：本次仍可继续，但关闭页面后可能"
-            "无法恢复进度。可允许网站存储后再开始正式挑战。"
+            "本机档案无法写入｜本次可以继续，但退出后可能无法续查。"
         )
     elif st.session_state.pop("_wfz_cash_game_restored", False):
-        st.success("已恢复这台设备上一次保存的案件进度。")
-
-
-def _cash_game_player() -> str | None:
-    """Return the active player or offer a safe route to the first page."""
-    player_name = str(st.session_state.get("game_player_name", "")).strip()
-    if player_name:
-        return player_name
-    st.warning("此页面尚未解锁。请先建立调查员档案并完成前置任务。")
-    if st.button(
-        "返回《消失的现金》开场",
-        type="primary",
-        width="stretch",
-        key="return_to_cash_game_start",
-    ):
-        _switch_page("game")
-    return None
-
-
-def _cash_game_page_unlocked(page_name: str) -> bool:
-    """Reject deep-link skips while preserving the player's saved progress."""
-    stage = str(st.session_state.get("cash_case_stage", "briefing"))
-    current_page = _cash_game_route_for_stage(stage)
-    if current_page == page_name:
-        return True
-    st.warning("这一幕尚未解锁，或你已经进入了后续任务。")
-    if st.button(
-        "返回当前任务",
-        type="primary",
-        width="stretch",
-        key=f"resume_cash_game_from_{page_name}",
-    ):
-        _switch_page(current_page)
-    return False
+        st.success("案件续接成功｜已返回你上次离开的现场。")
 
 
 def _show_cash_evidence_documents(
@@ -5297,7 +5839,7 @@ def _render_cash_investigation_node(player_name: str) -> None:
         width="stretch",
         key="finish_cash_investigation",
     ):
-        _advance_game("evidence", "game_evidence")
+        _advance_game("evidence")
 
 
 def _render_cash_evidence_node(player_name: str) -> None:
@@ -5375,7 +5917,7 @@ def _render_cash_evidence_node(player_name: str) -> None:
                 st.rerun()
         return
 
-    st.success("第二节点完成｜你已经把线索整理成一条可相互核验的证据链。")
+    st.success("04 现场通过｜你已经把线索整理成一条可相互核验的证据链。")
     explanation = str(
         st.session_state.get("cash_evidence_explanation", "")
     )
@@ -5403,7 +5945,7 @@ def _render_cash_evidence_node(player_name: str) -> None:
         st.session_state["cash_defense_attempt_index"] = 0
         st.session_state["cash_defense_completed_explanations"] = []
         st.session_state.pop("cash_defense_feedback", None)
-        _advance_game("defense", "game_defense")
+        _advance_game("defense")
 
 
 def _render_cash_defense_node(player_name: str) -> None:
@@ -5416,8 +5958,8 @@ def _render_cash_defense_node(player_name: str) -> None:
     )
 
     st.divider()
-    st.caption("正式考核 · REVIEW COMMITTEE 03")
-    st.subheader("第三节点：三轮结论答辩")
+    st.caption("正式审查 · REVIEW COMMITTEE")
+    st.subheader("三轮结论答辩")
 
     if stage == "defense_failed":
         st.error("本轮三次容错机会已经用完｜案件退回重新调查。")
@@ -5440,11 +5982,11 @@ def _render_cash_defense_node(player_name: str) -> None:
             )
             st.session_state.pop("cash_evidence_explanation", None)
             st.session_state.pop("cash_defense_feedback", None)
-            _advance_game("investigation", "game_investigation")
+            _advance_game("investigation")
         return
 
     if stage in {"case_completed", "migration_completed"}:
-        st.success("《消失的现金》前三节点通过｜委员会接受你的研究判断。")
+        st.success("05 现场通过｜委员会接受你的研究判断。")
         with st.container(border=True):
             st.markdown(f"#### 调查员 {escape(player_name)}的答辩记录")
             for explanation in st.session_state.get(
@@ -5462,7 +6004,7 @@ def _render_cash_defense_node(player_name: str) -> None:
             width="stretch",
             key="open_cash_migration_stage",
         ):
-            _advance_game("migration", "game_migration")
+            _advance_game("migration")
         return
 
     question = build_cash_defense_question(round_index, attempt_index)
@@ -5549,36 +6091,51 @@ def _render_cash_teaching_node() -> None:
     if not player_name:
         st.markdown(
             """
-            <section class="wfz-game-opening">
-                <div class="wfz-game-opening-kicker">CASE 01 · INTAKE OPEN</div>
-                <h2>利润涨了 38%，钱却少了 22%。</h2>
+            <section class="wfz-game-prologue">
+                <div class="wfz-game-prologue-kicker">
+                    22:17 · 加密终端来讯 · 身份建立请求
+                </div>
+                <h2>建立临时调查身份</h2>
                 <p>
-                    先别急着说造假。报表没有说谎——它只是很擅长只说一半。
-                    现金不见了，桌上的每份材料都声称自己很重要，
-                    其中几份确实只是嗓门大。
+                    案件编号 CASE 01：《消失的现金》。利润上涨 38%，
+                    经营现金流却下降 22%。请先别急着定罪——桌上的每一份
+                    文件，都在争夺你的信任。完成身份建立与调查主任简报后，
+                    01 现场才会解除封条。
                 </p>
-                <div class="wfz-game-taunt">
-                    若你只是来猜答案，这一局可能比你想象得短。
+                <div class="wfz-game-rules">
+                    <div class="wfz-game-rule">
+                        <strong>调查守则 01｜不能跳关</strong>
+                        <span>案件按顺序开放。练习答错会立即换卷；正式答辩三轮共用三次容错。</span>
+                    </div>
+                    <div class="wfz-game-rule">
+                        <strong>调查守则 02｜离开仍可续查</strong>
+                        <span>当前现场保存在本机浏览器，不按代号或 IP 保存，也不建立账号。</span>
+                    </div>
+                    <div class="wfz-game-rule">
+                        <strong>调查守则 03｜公开证据优先</strong>
+                        <span>第 06 幕会要求你离开案件，自行在真实研究区域寻找公开证据。</span>
+                    </div>
+                    <div class="wfz-game-rule">
+                        <strong>调查守则 04｜代号不是账户</strong>
+                        <span>相同代号不会合并记录；请勿填写姓名、电话等真实敏感信息。</span>
+                    </div>
                 </div>
             </section>
             """,
             unsafe_allow_html=True,
         )
-        st.markdown("#### 报上代号，接案")
-        st.write(
-            "进入案件前，请为主人公设置一个调查员代号。它只保存在当前"
-            "浏览器的游戏进度中，用于剧情称呼；最终通关档案按浏览器保存，不按"
-            "代号或 IP 保存。不同浏览器中的同名不会互相影响；同一浏览器"
-            "只保存一份当前进度。请勿填写敏感信息。"
-        )
         with st.form("game_player_identity_form", border=True):
+            st.markdown("#### 终端验证｜报上代号，签收案件")
+            st.caption(
+                "代号只用于剧情称呼，不是账号。请输入 1—12 个字符。"
+            )
             entered_name = st.text_input(
                 "调查员代号",
                 placeholder="最多12个字符",
                 max_chars=12,
             )
             identity_submitted = st.form_submit_button(
-                "报上代号｜接受第一案",
+                "建立档案并接案｜进入 01 现场",
                 type="primary",
                 width="stretch",
             )
@@ -5628,19 +6185,19 @@ def _render_cash_teaching_node() -> None:
 
     st.info(
         "记住两个问题：利润看“业务是否完成”，现金看“钱是否真的"
-        "收付”。准备好后进入下一张独立任务页面。"
+        "收付”。准备好后调取下一份业务档案。"
     )
     if st.button(
-        "我理解了｜打开第一份业务档案",
+        "完成简报｜调取业务档案",
         type="primary",
         width="stretch",
         key="cash_case_start_practice",
     ):
-        _advance_game("practice", "game_practice")
+        _advance_game("practice")
 
 
 def _render_cash_practice_node(player_name: str) -> None:
-    """Render the changing timing calculation on an independent page."""
+    """Render the changing timing calculation inside scene two."""
     stage = str(st.session_state.get("cash_case_stage", "practice"))
 
     feedback = st.session_state.pop("cash_case_feedback", None)
@@ -5658,7 +6215,7 @@ def _render_cash_practice_node(player_name: str) -> None:
         ):
             st.caption(
                 f"动态业务档案 · 第 {question['attempt_number']} 份｜"
-                "本节点答错不扣生命"
+                "训练现场答错不扣机会"
             )
             st.markdown("#### 分别计算利润影响与现金影响")
             st.write(question["prompt"])
@@ -5698,14 +6255,14 @@ def _render_cash_practice_node(player_name: str) -> None:
     explanation = str(
         st.session_state.get("cash_case_last_explanation", "")
     )
-    st.success("第一教学节点完成｜利润与现金的两只计量表已经分开。")
+    st.success("02 现场通过｜利润与现金的两只计量表已经分开。")
     if explanation:
         with st.container(border=True):
             st.markdown("#### 审查官复盘")
             st.write(explanation)
     if stage in {"completed", "timing_completed"}:
         st.info(
-            "你现在只证明自己掌握了基础计算。下一节点会把合同、应收"
+            "你现在只证明自己掌握了基础计算。下一现场会把合同、应收"
             "明细、验收文件和期后回款放进同一办公室，要求你自己寻找"
             "材料并判断差异是否值得警惕。"
         )
@@ -5716,13 +6273,14 @@ def _render_cash_practice_node(player_name: str) -> None:
             key="open_cash_evidence_room",
         ):
             st.session_state["cash_evidence_attempt_index"] = 0
-            _advance_game("investigation", "game_investigation")
+            _advance_game("investigation")
         return
 
 
 def render_game_hub_page() -> None:
-    """Open the case immediately and resume the browser's current stage."""
+    """Render the prologue and all seven scenes on one canonical game page."""
     apply_product_theme()
+    apply_cash_game_theme()
     mission_completed_in_session = (
         st.session_state.get("historical_game_mission_completed")
         == HISTORICAL_MISSION_ID
@@ -5744,119 +6302,56 @@ def render_game_hub_page() -> None:
             HISTORICAL_MISSION_ID
         )
     stage = str(st.session_state.get("cash_case_stage", "briefing"))
-    route = _cash_game_route_for_stage(stage)
-    if route != "game" and _page_target(route) is not None:
-        _switch_page(route)
-        return
-
-    # Bare tests have no page registry; dispatching preserves the same stage
-    # machine without weakening production's independent-page structure.
-    if route == "game_practice":
-        render_cash_practice_page()
-        return
-    if route == "game_investigation":
-        render_cash_investigation_page()
-        return
-    if route == "game_evidence":
-        render_cash_evidence_page()
-        return
-    if route == "game_defense":
-        render_cash_defense_page()
-        return
-    if route == "game_migration":
-        render_cash_migration_page()
-        return
-    if route == "game_honour":
-        render_cash_honour_page()
-        return
-
-    _show_cash_game_stage(
-        1,
-        "《消失的现金》",
-        "利润涨了38%，钱却少了22%。先别急着说造假——答案藏得不深，偏见藏得更深。",
+    has_player = bool(
+        str(st.session_state.get("game_player_name", "")).strip()
     )
-    _render_cash_teaching_node()
-    show_product_footer()
+    if not has_player:
+        _show_cash_game_stage(
+            0,
+            "案件接入｜建立调查身份",
+            "取好代号，读完调查守则，再决定是否签收这份案卷。",
+            "如果你只想猜答案，这起案件可能比你先看穿你。",
+            prologue=True,
+        )
+    else:
+        step_number, title, subtitle, taunt = _cash_game_scene_meta(stage)
+        _show_cash_game_stage(step_number, title, subtitle, taunt)
+    with st.container(key="cash_game_shell"):
+        if not has_player:
+            _render_cash_teaching_node()
+        else:
+            player_name = str(st.session_state["game_player_name"]).strip()
+            if stage == "briefing":
+                _render_cash_teaching_node()
+            elif stage in {"practice", "timing_completed", "completed"}:
+                _render_cash_practice_node(player_name)
+            elif stage == "investigation":
+                _render_cash_investigation_node(player_name)
+            elif stage in {"evidence", "evidence_completed"}:
+                _render_cash_evidence_node(player_name)
+            elif stage in {"defense", "defense_failed", "case_completed"}:
+                _render_cash_defense_node(player_name)
+            elif stage == "migration":
+                _render_cash_migration_node(player_name)
+            elif stage == "migration_completed":
+                _render_cash_honour_node(player_name)
+            else:
+                st.session_state["cash_case_stage"] = "briefing"
+                st.warning("案件档案已校正｜正在返回 01 现场。")
+                st.rerun()
+        st.markdown(
+            """
+            <div class="wfz-game-shell-footer">
+                本案用于训练金融研究判断，不预测股价，也不构成投资建议。
+                01—07 均属于同一案件；只有第 06 幕外勤调查会暂时离开。
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
-def render_cash_practice_page() -> None:
-    """Render stage two as an independent page."""
-    apply_product_theme()
-    _show_cash_game_stage(
-        2,
-        "第一份业务档案",
-        "会算利润只够进门；分清现金，才算开始读懂业务。",
-    )
-    player_name = _cash_game_player()
-    if player_name is not None and _cash_game_page_unlocked(
-        "game_practice"
-    ):
-        _render_cash_practice_node(player_name)
-    show_product_footer()
-
-
-def render_cash_investigation_page() -> None:
-    """Render stage three as an independent office-search page."""
-    apply_product_theme()
-    _show_cash_game_stage(
-        3,
-        "项目办公室搜查",
-        "六份材料里，有真线索，也有很努力扮演线索的废纸。",
-    )
-    player_name = _cash_game_player()
-    if player_name is not None and _cash_game_page_unlocked(
-        "game_investigation"
-    ):
-        _render_cash_investigation_node(player_name)
-    show_product_footer()
-
-
-def render_cash_evidence_page() -> None:
-    """Render stage four as an independent evidence-chain page."""
-    apply_product_theme()
-    _show_cash_game_stage(
-        4,
-        "证据链审查",
-        "四份刚好：少一份逻辑会断，多一份说明你还没学会取舍。",
-    )
-    player_name = _cash_game_player()
-    if player_name is not None and _cash_game_page_unlocked(
-        "game_evidence"
-    ):
-        _render_cash_evidence_node(player_name)
-    show_product_footer()
-
-
-def render_cash_defense_page() -> None:
-    """Render stage five as an independent defence page."""
-    apply_product_theme()
-    _show_cash_game_stage(
-        5,
-        "审查委员会",
-        "委员会不怕你答错，只怕你把一句猜测说成最终结论。三轮共享三次容错。",
-    )
-    player_name = _cash_game_player()
-    if player_name is not None and _cash_game_page_unlocked(
-        "game_defense"
-    ):
-        _render_cash_defense_node(player_name)
-    show_product_footer()
-
-
-def render_cash_migration_page() -> None:
-    """Render the single deliberate bridge to a real research tool."""
-    apply_product_theme()
-    _show_cash_game_stage(
-        6,
-        "开放调查｜两只时钟",
-        "这次没有提示词。市场只留下当时真正公开过的东西。",
-    )
-    player_name = _cash_game_player()
-    if player_name is None or not _cash_game_page_unlocked(
-        "game_migration"
-    ):
-        show_product_footer()
-        return
+def _render_cash_migration_node(player_name: str) -> None:
+    """Render the one deliberate bridge from the game to real research."""
     mission = HISTORICAL_GAME_MISSION
     with st.container(border=True):
         st.markdown(f"#### 调查员 {escape(player_name)}的新委托")
@@ -5873,26 +6368,16 @@ def render_cash_migration_page() -> None:
         "和因果边界，不考股价预测，也不扣除三次容错机会。"
     )
     if st.button(
-        "接受委托｜前往研究中枢",
+        "签收外勤任务｜离开案件",
         type="primary",
         width="stretch",
         key="start_historical_game_mission",
     ):
         _start_historical_game_mission()
-    show_product_footer()
 
 
-def render_cash_honour_page() -> None:
-    """Render the durable device-local record on its own final page."""
-    apply_product_theme()
-    _show_cash_game_stage(
-        7,
-        "首案封存｜研究员荣誉档案",
-        "你赢过的不是题库，是自己的第一反应。首案正式封存。",
-    )
-    player_name = str(
-        st.session_state.get("game_player_name", "调查员")
-    ).strip() or "调查员"
+def _render_cash_honour_node(player_name: str) -> None:
+    """Render the durable device-local record inside scene seven."""
     completed_in_session = (
         st.session_state.get("historical_game_mission_completed")
         == HISTORICAL_MISSION_ID
@@ -5905,17 +6390,12 @@ def render_cash_honour_page() -> None:
     if honour_record is None:
         st.warning("荣誉档案尚未解锁。完成真实历史迁移调查后才能封存首案。")
         if st.button(
-            "返回当前任务",
+            "返回当前现场",
             type="primary",
             width="stretch",
             key="return_from_locked_honour",
         ):
-            _switch_page(
-                _cash_game_route_for_stage(
-                    str(st.session_state.get("cash_case_stage", "briefing"))
-                )
-            )
-        show_product_footer()
+            _switch_page("game")
         return
     player_name = honour_record["player_name"]
     st.session_state["game_player_name"] = player_name
@@ -5950,7 +6430,6 @@ def render_cash_honour_page() -> None:
             f"{FIRST_CASE_HONOUR_PREFIX}_{honour_record['honour_number']}"
         ),
     )
-    show_product_footer()
 
 
 def render_research_terminal_page() -> None:
@@ -9030,7 +9509,7 @@ def render_historical_lens_page() -> None:
                     width="stretch",
                     key="return_to_game_after_historical_mission",
                 ):
-                    _switch_page("game_honour")
+                    _switch_page("game")
 
     st.divider()
     st.subheader("历史快照边界")
@@ -11914,7 +12393,7 @@ def main() -> None:
 
     home_page = st.Page(
         render_home_page,
-        title="Home Page",
+        title="首页",
         icon="🏠",
         default=True,
     )
@@ -11922,42 +12401,6 @@ def main() -> None:
         render_game_hub_page,
         title="消失的现金",
         icon="🕵️",
-    )
-    game_practice_page = st.Page(
-        render_cash_practice_page,
-        title="第一份业务档案",
-        icon="🧮",
-        visibility="hidden",
-    )
-    game_investigation_page = st.Page(
-        render_cash_investigation_page,
-        title="项目办公室搜查",
-        icon="🔦",
-        visibility="hidden",
-    )
-    game_evidence_page = st.Page(
-        render_cash_evidence_page,
-        title="证据链审查",
-        icon="🧷",
-        visibility="hidden",
-    )
-    game_defense_page = st.Page(
-        render_cash_defense_page,
-        title="审查委员会",
-        icon="⚖️",
-        visibility="hidden",
-    )
-    game_migration_page = st.Page(
-        render_cash_migration_page,
-        title="开放调查｜两只时钟",
-        icon="🕰️",
-        visibility="hidden",
-    )
-    game_honour_page = st.Page(
-        render_cash_honour_page,
-        title="首案封存",
-        icon="🏅",
-        visibility="hidden",
     )
     research_terminal_page = st.Page(
         render_research_terminal_page,
@@ -12075,12 +12518,6 @@ def main() -> None:
     st.session_state["_wfz_page_registry"] = {
         "home": home_page,
         "game": game_page,
-        "game_practice": game_practice_page,
-        "game_investigation": game_investigation_page,
-        "game_evidence": game_evidence_page,
-        "game_defense": game_defense_page,
-        "game_migration": game_migration_page,
-        "game_honour": game_honour_page,
         "research_terminal": research_terminal_page,
         "workspace": workspace_page,
         "comprehensive": comprehensive_page,
@@ -12107,12 +12544,6 @@ def main() -> None:
             home_page,
             game_page,
             workspace_page,
-            game_practice_page,
-            game_investigation_page,
-            game_evidence_page,
-            game_defense_page,
-            game_migration_page,
-            game_honour_page,
             research_terminal_page,
             comprehensive_page,
             company_page,

@@ -4,6 +4,21 @@ from pathlib import Path
 import pandas as pd
 
 
+def _clear_streamlit_test_context() -> None:
+    """Reset leaked form context between AppTest-generated scripts."""
+    import streamlit as st
+
+    st._main._form_data = None
+
+
+def setup_function() -> None:
+    _clear_streamlit_test_context()
+
+
+def teardown_function() -> None:
+    _clear_streamlit_test_context()
+
+
 def test_app_uses_current_streamlit_width_api() -> None:
     """Keep removed container-width arguments out of production pages."""
     app_source = Path("src/app.py").read_text(encoding="utf-8")
@@ -94,8 +109,8 @@ render_home_page()
     ]
 
 
-def test_navigation_exposes_home_as_root_before_two_primary_modules() -> None:
-    """Keep a visible root page above the game and research branches."""
+def test_navigation_exposes_chinese_home_and_one_canonical_game_entry() -> None:
+    """Open on 中文首页 and keep every game scene behind one public URL."""
     from pathlib import Path
 
     source = Path("src/app.py").read_text(encoding="utf-8")
@@ -104,8 +119,19 @@ def test_navigation_exposes_home_as_root_before_two_primary_modules() -> None:
     game_start = source.index("game_page = st.Page(")
     home_definition = source[home_start:game_start]
     assert "default=True" in home_definition
-    assert 'title="Home Page"' in home_definition
+    assert 'title="首页"' in home_definition
     assert 'visibility="hidden"' not in home_definition
+
+    main_definition = source[source.index("def main() -> None:"):]
+    for legacy_page in (
+        "game_practice_page",
+        "game_investigation_page",
+        "game_evidence_page",
+        "game_defense_page",
+        "game_migration_page",
+        "game_honour_page",
+    ):
+        assert f"{legacy_page} = st.Page(" not in main_definition
 
     navigation_start = source.index("navigation = st.navigation(")
     navigation_definition = source[navigation_start:source.index(
@@ -114,6 +140,62 @@ def test_navigation_exposes_home_as_root_before_two_primary_modules() -> None:
     assert navigation_definition.index("home_page") < (
         navigation_definition.index("game_page")
     )
+    assert navigation_definition.count("game_page") == 1
+
+
+def test_game_prologue_and_all_seven_scenes_share_one_screen_contract() -> None:
+    """Keep the complete case inside one immersive, machine-checkable shell."""
+    import re
+
+    from streamlit.testing.v1 import AppTest
+
+    scenes = (
+        ("prologue", "briefing", False),
+        ("01", "briefing", True),
+        ("02", "practice", True),
+        ("03", "investigation", True),
+        ("04", "evidence", True),
+        ("05", "defense", True),
+        ("06", "migration", True),
+        ("07", "migration_completed", True),
+    )
+    for expected_step, stage, has_player in scenes:
+        script = f'''
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+
+if {has_player!r}:
+    st.session_state["game_player_name"] = "北辰"
+st.session_state["cash_case_stage"] = {stage!r}
+st.session_state.setdefault("cash_defense_lives", 3)
+st.session_state.setdefault("cash_defense_round_index", 0)
+st.session_state.setdefault("cash_defense_attempt_index", 0)
+st.session_state.setdefault("cash_defense_completed_explanations", [])
+original_storage = app._HONOUR_ARCHIVE_STORAGE
+original_poster = app._HONOUR_POSTER
+try:
+    app._HONOUR_ARCHIVE_STORAGE = lambda **kwargs: SimpleNamespace(
+        record=kwargs["default"]["record"], storage_status="available"
+    )
+    app._HONOUR_POSTER = lambda **kwargs: None
+    app.render_game_hub_page()
+finally:
+    app._HONOUR_ARCHIVE_STORAGE = original_storage
+    app._HONOUR_POSTER = original_poster
+'''
+        app_test = AppTest.from_string(script).run()
+
+        assert not app_test.exception
+        page_markup = "\n".join(item.value for item in app_test.markdown)
+        assert re.search(
+            r'data-wfz-game-screen=["\']true["\']',
+            page_markup,
+        )
+        assert re.search(
+            rf'data-game-step=["\']{expected_step}["\']',
+            page_markup,
+        )
 
 
 def test_research_terminal_renders_without_live_requests() -> None:
@@ -173,12 +255,12 @@ render_game_hub_page()
         "调查",
         "证据链",
         "答辩",
-        "迁移",
+        "外勤",
         "封存",
     ):
         assert label in page_markup
     assert any(
-        item.label == "报上代号｜接受第一案"
+        item.label == "建立档案并接案｜进入 01 现场"
         for item in app_test.button
     )
     assert "最多12个字符" == app_test.text_input[0].placeholder
@@ -216,7 +298,7 @@ finally:
 
     assert not app_test.exception
     page_markup = "\n".join(item.value for item in app_test.markdown)
-    assert "首案封存｜研究员荣誉档案" in page_markup
+    assert "首案封存｜拒绝用明天解释今天" in page_markup
     assert "wfz-honour-archive" in page_markup
     assert "北辰" in page_markup
     assert "测试赛季 · 本设备通关位次" in page_markup
@@ -293,7 +375,7 @@ render_game_hub_page()
 
     assert not app_test.exception
     assert app_test.session_state["cash_case_stage"] == "timing_completed"
-    assert "第一教学节点完成" in "\n".join(
+    assert "02 现场通过" in "\n".join(
         item.value for item in app_test.success
     )
     assert any(
@@ -396,7 +478,7 @@ render_game_hub_page()
     assert not app_test.exception
     assert app_test.session_state["cash_case_stage"] == "evidence_completed"
     assert any(
-        "第二节点完成" in item.value for item in app_test.success
+        "04 现场通过" in item.value for item in app_test.success
     )
     assert any(
         item.label == "进入审查委员会｜开始三轮结论答辩"

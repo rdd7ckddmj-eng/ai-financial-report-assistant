@@ -9,6 +9,21 @@ from src.historical_game_mission import (
 )
 
 
+def _clear_streamlit_test_context() -> None:
+    """Reset leaked form context between AppTest-generated scripts."""
+    import streamlit as st
+
+    st._main._form_data = None
+
+
+def setup_function() -> None:
+    _clear_streamlit_test_context()
+
+
+def teardown_function() -> None:
+    _clear_streamlit_test_context()
+
+
 MISSION_PAGE_SCRIPT = """
 from datetime import date
 
@@ -65,6 +80,7 @@ originals = {
     "_show_verified_financial_history": app._show_verified_financial_history,
     "select_latest_annual_report": app.select_latest_annual_report,
     "show_product_footer": app.show_product_footer,
+    "_switch_page": app._switch_page,
 }
 try:
     app.apply_product_theme = lambda: None
@@ -78,6 +94,9 @@ try:
     app._show_verified_financial_history = lambda *args: None
     app.select_latest_annual_report = lambda frame: None
     app.show_product_footer = lambda: None
+    app._switch_page = lambda target: st.session_state.__setitem__(
+        "captured_historical_return_route", target
+    )
 
     st.session_state.setdefault(
         "historical_game_mission_id",
@@ -102,6 +121,7 @@ finally:
         "select_latest_annual_report"
     ]
     app.show_product_footer = originals["show_product_footer"]
+    app._switch_page = originals["_switch_page"]
 """
 
 
@@ -119,7 +139,7 @@ try:
         st.session_state["captured_game_handoff_route"] = target
 
     app._switch_page = capture_route
-    app.render_cash_migration_page()
+    app.render_game_hub_page()
 finally:
     app._switch_page = original_switch_page
 """
@@ -167,7 +187,7 @@ def test_migration_brief_requires_player_to_find_the_research_tool() -> None:
     next(
         item
         for item in app_test.button
-        if item.label == "接受委托｜前往研究中枢"
+        if item.label == "签收外勤任务｜离开案件"
     ).click().run()
 
     assert not app_test.exception
@@ -275,3 +295,11 @@ def test_historical_mission_page_requires_date_and_reasoning() -> None:
         item.label == "调查完成｜进入首案封存"
         for item in app_test.button
     )
+    next(
+        item
+        for item in app_test.button
+        if item.label == "调查完成｜进入首案封存"
+    ).click().run()
+
+    assert not app_test.exception
+    assert app_test.session_state["captured_historical_return_route"] == "game"
