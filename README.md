@@ -1,10 +1,15 @@
 # FANGZHENG AI Financial Research Lab
 
 A Chinese-first financial learning and research portfolio product with two
-connected modules: the **Researcher Mission Bureau** teaches evidence-based
-financial reasoning through story-led cases, while the **Company Research
-Terminal** connects public market data, official disclosures, annual-report
+connected modules: **《消失的现金》** teaches evidence-based financial
+reasoning through a sequential story-led case, while the **Listed Company
+Investigation Bureau** connects public market data, official disclosures, annual-report
 evidence, and auditable Agent workflows.
+
+Only these two modules appear in the public sidebar. Each game stage and each
+research tool remains a separate deep-linkable page, but is entered from its
+parent module instead of crowding the top-level navigation. Honour progress is
+stored in the current browser's local storage; it is not keyed by alias or IP.
 
 Its purpose is to help retail investors, junior analysts, and finance students
 complete a traceable first-pass review of a mainland listed company. Starting

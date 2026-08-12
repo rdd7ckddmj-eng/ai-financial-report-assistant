@@ -132,7 +132,7 @@ render_research_terminal_page()
 
 
 def test_game_hub_opens_the_first_teaching_node_and_locks_later_mission() -> None:
-    """Open role creation while keeping the later research tool sequential."""
+    """Open role creation directly instead of showing a separate game hub."""
     from streamlit.testing.v1 import AppTest
 
     script = """
@@ -144,29 +144,25 @@ render_game_hub_page()
 
     assert not app_test.exception
     page_markup = "\n".join(item.value for item in app_test.markdown)
-    assert "研究员任务局" in page_markup
-    assert any(
-        item.value == "《消失的现金》"
-        for item in app_test.subheader
-    )
-    for label in ("教学", "练习", "调查", "证据链", "答辩", "迁移"):
+    assert "《消失的现金》" in page_markup
+    for label in (
+        "教学",
+        "练习",
+        "调查",
+        "证据链",
+        "答辩",
+        "迁移",
+        "封存",
+    ):
         assert label in page_markup
     assert any(
         item.label == "建立角色档案并进入案件"
         for item in app_test.button
     )
-    assert any(
-        item.value == "开放调查 01｜两只时钟"
-        for item in app_test.subheader
+    assert "最多12个字符" == app_test.text_input[0].placeholder
+    assert "不按代号或 IP 保存" in "\n".join(
+        item.value for item in app_test.markdown
     )
-    assert "2024-09-18 — 2024-09-24" in "\n".join(
-        item.value for item in app_test.caption
-    )
-    historical_button = next(
-        button for button in app_test.button
-        if button.label == "通过三轮结论答辩后解锁 Historical Lens"
-    )
-    assert historical_button.disabled
 
 
 def test_completed_game_unlocks_bounded_honour_archive() -> None:
@@ -182,20 +178,23 @@ from src.historical_game_mission import HISTORICAL_MISSION_ID
 st.session_state["game_player_name"] = "北辰"
 st.session_state["cash_case_stage"] = "migration_completed"
 st.session_state["historical_game_mission_completed"] = HISTORICAL_MISSION_ID
-app._HONOUR_ARCHIVE_STORAGE = lambda **kwargs: SimpleNamespace(
-    record=kwargs["default"]["record"], storage_status="available"
-)
-app._HONOUR_POSTER = lambda **kwargs: None
-app.render_game_hub_page()
+original_storage = app._HONOUR_ARCHIVE_STORAGE
+original_poster = app._HONOUR_POSTER
+try:
+    app._HONOUR_ARCHIVE_STORAGE = lambda **kwargs: SimpleNamespace(
+        record=kwargs["default"]["record"], storage_status="available"
+    )
+    app._HONOUR_POSTER = lambda **kwargs: None
+    app.render_game_hub_page()
+finally:
+    app._HONOUR_ARCHIVE_STORAGE = original_storage
+    app._HONOUR_POSTER = original_poster
 """
     app_test = AppTest.from_string(script).run()
 
     assert not app_test.exception
     page_markup = "\n".join(item.value for item in app_test.markdown)
-    assert any(
-        item.value == "首案封存｜你的研究员荣誉档案"
-        for item in app_test.subheader
-    )
+    assert "首案封存｜研究员荣誉档案" in page_markup
     assert "wfz-honour-archive" in page_markup
     assert "北辰" in page_markup
     assert "测试赛季 · 本设备通关位次" in page_markup
@@ -279,11 +278,6 @@ render_game_hub_page()
         button.label == "进入项目办公室｜开始证据调查"
         for button in app_test.button
     )
-    historical_button = next(
-        item for item in app_test.button
-        if item.label == "通过三轮结论答辩后解锁 Historical Lens"
-    )
-    assert historical_button.disabled
 
 
 def test_cash_evidence_wrong_chain_replaces_the_office_file() -> None:
@@ -386,11 +380,6 @@ render_game_hub_page()
         item.label == "进入审查委员会｜开始三轮结论答辩"
         for item in app_test.button
     )
-    historical_button = next(
-        item for item in app_test.button
-        if item.label == "通过三轮结论答辩后解锁 Historical Lens"
-    )
-    assert historical_button.disabled
 
 
 def test_cash_defense_wrong_answer_costs_life_and_changes_case() -> None:
@@ -489,7 +478,7 @@ render_game_hub_page()
         if item.label == "返回办公室｜领取全新调查卷宗"
     )
     restart_button.click().run()
-    assert app_test.session_state["cash_case_stage"] == "evidence"
+    assert app_test.session_state["cash_case_stage"] == "investigation"
     assert app_test.session_state["cash_evidence_attempt_index"] == 1
 
 
@@ -533,11 +522,10 @@ render_game_hub_page()
     assert len(
         app_test.session_state["cash_defense_completed_explanations"]
     ) == 3
-    historical_button = next(
-        item for item in app_test.button
-        if item.label == "开始开放调查｜进入 Historical Lens"
+    assert any(
+        item.label == "接受真实历史委托｜进入迁移调查"
+        for item in app_test.button
     )
-    assert not historical_button.disabled
 
 
 def test_research_workspace_groups_tools_by_user_task() -> None:

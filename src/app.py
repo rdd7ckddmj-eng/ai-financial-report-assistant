@@ -2924,6 +2924,18 @@ def _switch_page(name: str) -> None:
         st.switch_page(target)
 
 
+def _advance_game(stage: str, page_name: str) -> None:
+    """Persist one legitimate game transition and open its own page."""
+    st.session_state["cash_case_stage"] = stage
+    target = _page_target(page_name)
+    if target is not None:
+        st.switch_page(target)
+    else:
+        # Bare Streamlit tests do not register multipage targets. A rerun keeps
+        # the same state-machine behaviour while production opens a new URL.
+        st.rerun()
+
+
 def _browser_research_snapshot() -> dict[str, object]:
     """Return the small device-local state last received from the browser."""
     return normalise_browser_research_state(
@@ -4162,7 +4174,7 @@ def render_home_page() -> None:
     show_platform_identity()
     show_platform_modules()
     st.info(
-        "研究员任务局负责学习与能力训练；公司研究终端负责真实公开资料的"
+        "《消失的现金》负责剧情学习与能力训练；上市公司调查局负责公开资料的"
         "检索、计算和核验。游戏中的开放调查会逐步连接研究终端，但不会"
         "把研究结果包装成股价预测或买卖建议。"
     )
@@ -4185,13 +4197,168 @@ def _start_historical_game_mission() -> None:
         else mission["initial_date"].isoformat()
     )
     st.session_state["historical_prefill_context"] = (
-        "研究员任务局｜开放调查01"
+        "《消失的现金》｜开放调查01"
     )
     _switch_page("historical")
 
 
+_CASH_GAME_STEPS = (
+    ("教学", "game"),
+    ("练习", "game_practice"),
+    ("调查", "game_investigation"),
+    ("证据链", "game_evidence"),
+    ("答辩", "game_defense"),
+    ("迁移", "game_migration"),
+    ("封存", "game_honour"),
+)
+
+
+def _cash_game_route_for_stage(stage: str) -> str:
+    """Return the only page that corresponds to the saved game stage."""
+    if stage in {"practice", "timing_completed", "completed"}:
+        return "game_practice"
+    if stage == "investigation":
+        return "game_investigation"
+    if stage in {"evidence", "evidence_completed"}:
+        return "game_evidence"
+    if stage in {
+        "defense",
+        "defense_failed",
+        "case_completed",
+    }:
+        return "game_defense"
+    if stage == "migration":
+        return "game_migration"
+    if stage == "migration_completed":
+        return "game_honour"
+    return "game"
+
+
+def _show_cash_game_stage(
+    step_number: int,
+    title: str,
+    subtitle: str,
+) -> None:
+    """Show the in-story guide shared by every independent game page."""
+    show_compact_page_header(
+        f"《消失的现金》 / 第 {step_number} 幕",
+        title,
+        subtitle,
+    )
+    steps = []
+    for index, (label, _) in enumerate(_CASH_GAME_STEPS, start=1):
+        state = "已完成" if index < step_number else (
+            "进行中" if index == step_number else "未解锁"
+        )
+        steps.append(
+            '<div class="wfz-learning-step">'
+            f"{index:02d}｜{escape(label)} · {state}</div>"
+        )
+    st.markdown(
+        '<div class="wfz-learning-loop">' + "".join(steps) + "</div>",
+        unsafe_allow_html=True,
+    )
+    with st.expander("本幕怎么玩｜游戏说明"):
+        st.write(
+            "按剧情顺序完成任务，不能跳关。教学和调查阶段答错不扣"
+            "生命；正式答辩三轮共用三次容错机会。需要使用真实研究工具"
+            "时，系统会明确告诉你研究问题，但不会标出正确线索。"
+        )
+        st.caption(
+            "最终通关档案保存在当前浏览器，不按调查员代号建账号，也不"
+            "读取 IP 地址。同名代号互不冲突；清理浏览器网站数据会删除"
+            "本地档案。"
+        )
+
+
+def _cash_game_player() -> str | None:
+    """Return the active player or offer a safe route to the first page."""
+    player_name = str(st.session_state.get("game_player_name", "")).strip()
+    if player_name:
+        return player_name
+    st.warning("此页面尚未解锁。请先建立调查员档案并完成前置任务。")
+    if st.button(
+        "返回《消失的现金》开场",
+        type="primary",
+        width="stretch",
+        key="return_to_cash_game_start",
+    ):
+        _switch_page("game")
+    return None
+
+
+def _cash_game_page_unlocked(page_name: str) -> bool:
+    """Reject deep-link skips while preserving the player's saved progress."""
+    stage = str(st.session_state.get("cash_case_stage", "briefing"))
+    current_page = _cash_game_route_for_stage(stage)
+    if current_page == page_name:
+        return True
+    st.warning("这一幕尚未解锁，或你已经进入了后续任务。")
+    if st.button(
+        "返回当前任务",
+        type="primary",
+        width="stretch",
+        key=f"resume_cash_game_from_{page_name}",
+    ):
+        _switch_page(current_page)
+    return False
+
+
+def _show_cash_evidence_documents(
+    evidence_case: Mapping[str, object],
+) -> dict[str, str]:
+    """Render the changing office documents without revealing relevance."""
+    option_labels: dict[str, str] = {}
+    document_columns = st.columns(2)
+    for index, document in enumerate(evidence_case["documents"]):
+        document_label = (
+            f"{index + 1}. {document['location']}｜{document['title']}"
+        )
+        option_labels[document_label] = str(document["document_id"])
+        with document_columns[index % 2]:
+            with st.expander(
+                f"📁 {document['location']}｜{document['title']}"
+            ):
+                st.caption(document["document_type"])
+                st.write(document["body"])
+                st.caption(document["footer"])
+    return option_labels
+
+
+def _render_cash_investigation_node(player_name: str) -> None:
+    """Let the player search the office before constructing a chain."""
+    attempt_index = int(
+        st.session_state.get("cash_evidence_attempt_index", 0)
+    )
+    evidence_case = build_cash_evidence_case(attempt_index)
+    with st.container(border=True):
+        st.markdown(f"#### 调查员 {escape(player_name)}，项目办公室已解锁")
+        st.write(
+            "六份材料散落在办公室的不同位置。系统不会告诉你哪份是"
+            "证据、辅助线索或干扰项；这一幕只负责搜查和阅读，不在同一"
+            "页面要求你立即作答。"
+        )
+        st.caption(
+            f"动态卷宗第 {evidence_case['attempt_number']} 版｜报告截止日："
+            f"{evidence_case['reporting_date'].isoformat()}｜请记录日期、"
+            "条款、签章、金额和来源之间能否相互核验。"
+        )
+    _show_cash_evidence_documents(evidence_case)
+    st.info(
+        "找到文件不是最难的部分。下一幕会收起房间导览，只保留卷宗，"
+        "要求你从六份材料中选出恰好四份组成完整证据链。"
+    )
+    if st.button(
+        "结束搜查｜进入证据链审查",
+        type="primary",
+        width="stretch",
+        key="finish_cash_investigation",
+    ):
+        _advance_game("evidence", "game_evidence")
+
+
 def _render_cash_evidence_node(player_name: str) -> None:
-    """Render the changing office search and exact evidence-chain check."""
+    """Render the exact evidence-chain check on its own page."""
     evidence_completed = (
         st.session_state.get("cash_case_stage") == "evidence_completed"
     )
@@ -4200,36 +4367,18 @@ def _render_cash_evidence_node(player_name: str) -> None:
     )
     evidence_case = build_cash_evidence_case(attempt_index)
 
-    st.divider()
-    st.caption("案件调查 · EVIDENCE ROOM 02")
-    st.subheader("第二节点：办公室里的六份材料")
     with st.container(border=True):
-        st.markdown(f"#### 调查员 {escape(player_name)}，项目办公室已解锁")
+        st.markdown(f"#### 调查员 {escape(player_name)}，请提交证据链")
         st.write(
-            "系统不会告诉你哪份材料是线索、证据或干扰项。请打开不同"
-            "位置找到的文件，阅读日期、条款、签章、金额和证据来源，再"
-            "选择恰好4份材料组成证据链。"
+            "重新打开必要材料，并选择恰好四份能够共同解释利润与现金"
+            "时间差的文件。标题像证据不代表内容一定有效；看起来不起眼"
+            "的材料也可能补上关键时间边界。"
         )
         st.caption(
-            f"动态卷宗第 {evidence_case['attempt_number']} 版｜报告截止日："
-            f"{evidence_case['reporting_date'].isoformat()}｜答错不扣生命，"
-            "但会更换客户、金额、付款期限和材料顺序。"
+            f"动态卷宗第 {evidence_case['attempt_number']} 版｜答错不扣"
+            "生命，但客户、金额、付款期限和材料顺序都会更换。"
         )
-
-    document_columns = st.columns(2)
-    option_labels: dict[str, str] = {}
-    for index, document in enumerate(evidence_case["documents"]):
-        document_label = (
-            f"{index + 1}. {document['location']}｜{document['title']}"
-        )
-        option_labels[document_label] = document["document_id"]
-        with document_columns[index % 2]:
-            with st.expander(
-                f"📁 {document['location']}｜{document['title']}"
-            ):
-                st.caption(document["document_type"])
-                st.write(document["body"])
-                st.caption(document["footer"])
+    option_labels = _show_cash_evidence_documents(evidence_case)
 
     feedback = st.session_state.pop("cash_evidence_feedback", None)
     if isinstance(feedback, str):
@@ -4306,13 +4455,12 @@ def _render_cash_evidence_node(player_name: str) -> None:
         width="stretch",
         key="start_cash_defense",
     ):
-        st.session_state["cash_case_stage"] = "defense"
         st.session_state["cash_defense_lives"] = 3
         st.session_state["cash_defense_round_index"] = 0
         st.session_state["cash_defense_attempt_index"] = 0
         st.session_state["cash_defense_completed_explanations"] = []
         st.session_state.pop("cash_defense_feedback", None)
-        st.rerun()
+        _advance_game("defense", "game_defense")
 
 
 def _render_cash_defense_node(player_name: str) -> None:
@@ -4343,14 +4491,13 @@ def _render_cash_defense_node(player_name: str) -> None:
             width="stretch",
             key="restart_cash_evidence_after_defense",
         ):
-            st.session_state["cash_case_stage"] = "evidence"
             st.session_state["cash_evidence_attempt_index"] = (
                 int(st.session_state.get("cash_evidence_attempt_index", 0))
                 + 1
             )
             st.session_state.pop("cash_evidence_explanation", None)
             st.session_state.pop("cash_defense_feedback", None)
-            st.rerun()
+            _advance_game("investigation", "game_investigation")
         return
 
     if stage in {"case_completed", "migration_completed"}:
@@ -4366,6 +4513,13 @@ def _render_cash_defense_node(player_name: str) -> None:
                 "你证明的不是会背一个结论，而是能在新材料中区分事实、"
                 "风险、判断边界和下一步行动。"
             )
+        if stage == "case_completed" and st.button(
+            "接受真实历史委托｜进入迁移调查",
+            type="primary",
+            width="stretch",
+            key="open_cash_migration_stage",
+        ):
+            _advance_game("migration", "game_migration")
         return
 
     question = build_cash_defense_question(round_index, attempt_index)
@@ -4446,23 +4600,19 @@ def _render_cash_defense_node(player_name: str) -> None:
     st.rerun()
 
 
-def _render_cash_case_first_node() -> None:
-    """Teach and practise the first profit-versus-cash reasoning node."""
-    st.divider()
-    st.caption("案件序章 · PLAYABLE CASE 01")
-    st.subheader("《消失的现金》｜第一节点：利润不等于现金")
-
+def _render_cash_teaching_node() -> None:
+    """Render role creation and the zero-assumption teaching scene."""
     player_name = str(st.session_state.get("game_player_name", "")).strip()
     if not player_name:
         st.write(
             "进入案件前，请为主人公设置一个调查员代号。它只保存在当前"
-            "浏览器会话，用于剧情称呼；请不要填写身份证号、电话或其他"
-            "敏感信息。"
+        "浏览器当前游戏进度中，用于剧情称呼；最终通关档案按浏览器保存，不按"
+            "代号或 IP 保存，因此同名不会冲突。请勿填写敏感信息。"
         )
         with st.form("game_player_identity_form", border=True):
             entered_name = st.text_input(
                 "调查员代号",
-                placeholder="例如：方正、北辰、Lin",
+                placeholder="最多12个字符",
                 max_chars=12,
             )
             identity_submitted = st.form_submit_button(
@@ -4481,7 +4631,6 @@ def _render_cash_case_first_node() -> None:
             st.rerun()
         return
 
-    stage = str(st.session_state.get("cash_case_stage", "briefing"))
     with st.container(border=True):
         st.caption("22:17 · FANGZHENG AI 调查部")
         st.markdown(f"#### 调查员 {escape(player_name)}，第一份案卷已经送达")
@@ -4515,20 +4664,22 @@ def _render_cash_case_first_node() -> None:
             "验收、回款期限、应收账款和期后收款，才能解释差异。"
         )
 
-    if stage == "briefing":
-        st.info(
-            "记住两个问题：利润看“业务是否完成”，现金看“钱是否真的"
-            "收付”。准备好后进入引导练习。"
-        )
-        if st.button(
-            "我理解了，打开第一份业务档案",
-            type="primary",
-            width="stretch",
-            key="cash_case_start_practice",
-        ):
-            st.session_state["cash_case_stage"] = "practice"
-            st.rerun()
-        return
+    st.info(
+        "记住两个问题：利润看“业务是否完成”，现金看“钱是否真的"
+        "收付”。准备好后进入下一张独立任务页面。"
+    )
+    if st.button(
+        "我理解了｜打开第一份业务档案",
+        type="primary",
+        width="stretch",
+        key="cash_case_start_practice",
+    ):
+        _advance_game("practice", "game_practice")
+
+
+def _render_cash_practice_node(player_name: str) -> None:
+    """Render the changing timing calculation on an independent page."""
+    stage = str(st.session_state.get("cash_case_stage", "practice"))
 
     feedback = st.session_state.pop("cash_case_feedback", None)
     if isinstance(feedback, str):
@@ -4602,46 +4753,14 @@ def _render_cash_case_first_node() -> None:
             width="stretch",
             key="open_cash_evidence_room",
         ):
-            st.session_state["cash_case_stage"] = "evidence"
             st.session_state["cash_evidence_attempt_index"] = 0
-            st.rerun()
+            _advance_game("investigation", "game_investigation")
         return
-
-    if stage in {"evidence", "evidence_completed"}:
-        _render_cash_evidence_node(player_name)
-
-    if stage in {
-        "defense",
-        "defense_failed",
-        "case_completed",
-        "migration_completed",
-    }:
-        _render_cash_defense_node(player_name)
 
 
 def render_game_hub_page() -> None:
-    """Introduce the game learning loop before the first playable case."""
+    """Open the case immediately and resume the browser's current stage."""
     apply_product_theme()
-    show_compact_page_header(
-        "模块一 / 沉浸式金融研究训练",
-        "研究员任务局",
-        "先在故事中理解金融概念，再进入调查、证据拼接和结论答辩。"
-        "真正的难度来自材料阅读、时间判断和证据边界，而不是文字陷阱。",
-    )
-    st.markdown(
-        """
-        <div class="wfz-learning-loop">
-            <div class="wfz-learning-step">01｜教学</div>
-            <div class="wfz-learning-step">02｜练习</div>
-            <div class="wfz-learning-step">03｜调查</div>
-            <div class="wfz-learning-step">04｜证据链</div>
-            <div class="wfz-learning-step">05｜答辩</div>
-            <div class="wfz-learning-step">06｜迁移</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
     mission_completed_in_session = (
         st.session_state.get("historical_game_mission_completed")
         == HISTORICAL_MISSION_ID
@@ -4662,52 +4781,123 @@ def render_game_hub_page() -> None:
         st.session_state["historical_game_mission_completed"] = (
             HISTORICAL_MISSION_ID
         )
-    mission_completed = mission_completed_in_session or honour_record is not None
-    case_column, progression_column = st.columns([1.35, 1])
-    with case_column.container(border=True):
-        st.caption("首个教学案件 · CASE 01")
-        st.subheader("《消失的现金》")
-        st.write(
-            "一家虚构公司的利润增长38%，经营现金流却下降22%。玩家将先"
-            "理解利润与现金的区别，再阅读合同、验收、应收账款、银行流水"
-            "和期后材料，判断差异意味着什么、又不能证明什么。"
-        )
-        if mission_completed:
-            st.success(
-                "首案六阶段完整通关：你已经把虚构卷宗中的方法迁移到"
-                "真实历史证据。"
-            )
-        else:
-            st.success(
-                "前三节点已开放：零基础讲解、六份材料调查，以及三轮动态"
-                "结论答辩。"
-            )
-    with progression_column.container(border=True):
-        st.caption("成长路径 · SEQUENTIAL PROGRESSION")
-        st.subheader("不能跳关，但可以真正成长")
-        st.write(
-            "完成基础教学后，系统会逐步减少提示。最终进入真实历史开放案件，"
-            "玩家只获得研究问题与时间截点，需要自行使用公司研究终端寻找"
-            "证据，并接受审查官追问。"
-        )
-        if mission_completed:
-            st.progress(
-                1.0,
-                text="首案六阶段完整通关｜荣誉档案已解锁",
-            )
-        else:
-            st.progress(
-                0.48,
-                text="教学、证据调查与三轮答辩可玩｜下一步完成迁移关",
-            )
+    stage = str(st.session_state.get("cash_case_stage", "briefing"))
+    route = _cash_game_route_for_stage(stage)
+    if route != "game" and _page_target(route) is not None:
+        _switch_page(route)
+        return
 
-    _render_cash_case_first_node()
+    # Bare tests have no page registry; dispatching preserves the same stage
+    # machine without weakening production's independent-page structure.
+    if route == "game_practice":
+        render_cash_practice_page()
+        return
+    if route == "game_investigation":
+        render_cash_investigation_page()
+        return
+    if route == "game_evidence":
+        render_cash_evidence_page()
+        return
+    if route == "game_defense":
+        render_cash_defense_page()
+        return
+    if route == "game_migration":
+        render_cash_migration_page()
+        return
+    if route == "game_honour":
+        render_cash_honour_page()
+        return
 
-    st.divider()
+    _show_cash_game_stage(
+        1,
+        "《消失的现金》",
+        "利润上涨了，钱却没有出现。先理解两只计量表，再开始调查。",
+    )
+    _render_cash_teaching_node()
+    show_product_footer()
+
+
+def render_cash_practice_page() -> None:
+    """Render stage two as an independent page."""
+    apply_product_theme()
+    _show_cash_game_stage(
+        2,
+        "第一份业务档案",
+        "用一份会变化的业务记录，分开计算利润影响和现金影响。",
+    )
+    player_name = _cash_game_player()
+    if player_name is not None and _cash_game_page_unlocked(
+        "game_practice"
+    ):
+        _render_cash_practice_node(player_name)
+    show_product_footer()
+
+
+def render_cash_investigation_page() -> None:
+    """Render stage three as an independent office-search page."""
+    apply_product_theme()
+    _show_cash_game_stage(
+        3,
+        "项目办公室搜查",
+        "自己打开六份材料，先读完事实，再决定什么值得带走。",
+    )
+    player_name = _cash_game_player()
+    if player_name is not None and _cash_game_page_unlocked(
+        "game_investigation"
+    ):
+        _render_cash_investigation_node(player_name)
+    show_product_footer()
+
+
+def render_cash_evidence_page() -> None:
+    """Render stage four as an independent evidence-chain page."""
+    apply_product_theme()
+    _show_cash_game_stage(
+        4,
+        "证据链审查",
+        "从完整卷宗中选出四份材料，形成能够相互核验的解释。",
+    )
+    player_name = _cash_game_player()
+    if player_name is not None and _cash_game_page_unlocked(
+        "game_evidence"
+    ):
+        _render_cash_evidence_node(player_name)
+    show_product_footer()
+
+
+def render_cash_defense_page() -> None:
+    """Render stage five as an independent defence page."""
+    apply_product_theme()
+    _show_cash_game_stage(
+        5,
+        "审查委员会",
+        "三轮动态答辩共用三次容错机会：结论、边界、下一步行动。",
+    )
+    player_name = _cash_game_player()
+    if player_name is not None and _cash_game_page_unlocked(
+        "game_defense"
+    ):
+        _render_cash_defense_node(player_name)
+    show_product_footer()
+
+
+def render_cash_migration_page() -> None:
+    """Render the single deliberate bridge to a real research tool."""
+    apply_product_theme()
+    _show_cash_game_stage(
+        6,
+        "开放调查｜两只时钟",
+        "离开虚构卷宗，使用真实 Historical Lens 找到证据首次可见日。",
+    )
+    player_name = _cash_game_player()
+    if player_name is None or not _cash_game_page_unlocked(
+        "game_migration"
+    ):
+        show_product_footer()
+        return
+    mission = HISTORICAL_GAME_MISSION
     with st.container(border=True):
-        mission = HISTORICAL_GAME_MISSION
-        st.caption("跨模块开放调查 · ONE DELIBERATE TOOL MISSION")
-        st.subheader(mission["title"])
+        st.markdown(f"#### 调查员 {escape(player_name)}的新委托")
         st.markdown(f"**案卷：{mission['case_file']}**")
         st.write(mission["question"])
         st.caption(
@@ -4715,71 +4905,87 @@ def render_game_hub_page() -> None:
             f"{mission['window_end'].isoformat()}。进入 Historical Lens 后，"
             "拖动时点滑轨并比较相邻日期；页面不会直接标出答案。"
         )
-        st.info(
-            "这类“离开游戏、调用真实研究工具、再带回结论”的任务只安排"
-            "一次。它考查时间边界，不考股价预测，也不扣除三条生命。"
-        )
-        if mission_completed:
-            st.success(
-                "开放调查已完成｜你已经区分证据时钟与行情时钟，并守住"
-                "后续市场观察的归因边界。"
-            )
-        defense_completed = st.session_state.get("cash_case_stage") in {
-            "case_completed",
-            "migration_completed",
-        }
-        mission_label = "通过三轮结论答辩后解锁 Historical Lens"
-        if mission_completed:
-            mission_label = "重新查看调查证据"
-        elif defense_completed:
-            mission_label = "开始开放调查｜进入 Historical Lens"
+    st.info(
+        "这是首案唯一一次跨模块开放调查。它考查证据时钟、行情时钟"
+        "和因果边界，不考股价预测，也不扣除三次容错机会。"
+    )
+    if st.button(
+        "接受委托｜进入 Historical Lens",
+        type="primary",
+        width="stretch",
+        key="start_historical_game_mission",
+    ):
+        _start_historical_game_mission()
+    show_product_footer()
+
+
+def render_cash_honour_page() -> None:
+    """Render the durable device-local record on its own final page."""
+    apply_product_theme()
+    _show_cash_game_stage(
+        7,
+        "首案封存｜研究员荣誉档案",
+        "你的判断已通过时间边界核验，首案现在正式封存。",
+    )
+    player_name = str(
+        st.session_state.get("game_player_name", "调查员")
+    ).strip() or "调查员"
+    completed_in_session = (
+        st.session_state.get("historical_game_mission_completed")
+        == HISTORICAL_MISSION_ID
+        and st.session_state.get("cash_case_stage") == "migration_completed"
+    )
+    honour_record = _sync_honour_archive_record(
+        player_name,
+        completed=completed_in_session,
+    )
+    if honour_record is None:
+        st.warning("荣誉档案尚未解锁。完成真实历史迁移调查后才能封存首案。")
         if st.button(
-            mission_label,
-            type="primary" if defense_completed else "secondary",
-            disabled=not defense_completed and not mission_completed,
+            "返回当前任务",
+            type="primary",
             width="stretch",
-            key="start_historical_game_mission",
+            key="return_from_locked_honour",
         ):
-            _start_historical_game_mission()
-
-    if mission_completed:
-        if honour_record is None:  # Defensive fallback for restricted storage.
-            honour_record = build_honour_record(player_name)
-        st.divider()
-        st.caption("CASE 01 · HONOUR ARCHIVE")
-        st.subheader("首案封存｜你的研究员荣誉档案")
-        st.markdown(
-            build_honour_archive_html(honour_record),
-            unsafe_allow_html=True,
-        )
-        storage_status = st.session_state.get("_wfz_honour_storage_status")
-        if storage_status == "unavailable":
-            st.warning(
-                "当前浏览器禁止本地存储，本次档案只保留到页面会话结束；"
-                "这不会影响你下载荣誉海报。"
+            _switch_page(
+                _cash_game_route_for_stage(
+                    str(st.session_state.get("cash_case_stage", "briefing"))
+                )
             )
-        else:
-            st.caption(
-                "位次来自当前浏览器保存的通关记录，不是全站排行榜；"
-                "荣誉编号保留六位格式，例如 000001。"
-            )
-
-        st.markdown("#### 你也想发抖音吗？")
-        st.write(
-            "这次不用截图拼接：下面是内容完整的 9:16 竖版预览，"
-            "点击按钮即可生成 1080 × 1920 PNG。"
+        show_product_footer()
+        return
+    player_name = honour_record["player_name"]
+    st.session_state["game_player_name"] = player_name
+    st.session_state["cash_case_stage"] = "migration_completed"
+    st.session_state["historical_game_mission_completed"] = (
+        HISTORICAL_MISSION_ID
+    )
+    st.markdown(
+        build_honour_archive_html(honour_record),
+        unsafe_allow_html=True,
+    )
+    storage_status = st.session_state.get("_wfz_honour_storage_status")
+    if storage_status == "unavailable":
+        st.warning(
+            "当前浏览器禁止本地存储，本次档案只保留到页面会话结束；"
+            "这不会影响你下载荣誉海报。"
         )
-        _HONOUR_POSTER(
-            data=build_honour_poster_payload(honour_record),
-            key=(
-                "wfz_honour_poster_"
-                f"{FIRST_CASE_HONOUR_PREFIX}_{honour_record['honour_number']}"
-            ),
+    else:
+        st.caption(
+            "位次来自当前浏览器保存的通关记录，不按用户名或 IP 合并，"
+            "也不是全站排行榜；荣誉编号保留六位格式，例如 000001。"
         )
-
-    st.warning(
-        "教学、练习和引导调查不扣生命。三条生命只在正式结论答辩中"
-        "启用；三轮共用生命，答错立即更换案件，三次失败退回重新调查。"
+    st.markdown("#### 你也想发抖音吗？")
+    st.write(
+        "这次不用截图拼接：下面是内容完整的 9:16 竖版预览，"
+        "点击按钮即可生成 1080 × 1920 PNG。"
+    )
+    _HONOUR_POSTER(
+        data=build_honour_poster_payload(honour_record),
+        key=(
+            "wfz_honour_poster_"
+            f"{FIRST_CASE_HONOUR_PREFIX}_{honour_record['honour_number']}"
+        ),
     )
     show_product_footer()
 
@@ -4870,8 +5076,8 @@ def render_research_workspace_page() -> None:
     """Group all research tools by the job the user needs to complete."""
     apply_product_theme()
     show_compact_page_header(
-        "公司研究终端 / 工具导航 · RESEARCH WORKSPACE",
-        "按研究问题选择工具",
+        "上市公司调查局 · LISTED COMPANY BUREAU",
+        "按研究任务进入子工作台",
         "全部功能被组织成五个相互衔接的集合：先发现或选择标的，"
         "再完成公司总览，随后根据问题进入市场、财务或证据核验。",
     )
@@ -7387,7 +7593,7 @@ def render_historical_lens_page() -> None:
     if historical_mission_active:
         mission = HISTORICAL_GAME_MISSION
         with st.container(border=True):
-            st.caption("研究员任务局已连接 · OPEN INVESTIGATION")
+            st.caption("《消失的现金》已连接 · OPEN INVESTIGATION")
             st.markdown(f"#### {mission['title']}")
             st.write(mission["question"])
             st.caption(
@@ -7504,30 +7710,27 @@ def render_historical_lens_page() -> None:
     st.markdown("#### Historical Lens 时点滑轨")
     st.caption(
         "像调节滑动变阻器一样移动截止日，再锁定时点生成快照。"
-        "控件放在表单中，拖动过程不会每天重复请求公开数据。"
+        "页面会复用缓存，避免重复下载同一段公开数据。"
     )
-    with st.form(
-        key=f"{date_input_key}_form",
-        border=True,
-    ):
-        selected_date = st.slider(
-            "拖动历史研究截止日",
-            value=default_date,
-            min_value=timeline_min,
-            max_value=timeline_max,
-            step=timedelta(days=1),
-            format="YYYY-MM-DD",
-            key=date_input_key,
-            help=(
-                "若所选日期不是交易日，系统会使用该日期之前最近一个"
-                "交易日；证据仍按真实公开日期过滤。"
-            ),
-        )
-        st.form_submit_button(
-            "锁定这个时点并生成研究快照",
-            type="primary",
-            width="stretch",
-        )
+    selected_date = st.slider(
+        "拖动历史研究截止日",
+        value=default_date,
+        min_value=timeline_min,
+        max_value=timeline_max,
+        step=timedelta(days=1),
+        format="YYYY-MM-DD",
+        key=date_input_key,
+        help=(
+            "若所选日期不是交易日，系统会使用该日期之前最近一个"
+            "交易日；证据仍按真实公开日期过滤。"
+        ),
+    )
+    st.button(
+        "锁定这个时点并生成研究快照",
+        type="primary",
+        width="stretch",
+        key=f"{date_input_key}_submit",
+    )
     st.caption(
         f"当前镜头日期：{selected_date.isoformat()}｜可调查范围："
         f"{timeline_min.isoformat()} — {timeline_max.isoformat()}"
@@ -7912,11 +8115,11 @@ def render_historical_lens_page() -> None:
                     "是9月23日。后续涨跌不能自动证明公告造成了变化。"
                 )
                 if st.button(
-                    "带着调查结论返回研究员任务局",
+                    "调查完成｜进入首案封存",
                     width="stretch",
                     key="return_to_game_after_historical_mission",
                 ):
-                    _switch_page("game")
+                    _switch_page("game_honour")
 
     st.divider()
     st.subheader("历史快照边界")
@@ -10800,111 +11003,172 @@ def main() -> None:
         render_home_page,
         title="首页",
         icon="🏠",
-        default=True,
+        visibility="hidden",
     )
     game_page = st.Page(
         render_game_hub_page,
-        title="研究员任务局",
-        icon="🧩",
+        title="消失的现金",
+        icon="🕵️",
+        default=True,
+    )
+    game_practice_page = st.Page(
+        render_cash_practice_page,
+        title="第一份业务档案",
+        icon="🧮",
+        visibility="hidden",
+    )
+    game_investigation_page = st.Page(
+        render_cash_investigation_page,
+        title="项目办公室搜查",
+        icon="🔦",
+        visibility="hidden",
+    )
+    game_evidence_page = st.Page(
+        render_cash_evidence_page,
+        title="证据链审查",
+        icon="🧷",
+        visibility="hidden",
+    )
+    game_defense_page = st.Page(
+        render_cash_defense_page,
+        title="审查委员会",
+        icon="⚖️",
+        visibility="hidden",
+    )
+    game_migration_page = st.Page(
+        render_cash_migration_page,
+        title="开放调查｜两只时钟",
+        icon="🕰️",
+        visibility="hidden",
+    )
+    game_honour_page = st.Page(
+        render_cash_honour_page,
+        title="首案封存",
+        icon="🏅",
+        visibility="hidden",
     )
     research_terminal_page = st.Page(
         render_research_terminal_page,
         title="公司研究终端",
         icon="🔎",
+        visibility="hidden",
     )
     workspace_page = st.Page(
         render_research_workspace_page,
-        title="研究工具导航",
-        icon="🗂️",
+        title="上市公司调查局",
+        icon="🏛️",
     )
     comprehensive_page = st.Page(
         render_comprehensive_research_page,
         title="一键综合研究 Agent",
         icon="🧠",
+        visibility="hidden",
     )
     company_page = st.Page(
         render_company_research_page,
         title="公司研究中心",
         icon="🏢",
+        visibility="hidden",
     )
     evidence_delta_page = st.Page(
         render_evidence_delta_page,
         title="证据增量 Agent",
         icon="🔎",
+        visibility="hidden",
     )
     thesis_ledger_page = st.Page(
         render_research_thesis_page,
         title="研究结论账本",
         icon="📚",
+        visibility="hidden",
     )
     market_page = st.Page(
         render_market_page,
         title="K线与市场表现",
         icon="📈",
+        visibility="hidden",
     )
     volume_turnover_page = st.Page(
         render_volume_turnover_page,
         title="成交量与换手率",
         icon="📊",
+        visibility="hidden",
     )
     limit_up_page = st.Page(
         render_limit_up_board_page,
         title="每日涨停板观察台",
         icon="🔥",
+        visibility="hidden",
     )
     radar_page = st.Page(
         render_market_radar_page,
         title="自选股任务队列",
         icon="🛰️",
+        visibility="hidden",
     )
     anomaly_page = st.Page(
         render_market_anomaly_page,
         title="市场异动 Agent",
         icon="📡",
+        visibility="hidden",
     )
     historical_page = st.Page(
         render_historical_lens_page,
         title="Historical Lens",
         icon="🕰️",
+        visibility="hidden",
     )
     annual_page = st.Page(
         render_annual_report_page,
         title="年报与证据",
         icon="📄",
+        visibility="hidden",
     )
     financial_snapshot_page = st.Page(
         render_financial_snapshot_page,
         title="按需财务快照 Agent",
         icon="⚡",
+        visibility="hidden",
     )
     onboarding_page = st.Page(
         render_company_onboarding_page,
         title="已核验公司扩展 Agent",
         icon="🧾",
+        visibility="hidden",
     )
     financial_trend_page = st.Page(
         render_financial_trend_page,
         title="财务趋势实验室",
         icon="🧮",
+        visibility="hidden",
     )
     financial_anomaly_page = st.Page(
         render_financial_anomaly_explanation_page,
         title="财务异常解释 Agent",
         icon="🧩",
+        visibility="hidden",
     )
     comparison_page = st.Page(
         render_cross_company_comparison_page,
         title="跨公司横向比较",
         icon="⚖️",
+        visibility="hidden",
     )
     methodology_page = st.Page(
         render_methodology_page,
         title="方法与审计",
         icon="🧭",
+        visibility="hidden",
     )
     st.session_state["_wfz_page_registry"] = {
         "home": home_page,
         "game": game_page,
+        "game_practice": game_practice_page,
+        "game_investigation": game_investigation_page,
+        "game_evidence": game_evidence_page,
+        "game_defense": game_defense_page,
+        "game_migration": game_migration_page,
+        "game_honour": game_honour_page,
         "research_terminal": research_terminal_page,
         "workspace": workspace_page,
         "comprehensive": comprehensive_page,
@@ -10927,35 +11191,35 @@ def main() -> None:
     }
 
     navigation = st.navigation(
-        {
-            "开始": [home_page],
-            "两大模块": [game_page, research_terminal_page],
-            "研究终端｜工具导航": [workspace_page],
-            "研究终端｜发现与跟踪": [
-                limit_up_page,
-                radar_page,
-            ],
-            "研究终端｜公司主线": [
-                comprehensive_page,
-                company_page,
-                evidence_delta_page,
-                thesis_ledger_page,
-            ],
-            "研究终端｜市场与复盘": [
-                market_page,
-                volume_turnover_page,
-                anomaly_page,
-                historical_page,
-            ],
-            "研究终端｜财务与年报": [
-                financial_snapshot_page,
-                annual_page,
-                financial_trend_page,
-                comparison_page,
-                financial_anomaly_page,
-            ],
-            "研究终端｜数据与方法": [onboarding_page, methodology_page],
-        }
+        [
+            game_page,
+            workspace_page,
+            game_practice_page,
+            game_investigation_page,
+            game_evidence_page,
+            game_defense_page,
+            game_migration_page,
+            game_honour_page,
+            home_page,
+            research_terminal_page,
+            comprehensive_page,
+            company_page,
+            evidence_delta_page,
+            thesis_ledger_page,
+            market_page,
+            volume_turnover_page,
+            limit_up_page,
+            radar_page,
+            anomaly_page,
+            historical_page,
+            annual_page,
+            financial_snapshot_page,
+            onboarding_page,
+            financial_trend_page,
+            financial_anomaly_page,
+            comparison_page,
+            methodology_page,
+        ]
     )
     navigation.run()
 

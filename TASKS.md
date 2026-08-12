@@ -1,6 +1,12 @@
 # Current task board
 
 ## Now
+- [x] Reduce the public sidebar to two entries: 《消失的现金》 and Listed
+      Company Investigation Bureau; keep every prior tool as a hidden child
+      page reached from the bureau.
+- [x] Split the first case into independent teaching, practice, investigation,
+      evidence-chain, defence, migration, and honour pages while preserving
+      sequential unlocks and browser-local completion records.
 - [x] Reorganise the product home page around two connected primary modules:
       Researcher Mission Bureau and Company Research Terminal.
 - [x] Add a first game-module hub that explains the six-stage learning loop and

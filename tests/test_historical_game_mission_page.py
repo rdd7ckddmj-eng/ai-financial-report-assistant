@@ -181,6 +181,6 @@ def test_historical_mission_page_requires_date_and_reasoning() -> None:
     )
     assert app_test.session_state["cash_case_stage"] == "migration_completed"
     assert any(
-        item.label == "带着调查结论返回研究员任务局"
+        item.label == "调查完成｜进入首案封存"
         for item in app_test.button
     )
