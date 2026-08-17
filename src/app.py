@@ -4000,12 +4000,13 @@ def apply_cash_game_theme() -> None:
 
         .st-key-cash_game_scene_content:has(.wfz-practice-complete-scene)
         .stButton {
-            position: absolute;
-            z-index: 7;
-            right: 50%;
-            bottom: 1.2rem;
+            position: fixed !important;
+            z-index: 10000;
+            right: auto;
+            left: 50%;
+            bottom: clamp(1rem, 2.5vh, 1.8rem);
             width: min(31rem, calc(100% - 2rem));
-            transform: translateX(50%);
+            transform: translateX(-50%);
         }
 
         .st-key-cash_game_scene_content:has(.wfz-intake-scene)

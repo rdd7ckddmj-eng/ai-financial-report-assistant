@@ -230,6 +230,8 @@ apply_cash_game_theme()
     assert "overflow: hidden !important" in theme_markup
     assert ".st-key-cash_game_scene_content" in theme_markup
     assert "overflow-y: auto" in theme_markup
+    assert "position: fixed !important" in theme_markup
+    assert "bottom: clamp(1rem, 2.5vh, 1.8rem)" in theme_markup
     assert ".wfz-game-exit" in theme_markup
     assert 'html body section[data-testid="stSidebar"]' in theme_markup
     assert "visibility: hidden !important" in theme_markup
