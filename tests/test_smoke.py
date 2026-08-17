@@ -155,21 +155,23 @@ def test_navigation_exposes_chinese_home_and_one_canonical_game_entry() -> None:
     assert navigation_definition.count("game_page") == 1
 
 
-def test_game_prologue_and_all_seven_scenes_share_one_screen_contract() -> None:
+def test_game_intake_and_all_nine_scenes_share_one_screen_contract() -> None:
     """Keep the complete case inside one immersive, machine-checkable shell."""
     import re
 
     from streamlit.testing.v1 import AppTest
 
     scenes = (
-        ("prologue", "briefing", False),
-        ("01", "briefing", True),
-        ("02", "practice", True),
-        ("03", "investigation", True),
-        ("04", "evidence", True),
-        ("05", "defense", True),
-        ("06", "migration", True),
-        ("07", "migration_completed", True),
+        ("01", "briefing", False),
+        ("02", "briefing", True),
+        ("03", "practice", True),
+        ("04", "investigation", True),
+        ("05", "reading", True),
+        ("06", "cross_check", True),
+        ("07", "evidence", True),
+        ("08", "defense", True),
+        ("09", "migration", True),
+        ("09", "migration_completed", True),
     )
     for expected_step, stage, has_player in scenes:
         script = f'''
@@ -241,8 +243,8 @@ def test_game_hud_uses_direct_html_instead_of_markdown_code_fences() -> None:
 from src.app import _show_cash_game_stage
 
 _show_cash_game_stage(
-    0,
-    "序章｜建立调查身份",
+    1,
+    "剧情进入｜建立调查身份",
     "在案件终端取名。",
     "别猜。",
     prologue=True,
@@ -252,7 +254,7 @@ _show_cash_game_stage(
 
     assert not app_test.exception
     rendered_markup = _all_rendered_markup(app_test)
-    assert 'data-game-step="prologue"' in rendered_markup
+    assert 'data-game-step="01"' in rendered_markup
     assert not any(
         "<div class=" in item.value
         for item in app_test.code
@@ -310,24 +312,14 @@ render_game_hub_page()
     assert not app_test.exception
     page_markup = _all_rendered_markup(app_test)
     assert "《消失的现金》" in page_markup
-    for label in (
-        "教学",
-        "练习",
-        "调查",
-        "证据链",
-        "答辩",
-        "外勤",
-        "封存",
-    ):
-        assert label in page_markup
+    assert "九幕连续调查" in page_markup
     assert any(
-        item.label == "确认代号并签收案件｜进入 01 现场"
+        item.label == "确认代号｜进入零基础教学"
         for item in app_test.button
     )
-    assert "例如：北辰（最多12个字符）" == app_test.text_input[0].placeholder
-    assert "不按代号或 IP 保存" in "\n".join(
-        item.value for item in app_test.markdown
-    )
+    assert "中文或英文，最多12个字符" == app_test.text_input[0].placeholder
+    assert "代号不是账户" in page_markup
+    assert "wfz-intake-scene" in page_markup
 
 
 def test_completed_game_unlocks_bounded_honour_archive() -> None:
@@ -445,6 +437,87 @@ render_game_hub_page()
     )
 
 
+def test_office_search_requires_all_six_documents_before_reading() -> None:
+    """The office is a searchable scene, not a decorative introduction."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_game_hub_page
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state.setdefault("cash_case_stage", "investigation")
+st.session_state.setdefault("cash_evidence_attempt_index", 0)
+st.session_state.setdefault("cash_discovered_document_ids", [])
+render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+    finish_button = next(
+        item for item in app_test.button
+        if item.label == "结束搜查｜进入多材料深度研读"
+    )
+    assert finish_button.disabled is True
+
+    for location in (
+        "会议室投影幕布",
+        "上锁的合同柜",
+        "茶水间遗落的手机",
+        "打印机出纸托盘",
+        "财务共享盘的深层文件夹",
+        "碎纸机旁的待归档纸袋",
+    ):
+        next(
+            item for item in app_test.button
+            if item.label == f"搜查｜{location}"
+        ).click().run()
+
+    assert not app_test.exception
+    assert len(app_test.session_state["cash_discovered_document_ids"]) == 6
+    finish_button = next(
+        item for item in app_test.button
+        if item.label == "结束搜查｜进入多材料深度研读"
+    )
+    assert finish_button.disabled is False
+    finish_button.click().run()
+    assert app_test.session_state["cash_case_stage"] == "reading"
+
+
+def test_cross_check_opens_evidence_chain_only_after_report_date_boundary() -> None:
+    """A correct date-boundary check is required before evidence chaining."""
+    from streamlit.testing.v1 import AppTest
+
+    from src.cash_case_game import (
+        build_cash_cross_check_task,
+        build_cash_evidence_case,
+    )
+
+    script = """
+import streamlit as st
+from src.app import render_game_hub_page
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state.setdefault("cash_case_stage", "cross_check")
+st.session_state.setdefault("cash_evidence_attempt_index", 0)
+render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+    task = build_cash_cross_check_task(build_cash_evidence_case(0))
+    next(
+        item for item in app_test.multiselect
+        if item.label == "选择恰好3条能够成立的表述"
+    ).set_value(task["correct_options"])
+    next(
+        item for item in app_test.button
+        if item.label == "提交交叉核验"
+    ).click().run()
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_case_stage"] == "evidence"
+    assert "期后银行回单只能证明后来到账" in app_test.session_state[
+        "cash_cross_check_explanation"
+    ]
+
+
 def test_cash_evidence_wrong_chain_replaces_the_office_file() -> None:
     """A weak four-document chain should trigger a fresh no-life-loss file."""
     from streamlit.testing.v1 import AppTest
@@ -487,14 +560,9 @@ render_game_hub_page()
 
     assert not app_test.exception
     assert app_test.session_state["cash_evidence_attempt_index"] == 1
-    second_multiselect = next(
-        item for item in app_test.multiselect
-        if item.label == "选择恰好4份材料"
-    )
-    assert list(second_multiselect.options) != first_options
-    warning_text = "\n".join(item.value for item in app_test.warning)
-    assert "没有扣除生命" in warning_text
-    assert "不能沿用上一轮的文件编号" in warning_text
+    assert app_test.session_state["cash_case_stage"] == "investigation"
+    assert app_test.session_state["cash_discovered_document_ids"] == []
+    assert first_options
 
 
 def test_complete_cash_evidence_chain_opens_defense_but_keeps_mission_locked() -> None:
@@ -539,7 +607,7 @@ render_game_hub_page()
     assert not app_test.exception
     assert app_test.session_state["cash_case_stage"] == "evidence_completed"
     assert any(
-        "04 现场通过" in item.value for item in app_test.success
+        "07 现场通过" in item.value for item in app_test.success
     )
     assert any(
         item.label == "进入审查委员会｜开始三轮结论答辩"

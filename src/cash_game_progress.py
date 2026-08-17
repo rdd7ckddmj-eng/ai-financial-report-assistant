@@ -27,6 +27,8 @@ _ALLOWED_STAGES = frozenset(
         "practice",
         "timing_completed",
         "investigation",
+        "reading",
+        "cross_check",
         "evidence",
         "evidence_completed",
         "defense",
@@ -52,6 +54,7 @@ _INTEGER_FIELDS: dict[str, tuple[int, int, int]] = {
 
 _TEXT_FIELDS: dict[str, int] = {
     "cash_case_last_explanation": 4_000,
+    "cash_cross_check_explanation": 4_000,
     "cash_evidence_explanation": 6_000,
     "historical_prefill_context": 200,
     "historical_game_mission_reasoning": 4_000,
@@ -72,10 +75,22 @@ _DATE_FIELDS = frozenset(
     }
 )
 
+_EVIDENCE_DOCUMENT_IDS = frozenset(
+    {
+        "executive_slide",
+        "contract_clause",
+        "celebration_chat",
+        "signed_acceptance",
+        "ar_subledger",
+        "post_period_receipt",
+    }
+)
+
 _MANAGED_SESSION_KEYS = frozenset(
     {
         "game_player_name",
         "cash_case_stage",
+        "cash_discovered_document_ids",
         "cash_defense_completed_explanations",
         *_INTEGER_FIELDS,
         *_TEXT_FIELDS,
@@ -194,6 +209,18 @@ def normalise_cash_game_progress_snapshot(
             if cleaned is not None:
                 safe_explanations.append(cleaned)
     snapshot["cash_defense_completed_explanations"] = safe_explanations
+
+    discovered_ids = value.get("cash_discovered_document_ids")
+    safe_discovered_ids: list[str] = []
+    if isinstance(discovered_ids, (list, tuple)):
+        for document_id in discovered_ids:
+            if (
+                isinstance(document_id, str)
+                and document_id in _EVIDENCE_DOCUMENT_IDS
+                and document_id not in safe_discovered_ids
+            ):
+                safe_discovered_ids.append(document_id)
+    snapshot["cash_discovered_document_ids"] = safe_discovered_ids
 
     for field, max_chars in _TEXT_FIELDS.items():
         cleaned = _clean_text(value.get(field), max_chars)

@@ -4,6 +4,7 @@ gatherUsageStats = false
 [server]
 headless = true
 maxUploadSize = 200
+enableStaticServing = true
 
 [theme]
 base = "light"

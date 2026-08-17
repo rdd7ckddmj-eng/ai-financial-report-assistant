@@ -14,6 +14,10 @@ def test_build_snapshot_preserves_complete_game_checkpoint() -> None:
     state: dict[str, object] = {
         "game_player_name": "  北辰  研究员 ",
         "cash_case_stage": "migration",
+        "cash_discovered_document_ids": [
+            "contract_clause",
+            "signed_acceptance",
+        ],
         "cash_case_attempt_index": 8,
         "cash_evidence_attempt_index": 4,
         "cash_defense_lives": 2,
@@ -47,6 +51,10 @@ def test_build_snapshot_preserves_complete_game_checkpoint() -> None:
     assert snapshot["game_player_name"] == "北辰 研究员"
     assert snapshot["cash_case_stage"] == "migration"
     assert snapshot["cash_defense_lives"] == 2
+    assert snapshot["cash_discovered_document_ids"] == [
+        "contract_clause",
+        "signed_acceptance",
+    ]
     assert snapshot["cash_defense_completed_explanations"] == [
         "先陈述事实。",
         "再守住边界。",
@@ -62,6 +70,11 @@ def test_snapshot_applies_strict_bounds_and_discards_unsafe_fields() -> None:
             "version": CASH_GAME_PROGRESS_VERSION,
             "game_player_name": "超长调查员代号ABCDEFGHIJK\x00",
             "cash_case_stage": "admin",
+            "cash_discovered_document_ids": [
+                "contract_clause",
+                "../../unsafe",
+                "contract_clause",
+            ],
             "cash_case_attempt_index": 99_999_999,
             "cash_evidence_attempt_index": -12,
             "cash_defense_lives": 100,
@@ -91,6 +104,7 @@ def test_snapshot_applies_strict_bounds_and_discards_unsafe_fields() -> None:
     assert snapshot["cash_case_attempt_index"] == 10_000
     assert snapshot["cash_evidence_attempt_index"] == 0
     assert snapshot["cash_defense_lives"] == 3
+    assert snapshot["cash_discovered_document_ids"] == ["contract_clause"]
     assert snapshot["cash_defense_round_index"] == 2
     assert snapshot["cash_defense_attempt_index"] == 0
     assert snapshot["historical_game_mission_reasoning_attempt"] == 0
@@ -145,6 +159,7 @@ def test_restore_replaces_only_durable_game_state() -> None:
         "version": CASH_GAME_PROGRESS_VERSION,
         "game_player_name": "新代号",
         "cash_case_stage": "evidence",
+        "cash_discovered_document_ids": ["ar_subledger"],
         "cash_case_attempt_index": 3,
         "cash_evidence_attempt_index": 2,
         "cash_defense_lives": 3,
@@ -160,6 +175,7 @@ def test_restore_replaces_only_durable_game_state() -> None:
     assert state["game_player_name"] == "新代号"
     assert state["cash_case_stage"] == "evidence"
     assert state["cash_evidence_attempt_index"] == 2
+    assert state["cash_discovered_document_ids"] == ["ar_subledger"]
     assert "cash_evidence_explanation" not in state
     assert "historical_game_mission_completed" not in state
     assert state["unrelated_research_page"] == "保留"

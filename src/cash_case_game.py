@@ -39,11 +39,27 @@ class CashEvidenceCase(TypedDict):
     case_id: str
     attempt_number: int
     reporting_date: date
+    acceptance_date: date
+    due_date: date
+    receipt_date: date
+    payment_days: int
+    customer_name: str
+    contract_number: str
     contract_amount_wan: int
     outstanding_wan: int
     documents: list[EvidenceDocument]
     required_document_ids: list[str]
     question: str
+    explanation: str
+
+
+class CashCrossCheckTask(TypedDict):
+    """One report-date fact check built from the current evidence file."""
+
+    task_id: str
+    prompt: str
+    options: list[str]
+    correct_options: list[str]
     explanation: str
 
 
@@ -291,12 +307,69 @@ def build_cash_evidence_case(attempt_index: int) -> CashEvidenceCase:
         ),
         "attempt_number": attempt_index + 1,
         "reporting_date": reporting_date,
+        "acceptance_date": acceptance_date,
+        "due_date": due_date,
+        "receipt_date": receipt_date,
+        "payment_days": payment_days,
+        "customer_name": customer_name,
+        "contract_number": contract_number,
         "contract_amount_wan": contract_amount_wan,
         "outstanding_wan": outstanding_wan,
         "documents": documents,
         "required_document_ids": required_document_ids,
         "question": question,
         "explanation": explanation,
+    }
+
+
+def build_cash_cross_check_task(
+    evidence_case: CashEvidenceCase,
+) -> CashCrossCheckTask:
+    """Build a changing report-date boundary check from the active file.
+
+    The answer depends on dates and source quality in the current documents,
+    not on a fixed option position.  The later bank receipt is useful evidence,
+    but it cannot be moved backwards and treated as year-end cash.
+    """
+    reporting_date = evidence_case["reporting_date"]
+    correct_options = [
+        (
+            f"合同约定：{evidence_case['customer_name']}在最终验收后"
+            f"{evidence_case['payment_days']}日内支付尾款。"
+        ),
+        (
+            f"客户签章材料显示：项目已于"
+            f"{evidence_case['acceptance_date'].isoformat()}完成最终验收。"
+        ),
+        (
+            f"年末明细显示：截至{reporting_date.isoformat()}仍有"
+            f"{evidence_case['outstanding_wan']}万元未收，但尚未逾期。"
+        ),
+    ]
+    distractors = [
+        (
+            f"{evidence_case['receipt_date'].isoformat()}的银行回单证明："
+            f"{reporting_date.isoformat()}当天已经收齐全部现金。"
+        ),
+        "项目群庆祝消息足以替代客户签署的最终验收文件。",
+        "管理层写下“回款确定性高”，因此可以直接证明银行账户已经收款。",
+    ]
+    options = correct_options + distractors
+    rotation = evidence_case["attempt_number"] % len(options)
+    options = options[rotation:] + options[:rotation]
+    return {
+        "task_id": f"cross-check-{evidence_case['case_id']}",
+        "prompt": (
+            "只依据当前卷宗，选出恰好3条在报告期末已有材料直接支持的"
+            "事实。注意：期后证据可以帮助核验，但不能倒流成年末事实。"
+        ),
+        "options": options,
+        "correct_options": correct_options,
+        "explanation": (
+            "合同负责付款条件，客户签章文件负责完成时点，年末明细负责"
+            "未收金额和是否逾期；期后银行回单只能证明后来到账。内部群聊"
+            "和管理层判断可以成为搜索线索，但不能独立证明外部事实。"
+        ),
     }
 
 

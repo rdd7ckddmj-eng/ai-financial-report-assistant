@@ -1,6 +1,7 @@
 import pytest
 
 from src.cash_case_game import (
+    build_cash_cross_check_task,
     build_cash_defense_question,
     build_cash_evidence_case,
     build_cash_timing_question,
@@ -75,6 +76,26 @@ def test_wrong_evidence_attempt_changes_material_details_and_order() -> None:
     assert [item["document_id"] for item in first["documents"]] != [
         item["document_id"] for item in second["documents"]
     ]
+
+
+def test_cross_check_separates_year_end_facts_from_later_evidence() -> None:
+    evidence_case = build_cash_evidence_case(0)
+    task = build_cash_cross_check_task(evidence_case)
+
+    assert len(task["options"]) == 6
+    assert len(task["correct_options"]) == 3
+    assert all(option in task["options"] for option in task["correct_options"])
+    assert any("银行回单证明" in option for option in task["options"])
+    assert "不能倒流成年末事实" in task["prompt"]
+    assert "期后银行回单只能证明后来到账" in task["explanation"]
+
+
+def test_cross_check_changes_with_the_reissued_office_file() -> None:
+    first = build_cash_cross_check_task(build_cash_evidence_case(0))
+    second = build_cash_cross_check_task(build_cash_evidence_case(1))
+
+    assert first["task_id"] != second["task_id"]
+    assert first["options"] != second["options"]
 
 
 @pytest.mark.parametrize("attempt_index", [-1, 2.5, "2"])
