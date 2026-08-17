@@ -2987,7 +2987,7 @@ def apply_cash_game_theme() -> None:
             justify-content: space-between;
             gap: 1rem;
             align-items: center;
-            padding: 0.7rem 1rem;
+            padding: 0.48rem 0.75rem;
             border-bottom: 1px solid rgba(143, 227, 229, 0.10);
             background: rgba(4, 17, 31, 0.48);
         }
@@ -3074,10 +3074,10 @@ def apply_cash_game_theme() -> None:
 
         .wfz-learning-loop {
             display: grid;
-            grid-template-columns: repeat(7, minmax(112px, 1fr));
-            gap: 0.55rem;
+            grid-template-columns: repeat(9, minmax(88px, 1fr));
+            gap: 0.34rem;
             margin: 0;
-            padding: 0.5rem 0.75rem;
+            padding: 0.34rem 0.55rem;
             overflow-x: auto;
             border-bottom: 1px solid rgba(143, 227, 229, 0.09);
             background: rgba(2, 15, 27, 0.36);
@@ -3090,7 +3090,7 @@ def apply_cash_game_theme() -> None:
             gap: 0.12rem 0.5rem;
             align-items: center;
             min-width: 0;
-            padding: 0.48rem 0.58rem;
+            padding: 0.36rem 0.42rem;
             border: 1px solid rgba(133, 215, 220, 0.10);
             border-radius: 12px;
             background: rgba(255, 255, 255, 0.025);
@@ -3146,13 +3146,13 @@ def apply_cash_game_theme() -> None:
         .wfz-game-scene-heading {
             display: grid;
             grid-template-columns: auto minmax(0, 1fr);
-            gap: 1.3rem;
+            gap: 0.8rem;
             align-items: start;
-            padding: 0.9rem 1.15rem 0.65rem;
+            padding: 0.5rem 0.75rem 0.32rem;
         }
 
         .wfz-game-scene-number {
-            padding: 0.55rem 0.7rem;
+            padding: 0.4rem 0.55rem;
             border: 1px solid rgba(127, 226, 225, 0.22);
             border-radius: 10px;
             background: rgba(46, 170, 171, 0.10);
@@ -3174,7 +3174,7 @@ def apply_cash_game_theme() -> None:
         .wfz-game-scene-heading h1 {
             margin: 0;
             color: #effcff !important;
-            font-size: clamp(1.45rem, 3vw, 2.25rem);
+            font-size: clamp(1.25rem, 2.2vw, 1.72rem);
             letter-spacing: -0.045em;
             line-height: 1.06;
         }
@@ -3183,8 +3183,8 @@ def apply_cash_game_theme() -> None:
             max-width: 820px;
             margin: 0.35rem 0 0;
             color: #9bb4c3 !important;
-            font-size: 0.9rem;
-            line-height: 1.7;
+            font-size: 0.72rem;
+            line-height: 1.45;
         }
 
         .wfz-game-director-line {
@@ -3192,8 +3192,8 @@ def apply_cash_game_theme() -> None:
             grid-template-columns: auto 1fr;
             gap: 0.8rem;
             align-items: center;
-            margin: 0 1.15rem 0.85rem;
-            padding: 0.55rem 0.75rem;
+            margin: 0 0.75rem 0.48rem;
+            padding: 0.38rem 0.55rem;
             border-left: 3px solid #4fd4ca;
             background: rgba(75, 193, 190, 0.075);
         }
@@ -3209,8 +3209,8 @@ def apply_cash_game_theme() -> None:
         .wfz-game-director-line p {
             margin: 0;
             color: #c6dde3 !important;
-            font-size: 0.78rem;
-            line-height: 1.55;
+            font-size: 0.68rem;
+            line-height: 1.4;
         }
 
         .wfz-game-exit {
@@ -3445,6 +3445,356 @@ def apply_cash_game_theme() -> None:
         .wfz-office-search-count strong {
             color: #73e1d5;
             font-size: 1rem;
+        }
+
+        .wfz-practice-scene,
+        .wfz-practice-complete-scene {
+            position: absolute;
+            z-index: 0;
+            inset: 0;
+            overflow: hidden;
+            background:
+                linear-gradient(90deg, rgba(2, 12, 24, 0.42), rgba(3, 15, 27, 0.8)),
+                linear-gradient(0deg, rgba(2, 10, 20, 0.78), transparent 54%),
+                url("/app/static/cash-game-office-v1.png") center 44% / cover no-repeat;
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-practice-scene),
+        .st-key-cash_game_scene_content:has(.wfz-practice-complete-scene) {
+            overflow: hidden;
+            padding: 0;
+            border: 1px solid rgba(135, 228, 231, 0.17);
+            border-radius: 0 0 22px 22px;
+            background: #071727;
+        }
+
+        /* Practice is a game board, not a document below another title. */
+        .st-key-cash_game_shell:has(.wfz-practice-scene)
+        .wfz-game-scene-heading,
+        .st-key-cash_game_shell:has(.wfz-practice-scene)
+        .wfz-game-director-line,
+        .st-key-cash_game_shell:has(.wfz-practice-complete-scene)
+        .wfz-game-scene-heading,
+        .st-key-cash_game_shell:has(.wfz-practice-complete-scene)
+        .wfz-game-director-line {
+            display: none;
+        }
+
+        .st-key-cash_game_shell:has(.wfz-practice-scene)
+        .wfz-game-shell-footer,
+        .st-key-cash_game_shell:has(.wfz-practice-complete-scene)
+        .wfz-game-shell-footer {
+            margin-top: 0.24rem;
+            padding-top: 0.24rem;
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-practice-scene)
+        .stElementContainer:has(.wfz-practice-scene),
+        .st-key-cash_game_scene_content:has(.wfz-practice-scene)
+        .stHtml:has(.wfz-practice-scene),
+        .st-key-cash_game_scene_content:has(.wfz-practice-complete-scene)
+        .stElementContainer:has(.wfz-practice-complete-scene),
+        .st-key-cash_game_scene_content:has(.wfz-practice-complete-scene)
+        .stHtml:has(.wfz-practice-complete-scene) {
+            position: absolute !important;
+            inset: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .wfz-practice-mission {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            width: min(31rem, 48%);
+            padding: 0.8rem 0.9rem;
+            border: 1px solid rgba(135, 228, 231, 0.24);
+            border-left: 3px solid #5addd2;
+            border-radius: 4px 15px 15px 4px;
+            background: rgba(3, 17, 31, 0.82);
+            backdrop-filter: blur(16px);
+            box-shadow: 0 18px 46px rgba(0, 7, 16, 0.32);
+        }
+
+        .wfz-practice-mission small,
+        .wfz-practice-flow small,
+        .wfz-practice-director small,
+        .wfz-practice-complete-card small {
+            color: #69ddd4;
+            font-size: 0.56rem;
+            font-weight: 850;
+            letter-spacing: 0.12em;
+        }
+
+        .wfz-practice-mission h2,
+        .wfz-practice-complete-card h2 {
+            margin: 0.25rem 0 0.3rem;
+            color: #f1fdff;
+            font-size: clamp(1.2rem, 2.3vw, 1.8rem);
+            line-height: 1.08;
+        }
+
+        .wfz-practice-mission p,
+        .wfz-practice-director p,
+        .wfz-practice-complete-card p {
+            margin: 0;
+            color: #b8cfd8 !important;
+            font-size: 0.67rem;
+            line-height: 1.5;
+        }
+
+        .wfz-practice-facts {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.45rem;
+            width: min(29rem, 45%);
+        }
+
+        .wfz-practice-fact {
+            padding: 0.65rem 0.72rem;
+            border: 1px solid rgba(139, 229, 231, 0.16);
+            border-radius: 13px;
+            background: rgba(4, 18, 31, 0.8);
+            backdrop-filter: blur(14px);
+        }
+
+        .wfz-practice-fact span {
+            display: block;
+            color: #789aaa;
+            font-size: 0.55rem;
+            font-weight: 760;
+        }
+
+        .wfz-practice-fact strong {
+            display: block;
+            margin-top: 0.12rem;
+            color: #effdff;
+            font-size: 0.98rem;
+        }
+
+        .wfz-practice-flow {
+            position: absolute;
+            right: 1rem;
+            bottom: 1rem;
+            box-sizing: border-box;
+            width: min(29rem, 45%);
+            padding: 0.75rem;
+            border: 1px solid rgba(139, 229, 231, 0.17);
+            border-radius: 15px;
+            background: rgba(3, 16, 29, 0.83);
+            backdrop-filter: blur(15px);
+        }
+
+        .wfz-practice-flow-row {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.32rem;
+            margin-top: 0.5rem;
+        }
+
+        .wfz-practice-flow-node {
+            position: relative;
+            min-width: 0;
+            padding: 0.55rem 0.35rem;
+            border: 1px solid rgba(112, 216, 215, 0.18);
+            border-radius: 11px;
+            background: rgba(255, 255, 255, 0.035);
+            text-align: center;
+        }
+
+        .wfz-practice-flow-node:not(:last-child)::after {
+            content: "›";
+            position: absolute;
+            z-index: 2;
+            top: 50%;
+            right: -0.27rem;
+            color: #65d9d2;
+            font-size: 0.8rem;
+            transform: translateY(-50%);
+        }
+
+        .wfz-practice-flow-node b {
+            display: block;
+            color: #75e2da;
+            font-size: 0.58rem;
+        }
+
+        .wfz-practice-flow-node span {
+            display: block;
+            overflow: hidden;
+            margin-top: 0.16rem;
+            color: #c6dde4;
+            font-size: 0.54rem;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .wfz-practice-director {
+            position: absolute;
+            right: 1rem;
+            bottom: 7.25rem;
+            width: min(29rem, 45%);
+            padding: 0.65rem 0.75rem;
+            border-left: 3px solid #e3b36c;
+            border-radius: 4px 13px 13px 4px;
+            background: rgba(8, 20, 31, 0.84);
+            backdrop-filter: blur(14px);
+        }
+
+        .wfz-practice-director--retry {
+            border-left-color: #ff917d;
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-practice-scene)
+        [data-testid="stForm"] {
+            position: absolute;
+            z-index: 6;
+            top: 9.2rem;
+            bottom: 1rem;
+            left: 1rem;
+            box-sizing: border-box;
+            width: min(31rem, 48%);
+            height: auto !important;
+            min-height: 0 !important;
+            margin: 0;
+            overflow: auto;
+            padding: 0.82rem 0.9rem 0.9rem;
+            border-color: rgba(150, 237, 234, 0.25) !important;
+            background: rgba(3, 17, 30, 0.9) !important;
+            backdrop-filter: blur(18px);
+            box-shadow: 0 22px 56px rgba(0, 6, 15, 0.46) !important;
+            scrollbar-width: thin;
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-practice-scene)
+        .st-key-cash_timing_order_terminal {
+            position: absolute;
+            z-index: 6;
+            top: 8.55rem;
+            bottom: 1rem;
+            left: 1rem;
+            box-sizing: border-box;
+            width: min(31rem, 48%);
+            min-height: 0;
+            overflow: auto;
+            padding: 0.65rem 0.78rem 0.72rem;
+            border: 1px solid rgba(150, 237, 234, 0.25);
+            border-radius: 18px;
+            background: rgba(3, 17, 30, 0.9);
+            backdrop-filter: blur(18px);
+            box-shadow: 0 22px 56px rgba(0, 6, 15, 0.46);
+            scrollbar-width: thin;
+        }
+
+        .st-key-cash_timing_order_terminal button,
+        .st-key-cash_timing_order_terminal [data-testid^="stBaseButton"] {
+            min-height: 2.6rem;
+            padding: 0.38rem 0.5rem;
+            border-color: rgba(134, 199, 203, 0.58) !important;
+            background: linear-gradient(
+                135deg,
+                rgba(250, 253, 252, 0.98),
+                rgba(218, 234, 235, 0.98)
+            ) !important;
+            color: #0a2939 !important;
+            box-shadow: 0 7px 16px rgba(0, 8, 18, 0.18) !important;
+        }
+
+        .st-key-cash_timing_order_terminal button p,
+        .st-key-cash_timing_order_terminal button span,
+        .st-key-cash_timing_order_terminal [data-testid^="stBaseButton"] p,
+        .st-key-cash_timing_order_terminal [data-testid^="stBaseButton"] span {
+            color: #0a2939 !important;
+            font-weight: 780 !important;
+        }
+
+        .st-key-cash_timing_order_terminal button:hover,
+        .st-key-cash_timing_order_terminal [data-testid^="stBaseButton"]:hover {
+            border-color: rgba(102, 230, 220, 0.72) !important;
+            background: linear-gradient(
+                135deg,
+                rgba(225, 254, 250, 0.99),
+                rgba(183, 228, 228, 0.99)
+            ) !important;
+            transform: translateY(-1px);
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-practice-scene)
+        [role="radiogroup"] {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.42rem;
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-practice-scene)
+        [role="radiogroup"] > label {
+            box-sizing: border-box;
+            min-width: 0;
+            margin: 0;
+            padding: 0.48rem 0.52rem;
+            border: 1px solid rgba(128, 220, 222, 0.15);
+            border-radius: 11px;
+            background: rgba(255, 255, 255, 0.035);
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-practice-scene)
+        [role="radiogroup"] > label:hover {
+            border-color: rgba(113, 227, 218, 0.42);
+            background: rgba(32, 126, 137, 0.18);
+        }
+
+        .wfz-practice-complete-card {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: min(42rem, calc(100% - 2rem));
+            padding: 1.3rem 1.4rem;
+            border: 1px solid rgba(139, 229, 231, 0.25);
+            border-radius: 20px;
+            background: rgba(3, 17, 30, 0.88);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 28px 70px rgba(0, 6, 15, 0.48);
+            transform: translate(-50%, -55%);
+        }
+
+        .wfz-practice-complete-result {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.65rem;
+            margin-top: 0.85rem;
+        }
+
+        .wfz-practice-complete-result div {
+            padding: 0.75rem;
+            border: 1px solid rgba(135, 227, 228, 0.15);
+            border-radius: 13px;
+            background: rgba(255, 255, 255, 0.035);
+        }
+
+        .wfz-practice-complete-result span {
+            display: block;
+            color: #789aaa;
+            font-size: 0.58rem;
+        }
+
+        .wfz-practice-complete-result strong {
+            display: block;
+            margin-top: 0.25rem;
+            color: #edfdff;
+            font-size: 0.86rem;
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-practice-complete-scene)
+        .stButton {
+            position: absolute;
+            z-index: 7;
+            right: 50%;
+            bottom: 1.2rem;
+            width: min(31rem, calc(100% - 2rem));
+            transform: translateX(50%);
         }
 
         .st-key-cash_game_scene_content:has(.wfz-intake-scene)
@@ -3683,39 +4033,108 @@ def apply_cash_game_theme() -> None:
                 padding: 0.8rem 0.85rem 0.9rem;
             }
 
+            .wfz-practice-scene,
+            .wfz-practice-complete-scene {
+                background-position: 61% 44%;
+            }
+
+            .wfz-practice-mission {
+                top: 0.55rem;
+                left: 0.55rem;
+                width: calc(100% - 1.1rem);
+                padding: 0.58rem 0.65rem;
+            }
+
+            .wfz-practice-mission p {
+                display: none;
+            }
+
+            .wfz-practice-facts {
+                top: 5.1rem;
+                right: 0.55rem;
+                left: 0.55rem;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 0.25rem;
+                width: auto;
+            }
+
+            .wfz-practice-fact {
+                padding: 0.42rem 0.32rem;
+                text-align: center;
+            }
+
+            .wfz-practice-fact span {
+                font-size: 0.48rem;
+            }
+
+            .wfz-practice-fact strong {
+                font-size: 0.67rem;
+            }
+
+            .wfz-practice-flow,
+            .wfz-practice-director {
+                display: none;
+            }
+
+            .st-key-cash_game_scene_content:has(.wfz-practice-scene)
+            [data-testid="stForm"],
+            .st-key-cash_game_scene_content:has(.wfz-practice-scene)
+            .st-key-cash_timing_order_terminal {
+                top: 8.55rem;
+                right: 0.55rem;
+                bottom: 0.55rem;
+                left: 0.55rem;
+                width: auto;
+                padding: 0.65rem 0.7rem 0.72rem;
+            }
+
+            .st-key-cash_game_scene_content:has(.wfz-practice-scene)
+            [role="radiogroup"] {
+                grid-template-columns: 1fr;
+            }
+
+            .wfz-practice-complete-card {
+                width: calc(100% - 1.1rem);
+                padding: 1rem;
+            }
+
+            .wfz-practice-complete-result {
+                grid-template-columns: 1fr;
+            }
+
             .wfz-game-commandbar,
             .wfz-game-scene-heading,
             .wfz-game-director-line {
                 grid-template-columns: 1fr;
-                flex-direction: column;
+                flex-direction: row;
             }
 
             .wfz-game-hud {
-                display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                width: 100%;
-                justify-content: flex-start;
+                display: flex;
+                width: auto;
+                justify-content: flex-end;
             }
 
             .wfz-game-hud-item,
             .wfz-game-save-state {
-                box-sizing: border-box;
-                width: auto;
+                display: none;
             }
 
             .wfz-learning-loop {
-                grid-template-columns: repeat(7, minmax(108px, 1fr));
-                padding: 0.7rem 0.75rem;
+                grid-template-columns: repeat(9, minmax(82px, 1fr));
+                padding: 0.38rem 0.45rem;
             }
 
             .wfz-game-scene-heading {
-                gap: 0.8rem;
-                padding: 0.75rem 0.8rem 0.55rem;
+                grid-template-columns: auto minmax(0, 1fr);
+                gap: 0.5rem;
+                padding: 0.42rem 0.55rem 0.3rem;
             }
 
             .wfz-game-director-line {
-                gap: 0.4rem;
-                margin: 0 0.8rem 0.7rem;
+                grid-template-columns: auto minmax(0, 1fr);
+                gap: 0.35rem;
+                margin: 0 0.55rem 0.42rem;
             }
 
             .wfz-game-rules {
@@ -6798,25 +7217,204 @@ def _render_cash_practice_node(player_name: str) -> None:
     """Render the changing timing calculation inside scene two."""
     stage = str(st.session_state.get("cash_case_stage", "practice"))
 
-    feedback = st.session_state.pop("cash_case_feedback", None)
-    if isinstance(feedback, str):
-        st.warning(feedback)
-
     if stage == "practice":
+        feedback = st.session_state.pop("cash_case_feedback", None)
         attempt_index = int(
             st.session_state.get("cash_case_attempt_index", 0)
         )
         question = build_cash_timing_question(attempt_index)
+        question_id = question["question_id"]
+        if (
+            st.session_state.get("cash_timing_order_question_id")
+            != question_id
+        ):
+            st.session_state["cash_timing_order_question_id"] = question_id
+            st.session_state["cash_timing_order_ids"] = []
+            st.session_state.pop(
+                "cash_timing_order_completed_question_id",
+                None,
+            )
+        event_by_id = {
+            event["event_id"]: event for event in question["event_cards"]
+        }
+        selected_order = [
+            event_id
+            for event_id in st.session_state.get(
+                "cash_timing_order_ids",
+                [],
+            )
+            if event_id in event_by_id
+        ]
+        order_completed = (
+            st.session_state.get(
+                "cash_timing_order_completed_question_id"
+            )
+            == question_id
+        )
+        outstanding_wan = (
+            question["revenue_wan"] - question["cash_collected_wan"]
+        )
+        feedback_message = (
+            feedback
+            if isinstance(feedback, str)
+            else (
+                "先把四张事件卡按发生时间排入时间轴。"
+                "顺序正确后，利润与现金的双表终端才会解锁。"
+            )
+        )
+        feedback_class = (
+            "wfz-practice-director--retry"
+            if isinstance(feedback, str)
+            else ""
+        )
+        flow_nodes: list[str] = []
+        for slot_index in range(4):
+            if slot_index < len(selected_order):
+                selected_event = event_by_id[selected_order[slot_index]]
+                flow_label = escape(selected_event["title"])
+                flow_date = escape(selected_event["date_label"])
+            else:
+                flow_label = "等待事件卡"
+                flow_date = "—"
+            flow_nodes.append(
+                '<div class="wfz-practice-flow-node">'
+                f"<b>{slot_index + 1:02d}</b>"
+                f"<span>{flow_date} · {flow_label}</span>"
+                "</div>"
+            )
+        flow_nodes_html = "".join(flow_nodes)
+        st.html(
+            f"""
+            <section class="wfz-practice-scene" aria-label="利润与现金校准训练场">
+                <div class="wfz-intake-vignette"></div>
+                <div class="wfz-practice-mission">
+                    <small>DYNAMIC DOSSIER {question['attempt_number']:02d} · TRAINING ZONE</small>
+                    <h2>一笔业务，两只计量表</h2>
+                    <p>{escape(question['prompt'])}</p>
+                </div>
+                <div class="wfz-practice-facts" aria-label="业务档案关键数字">
+                    <div class="wfz-practice-fact">
+                        <span>已完成并验收</span>
+                        <strong>{question['revenue_wan']} 万元</strong>
+                    </div>
+                    <div class="wfz-practice-fact">
+                        <span>费用已经支付</span>
+                        <strong>{question['expense_wan']} 万元</strong>
+                    </div>
+                    <div class="wfz-practice-fact">
+                        <span>本月实际回款</span>
+                        <strong>{question['cash_collected_wan']} 万元</strong>
+                    </div>
+                    <div class="wfz-practice-fact">
+                        <span>尚未收到</span>
+                        <strong>{outstanding_wan} 万元</strong>
+                    </div>
+                </div>
+                <div class="wfz-practice-director {feedback_class}">
+                    <small>调查主任 · 实时通讯</small>
+                    <p>{escape(str(feedback_message))}</p>
+                </div>
+                <div class="wfz-practice-flow">
+                    <small>业务时间线｜已排入 {len(selected_order)} / 4 张事件卡</small>
+                    <div class="wfz-practice-flow-row">
+                        {flow_nodes_html}
+                    </div>
+                </div>
+            </section>
+            """
+        )
+        if not order_completed:
+            with st.container(key="cash_timing_order_terminal"):
+                st.caption(
+                    f"03 / 时间线校准 · 第 {question['attempt_number']} 份动态卷宗"
+                )
+                st.markdown("#### 点击事件卡，按发生先后排入时间轴")
+                available_events = [
+                    event
+                    for event in question["event_cards"]
+                    if event["event_id"] not in selected_order
+                ]
+                event_columns = st.columns(2)
+                for event_index, event in enumerate(available_events):
+                    with event_columns[event_index % 2]:
+                        if st.button(
+                            f"{event['date_label']}｜{event['title']}",
+                            help=event["detail"],
+                            width="stretch",
+                            key=(
+                                "cash_timing_event_"
+                                f"{question_id}_{event['event_id']}"
+                            ),
+                        ):
+                            next_order = [
+                                *selected_order,
+                                event["event_id"],
+                            ]
+                            if len(next_order) == 4:
+                                if (
+                                    next_order
+                                    == question["correct_event_order"]
+                                ):
+                                    st.session_state[
+                                        "cash_timing_order_ids"
+                                    ] = next_order
+                                    st.session_state[
+                                        "cash_timing_order_completed_question_id"
+                                    ] = question_id
+                                    st.session_state[
+                                        "cash_case_feedback"
+                                    ] = (
+                                        "时间线已校准。现在分别启动利润表与"
+                                        "现金表，别让尚未到账的款项混进现金。"
+                                    )
+                                else:
+                                    st.session_state[
+                                        "cash_case_attempt_index"
+                                    ] = attempt_index + 1
+                                    st.session_state[
+                                        "cash_case_feedback"
+                                    ] = (
+                                        "事件顺序出现矛盾。没有扣除生命；"
+                                        "系统已更换日期、金额和卡片顺序，"
+                                        "请重新沿时间线调查。"
+                                    )
+                                    st.session_state.pop(
+                                        "cash_timing_order_question_id",
+                                        None,
+                                    )
+                                    st.session_state[
+                                        "cash_timing_order_ids"
+                                    ] = []
+                                    st.session_state.pop(
+                                        "cash_timing_order_completed_question_id",
+                                        None,
+                                    )
+                            else:
+                                st.session_state[
+                                    "cash_timing_order_ids"
+                                ] = next_order
+                            st.rerun()
+                if selected_order and st.button(
+                    "撤回全部卡片｜重新排序",
+                    width="stretch",
+                    key=f"reset_cash_timing_order_{question_id}",
+                ):
+                    st.session_state["cash_timing_order_ids"] = []
+                    st.rerun()
+            return
+
         with st.form(
             key=f"cash_case_question_{question['question_id']}",
             border=True,
         ):
             st.caption(
-                f"动态业务档案 · 第 {question['attempt_number']} 份｜"
-                "训练现场答错不扣机会"
+                f"03 / 双表校准 · 第 {question['attempt_number']} 份动态卷宗"
             )
-            st.markdown("#### 分别计算利润影响与现金影响")
-            st.write(question["prompt"])
+            st.markdown("#### 提交利润与现金的双重判断")
+            st.caption(
+                "利润表：已确认收入 − 相关费用；现金表：本月实收 − 本月实付。"
+                "训练区答错不扣生命，但会立即更换整份业务档案。"
+            )
             selected_option = st.radio(
                 "选择最准确的计算结果",
                 options=question["options"],
@@ -6824,7 +7422,7 @@ def _render_cash_practice_node(player_name: str) -> None:
                 key=f"cash_case_answer_{question['question_id']}",
             )
             answer_submitted = st.form_submit_button(
-                "提交判断",
+                "锁定双表结果｜提交判断",
                 type="primary",
                 width="stretch",
             )
@@ -6842,6 +7440,15 @@ def _render_cash_practice_node(player_name: str) -> None:
                 st.session_state["cash_case_attempt_index"] = (
                     attempt_index + 1
                 )
+                st.session_state.pop(
+                    "cash_timing_order_question_id",
+                    None,
+                )
+                st.session_state["cash_timing_order_ids"] = []
+                st.session_state.pop(
+                    "cash_timing_order_completed_question_id",
+                    None,
+                )
                 st.session_state["cash_case_feedback"] = (
                     "这次计算还没有同时分清“确认了多少业务”和“实际收付"
                     "了多少钱”。没有扣除生命；档案数据已经更换，请用同一"
@@ -6853,19 +7460,31 @@ def _render_cash_practice_node(player_name: str) -> None:
     explanation = str(
         st.session_state.get("cash_case_last_explanation", "")
     )
-    st.success("02 现场通过｜利润与现金的两只计量表已经分开。")
-    if explanation:
-        with st.container(border=True):
-            st.markdown("#### 审查官复盘")
-            st.write(explanation)
+    st.html(
+        f"""
+        <section class="wfz-practice-complete-scene" aria-label="双表校准完成">
+            <div class="wfz-intake-vignette"></div>
+            <div class="wfz-practice-complete-card">
+                <small>SCENE 03 · CALIBRATION COMPLETE</small>
+                <h2>{escape(player_name)}，你把两只计量表分开了。</h2>
+                <p>{escape(explanation)}</p>
+                <div class="wfz-practice-complete-result">
+                    <div>
+                        <span>利润回答</span>
+                        <strong>业务是否完成，以及完成后赚了多少</strong>
+                    </div>
+                    <div>
+                        <span>现金回答</span>
+                        <strong>钱是否在本期真正进入或离开账户</strong>
+                    </div>
+                </div>
+            </div>
+        </section>
+        """
+    )
     if stage in {"completed", "timing_completed"}:
-        st.info(
-            "你现在只证明自己掌握了基础计算。下一现场会把合同、应收"
-            "明细、验收文件和期后回款放进同一办公室，要求你自己寻找"
-            "材料并判断差异是否值得警惕。"
-        )
         if st.button(
-            "进入项目办公室｜开始证据调查",
+            "打开办公室门禁｜开始证据探索",
             type="primary",
             width="stretch",
             key="open_cash_evidence_room",

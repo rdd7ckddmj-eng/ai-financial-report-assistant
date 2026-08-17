@@ -362,8 +362,8 @@ finally:
     assert "你也想发抖音吗" in page_markup
 
 
-def test_cash_case_wrong_answer_replaces_the_business_sheet() -> None:
-    """A wrong practice answer must create a new sheet without losing life."""
+def test_cash_case_timeline_unlocks_the_calculation_terminal() -> None:
+    """Practice should begin with event ordering, not a bare radio form."""
     from streamlit.testing.v1 import AppTest
 
     script = """
@@ -378,27 +378,111 @@ render_game_hub_page()
     app_test = AppTest.from_string(script).run()
 
     assert not app_test.exception
+    assert not any(
+        item.label == "选择最准确的计算结果"
+        for item in app_test.radio
+    )
+    for event_label in (
+        "12月20日｜服务完成",
+        "12月22日｜客户验收",
+        "12月26日｜费用支付",
+        "12月29日｜客户回款",
+    ):
+        next(
+            item for item in app_test.button if item.label == event_label
+        ).click().run()
+        assert not app_test.exception
+
+    assert any(
+        item.label == "选择最准确的计算结果"
+        for item in app_test.radio
+    )
+    assert (
+        app_test.session_state[
+            "cash_timing_order_completed_question_id"
+        ]
+        == "cash-timing-1-120-0"
+    )
+
+
+def test_wrong_timeline_replaces_the_entire_practice_dossier() -> None:
+    """A wrong four-card sequence should change dates and amounts."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_game_hub_page
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state["cash_case_stage"] = "practice"
+st.session_state.setdefault("cash_case_attempt_index", 0)
+render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    for event_label in (
+        "12月26日｜费用支付",
+        "12月20日｜服务完成",
+        "12月22日｜客户验收",
+        "12月29日｜客户回款",
+    ):
+        next(
+            item for item in app_test.button if item.label == event_label
+        ).click().run()
+        assert not app_test.exception
+
+    assert app_test.session_state["cash_case_attempt_index"] == 1
+    replacement_markup = _all_rendered_markup(app_test)
+    assert "事件顺序出现矛盾" in replacement_markup
+    assert "DYNAMIC DOSSIER 02" in replacement_markup
+    assert "127 万元" in replacement_markup
+
+
+def test_cash_case_wrong_answer_replaces_the_business_sheet() -> None:
+    """A wrong practice answer must create a new sheet without losing life."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_game_hub_page
+from src.cash_case_game import build_cash_timing_question
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state["cash_case_stage"] = "practice"
+st.session_state.setdefault("cash_case_attempt_index", 0)
+question = build_cash_timing_question(0)
+st.session_state["cash_timing_order_question_id"] = question["question_id"]
+st.session_state["cash_timing_order_completed_question_id"] = question["question_id"]
+st.session_state["cash_timing_order_ids"] = question["correct_event_order"]
+render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    first_markup = _all_rendered_markup(app_test)
+    assert "wfz-practice-scene" in first_markup
+    assert "一笔业务，两只计量表" in first_markup
+    assert "业务时间线" in first_markup
     first_radio = next(
         item for item in app_test.radio
         if item.label == "选择最准确的计算结果"
     )
-    first_options = list(first_radio.options)
     first_radio.set_value("利润 +120万元；本月现金 0万元")
     next(
         item for item in app_test.button
-        if item.label == "提交判断"
+        if item.label == "锁定双表结果｜提交判断"
     ).click().run()
 
     assert not app_test.exception
     assert app_test.session_state["cash_case_attempt_index"] == 1
-    second_radio = next(
-        item for item in app_test.radio
-        if item.label == "选择最准确的计算结果"
+    assert not any(
+        item.label == "选择最准确的计算结果"
+        for item in app_test.radio
     )
-    assert list(second_radio.options) != first_options
-    assert "没有扣除生命" in "\n".join(
-        item.value for item in app_test.warning
-    )
+    assert any("｜" in item.label for item in app_test.button)
+    retry_markup = _all_rendered_markup(app_test)
+    assert "没有扣除生命" in retry_markup
+    assert "wfz-practice-director--retry" in retry_markup
 
 
 def test_cash_case_correct_answer_opens_evidence_room_but_keeps_mission_locked() -> None:
@@ -408,10 +492,15 @@ def test_cash_case_correct_answer_opens_evidence_room_but_keeps_mission_locked()
     script = """
 import streamlit as st
 from src.app import render_game_hub_page
+from src.cash_case_game import build_cash_timing_question
 
 st.session_state["game_player_name"] = "北辰"
 st.session_state.setdefault("cash_case_stage", "practice")
 st.session_state.setdefault("cash_case_attempt_index", 0)
+question = build_cash_timing_question(0)
+st.session_state["cash_timing_order_question_id"] = question["question_id"]
+st.session_state["cash_timing_order_completed_question_id"] = question["question_id"]
+st.session_state["cash_timing_order_ids"] = question["correct_event_order"]
 render_game_hub_page()
 """
     app_test = AppTest.from_string(script).run()
@@ -423,16 +512,16 @@ render_game_hub_page()
     ).set_value("利润 +50万元；本月现金 -70万元")
     next(
         item for item in app_test.button
-        if item.label == "提交判断"
+        if item.label == "锁定双表结果｜提交判断"
     ).click().run()
 
     assert not app_test.exception
     assert app_test.session_state["cash_case_stage"] == "timing_completed"
-    assert "02 现场通过" in "\n".join(
-        item.value for item in app_test.success
-    )
+    completed_markup = _all_rendered_markup(app_test)
+    assert "wfz-practice-complete-scene" in completed_markup
+    assert "你把两只计量表分开了" in completed_markup
     assert any(
-        button.label == "进入项目办公室｜开始证据调查"
+        button.label == "打开办公室门禁｜开始证据探索"
         for button in app_test.button
     )
 

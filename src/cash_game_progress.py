@@ -62,9 +62,20 @@ _TEXT_FIELDS: dict[str, int] = {
 
 _IDENTIFIER_FIELDS = frozenset(
     {
+        "cash_timing_order_question_id",
+        "cash_timing_order_completed_question_id",
         "historical_game_mission_id",
         "historical_game_mission_date_completed",
         "historical_game_mission_completed",
+    }
+)
+
+_TIMING_EVENT_IDS = frozenset(
+    {
+        "service_completed",
+        "customer_accepted",
+        "expense_paid",
+        "cash_collected",
     }
 )
 
@@ -90,6 +101,7 @@ _MANAGED_SESSION_KEYS = frozenset(
     {
         "game_player_name",
         "cash_case_stage",
+        "cash_timing_order_ids",
         "cash_discovered_document_ids",
         "cash_defense_completed_explanations",
         *_INTEGER_FIELDS,
@@ -221,6 +233,18 @@ def normalise_cash_game_progress_snapshot(
             ):
                 safe_discovered_ids.append(document_id)
     snapshot["cash_discovered_document_ids"] = safe_discovered_ids
+
+    timing_order_ids = value.get("cash_timing_order_ids")
+    safe_timing_order_ids: list[str] = []
+    if isinstance(timing_order_ids, (list, tuple)):
+        for event_id in timing_order_ids[:4]:
+            if (
+                isinstance(event_id, str)
+                and event_id in _TIMING_EVENT_IDS
+                and event_id not in safe_timing_order_ids
+            ):
+                safe_timing_order_ids.append(event_id)
+    snapshot["cash_timing_order_ids"] = safe_timing_order_ids
 
     for field, max_chars in _TEXT_FIELDS.items():
         cleaned = _clean_text(value.get(field), max_chars)

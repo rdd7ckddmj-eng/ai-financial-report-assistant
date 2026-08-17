@@ -20,6 +20,15 @@ def test_cash_timing_question_separates_profit_from_cash() -> None:
     assert question["correct_option"] in question["options"]
     assert len(question["options"]) >= 5
     assert "应收款" in question["explanation"]
+    assert question["correct_event_order"] == [
+        "service_completed",
+        "customer_accepted",
+        "expense_paid",
+        "cash_collected",
+    ]
+    assert [
+        event["event_id"] for event in question["event_cards"]
+    ] != question["correct_event_order"]
 
 
 def test_wrong_attempt_receives_a_different_sheet_and_option_order() -> None:
@@ -30,6 +39,7 @@ def test_wrong_attempt_receives_a_different_sheet_and_option_order() -> None:
     assert first["prompt"] != second["prompt"]
     assert first["correct_option"] != second["correct_option"]
     assert first["options"] != second["options"]
+    assert first["event_cards"] != second["event_cards"]
 
 
 def test_question_generation_remains_unique_across_many_retries() -> None:

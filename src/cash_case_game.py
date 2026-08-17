@@ -16,10 +16,21 @@ class CashTimingQuestion(TypedDict):
     cash_collected_wan: int
     profit_effect_wan: int
     cash_effect_wan: int
+    event_cards: list["CashTimingEvent"]
+    correct_event_order: list[str]
     prompt: str
     options: list[str]
     correct_option: str
     explanation: str
+
+
+class CashTimingEvent(TypedDict):
+    """One dated event card used to build the business timeline."""
+
+    event_id: str
+    date_label: str
+    title: str
+    detail: str
 
 
 class EvidenceDocument(TypedDict):
@@ -140,6 +151,44 @@ def build_cash_timing_question(attempt_index: int) -> CashTimingQuestion:
     options = unique_options[rotation:] + unique_options[:rotation]
 
     outstanding_wan = revenue_wan - cash_collected_wan
+    day_offset = attempt_index % 4
+    event_cards_in_order: list[CashTimingEvent] = [
+        {
+            "event_id": "service_completed",
+            "date_label": f"12月{20 + day_offset}日",
+            "title": "服务完成",
+            "detail": "项目团队完成合同约定的服务。",
+        },
+        {
+            "event_id": "customer_accepted",
+            "date_label": f"12月{22 + day_offset}日",
+            "title": "客户验收",
+            "detail": "客户签署最终验收确认。",
+        },
+        {
+            "event_id": "expense_paid",
+            "date_label": f"12月{26 + day_offset}日",
+            "title": "费用支付",
+            "detail": f"支付人工与服务器费用{expense_wan}万元。",
+        },
+        {
+            "event_id": "cash_collected",
+            "date_label": f"12月{29 + day_offset}日",
+            "title": "客户回款",
+            "detail": f"本月实际收到客户款项{cash_collected_wan}万元。",
+        },
+    ]
+    display_orders = (
+        (2, 0, 3, 1),
+        (3, 1, 0, 2),
+        (1, 3, 2, 0),
+        (2, 1, 3, 0),
+    )
+    display_order = display_orders[attempt_index % len(display_orders)]
+    event_cards = [event_cards_in_order[index] for index in display_order]
+    correct_event_order = [
+        event["event_id"] for event in event_cards_in_order
+    ]
     prompt = (
         f"岚桥智能已经完成并通过客户验收一项服务，按合同可确认收入"
         f"{revenue_wan}万元。本月相关人工和服务器费用{expense_wan}万元"
@@ -166,6 +215,8 @@ def build_cash_timing_question(attempt_index: int) -> CashTimingQuestion:
         "cash_collected_wan": cash_collected_wan,
         "profit_effect_wan": profit_effect_wan,
         "cash_effect_wan": cash_effect_wan,
+        "event_cards": event_cards,
+        "correct_event_order": correct_event_order,
         "prompt": prompt,
         "options": options,
         "correct_option": correct_option,

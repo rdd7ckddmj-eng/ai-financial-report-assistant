@@ -14,6 +14,14 @@ def test_build_snapshot_preserves_complete_game_checkpoint() -> None:
     state: dict[str, object] = {
         "game_player_name": "  北辰  研究员 ",
         "cash_case_stage": "migration",
+        "cash_timing_order_question_id": "cash-timing-1-120-0",
+        "cash_timing_order_completed_question_id": "cash-timing-1-120-0",
+        "cash_timing_order_ids": [
+            "service_completed",
+            "customer_accepted",
+            "expense_paid",
+            "cash_collected",
+        ],
         "cash_discovered_document_ids": [
             "contract_clause",
             "signed_acceptance",
@@ -55,6 +63,16 @@ def test_build_snapshot_preserves_complete_game_checkpoint() -> None:
         "contract_clause",
         "signed_acceptance",
     ]
+    assert snapshot["cash_timing_order_ids"] == [
+        "service_completed",
+        "customer_accepted",
+        "expense_paid",
+        "cash_collected",
+    ]
+    assert (
+        snapshot["cash_timing_order_completed_question_id"]
+        == "cash-timing-1-120-0"
+    )
     assert snapshot["cash_defense_completed_explanations"] == [
         "先陈述事实。",
         "再守住边界。",
@@ -74,6 +92,12 @@ def test_snapshot_applies_strict_bounds_and_discards_unsafe_fields() -> None:
                 "contract_clause",
                 "../../unsafe",
                 "contract_clause",
+            ],
+            "cash_timing_order_ids": [
+                "cash_collected",
+                "../../unsafe",
+                "cash_collected",
+                "service_completed",
             ],
             "cash_case_attempt_index": 99_999_999,
             "cash_evidence_attempt_index": -12,
@@ -105,6 +129,10 @@ def test_snapshot_applies_strict_bounds_and_discards_unsafe_fields() -> None:
     assert snapshot["cash_evidence_attempt_index"] == 0
     assert snapshot["cash_defense_lives"] == 3
     assert snapshot["cash_discovered_document_ids"] == ["contract_clause"]
+    assert snapshot["cash_timing_order_ids"] == [
+        "cash_collected",
+        "service_completed",
+    ]
     assert snapshot["cash_defense_round_index"] == 2
     assert snapshot["cash_defense_attempt_index"] == 0
     assert snapshot["historical_game_mission_reasoning_attempt"] == 0
