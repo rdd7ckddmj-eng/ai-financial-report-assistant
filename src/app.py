@@ -3741,6 +3741,8 @@ def apply_cash_game_theme() -> None:
 
         .st-key-cash_game_scene_content:has(.wfz-practice-scene),
         .st-key-cash_game_scene_content:has(.wfz-practice-complete-scene) {
+            --wfz-practice-terminal-top: 12.75rem;
+            --wfz-practice-director-bottom: 9.5rem;
             overflow: hidden;
             padding: 0;
             border: 1px solid rgba(135, 228, 231, 0.17);
@@ -3787,6 +3789,8 @@ def apply_cash_game_theme() -> None:
             top: 1rem;
             left: 1rem;
             width: min(31rem, 48%);
+            max-height: 10.75rem;
+            overflow-y: auto;
             padding: 0.8rem 0.9rem;
             border: 1px solid rgba(135, 228, 231, 0.24);
             border-left: 3px solid #5addd2;
@@ -3915,8 +3919,10 @@ def apply_cash_game_theme() -> None:
         .wfz-practice-director {
             position: absolute;
             right: 1rem;
-            bottom: 7.25rem;
+            bottom: var(--wfz-practice-director-bottom);
             width: min(29rem, 45%);
+            max-height: 6.5rem;
+            overflow-y: auto;
             padding: 0.65rem 0.75rem;
             border-left: 3px solid #e3b36c;
             border-radius: 4px 13px 13px 4px;
@@ -3932,7 +3938,7 @@ def apply_cash_game_theme() -> None:
         [data-testid="stForm"] {
             position: absolute;
             z-index: 6;
-            top: 9.2rem;
+            top: var(--wfz-practice-terminal-top);
             bottom: 1rem;
             left: 1rem;
             box-sizing: border-box;
@@ -3953,7 +3959,10 @@ def apply_cash_game_theme() -> None:
         .st-key-cash_timing_order_terminal {
             position: absolute;
             z-index: 6;
-            top: 8.55rem;
+            /* Keep a dedicated band below the variable-height mission copy.
+               Long copy scrolls inside the mission card instead of being
+               covered by this terminal at larger font/zoom settings. */
+            top: var(--wfz-practice-terminal-top);
             bottom: 1rem;
             left: 1rem;
             box-sizing: border-box;
@@ -5348,6 +5357,84 @@ def apply_cash_game_theme() -> None:
                 grid-template-columns: 1fr;
             }
 
+        }
+
+        /* Stage 03 collision guard -------------------------------------------
+           The practice scene also contains the shared visual-stage marker, so
+           the visual-stage rules above used to reapply document-like padding
+           to this fixed game board.  Keep the board model authoritative and
+           reserve independent regions for mission copy, controls and timeline. */
+        .st-key-cash_game_scene_content:has(.wfz-practice-scene) {
+            overflow: hidden !important;
+            padding: 0 !important;
+        }
+
+        @media (max-width: 820px) {
+            .st-key-cash_game_scene_content:has(.wfz-practice-scene) {
+                --wfz-practice-terminal-top: 9.5rem;
+            }
+
+            .wfz-practice-scene {
+                min-height: 0 !important;
+                background-position: 61% 44% !important;
+            }
+
+            .wfz-practice-mission {
+                top: 0.55rem;
+                left: 0.55rem;
+                box-sizing: border-box;
+                width: calc(100% - 1.1rem);
+                max-height: 4.3rem;
+                padding: 0.58rem 0.65rem;
+            }
+
+            .wfz-practice-mission p {
+                display: none;
+            }
+
+            .wfz-practice-facts {
+                top: 5.1rem;
+                right: 0.55rem;
+                left: 0.55rem;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 0.25rem;
+                width: auto;
+            }
+
+            .wfz-practice-fact {
+                min-width: 0;
+                padding: 0.42rem 0.32rem;
+                text-align: center;
+            }
+
+            .wfz-practice-fact span {
+                overflow: hidden;
+                font-size: 0.48rem;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .wfz-practice-fact strong {
+                font-size: 0.67rem;
+                white-space: nowrap;
+            }
+
+            .wfz-practice-flow,
+            .wfz-practice-director {
+                display: none;
+            }
+
+            .st-key-cash_game_scene_content:has(.wfz-practice-scene)
+            [data-testid="stForm"],
+            .st-key-cash_game_scene_content:has(.wfz-practice-scene)
+            .st-key-cash_timing_order_terminal {
+                top: var(--wfz-practice-terminal-top) !important;
+                right: 0.55rem;
+                bottom: 0.55rem;
+                left: 0.55rem;
+                width: auto;
+                padding: 0.65rem 0.7rem 0.72rem;
+            }
         }
         </style>
         """,
