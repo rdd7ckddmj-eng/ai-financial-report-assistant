@@ -72,6 +72,7 @@ from src.cash_case_game import (
     build_cash_defense_question,
     build_cash_evidence_case,
     build_cash_timing_question,
+    evaluate_cash_clock_assignment,
     evaluate_cash_evidence_selection,
 )
 from src.cash_game_characters import (
@@ -3742,7 +3743,7 @@ def apply_cash_game_theme() -> None:
         .st-key-cash_game_scene_content:has(.wfz-practice-scene),
         .st-key-cash_game_scene_content:has(.wfz-practice-complete-scene) {
             --wfz-practice-terminal-top: 12.75rem;
-            --wfz-practice-director-bottom: 9.5rem;
+            --wfz-practice-director-bottom: 12.9rem;
             overflow: hidden;
             padding: 0;
             border: 1px solid rgba(135, 228, 231, 0.17);
@@ -3861,6 +3862,7 @@ def apply_cash_game_theme() -> None:
 
         .wfz-practice-flow {
             position: absolute;
+            top: 14.6rem;
             right: 1rem;
             bottom: 1rem;
             box-sizing: border-box;
@@ -3870,11 +3872,12 @@ def apply_cash_game_theme() -> None:
             border-radius: 15px;
             background: rgba(3, 16, 29, 0.83);
             backdrop-filter: blur(15px);
+            overflow-y: auto;
         }
 
         .wfz-practice-flow-row {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 0.32rem;
             margin-top: 0.5rem;
         }
@@ -3887,17 +3890,6 @@ def apply_cash_game_theme() -> None:
             border-radius: 11px;
             background: rgba(255, 255, 255, 0.035);
             text-align: center;
-        }
-
-        .wfz-practice-flow-node:not(:last-child)::after {
-            content: "›";
-            position: absolute;
-            z-index: 2;
-            top: 50%;
-            right: -0.27rem;
-            color: #65d9d2;
-            font-size: 0.8rem;
-            transform: translateY(-50%);
         }
 
         .wfz-practice-flow-node b {
@@ -3916,12 +3908,39 @@ def apply_cash_game_theme() -> None:
             white-space: nowrap;
         }
 
+        .wfz-practice-flow-node em {
+            display: -webkit-box;
+            overflow: hidden;
+            margin-top: 0.2rem;
+            color: #789aaa;
+            font-size: 0.48rem;
+            font-style: normal;
+            line-height: 1.35;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+        }
+
+        .wfz-practice-flow-node--profit {
+            border-color: rgba(111, 169, 255, 0.38);
+            background: rgba(47, 96, 168, 0.12);
+        }
+
+        .wfz-practice-flow-node--cash {
+            border-color: rgba(100, 224, 190, 0.38);
+            background: rgba(35, 135, 111, 0.12);
+        }
+
+        .wfz-practice-flow-node--neutral {
+            opacity: 0.72;
+        }
+
         .wfz-practice-director {
             position: absolute;
+            top: 9.75rem;
             right: 1rem;
-            bottom: var(--wfz-practice-director-bottom);
+            bottom: auto;
             width: min(29rem, 45%);
-            max-height: 6.5rem;
+            max-height: 4.15rem;
             overflow-y: auto;
             padding: 0.65rem 0.75rem;
             border-left: 3px solid #e3b36c;
@@ -4040,6 +4059,8 @@ def apply_cash_game_theme() -> None:
             top: 50%;
             left: 50%;
             width: min(42rem, calc(100% - 2rem));
+            max-height: calc(100% - 6.3rem);
+            overflow-y: auto;
             padding: 1.3rem 1.4rem;
             border: 1px solid rgba(139, 229, 231, 0.25);
             border-radius: 20px;
@@ -4051,7 +4072,7 @@ def apply_cash_game_theme() -> None:
 
         .wfz-practice-complete-result {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 0.65rem;
             margin-top: 0.85rem;
         }
@@ -5425,6 +5446,18 @@ def apply_cash_game_theme() -> None:
             }
 
             .st-key-cash_game_scene_content:has(.wfz-practice-scene)
+            [data-testid="stForm"] [data-testid="stHorizontalBlock"] {
+                flex-direction: column !important;
+                gap: 0.35rem !important;
+            }
+
+            .st-key-cash_game_scene_content:has(.wfz-practice-scene)
+            [data-testid="stForm"] [data-testid="stColumn"] {
+                flex: 1 1 auto !important;
+                width: 100% !important;
+            }
+
+            .st-key-cash_game_scene_content:has(.wfz-practice-scene)
             [data-testid="stForm"],
             .st-key-cash_game_scene_content:has(.wfz-practice-scene)
             .st-key-cash_timing_order_terminal {
@@ -5434,6 +5467,22 @@ def apply_cash_game_theme() -> None:
                 left: 0.55rem;
                 width: auto;
                 padding: 0.65rem 0.7rem 0.72rem;
+            }
+
+            .wfz-practice-complete-card {
+                top: 0.55rem;
+                right: 0.55rem;
+                bottom: 5.2rem;
+                left: 0.55rem;
+                box-sizing: border-box;
+                width: auto;
+                max-height: none;
+                padding: 0.85rem;
+                transform: none;
+            }
+
+            .wfz-practice-complete-result {
+                grid-template-columns: 1fr;
             }
         }
         </style>
@@ -7824,7 +7873,7 @@ def _start_historical_game_mission() -> None:
 _CASH_GAME_STEPS = (
     ("入局", "建立身份｜签收案卷"),
     ("教学", "两种真相｜利润与现金"),
-    ("练习", "时间校准｜钱还在路上"),
+    ("练习", "双钟归因｜解释利润与现金差额"),
     ("探索", "办公室搜查｜寻找文件"),
     ("研读", "多材料阅读｜提取字段"),
     ("核验", "交叉核验｜划清时点"),
@@ -7843,21 +7892,21 @@ _CASH_GAME_SCENE_META: dict[str, tuple[int, str, str, str]] = {
     ),
     "practice": (
         3,
-        "引导练习｜钱还在路上",
-        "分别计算一项业务对利润与现金的影响。",
-        "会算并不稀奇，别把两只时钟看成同一只。",
+        "双钟归因｜差额从哪里来",
+        "判断哪些事实改变利润，哪些事实改变真实现金。",
+        "日期只能划边界；如果只会排序，这一幕不会放你过去。",
     ),
     "timing_completed": (
         3,
-        "时间校准｜钱还在路上",
-        "复盘计算，再决定下一处调查现场。",
-        "短期记住答案不算本事，换一份档案仍能判断才算。",
+        "双钟归因｜签发调查令",
+        "把差额变成可核验的收入、应收与回款问题。",
+        "解释差额只是起点；敢不敢让证据推翻自己，才是研究。",
     ),
     "completed": (
         3,
-        "时间校准｜钱还在路上",
-        "复盘计算，再决定下一处调查现场。",
-        "短期记住答案不算本事，换一份档案仍能判断才算。",
+        "双钟归因｜签发调查令",
+        "把差额变成可核验的收入、应收与回款问题。",
+        "解释差额只是起点；敢不敢让证据推翻自己，才是研究。",
     ),
     "investigation": (
         4,
@@ -9133,12 +9182,12 @@ def _render_cash_teaching_node() -> None:
 
 
 def _render_cash_practice_node(player_name: str) -> None:
-    """Render the changing timing calculation inside scene two."""
+    """Render the dual-clock evidence-routing challenge inside scene three."""
     _show_cash_visual_stage(
         3,
-        "校准业务时间线",
-        "先把四张事件卡排进时间轴，再分别启动利润表和现金表。",
-        scene_label="TIMELINE LAB",
+        "拆开利润与现金",
+        "日期只能划边界。把业务事实送进正确的时钟，再判断差额意味着什么。",
+        scene_label="DUAL-CLOCK LAB",
     )
     stage = str(st.session_state.get("cash_case_stage", "practice"))
 
@@ -9149,32 +9198,18 @@ def _render_cash_practice_node(player_name: str) -> None:
         )
         question = build_cash_timing_question(attempt_index)
         question_id = question["question_id"]
+        # Preserve progress from the previous timeline prototype when a live
+        # browser session survives deployment.  New sessions use the clearer
+        # clock-assignment checkpoint below.
         if (
-            st.session_state.get("cash_timing_order_question_id")
-            != question_id
-        ):
-            st.session_state["cash_timing_order_question_id"] = question_id
-            st.session_state["cash_timing_order_ids"] = []
-            st.session_state.pop(
-                "cash_timing_order_completed_question_id",
-                None,
-            )
-        event_by_id = {
-            event["event_id"]: event for event in question["event_cards"]
-        }
-        selected_order = [
-            event_id
-            for event_id in st.session_state.get(
-                "cash_timing_order_ids",
-                [],
-            )
-            if event_id in event_by_id
-        ]
-        order_completed = (
-            st.session_state.get(
+            not st.session_state.get("cash_clock_assignment_unlocked", False)
+            and st.session_state.get(
                 "cash_timing_order_completed_question_id"
             )
-            == question_id
+        ):
+            st.session_state["cash_clock_assignment_unlocked"] = True
+        assignment_unlocked = bool(
+            st.session_state.get("cash_clock_assignment_unlocked", False)
         )
         outstanding_wan = (
             question["revenue_wan"] - question["cash_collected_wan"]
@@ -9183,31 +9218,49 @@ def _render_cash_practice_node(player_name: str) -> None:
             feedback
             if isinstance(feedback, str)
             else (
-                "先把四张事件卡按发生时间排入时间轴。"
-                "顺序正确后，利润与现金的双表终端才会解锁。"
+                "不要按日期排队。把每张事实分别问两遍：它改变本月利润吗？"
+                "它让银行账户在本月真实收付了吗？"
             )
+        )
+        feedback_is_success = (
+            isinstance(feedback, str) and feedback.startswith("归因成立")
         )
         feedback_class = (
             "wfz-practice-director--retry"
-            if isinstance(feedback, str)
+            if isinstance(feedback, str) and not feedback_is_success
             else ""
         )
-        flow_nodes: list[str] = []
-        for slot_index in range(4):
-            if slot_index < len(selected_order):
-                selected_event = event_by_id[selected_order[slot_index]]
-                flow_label = escape(selected_event["title"])
-                flow_date = escape(selected_event["date_label"])
+        evidence_nodes: list[str] = []
+        for event_index, event in enumerate(question["event_cards"]):
+            node_class = ""
+            if assignment_unlocked:
+                if event["affects_profit"] and event["affects_cash"]:
+                    node_role = "利润＋现金"
+                    node_class = "wfz-practice-flow-node--profit"
+                elif event["affects_profit"]:
+                    node_role = "利润时钟"
+                    node_class = "wfz-practice-flow-node--profit"
+                elif event["affects_cash"]:
+                    node_role = "现金时钟"
+                    node_class = "wfz-practice-flow-node--cash"
+                else:
+                    node_role = "暂不触发"
+                    node_class = "wfz-practice-flow-node--neutral"
             else:
-                flow_label = "等待事件卡"
-                flow_date = "—"
-            flow_nodes.append(
-                '<div class="wfz-practice-flow-node">'
-                f"<b>{slot_index + 1:02d}</b>"
-                f"<span>{flow_date} · {flow_label}</span>"
+                node_role = f"线索 {event_index + 1:02d}"
+            evidence_nodes.append(
+                f'<div class="wfz-practice-flow-node {node_class}">'
+                f"<b>{escape(node_role)}</b>"
+                f"<span>{escape(event['date_label'])} · "
+                f"{escape(event['title'])}</span>"
+                f"<em>{escape(event['detail'])}</em>"
                 "</div>"
             )
-        flow_nodes_html = "".join(flow_nodes)
+        evidence_nodes_html = "".join(evidence_nodes)
+        fact_reference = "  \n".join(
+            f"**{event['date_label']}｜{event['title']}**：{event['detail']}"
+            for event in question["event_cards"]
+        )
         st.html(
             f"""
             <section class="wfz-practice-scene" aria-label="利润与现金校准训练场">
@@ -9240,114 +9293,123 @@ def _render_cash_practice_node(player_name: str) -> None:
                     <p>{escape(str(feedback_message))}</p>
                 </div>
                 <div class="wfz-practice-flow">
-                    <small>业务时间线｜已排入 {len(selected_order)} / 4 张事件卡</small>
+                    <small>双时钟证据板｜6 项业务事实 · 截止 12 月 31 日</small>
                     <div class="wfz-practice-flow-row">
-                        {flow_nodes_html}
+                        {evidence_nodes_html}
                     </div>
                 </div>
             </section>
             """
         )
-        if not order_completed:
-            with st.container(key="cash_timing_order_terminal"):
-                st.caption(
-                    f"03 / 时间线校准 · 第 {question['attempt_number']} 份动态卷宗"
+        if not assignment_unlocked:
+            event_ids = [
+                event["event_id"] for event in question["event_cards"]
+            ]
+            event_label_by_id = {
+                event["event_id"]: (
+                    f"{event['date_label']}｜{event['title']}"
                 )
-                st.markdown("#### 点击事件卡，按发生先后排入时间轴")
-                available_events = [
-                    event
-                    for event in question["event_cards"]
-                    if event["event_id"] not in selected_order
-                ]
-                event_columns = st.columns(2)
-                for event_index, event in enumerate(available_events):
-                    with event_columns[event_index % 2]:
-                        if st.button(
-                            f"{event['date_label']}｜{event['title']}",
-                            help=event["detail"],
-                            width="stretch",
-                            key=(
-                                "cash_timing_event_"
-                                f"{question_id}_{event['event_id']}"
-                            ),
-                        ):
-                            next_order = [
-                                *selected_order,
-                                event["event_id"],
-                            ]
-                            if len(next_order) == 4:
-                                if (
-                                    next_order
-                                    == question["correct_event_order"]
-                                ):
-                                    st.session_state[
-                                        "cash_timing_order_ids"
-                                    ] = next_order
-                                    st.session_state[
-                                        "cash_timing_order_completed_question_id"
-                                    ] = question_id
-                                    st.session_state[
-                                        "cash_case_feedback"
-                                    ] = (
-                                        "时间线已校准。现在分别启动利润表与"
-                                        "现金表，别让尚未到账的款项混进现金。"
-                                    )
-                                else:
-                                    st.session_state[
-                                        "cash_case_attempt_index"
-                                    ] = attempt_index + 1
-                                    st.session_state[
-                                        "cash_case_feedback"
-                                    ] = (
-                                        "事件顺序出现矛盾。没有扣除生命；"
-                                        "系统已更换日期、金额和卡片顺序，"
-                                        "请重新沿时间线调查。"
-                                    )
-                                    st.session_state.pop(
-                                        "cash_timing_order_question_id",
-                                        None,
-                                    )
-                                    st.session_state[
-                                        "cash_timing_order_ids"
-                                    ] = []
-                                    st.session_state.pop(
-                                        "cash_timing_order_completed_question_id",
-                                        None,
-                                    )
-                            else:
-                                st.session_state[
-                                    "cash_timing_order_ids"
-                                ] = next_order
-                            st.rerun()
-                if selected_order and st.button(
-                    "撤回全部卡片｜重新排序",
+                for event in question["event_cards"]
+            }
+            with st.form(
+                key=f"cash_clock_assignment_{question_id}",
+                border=True,
+            ):
+                st.caption(
+                    f"03 / 双时钟归因 · 第 {question['attempt_number']} 份动态卷宗"
+                )
+                st.markdown("#### 把业务事实送进正确的时钟")
+                st.caption(
+                    "同一事实可以同时进入两只时钟；两边都不选，代表它在"
+                    "本月暂不触发两表。日期只划报告期边界，不是排序题。"
+                )
+                with st.expander("查看六张事实卡的完整内容"):
+                    st.markdown(fact_reference)
+                if isinstance(feedback, str):
+                    if feedback_is_success:
+                        st.success(feedback)
+                    else:
+                        st.warning(feedback)
+                profit_column, cash_column = st.columns(2)
+                with profit_column:
+                    profit_event_ids = st.multiselect(
+                        "利润时钟｜确认与成本",
+                        options=event_ids,
+                        format_func=lambda event_id: event_label_by_id[
+                            event_id
+                        ],
+                        key=f"cash_profit_clock_{question_id}",
+                    )
+                with cash_column:
+                    cash_event_ids = st.multiselect(
+                        "现金时钟｜真实收付",
+                        options=event_ids,
+                        format_func=lambda event_id: event_label_by_id[
+                            event_id
+                        ],
+                        key=f"cash_cash_clock_{question_id}",
+                    )
+                assignment_submitted = st.form_submit_button(
+                    "锁定事实归因｜启动双表计算",
+                    type="primary",
                     width="stretch",
-                    key=f"reset_cash_timing_order_{question_id}",
-                ):
-                    st.session_state["cash_timing_order_ids"] = []
-                    st.rerun()
+                )
+
+            if assignment_submitted:
+                assignment_result = evaluate_cash_clock_assignment(
+                    question,
+                    profit_event_ids,
+                    cash_event_ids,
+                )
+                if assignment_result["is_correct"]:
+                    st.session_state["cash_clock_assignment_unlocked"] = True
+                st.session_state["cash_case_feedback"] = assignment_result[
+                    "feedback"
+                ]
+                st.rerun()
             return
 
         with st.form(
             key=f"cash_case_question_{question['question_id']}",
             border=True,
         ):
-            st.caption(
-                f"03 / 双表校准 · 第 {question['attempt_number']} 份动态卷宗"
+            profit_effect_label = (
+                f"+{question['profit_effect_wan']}"
+                if question["profit_effect_wan"] > 0
+                else str(question["profit_effect_wan"])
             )
-            st.markdown("#### 提交利润与现金的双重判断")
+            cash_effect_label = (
+                f"+{question['cash_effect_wan']}"
+                if question["cash_effect_wan"] > 0
+                else str(question["cash_effect_wan"])
+            )
             st.caption(
-                "利润表：已确认收入 − 相关费用；现金表：本月实收 − 本月实付。"
-                "训练区答错不扣生命，但会立即更换整份业务档案。"
+                f"03 / 差额解释 · 第 {question['attempt_number']} 份动态卷宗"
+            )
+            st.markdown("#### 算式已经完成，现在守住结论边界")
+            with st.expander("复核六张事实卡的完整内容"):
+                st.markdown(fact_reference)
+            if isinstance(feedback, str):
+                if feedback_is_success:
+                    st.success(feedback)
+                else:
+                    st.warning(feedback)
+            st.caption(
+                f"利润：{question['revenue_wan']} − {question['expense_wan']}"
+                f" = {profit_effect_label}万元；"
+                f"现金：{question['cash_collected_wan']} − "
+                f"{question['expense_wan']} = "
+                f"{cash_effect_label}万元；"
+                f"两者差额为 {outstanding_wan} 万元。"
             )
             selected_option = st.radio(
-                "选择最准确的计算结果",
-                options=question["options"],
+                "这个差额目前最稳妥的解释是什么？",
+                options=question["inference_options"],
                 index=None,
-                key=f"cash_case_answer_{question['question_id']}",
+                key=f"cash_case_inference_{question['question_id']}",
             )
             answer_submitted = st.form_submit_button(
-                "锁定双表结果｜提交判断",
+                "签发调查令｜进入证据现场",
                 type="primary",
                 width="stretch",
             )
@@ -9355,29 +9417,20 @@ def _render_cash_practice_node(player_name: str) -> None:
         if answer_submitted:
             if selected_option is None:
                 st.warning("请先选择一个答案，再提交判断。")
-            elif selected_option == question["correct_option"]:
+            elif selected_option == question["correct_inference_option"]:
                 st.session_state["cash_case_stage"] = "timing_completed"
                 st.session_state["cash_case_last_explanation"] = question[
                     "explanation"
                 ]
                 st.rerun()
             else:
-                st.session_state["cash_case_attempt_index"] = (
-                    attempt_index + 1
-                )
-                st.session_state.pop(
-                    "cash_timing_order_question_id",
-                    None,
-                )
-                st.session_state["cash_timing_order_ids"] = []
-                st.session_state.pop(
-                    "cash_timing_order_completed_question_id",
-                    None,
-                )
                 st.session_state["cash_case_feedback"] = (
-                    "这次计算还没有同时分清“确认了多少业务”和“实际收付"
-                    "了多少钱”。没有扣除生命；档案数据已经更换，请用同一"
-                    "方法重新判断，不能背上一题的答案。"
+                    question["inference_feedback"].get(
+                        str(selected_option),
+                        "这个结论跨过了现有证据边界，请保留已完成归因并"
+                        "重新检查。",
+                    )
+                    + " 前置归因已经保留，不需要重做。"
                 )
                 st.rerun()
         return
@@ -9391,16 +9444,20 @@ def _render_cash_practice_node(player_name: str) -> None:
             <div class="wfz-intake-vignette"></div>
             <div class="wfz-practice-complete-card">
                 <small>SCENE 03 · CALIBRATION COMPLETE</small>
-                <h2>{escape(player_name)}，你把两只计量表分开了。</h2>
-                <p>{escape(explanation)}</p>
+                <h2>{escape(player_name)}，你解释了差额，但还没有证明差额。</h2>
+                <p>{escape(explanation)} 算式给方向，证据给结论。训练卷宗已封存；下一幕将调取《消失的现金》实战案卷。</p>
                 <div class="wfz-practice-complete-result">
                     <div>
-                        <span>利润回答</span>
-                        <strong>业务是否完成，以及完成后赚了多少</strong>
+                        <span>调查令 01｜收入边界</span>
+                        <strong>收入是否真的赚到？核对合同条款与客户验收。</strong>
                     </div>
                     <div>
-                        <span>现金回答</span>
-                        <strong>钱是否在本期真正进入或离开账户</strong>
+                        <span>调查令 02｜应收存在</span>
+                        <strong>未收款是否真实存在？核对应收明细与账龄。</strong>
+                    </div>
+                    <div>
+                        <span>调查令 03｜期后回款</span>
+                        <strong>后来是否真正到账？追查期后银行流水。</strong>
                     </div>
                 </div>
             </div>

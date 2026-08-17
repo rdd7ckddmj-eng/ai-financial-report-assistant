@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 
 from src.cash_case_game import (
@@ -5,6 +7,7 @@ from src.cash_case_game import (
     build_cash_defense_question,
     build_cash_evidence_case,
     build_cash_timing_question,
+    evaluate_cash_clock_assignment,
     evaluate_cash_evidence_selection,
 )
 
@@ -14,31 +17,35 @@ def test_cash_timing_question_separates_profit_from_cash() -> None:
 
     assert question["revenue_wan"] == 120
     assert question["expense_wan"] == 70
-    assert question["cash_collected_wan"] == 0
+    assert question["cash_collected_wan"] == 20
     assert question["profit_effect_wan"] == 50
-    assert question["cash_effect_wan"] == -70
-    assert question["correct_option"] in question["options"]
-    assert len(question["options"]) >= 5
+    assert question["cash_effect_wan"] == -50
+    assert question["correct_inference_option"] in question["inference_options"]
+    assert len(question["inference_options"]) == 6
     assert "应收款" in question["explanation"]
-    assert question["correct_event_order"] == [
+    assert question["correct_profit_event_ids"] == [
         "service_completed",
-        "customer_accepted",
+        "expense_incurred",
+    ]
+    assert question["correct_cash_event_ids"] == [
         "expense_paid",
         "cash_collected",
     ]
-    assert [
-        event["event_id"] for event in question["event_cards"]
-    ] != question["correct_event_order"]
+    assert "不是比谁更会按日期排队" in question["reasoning_explanation"]
+    assert "未来付款计划" in question["reasoning_explanation"]
 
 
-def test_wrong_attempt_receives_a_different_sheet_and_option_order() -> None:
+def test_new_attempt_receives_a_different_sheet_and_option_order() -> None:
     first = build_cash_timing_question(0)
     second = build_cash_timing_question(1)
 
     assert first["question_id"] != second["question_id"]
     assert first["prompt"] != second["prompt"]
-    assert first["correct_option"] != second["correct_option"]
-    assert first["options"] != second["options"]
+    assert (
+        first["correct_inference_option"]
+        != second["correct_inference_option"]
+    )
+    assert first["inference_options"] != second["inference_options"]
     assert first["event_cards"] != second["event_cards"]
 
 
@@ -47,7 +54,80 @@ def test_question_generation_remains_unique_across_many_retries() -> None:
 
     assert len({item["question_id"] for item in questions}) == 25
     assert len({item["prompt"] for item in questions}) == 25
-    assert all(len(item["options"]) >= 5 for item in questions)
+    assert all(len(item["inference_options"]) == 6 for item in questions)
+
+
+def test_one_thousand_dossiers_only_contain_real_calendar_dates() -> None:
+    """Retries must never manufacture labels such as 12月32日."""
+
+    for attempt_index in range(1_000):
+        question = build_cash_timing_question(attempt_index)
+        reporting_date = question["reporting_date"]
+
+        assert reporting_date == date(2025, 12, 31)
+        for event in question["event_cards"]:
+            event_date = event["event_date"]
+            assert isinstance(event_date, date)
+            expected_prefix = (
+                "次年" if event_date.year > reporting_date.year else ""
+            )
+            assert event["date_label"] == (
+                f"{expected_prefix}{event_date.month}月{event_date.day}日"
+            )
+            if event["affects_profit"] or event["affects_cash"]:
+                assert event_date <= reporting_date
+
+
+def test_cash_clock_assignment_requires_fact_attribution() -> None:
+    question = build_cash_timing_question(0)
+
+    correct = evaluate_cash_clock_assignment(
+        question,
+        question["correct_profit_event_ids"],
+        question["correct_cash_event_ids"],
+    )
+    assert correct == {
+        "is_correct": True,
+        "profit_is_correct": True,
+        "cash_is_correct": True,
+        "feedback": (
+            "归因成立：验收与已经发生的相关成本进入利润时钟；真实回款"
+            "与费用支付进入现金时钟。成本发生和付款是两件不同的事。"
+        ),
+    }
+
+    cash_mixed_with_promises = evaluate_cash_clock_assignment(
+        question,
+        question["correct_profit_event_ids"],
+        ["cash_collected", "future_payment_plan"],
+    )
+    assert not cash_mixed_with_promises["is_correct"]
+    assert cash_mixed_with_promises["profit_is_correct"]
+    assert not cash_mixed_with_promises["cash_is_correct"]
+    assert "付款承诺" in cash_mixed_with_promises["feedback"]
+
+
+def test_event_fact_flags_match_the_expected_clock_assignments() -> None:
+    """The answer derives from semantic flags rather than chronological order."""
+
+    question = build_cash_timing_question(3)
+    profit_ids = {
+        event["event_id"]
+        for event in question["event_cards"]
+        if event["affects_profit"]
+    }
+    cash_ids = {
+        event["event_id"]
+        for event in question["event_cards"]
+        if event["affects_cash"]
+    }
+
+    assert profit_ids == set(question["correct_profit_event_ids"])
+    assert cash_ids == set(question["correct_cash_event_ids"])
+    assert not profit_ids & cash_ids
+    assert {event["event_id"] for event in question["event_cards"]} - (
+        profit_ids | cash_ids
+    ) == {"contract_signed", "future_payment_plan"}
 
 
 @pytest.mark.parametrize("attempt_index", [-1, 1.5, "1"])

@@ -7,7 +7,7 @@ from typing import TypedDict
 
 
 class CashTimingQuestion(TypedDict):
-    """One changing profit-versus-cash practice sheet."""
+    """One changing profit-versus-cash evidence diagnosis."""
 
     question_id: str
     attempt_number: int
@@ -16,21 +16,37 @@ class CashTimingQuestion(TypedDict):
     cash_collected_wan: int
     profit_effect_wan: int
     cash_effect_wan: int
+    reporting_date: date
     event_cards: list["CashTimingEvent"]
-    correct_event_order: list[str]
+    correct_profit_event_ids: list[str]
+    correct_cash_event_ids: list[str]
+    reasoning_explanation: str
     prompt: str
-    options: list[str]
-    correct_option: str
+    inference_options: list[str]
+    correct_inference_option: str
+    inference_feedback: dict[str, str]
     explanation: str
 
 
 class CashTimingEvent(TypedDict):
-    """One dated event card used to build the business timeline."""
+    """One dated business fact used to distinguish two measurement clocks."""
 
     event_id: str
+    event_date: date
     date_label: str
     title: str
     detail: str
+    affects_profit: bool
+    affects_cash: bool
+
+
+class CashClockAssignmentEvaluation(TypedDict):
+    """Result of routing business facts to the two measurement clocks."""
+
+    is_correct: bool
+    profit_is_correct: bool
+    cash_is_correct: bool
+    feedback: str
 
 
 class EvidenceDocument(TypedDict):
@@ -109,86 +125,179 @@ def _signed_wan(value: int) -> str:
     return "0万元"
 
 
-def _option(profit_wan: int, cash_wan: int) -> str:
-    return (
-        f"利润 {_signed_wan(profit_wan)}；"
-        f"本月现金 {_signed_wan(cash_wan)}"
-    )
-
-
 def build_cash_timing_question(attempt_index: int) -> CashTimingQuestion:
-    """Build a new calculation sheet after every incorrect submission.
+    """Build one internally consistent profit-versus-cash dossier.
 
-    Amounts change with the attempt index, so restarting the practice does not
-    teach the player to memorise one option.  The underlying accounting logic
-    remains stable and explainable.
+    Amounts change only when a player explicitly starts a new dossier.  A
+    wrong answer keeps the same facts and preserves completed work, so the
+    challenge tests accounting reasoning instead of tolerance for repetition.
     """
     if not isinstance(attempt_index, int) or attempt_index < 0:
         raise ValueError("练习题序号必须是非负整数。")
 
     revenue_wan = 120 + attempt_index * 7
     expense_wan = 70 + attempt_index * 3
-    cash_collected_wan = (attempt_index * 13) % 61
+    cash_collected_wan = 20 + (attempt_index * 13) % 61
     profit_effect_wan = revenue_wan - expense_wan
     cash_effect_wan = cash_collected_wan - expense_wan
 
-    correct_option = _option(profit_effect_wan, cash_effect_wan)
-    candidate_options = [
-        correct_option,
-        _option(revenue_wan, cash_collected_wan),
-        _option(profit_effect_wan, cash_collected_wan),
-        _option(cash_effect_wan, profit_effect_wan),
-        _option(cash_effect_wan, cash_effect_wan),
-        _option(profit_effect_wan, 0),
-    ]
-    unique_options = list(dict.fromkeys(candidate_options))
-    if len(unique_options) < 5:
-        unique_options.append(
-            _option(revenue_wan - cash_collected_wan, -expense_wan)
-        )
-
-    rotation = (attempt_index * 2 + 1) % len(unique_options)
-    options = unique_options[rotation:] + unique_options[:rotation]
-
     outstanding_wan = revenue_wan - cash_collected_wan
+    correct_inference_option = (
+        f"{outstanding_wan}万元可能形成应收款假设；仍需合同、验收、"
+        "应收明细和期后回款证据核实，不能仅凭差额判定造假。"
+    )
+    premature_receivable_option = (
+        f"{outstanding_wan}万元可直接确认为应收款；只要年末明细与合同"
+        "金额一致，就无需再核对客户验收或期后回款。"
+    )
+    premature_default_option = (
+        f"{outstanding_wan}万元说明回款质量已经恶化；即使尚未检查合同"
+        "到期日，也应把‘客户可能违约’写成确定结论。"
+    )
+    promise_as_cash_option = (
+        f"客户已承诺以后支付{outstanding_wan}万元，因此该差额可视为"
+        "正常账期；付款计划足以替代本月银行流水。"
+    )
+    cash_basis_option = (
+        f"利润为{profit_effect_wan}万元但现金为{cash_effect_wan}万元，"
+        "说明收入缺少现金支撑；最稳妥做法是等全部收款后再确认收入。"
+    )
+    no_hypothesis_option = (
+        "材料尚不完整，因此只能记录‘利润与现金不同步’；在四类证据"
+        "收齐前，不应形成任何应收款核验假设。"
+    )
+    inference_candidates = [
+        correct_inference_option,
+        premature_receivable_option,
+        premature_default_option,
+        promise_as_cash_option,
+        cash_basis_option,
+        no_hypothesis_option,
+    ]
+    inference_rotation = (attempt_index * 2 + 1) % len(inference_candidates)
+    inference_options = (
+        inference_candidates[inference_rotation:]
+        + inference_candidates[:inference_rotation]
+    )
+    inference_feedback = {
+        correct_inference_option: "边界判断成立。",
+        premature_receivable_option: (
+            "合同和内部明细还不够。验收回答收入是否已经赚到，期后银行"
+            "回单回答这笔应收后来是否真实收回，二者不能省略。"
+        ),
+        premature_default_option: (
+            "风险信号不能跳过合同期限直接升级为违约结论。先核对到期日与"
+            "账龄，再决定这笔应收是正常账期还是异常拖欠。"
+        ),
+        promise_as_cash_option: (
+            "付款计划可以解释管理层预期，却不能替代本月银行流水。正常"
+            "账期也需要合同条款、应收明细与后来到账相互核验。"
+        ),
+        cash_basis_option: (
+            "这把现金收付条件误加给了收入确认。若服务已经完成并验收，"
+            "收入可以先进入利润；未收部分则转化为待核实的应收款。"
+        ),
+        no_hypothesis_option: (
+            "可检验假设不等于最终结论。研究应先提出‘可能形成应收款’，"
+            "再明确列出会支持或推翻它的证据，而不是停止思考。"
+        ),
+    }
+    # Use real date arithmetic and keep every generated fact before the
+    # 31 December reporting cut-off.  The earlier string arithmetic could
+    # produce impossible labels such as "12月32日" after several retries.
     day_offset = attempt_index % 4
+    reporting_date = date(2025, 12, 31)
+    contract_date = date(2025, 12, 11) + timedelta(days=day_offset)
+    acceptance_date = date(2025, 12, 18) + timedelta(days=day_offset)
+    expense_incurred_date = date(2025, 12, 21) + timedelta(days=day_offset)
+    expense_date = date(2025, 12, 23) + timedelta(days=day_offset)
+    collection_date = date(2025, 12, 27) + timedelta(days=day_offset)
+    future_payment_date = date(2026, 1, 12) + timedelta(days=day_offset)
+
+    def event_date_label(value: date) -> str:
+        prefix = "次年" if value.year > reporting_date.year else ""
+        return f"{prefix}{value.month}月{value.day}日"
+
     event_cards_in_order: list[CashTimingEvent] = [
         {
-            "event_id": "service_completed",
-            "date_label": f"12月{20 + day_offset}日",
-            "title": "服务完成",
-            "detail": "项目团队完成合同约定的服务。",
+            "event_id": "contract_signed",
+            "event_date": contract_date,
+            "date_label": event_date_label(contract_date),
+            "title": "双方签署服务合同",
+            "detail": "合同已经生效，但此时服务尚未完成。",
+            "affects_profit": False,
+            "affects_cash": False,
         },
         {
-            "event_id": "customer_accepted",
-            "date_label": f"12月{22 + day_offset}日",
-            "title": "客户验收",
-            "detail": "客户签署最终验收确认。",
+            "event_id": "service_completed",
+            "event_date": acceptance_date,
+            "date_label": event_date_label(acceptance_date),
+            "title": "服务完成并通过验收",
+            "detail": f"客户确认本期已履约，可确认收入{revenue_wan}万元。",
+            "affects_profit": True,
+            "affects_cash": False,
+        },
+        {
+            "event_id": "expense_incurred",
+            "event_date": expense_incurred_date,
+            "date_label": event_date_label(expense_incurred_date),
+            "title": "相关人工与服务器成本发生",
+            "detail": f"为完成本期服务，已经发生相关成本{expense_wan}万元。",
+            "affects_profit": True,
+            "affects_cash": False,
         },
         {
             "event_id": "expense_paid",
-            "date_label": f"12月{26 + day_offset}日",
-            "title": "费用支付",
-            "detail": f"支付人工与服务器费用{expense_wan}万元。",
+            "event_date": expense_date,
+            "date_label": event_date_label(expense_date),
+            "title": "相关费用完成支付",
+            "detail": f"银行账户实际支付人工与服务器费用{expense_wan}万元。",
+            "affects_profit": False,
+            "affects_cash": True,
         },
         {
             "event_id": "cash_collected",
-            "date_label": f"12月{29 + day_offset}日",
+            "event_date": collection_date,
+            "date_label": event_date_label(collection_date),
             "title": "客户回款",
             "detail": f"本月实际收到客户款项{cash_collected_wan}万元。",
+            "affects_profit": False,
+            "affects_cash": True,
+        },
+        {
+            "event_id": "future_payment_plan",
+            "event_date": future_payment_date,
+            "date_label": event_date_label(future_payment_date),
+            "title": "客户承诺支付剩余款项",
+            "detail": "这是报告期后的付款计划，不是本月到账记录。",
+            "affects_profit": False,
+            "affects_cash": False,
         },
     ]
     display_orders = (
-        (2, 0, 3, 1),
-        (3, 1, 0, 2),
-        (1, 3, 2, 0),
-        (2, 1, 3, 0),
+        (3, 0, 5, 1, 4, 2),
+        (5, 1, 4, 0, 2, 3),
+        (1, 5, 2, 4, 3, 0),
+        (4, 2, 0, 5, 1, 3),
     )
     display_order = display_orders[attempt_index % len(display_orders)]
     event_cards = [event_cards_in_order[index] for index in display_order]
-    correct_event_order = [
-        event["event_id"] for event in event_cards_in_order
+    correct_profit_event_ids = [
+        event["event_id"]
+        for event in event_cards_in_order
+        if event["affects_profit"]
     ]
+    correct_cash_event_ids = [
+        event["event_id"]
+        for event in event_cards_in_order
+        if event["affects_cash"]
+    ]
+    reasoning_explanation = (
+        "这道题不是比谁更会按日期排队。收入确认要先检查履约是否完成、"
+        "客户是否验收，相关成本在发生时进入利润；现金只认银行账户里"
+        "真实发生的收付。合同、应收款和未来付款计划都可能是证据，但"
+        "它们本身不能冒充到账现金。"
+    )
     prompt = (
         f"岚桥智能已经完成并通过客户验收一项服务，按合同可确认收入"
         f"{revenue_wan}万元。本月相关人工和服务器费用{expense_wan}万元"
@@ -215,12 +324,71 @@ def build_cash_timing_question(attempt_index: int) -> CashTimingQuestion:
         "cash_collected_wan": cash_collected_wan,
         "profit_effect_wan": profit_effect_wan,
         "cash_effect_wan": cash_effect_wan,
+        "reporting_date": reporting_date,
         "event_cards": event_cards,
-        "correct_event_order": correct_event_order,
+        "correct_profit_event_ids": correct_profit_event_ids,
+        "correct_cash_event_ids": correct_cash_event_ids,
+        "reasoning_explanation": reasoning_explanation,
         "prompt": prompt,
-        "options": options,
-        "correct_option": correct_option,
+        "inference_options": inference_options,
+        "correct_inference_option": correct_inference_option,
+        "inference_feedback": inference_feedback,
         "explanation": explanation,
+    }
+
+
+def evaluate_cash_clock_assignment(
+    question: CashTimingQuestion,
+    profit_event_ids: object,
+    cash_event_ids: object,
+) -> CashClockAssignmentEvaluation:
+    """Evaluate fact routing without rewarding date-order pattern matching."""
+
+    valid_ids = {event["event_id"] for event in question["event_cards"]}
+
+    def clean_ids(value: object) -> set[str]:
+        if not isinstance(value, (list, tuple, set, frozenset)):
+            return set()
+        return {
+            item
+            for item in value
+            if isinstance(item, str) and item in valid_ids
+        }
+
+    selected_profit = clean_ids(profit_event_ids)
+    selected_cash = clean_ids(cash_event_ids)
+    expected_profit = set(question["correct_profit_event_ids"])
+    expected_cash = set(question["correct_cash_event_ids"])
+    profit_is_correct = selected_profit == expected_profit
+    cash_is_correct = selected_cash == expected_cash
+    is_correct = profit_is_correct and cash_is_correct
+
+    if is_correct:
+        feedback = (
+            "归因成立：验收与已经发生的相关成本进入利润时钟；真实回款"
+            "与费用支付进入现金时钟。成本发生和付款是两件不同的事。"
+        )
+    elif not profit_is_correct and not cash_is_correct:
+        feedback = (
+            "两只时钟都混入了不属于自己的事实。先问“本期是否完成履约”，"
+            "再问“银行账户是否真实收付”；日期先后本身不是答案。"
+        )
+    elif not profit_is_correct:
+        feedback = (
+            "现金路径已经找对，但利润时钟仍需复核。合同生效和未来付款"
+            "计划不等于本期已经完成履约。"
+        )
+    else:
+        feedback = (
+            "利润确认边界已经找对，但现金时钟仍有混淆。应收款和付款承诺"
+            "都不是到账；现金只认本期真实发生的收付。"
+        )
+
+    return {
+        "is_correct": is_correct,
+        "profit_is_correct": profit_is_correct,
+        "cash_is_correct": cash_is_correct,
+        "feedback": feedback,
     }
 
 

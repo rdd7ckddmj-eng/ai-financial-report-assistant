@@ -62,7 +62,12 @@ _TEXT_FIELDS: dict[str, int] = {
     "historical_game_mission_reasoning": 4_000,
 }
 
-_BOOLEAN_FIELDS = frozenset({"cash_identity_required"})
+_BOOLEAN_FIELDS = frozenset(
+    {
+        "cash_identity_required",
+        "cash_clock_assignment_unlocked",
+    }
+)
 
 _IDENTIFIER_FIELDS = frozenset(
     {
@@ -76,10 +81,15 @@ _IDENTIFIER_FIELDS = frozenset(
 
 _TIMING_EVENT_IDS = frozenset(
     {
-        "service_completed",
+        "contract_signed",
+        # Kept so a version-2 browser snapshot from the former timeline scene
+        # can still be read safely during the migration window.
         "customer_accepted",
+        "service_completed",
+        "expense_incurred",
         "expense_paid",
         "cash_collected",
+        "future_payment_plan",
     }
 )
 
