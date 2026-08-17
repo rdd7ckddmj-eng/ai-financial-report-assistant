@@ -14,6 +14,7 @@ def test_build_snapshot_preserves_complete_game_checkpoint() -> None:
     state: dict[str, object] = {
         "game_player_name": "  北辰  研究员 ",
         "cash_case_stage": "migration",
+        "cash_identity_required": False,
         "cash_timing_order_question_id": "cash-timing-1-120-0",
         "cash_timing_order_completed_question_id": "cash-timing-1-120-0",
         "cash_timing_order_ids": [
@@ -58,6 +59,7 @@ def test_build_snapshot_preserves_complete_game_checkpoint() -> None:
     assert snapshot["cash_game_progress_revision"] == 0
     assert snapshot["game_player_name"] == "北辰 研究员"
     assert snapshot["cash_case_stage"] == "migration"
+    assert snapshot["cash_identity_required"] is False
     assert snapshot["cash_defense_lives"] == 2
     assert snapshot["cash_discovered_document_ids"] == [
         "contract_clause",
@@ -88,6 +90,7 @@ def test_snapshot_applies_strict_bounds_and_discards_unsafe_fields() -> None:
             "version": CASH_GAME_PROGRESS_VERSION,
             "game_player_name": "超长调查员代号ABCDEFGHIJK\x00",
             "cash_case_stage": "admin",
+            "cash_identity_required": "yes",
             "cash_discovered_document_ids": [
                 "contract_clause",
                 "../../unsafe",
@@ -125,6 +128,7 @@ def test_snapshot_applies_strict_bounds_and_discards_unsafe_fields() -> None:
     assert snapshot is not None
     assert len(snapshot["game_player_name"]) == 12
     assert snapshot["cash_case_stage"] == "briefing"
+    assert "cash_identity_required" not in snapshot
     assert snapshot["cash_case_attempt_index"] == 10_000
     assert snapshot["cash_evidence_attempt_index"] == 0
     assert snapshot["cash_defense_lives"] == 3

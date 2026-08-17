@@ -235,6 +235,110 @@ apply_cash_game_theme()
     assert "visibility: hidden !important" in theme_markup
 
 
+def test_game_controls_can_return_one_scene_and_rename_without_reset() -> None:
+    """Back and rename must be reversible controls, not destructive links."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_game_hub_page
+
+st.session_state.setdefault("game_player_name", "北辰")
+st.session_state.setdefault("cash_case_stage", "practice")
+st.session_state.setdefault("cash_defense_lives", 3)
+render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    for expected_label in ("← 上一步", "修改代号", "重新开始"):
+        assert any(item.label == expected_label for item in app_test.button)
+
+    next(
+        item for item in app_test.button if item.label == "修改代号"
+    ).click().run()
+    rename_input = next(
+        item for item in app_test.text_input
+        if item.label == "新的调查员代号"
+    )
+    rename_input.set_value("苍穹").run()
+    next(
+        item for item in app_test.button
+        if item.label == "确认修改｜保留当前进度"
+    ).click().run()
+
+    assert app_test.session_state["game_player_name"] == "苍穹"
+    assert app_test.session_state["cash_case_stage"] == "practice"
+
+    next(
+        item for item in app_test.button if item.label == "← 上一步"
+    ).click().run()
+    assert app_test.session_state["cash_case_stage"] == "briefing"
+
+
+def test_game_restart_offers_keep_or_replace_identity_paths() -> None:
+    """Restart requires a choice and can return to either requested scene."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_game_hub_page
+
+if "game_player_name" not in st.session_state:
+    st.session_state["game_player_name"] = "北辰"
+    st.session_state["cash_case_stage"] = "defense"
+    st.session_state["cash_defense_lives"] = 1
+    st.session_state["cash_defense_round_index"] = 1
+    st.session_state["cash_defense_attempt_index"] = 5
+render_game_hub_page()
+"""
+    keep_test = AppTest.from_string(script).run()
+    next(
+        item for item in keep_test.button if item.label == "重新开始"
+    ).click().run()
+    assert any(
+        item.label == "保留代号｜从教学重新开始"
+        for item in keep_test.button
+    )
+    assert any(
+        item.label == "清除代号｜返回取名页"
+        for item in keep_test.button
+    )
+    next(
+        item for item in keep_test.button
+        if item.label == "保留代号｜从教学重新开始"
+    ).click().run()
+
+    assert keep_test.session_state["game_player_name"] == "北辰"
+    assert keep_test.session_state["cash_case_stage"] == "briefing"
+    assert keep_test.session_state["cash_defense_lives"] == 3
+    assert "cash_defense_attempt_index" not in keep_test.session_state
+
+    identity_test = AppTest.from_string(script).run()
+    next(
+        item for item in identity_test.button if item.label == "重新开始"
+    ).click().run()
+    next(
+        item for item in identity_test.button
+        if item.label == "清除代号｜返回取名页"
+    ).click().run()
+
+    assert identity_test.session_state["cash_identity_required"] is True
+    assert identity_test.session_state["cash_case_stage"] == "briefing"
+    identity_input = next(
+        item for item in identity_test.text_input
+        if item.label == "在案件终端输入调查员代号"
+    )
+    identity_input.set_value("新调查员").run()
+    next(
+        item for item in identity_test.button
+        if item.label == "确认代号｜进入零基础教学"
+    ).click().run()
+
+    assert identity_test.session_state["game_player_name"] == "新调查员"
+    assert "cash_identity_required" not in identity_test.session_state
+
+
 def test_game_hud_uses_direct_html_instead_of_markdown_code_fences() -> None:
     """Optional HUD fragments must never expose raw tags to the player."""
     from streamlit.testing.v1 import AppTest

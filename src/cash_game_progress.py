@@ -60,6 +60,8 @@ _TEXT_FIELDS: dict[str, int] = {
     "historical_game_mission_reasoning": 4_000,
 }
 
+_BOOLEAN_FIELDS = frozenset({"cash_identity_required"})
+
 _IDENTIFIER_FIELDS = frozenset(
     {
         "cash_timing_order_question_id",
@@ -104,6 +106,7 @@ _MANAGED_SESSION_KEYS = frozenset(
         "cash_timing_order_ids",
         "cash_discovered_document_ids",
         "cash_defense_completed_explanations",
+        *_BOOLEAN_FIELDS,
         *_INTEGER_FIELDS,
         *_TEXT_FIELDS,
         *_IDENTIFIER_FIELDS,
@@ -245,6 +248,11 @@ def normalise_cash_game_progress_snapshot(
             ):
                 safe_timing_order_ids.append(event_id)
     snapshot["cash_timing_order_ids"] = safe_timing_order_ids
+
+    for field in _BOOLEAN_FIELDS:
+        value_for_field = value.get(field)
+        if isinstance(value_for_field, bool):
+            snapshot[field] = value_for_field
 
     for field, max_chars in _TEXT_FIELDS.items():
         cleaned = _clean_text(value.get(field), max_chars)

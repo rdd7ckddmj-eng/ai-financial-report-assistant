@@ -19,6 +19,11 @@ five task-based tool groups without crowding the top-level navigation.
 Game checkpoints and honour progress are stored in the current browser's local
 storage; they are not keyed by alias or IP. The interface responds to phone and
 desktop widths and also offers a persistent manual layout override.
+The fixed case screen also exposes previous-scene, rename-alias, and restart
+controls. Restart can either retain the alias and return to teaching or clear
+the alias and return to identity creation. Practice mistakes generate a new
+exercise without costing a life; only the formal three-round defence shares
+three lives, after which the player returns to the office for a new dossier.
 
 Its purpose is to help retail investors, junior analysts, and finance students
 complete a traceable first-pass review of a mainland listed company. Starting

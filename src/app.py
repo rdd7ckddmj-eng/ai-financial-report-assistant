@@ -793,6 +793,21 @@ _HONOUR_ARCHIVE_STORAGE = st.components.v2.component(
         }
       }
 
+      const renameTo = cleanName(data.rename_to);
+      if (record && renameTo && record.player_name !== renameTo) {
+        record = { ...record, player_name: renameTo };
+        records = records.map((item) =>
+          item.mission_id === missionId ? record : item
+        );
+        if (storageStatus === "available") {
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(records.slice(-50)));
+          } catch (_) {
+            storageStatus = "unavailable";
+          }
+        }
+      }
+
       const knownCandidate = cleanStoredRecord(data.known_record);
       const known = knownCandidate?.mission_id === missionId &&
         knownCandidate?.case_title === caseTitle ? knownCandidate : null;
@@ -3949,6 +3964,112 @@ def apply_cash_game_theme() -> None:
             box-shadow: 0 13px 28px rgba(0, 18, 31, 0.32) !important;
         }
 
+        .st-key-cash_game_shell:has(.st-key-cash_game_controls)
+        .wfz-game-commandbar {
+            padding-right: 22.8rem;
+        }
+
+        .st-key-cash_game_shell:has(.st-key-cash_game_controls)
+        .wfz-game-save-state,
+        .st-key-cash_game_shell:has(.st-key-cash_game_controls)
+        .wfz-game-exit {
+            display: none;
+        }
+
+        .st-key-cash_game_controls {
+            position: absolute;
+            z-index: 90;
+            top: 1.58rem;
+            right: 1.8rem;
+            width: 21.2rem;
+        }
+
+        .st-key-cash_game_controls [data-testid="stHorizontalBlock"] {
+            gap: 0.35rem;
+        }
+
+        .st-key-cash_game_controls .stButton > button,
+        .st-key-cash_game_controls button[data-testid^="stBaseButton"] {
+            min-height: 2.25rem !important;
+            padding: 0.3rem 0.48rem !important;
+            border-color: rgba(140, 225, 226, 0.2) !important;
+            border-radius: 999px !important;
+            background: rgba(7, 30, 48, 0.94) !important;
+            box-shadow: none !important;
+            font-size: 0.65rem !important;
+            white-space: nowrap;
+        }
+
+        .st-key-cash_game_controls .stButton > button:hover,
+        .st-key-cash_game_controls button[data-testid^="stBaseButton"]:hover {
+            border-color: rgba(96, 226, 219, 0.58) !important;
+            background: rgba(20, 92, 103, 0.94) !important;
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-game-control-scene) {
+            overflow: hidden;
+            padding: 0;
+            border: 1px solid rgba(135, 228, 231, 0.17);
+            border-radius: 0 0 22px 22px;
+            background: #071727;
+        }
+
+        .st-key-cash_game_control_overlay {
+            position: absolute;
+            z-index: 8;
+            inset: 0;
+            box-sizing: border-box;
+            overflow: auto;
+            padding: clamp(1rem, 4vw, 3.2rem) clamp(1rem, 7vw, 7rem);
+            background:
+                linear-gradient(90deg, rgba(2, 12, 24, 0.84), rgba(3, 18, 31, 0.7)),
+                url("/app/static/cash-game-office-v1.png") center 42% / cover no-repeat;
+            scrollbar-width: thin;
+        }
+
+        .wfz-game-control-scene {
+            max-width: 46rem;
+            margin: 0 auto 0.85rem;
+            padding: 1rem 1.1rem;
+            border: 1px solid rgba(128, 224, 224, 0.25);
+            border-left: 4px solid #5ddbd1;
+            border-radius: 5px 18px 18px 5px;
+            background: rgba(3, 17, 30, 0.9);
+            box-shadow: 0 22px 52px rgba(0, 6, 16, 0.4);
+            backdrop-filter: blur(18px);
+        }
+
+        .wfz-game-control-scene--reset {
+            border-left-color: #e9b56b;
+        }
+
+        .wfz-game-control-scene small {
+            color: #6fddd4;
+            font-size: 0.6rem;
+            font-weight: 850;
+            letter-spacing: 0.12em;
+        }
+
+        .wfz-game-control-scene h2 {
+            margin: 0.3rem 0;
+            color: #f2fdff;
+            font-size: clamp(1.35rem, 3vw, 2.1rem);
+        }
+
+        .wfz-game-control-scene p {
+            margin: 0;
+            color: #bfd4db !important;
+            line-height: 1.6;
+        }
+
+        .st-key-cash_game_control_overlay [data-testid="stForm"],
+        .st-key-cash_game_control_overlay [data-testid="stAlert"],
+        .st-key-cash_game_control_overlay > div {
+            max-width: 46rem;
+            margin-right: auto;
+            margin-left: auto;
+        }
+
         .wfz-game-shell-footer {
             margin-top: 1.15rem;
             padding-top: 1rem;
@@ -3970,6 +4091,46 @@ def apply_cash_game_theme() -> None:
             .wfz-game-commandbar {
                 align-items: flex-start;
                 padding: 0.6rem 0.7rem;
+            }
+
+            .st-key-cash_game_shell:has(.st-key-cash_game_controls)
+            .wfz-game-commandbar {
+                padding-right: 0.7rem;
+                padding-bottom: 3.35rem;
+            }
+
+            .st-key-cash_game_controls {
+                top: 3.82rem;
+                right: 0.75rem;
+                left: 0.75rem;
+                width: auto;
+            }
+
+            .st-key-cash_game_controls [data-testid="stHorizontalBlock"] {
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                gap: 0.28rem !important;
+            }
+
+            .st-key-cash_game_controls [data-testid="stColumn"] {
+                flex: 1 1 0 !important;
+                width: auto !important;
+                min-width: 0 !important;
+            }
+
+            .st-key-cash_game_controls .stButton > button,
+            .st-key-cash_game_controls button[data-testid^="stBaseButton"] {
+                min-height: 2rem !important;
+                padding: 0.24rem 0.2rem !important;
+                font-size: 0.58rem !important;
+            }
+
+            .st-key-cash_game_control_overlay {
+                padding: 0.7rem;
+            }
+
+            .wfz-game-control-scene {
+                padding: 0.75rem 0.8rem;
             }
 
             .st-key-cash_game_scene_content {
@@ -4837,6 +4998,86 @@ def _advance_game(stage: str) -> None:
     st.rerun()
 
 
+_CASH_GAME_BACK_STAGES = {
+    "practice": "briefing",
+    "timing_completed": "practice",
+    "completed": "practice",
+    "investigation": "timing_completed",
+    "reading": "investigation",
+    "cross_check": "reading",
+    "evidence": "cross_check",
+    "evidence_completed": "cross_check",
+    "defense": "evidence_completed",
+    "case_completed": "evidence_completed",
+    "migration": "case_completed",
+    "migration_completed": "migration",
+}
+
+
+def _normalise_game_player_name(value: object) -> str:
+    """Return one safe, single-line alias accepted by the game UI."""
+    if not isinstance(value, str):
+        return ""
+    return " ".join(value.strip().split())[:12]
+
+
+def _clear_cash_game_round_state() -> None:
+    """Clear one run while preserving unrelated research and browser state."""
+    clear_cash_game_progress_state(st.session_state)
+    game_widget_prefixes = (
+        "cash_timing_",
+        "cash_case_",
+        "cash_evidence_",
+        "cash_cross_check_",
+        "cash_defense_",
+        "historical_game_",
+    )
+    for key in list(st.session_state):
+        if str(key).startswith(game_widget_prefixes):
+            st.session_state.pop(key, None)
+    st.session_state.pop("game_player_identity_input", None)
+
+
+def _restart_cash_game(*, require_new_identity: bool) -> None:
+    """Start a clean run at teaching or at the in-game identity terminal."""
+    current_name = _normalise_game_player_name(
+        st.session_state.get("game_player_name", "")
+    ) or "待命调查员"
+    _clear_cash_game_round_state()
+    # A hidden bounded alias keeps a valid browser checkpoint while the
+    # identity terminal is waiting for a replacement name.
+    st.session_state["game_player_name"] = current_name
+    st.session_state["cash_case_stage"] = "briefing"
+    st.session_state["cash_defense_lives"] = 3
+    if require_new_identity:
+        st.session_state["cash_identity_required"] = True
+    st.session_state.pop("_wfz_cash_game_overlay", None)
+    st.rerun()
+
+
+def _go_back_one_cash_game_step(stage: str) -> None:
+    """Return to the previous playable scene without erasing the whole run."""
+    if stage == "briefing":
+        st.session_state["cash_identity_required"] = True
+        st.session_state.pop("_wfz_cash_game_overlay", None)
+        st.rerun()
+    if stage == "defense_failed":
+        st.session_state["cash_evidence_attempt_index"] = (
+            int(st.session_state.get("cash_evidence_attempt_index", 0)) + 1
+        )
+        st.session_state["cash_discovered_document_ids"] = []
+        st.session_state.pop("cash_evidence_explanation", None)
+        st.session_state.pop("cash_cross_check_explanation", None)
+        st.session_state.pop("cash_defense_feedback", None)
+        _advance_game("investigation")
+    previous_stage = _CASH_GAME_BACK_STAGES.get(stage)
+    if previous_stage is None:
+        st.session_state["cash_identity_required"] = True
+        st.rerun()
+    st.session_state.pop("_wfz_cash_game_overlay", None)
+    _advance_game(previous_stage)
+
+
 def _browser_research_snapshot() -> dict[str, object]:
     """Return the small device-local state last received from the browser."""
     return normalise_browser_research_state(
@@ -5206,6 +5447,19 @@ def _render_device_experience_sidebar() -> None:
             )
 
 
+def _queue_honour_alias_update(player_name: str) -> None:
+    """Keep an existing device-local honour record aligned after a rename."""
+    normalised_name = _normalise_game_player_name(player_name)
+    record = normalise_honour_record(
+        st.session_state.get("_wfz_honour_archive_record")
+    )
+    if not normalised_name or record is None:
+        return
+    updated_record = {**record, "player_name": normalised_name}
+    st.session_state["_wfz_honour_archive_record"] = updated_record
+    st.session_state["_wfz_honour_alias_command"] = normalised_name
+
+
 def _sync_honour_archive_record(
     player_name: str,
     *,
@@ -5223,6 +5477,9 @@ def _sync_honour_archive_record(
     known_status = str(
         st.session_state.get("_wfz_honour_storage_status", "pending")
     )
+    rename_to = _normalise_game_player_name(
+        st.session_state.get("_wfz_honour_alias_command", "")
+    )
     try:
         result = _HONOUR_ARCHIVE_STORAGE(
             data={
@@ -5231,6 +5488,7 @@ def _sync_honour_archive_record(
                 "case_title": FIRST_CASE_TITLE,
                 "player_name": player_name,
                 "completed": completed,
+                "rename_to": rename_to or None,
                 "known_record": known_record,
                 "known_storage_status": known_status,
             },
@@ -5257,6 +5515,8 @@ def _sync_honour_archive_record(
     record = normalise_honour_record(raw_record) or known_record
     if record is not None:
         st.session_state["_wfz_honour_archive_record"] = record
+        if rename_to and record["player_name"] == rename_to:
+            st.session_state.pop("_wfz_honour_alias_command", None)
     if raw_status in {"pending", "available", "unavailable"}:
         st.session_state["_wfz_honour_storage_status"] = raw_status
     return record
@@ -7115,9 +7375,117 @@ def _render_cash_defense_node(player_name: str) -> None:
     st.rerun()
 
 
+def _render_cash_game_controls(stage: str) -> None:
+    """Render always-available, reversible controls inside the game HUD."""
+    with st.container(key="cash_game_controls"):
+        control_columns = st.columns(3)
+        with control_columns[0]:
+            if st.button(
+                "← 上一步",
+                key="cash_game_go_back",
+                width="stretch",
+            ):
+                _go_back_one_cash_game_step(stage)
+        with control_columns[1]:
+            if st.button(
+                "修改代号",
+                key="cash_game_open_rename",
+                width="stretch",
+            ):
+                st.session_state["_wfz_cash_game_overlay"] = "rename"
+                st.rerun()
+        with control_columns[2]:
+            if st.button(
+                "重新开始",
+                key="cash_game_open_reset",
+                width="stretch",
+            ):
+                st.session_state["_wfz_cash_game_overlay"] = "reset"
+                st.rerun()
+
+
+def _render_cash_game_control_overlay(player_name: str) -> None:
+    """Render rename/reset confirmation without leaving the game route."""
+    overlay = str(st.session_state.get("_wfz_cash_game_overlay", ""))
+    with st.container(key="cash_game_control_overlay"):
+        if overlay == "rename":
+            st.html(
+                """
+                <section class="wfz-game-control-scene">
+                    <small>IDENTITY CONTROL · SAFE EDIT</small>
+                    <h2>修改调查员代号</h2>
+                    <p>只修改称呼，不会清除当前关卡、生命或已经找到的证据。</p>
+                </section>
+                """
+            )
+            with st.form("cash_game_rename_form", border=True):
+                renamed_value = st.text_input(
+                    "新的调查员代号",
+                    value=player_name,
+                    max_chars=12,
+                    help="中文或英文，最多12个字符；不要填写真实姓名或电话。",
+                )
+                rename_submitted = st.form_submit_button(
+                    "确认修改｜保留当前进度",
+                    type="primary",
+                    width="stretch",
+                )
+            if rename_submitted:
+                normalised_name = _normalise_game_player_name(renamed_value)
+                if not normalised_name:
+                    st.error("请填写一个有效的调查员代号。")
+                else:
+                    st.session_state["game_player_name"] = normalised_name
+                    st.session_state.pop("cash_identity_required", None)
+                    _queue_honour_alias_update(normalised_name)
+                    st.session_state.pop("_wfz_cash_game_overlay", None)
+                    st.rerun()
+        elif overlay == "reset":
+            st.html(
+                """
+                <section class="wfz-game-control-scene wfz-game-control-scene--reset">
+                    <small>CASE CONTROL · CONFIRM RESTART</small>
+                    <h2>选择重新开始的位置</h2>
+                    <p>两种选择都会清除本轮关卡、答案和生命记录；研究中枢数据不受影响。</p>
+                </section>
+                """
+            )
+            reset_columns = st.columns(2)
+            with reset_columns[0]:
+                if st.button(
+                    "保留代号｜从教学重新开始",
+                    type="primary",
+                    key="cash_game_reset_keep_identity",
+                    width="stretch",
+                ):
+                    _restart_cash_game(require_new_identity=False)
+                st.caption("保留当前称呼，回到取名后的零基础教学。")
+            with reset_columns[1]:
+                if st.button(
+                    "清除代号｜返回取名页",
+                    key="cash_game_reset_to_identity",
+                    width="stretch",
+                ):
+                    _restart_cash_game(require_new_identity=True)
+                st.caption("清除本轮进度，在游戏序章重新输入代号。")
+            st.info(
+                "第03幕教学练习答错不扣生命；第08幕正式答辩三次失败后，"
+                "系统会强制退回办公室并更换整套调查卷宗。"
+            )
+        if st.button(
+            "取消｜返回当前案件",
+            key="cash_game_close_control_overlay",
+            width="stretch",
+        ):
+            st.session_state.pop("_wfz_cash_game_overlay", None)
+            st.rerun()
+
+
 def _render_cash_teaching_node() -> None:
     """Render role creation and the zero-assumption teaching scene."""
     player_name = str(st.session_state.get("game_player_name", "")).strip()
+    if st.session_state.get("cash_identity_required") is True:
+        player_name = ""
     if not player_name:
         st.html(
             """
@@ -7150,6 +7518,7 @@ def _render_cash_teaching_node() -> None:
                 "在案件终端输入调查员代号",
                 placeholder="中文或英文，最多12个字符",
                 max_chars=12,
+                key="game_player_identity_input",
             )
             identity_submitted = st.form_submit_button(
                 "确认代号｜进入零基础教学",
@@ -7157,11 +7526,13 @@ def _render_cash_teaching_node() -> None:
                 width="stretch",
             )
         if identity_submitted:
-            normalised_name = " ".join(entered_name.strip().split())
+            normalised_name = _normalise_game_player_name(entered_name)
             if not normalised_name:
                 st.error("请先填写一个调查员代号。")
                 return
             st.session_state["game_player_name"] = normalised_name
+            st.session_state.pop("cash_identity_required", None)
+            _queue_honour_alias_update(normalised_name)
             st.session_state["cash_case_stage"] = "briefing"
             st.session_state["cash_case_attempt_index"] = 0
             st.rerun()
@@ -7503,26 +7874,38 @@ def render_game_hub_page() -> None:
         st.session_state.get("historical_game_mission_completed")
         == HISTORICAL_MISSION_ID
     )
-    player_name = str(
-        st.session_state.get("game_player_name", "调查员")
-    ).strip() or "调查员"
+    active_player_name = _normalise_game_player_name(
+        st.session_state.get("game_player_name", "")
+    )
+    stage = str(st.session_state.get("cash_case_stage", "briefing"))
+    identity_required = bool(
+        st.session_state.get("cash_identity_required", False)
+    )
+    overlay = str(st.session_state.get("_wfz_cash_game_overlay", ""))
+    player_name = active_player_name or "调查员"
     honour_record = _sync_honour_archive_record(
         player_name,
         completed=mission_completed_in_session,
     )
-    if honour_record is not None:
+    should_restore_honour = (
+        honour_record is not None
+        and not identity_required
+        and overlay not in {"rename", "reset"}
+        and (not active_player_name or stage == "migration_completed")
+    )
+    if should_restore_honour and honour_record is not None:
         # The honour record is the durable proof that this browser completed
-        # the case; hydrate the short-lived Streamlit session after a refresh.
+        # the case. An explicit replay/reset must remain on its chosen scene.
         player_name = honour_record["player_name"]
         st.session_state["game_player_name"] = player_name
         st.session_state["cash_case_stage"] = "migration_completed"
         st.session_state["historical_game_mission_completed"] = (
             HISTORICAL_MISSION_ID
         )
-    stage = str(st.session_state.get("cash_case_stage", "briefing"))
+        stage = "migration_completed"
     has_player = bool(
         str(st.session_state.get("game_player_name", "")).strip()
-    )
+    ) and not identity_required
     with st.container(key="cash_game_shell"):
         # Everything after choosing “消失的现金” belongs to this game screen.
         # The name form and rules are the playable prologue, not a web intro.
@@ -7537,10 +7920,13 @@ def render_game_hub_page() -> None:
         else:
             step_number, title, subtitle, taunt = _cash_game_scene_meta(stage)
             _show_cash_game_stage(step_number, title, subtitle, taunt)
+            _render_cash_game_controls(stage)
         with st.container(key="cash_game_scene_content"):
             # The browser page never scrolls. Dense clues scroll only inside
             # this scene viewport while the case HUD remains fixed above it.
-            if not has_player:
+            if has_player and overlay in {"rename", "reset"}:
+                _render_cash_game_control_overlay(player_name)
+            elif not has_player:
                 _render_cash_teaching_node()
             else:
                 player_name = str(st.session_state["game_player_name"]).strip()
