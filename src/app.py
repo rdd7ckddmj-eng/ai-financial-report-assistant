@@ -3593,30 +3593,41 @@ def apply_cash_game_theme() -> None:
             font-size: 0.92rem;
         }
 
-        .wfz-office-search-scene {
+        .st-key-cash_office_scene {
             position: relative;
-            min-height: 17rem;
+            flex: 0 0 clamp(15rem, 38vh, 17rem) !important;
+            height: clamp(15rem, 38vh, 17rem) !important;
+            min-height: clamp(15rem, 38vh, 17rem) !important;
             overflow: hidden;
             margin: 0.15rem 0 0.85rem;
             border: 1px solid rgba(139, 229, 231, 0.18);
             border-radius: 20px;
             background:
-                linear-gradient(90deg, rgba(2, 12, 23, 0.76), transparent 57%),
-                linear-gradient(0deg, rgba(2, 12, 23, 0.44), transparent 60%),
-                url("/app/static/cash-game-office-v1.png") center 43% / cover no-repeat;
+                linear-gradient(90deg, rgba(2, 12, 23, 0.34), transparent 38%),
+                url("/app/static/cash-game-office-clean-v1.png") center / 100% 100% no-repeat;
             box-shadow: 0 18px 46px rgba(0, 6, 15, 0.3);
         }
 
-        .wfz-office-search-copy {
+        .wfz-office-search-scene {
             position: absolute;
-            top: 1.2rem;
-            left: 1.2rem;
-            width: min(31rem, 55%);
-            padding: 1rem 1.05rem;
-            border-left: 3px solid #61d8cf;
-            border-radius: 4px 15px 15px 4px;
-            background: rgba(3, 16, 29, 0.8);
-            backdrop-filter: blur(15px);
+            z-index: 2;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .st-key-cash_office_scene
+        .stElementContainer:has(.wfz-office-search-scene),
+        .st-key-cash_office_scene
+        .stHtml:has(.wfz-office-search-scene) {
+            position: absolute !important;
+            z-index: 2;
+            inset: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .wfz-office-search-copy {
+            display: none;
         }
 
         .wfz-office-search-copy span {
@@ -3656,6 +3667,64 @@ def apply_cash_game_theme() -> None:
         .wfz-office-search-count strong {
             color: #73e1d5;
             font-size: 1rem;
+        }
+
+        .st-key-cash_office_target_0 { --hotspot-x: 41.2%; --hotspot-y: 36%; }
+        .st-key-cash_office_target_1 { --hotspot-x: 12.9%; --hotspot-y: 89%; }
+        .st-key-cash_office_target_2 { --hotspot-x: 8.8%; --hotspot-y: 63%; }
+        .st-key-cash_office_target_3 { --hotspot-x: 40.7%; --hotspot-y: 86%; }
+        .st-key-cash_office_target_4 { --hotspot-x: 27.8%; --hotspot-y: 82%; }
+        .st-key-cash_office_target_5 { --hotspot-x: 51.9%; --hotspot-y: 83%; }
+        .st-key-cash_office_target_6 { --hotspot-x: 71.4%; --hotspot-y: 54%; }
+        .st-key-cash_office_target_7 { --hotspot-x: 20.5%; --hotspot-y: 63%; }
+
+        [class*="st-key-cash_office_target_"] {
+            position: absolute;
+            z-index: 7;
+            top: var(--hotspot-y);
+            left: var(--hotspot-x);
+            width: 2.35rem;
+            height: 2.35rem;
+            transform: translate(-50%, -50%);
+        }
+
+        [class*="st-key-cash_office_target_"] [data-testid="stButton"],
+        [class*="st-key-cash_office_target_"] button[data-testid^="stBaseButton"] {
+            width: 100%;
+            height: 100%;
+        }
+
+        [class*="st-key-cash_office_target_"] button[data-testid^="stBaseButton"] {
+            min-height: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            padding: 0 !important;
+            border: 1px solid rgba(117, 238, 231, 0.78) !important;
+            border-radius: 50% !important;
+            color: #eaffff !important;
+            background: radial-gradient(circle, rgba(87, 237, 228, 0.52), rgba(17, 99, 111, 0.22) 52%, transparent 70%) !important;
+            box-shadow: 0 0 0 0.3rem rgba(80, 227, 219, 0.08), 0 0 1.25rem rgba(73, 228, 218, 0.48) !important;
+            font-size: 0.78rem !important;
+            animation: wfz-office-pulse 2.6s ease-in-out infinite;
+        }
+
+        [class*="st-key-cash_office_target_"] button[data-testid^="stBaseButton"]:hover {
+            border-color: #dffffc !important;
+            background: radial-gradient(circle, rgba(102, 245, 233, 0.76), rgba(16, 115, 126, 0.32) 58%, transparent 72%) !important;
+            box-shadow: 0 0 0 0.4rem rgba(80, 227, 219, 0.12), 0 0 1.8rem rgba(73, 228, 218, 0.68) !important;
+        }
+
+        [class*="st-key-cash_office_target_"] button[data-testid^="stBaseButton"]:disabled {
+            border-color: rgba(131, 224, 170, 0.86) !important;
+            color: #effff5 !important;
+            background: radial-gradient(circle, rgba(102, 222, 154, 0.64), rgba(23, 103, 73, 0.26) 58%, transparent 72%) !important;
+            opacity: 1 !important;
+            animation: none;
+        }
+
+        @keyframes wfz-office-pulse {
+            0%, 100% { transform: scale(0.9); opacity: 0.68; }
+            50% { transform: scale(1.08); opacity: 1; }
         }
 
         .wfz-practice-scene,
@@ -4864,6 +4933,421 @@ def apply_cash_game_theme() -> None:
             .wfz-game-prologue {
                 padding: 1.15rem 1.05rem;
             }
+        }
+
+        /* Visual-first scene layer -------------------------------------------------
+           Each case scene is now staged like a fixed investigation game screen.
+           The mentor photograph is part of the scene, not a tiny decorative avatar;
+           Streamlit inputs remain real controls, but sit on a compact case terminal. */
+        .st-key-cash_game_shell:has(.wfz-visual-stage)
+        .wfz-game-scene-heading,
+        .st-key-cash_game_shell:has(.wfz-visual-stage)
+        .wfz-game-director-line,
+        .st-key-cash_game_shell:has(.wfz-visual-stage)
+        .wfz-keepsake-inventory,
+        .st-key-cash_game_shell:has(.wfz-visual-stage)
+        .wfz-learning-loop {
+            display: none !important;
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-visual-stage) {
+            isolation: isolate;
+            overflow-y: auto;
+            padding: clamp(10rem, 26vh, 15rem) calc(36% + 1rem) 4.6rem 1rem !important;
+            border: 1px solid rgba(143, 227, 229, 0.14);
+            border-radius: 22px;
+            background: #071726;
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-visual-stage)::after {
+            display: none;
+        }
+
+        .wfz-visual-stage {
+            position: absolute;
+            z-index: 0;
+            inset: 0;
+            min-height: 100%;
+            overflow: hidden;
+            pointer-events: none;
+            background:
+                radial-gradient(circle at 75% 22%, rgba(91, 213, 218, 0.12), transparent 28rem),
+                linear-gradient(135deg, #071521, #0a2635);
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-visual-stage)
+        .stElementContainer:has(.wfz-visual-stage),
+        .st-key-cash_game_scene_content:has(.wfz-visual-stage)
+        .stHtml:has(.wfz-visual-stage) {
+            position: static !important;
+            width: 0 !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .wfz-visual-stage > img {
+            position: absolute;
+            inset: 0 0 0 auto;
+            width: 48%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            filter: saturate(0.94) contrast(1.04) brightness(0.88);
+        }
+
+        .wfz-visual-stage::before {
+            content: "";
+            position: absolute;
+            z-index: 2;
+            inset: 0;
+            background:
+                linear-gradient(90deg, #071726 0 47%, rgba(7, 23, 38, 0.88) 59%, transparent 82%),
+                linear-gradient(0deg, rgba(5, 16, 27, 0.76), transparent 38%),
+                repeating-linear-gradient(0deg, rgba(125, 226, 226, 0.022) 0 1px, transparent 1px 4px);
+        }
+
+        .wfz-visual-stage-copy {
+            position: absolute;
+            z-index: 3;
+            top: clamp(1rem, 3vh, 2.2rem);
+            left: 1.1rem;
+            width: min(57%, 660px);
+            padding-left: 0.9rem;
+            border-left: 3px solid var(--mentor-accent, #62ddd4);
+        }
+
+        .wfz-visual-stage-copy small,
+        .wfz-visual-stage-mentor small {
+            display: block;
+            color: var(--mentor-accent, #78e2da);
+            font-size: 0.58rem;
+            font-weight: 850;
+            letter-spacing: 0.13em;
+        }
+
+        .wfz-visual-stage-copy strong {
+            display: block;
+            margin: 0.38rem 0 0.5rem;
+            color: #f5fdff;
+            font-size: clamp(1.45rem, 3vw, 2.75rem);
+            line-height: 1.04;
+            letter-spacing: -0.045em;
+            text-shadow: 0 12px 32px rgba(0, 8, 18, 0.55);
+        }
+
+        .wfz-visual-stage-copy p {
+            max-width: 540px;
+            margin: 0;
+            color: #a9c5d0 !important;
+            font-size: clamp(0.72rem, 1.25vw, 0.92rem);
+            line-height: 1.55;
+        }
+
+        .wfz-visual-stage-mentor {
+            position: absolute;
+            z-index: 4;
+            right: 1.1rem;
+            bottom: 1rem;
+            width: min(32%, 330px);
+            padding: 0.72rem 0.82rem;
+            border: 1px solid rgba(207, 242, 246, 0.22);
+            border-radius: 14px;
+            background: linear-gradient(135deg, rgba(5, 18, 31, 0.82), rgba(11, 42, 55, 0.62));
+            box-shadow: 0 18px 36px rgba(0, 6, 14, 0.34);
+            backdrop-filter: blur(10px);
+        }
+
+        .wfz-visual-stage-mentor strong,
+        .wfz-visual-stage-mentor span {
+            display: block;
+        }
+
+        .wfz-visual-stage-mentor strong {
+            margin: 0.18rem 0;
+            color: #ffffff;
+            font-size: 1.05rem;
+        }
+
+        .wfz-visual-stage-mentor span {
+            color: #a5bec9;
+            font-size: 0.66rem;
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-visual-stage)
+        [data-testid="stVerticalBlockBorderWrapper"],
+        .st-key-cash_game_scene_content:has(.wfz-visual-stage)
+        [data-testid="stForm"],
+        .st-key-cash_game_scene_content:has(.wfz-visual-stage)
+        [data-testid="stExpander"] {
+            border-color: rgba(137, 220, 223, 0.18) !important;
+            border-radius: 14px !important;
+            background: rgba(7, 26, 42, 0.82) !important;
+            box-shadow: 0 16px 36px rgba(0, 7, 16, 0.24);
+            backdrop-filter: blur(13px);
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-visual-stage)
+        .wfz-practice-scene,
+        .st-key-cash_game_scene_content:has(.wfz-visual-stage)
+        .wfz-practice-complete-scene {
+            min-height: 0;
+            background:
+                linear-gradient(0deg, rgba(4, 16, 28, 0.98) 0 48%, rgba(4, 16, 28, 0.48) 76%, rgba(4, 16, 28, 0.15)),
+                linear-gradient(90deg, rgba(5, 20, 34, 0.72), transparent 72%),
+                url("/app/static/cash-game-mentor-03.png") center top / 100% auto no-repeat;
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-visual-stage)
+        [role="radiogroup"] {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.5rem;
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-visual-stage)
+        [role="radiogroup"] > label {
+            min-height: 4.2rem;
+            margin: 0 !important;
+            padding: 0.68rem !important;
+            border: 1px solid rgba(135, 219, 221, 0.16);
+            border-radius: 12px;
+            background: linear-gradient(145deg, rgba(255,255,255,0.055), rgba(255,255,255,0.018));
+            transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-visual-stage)
+        [role="radiogroup"] > label:hover {
+            transform: translateY(-2px);
+            border-color: rgba(105, 229, 220, 0.52);
+            background: rgba(45, 156, 157, 0.14);
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-visual-stage)
+        [data-testid="stCheckbox"] {
+            min-height: 4.3rem;
+            margin-bottom: 0.5rem;
+            padding: 0.62rem 0.7rem;
+            border: 1px solid rgba(135, 219, 221, 0.16);
+            border-radius: 12px;
+            background: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
+            transition: border-color 150ms ease, transform 150ms ease;
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-visual-stage)
+        [data-testid="stCheckbox"]:hover {
+            transform: translateY(-2px);
+            border-color: rgba(105, 229, 220, 0.48);
+        }
+
+        .st-key-cash_office_hotspots {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .st-key-cash_office_hotspots [data-testid="stCaptionContainer"] {
+            display: none;
+        }
+
+        .st-key-cash_office_hotspots [data-testid="stHorizontalBlock"] {
+            height: auto;
+        }
+
+        .st-key-cash_office_hotspots [data-testid="stColumn"] {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: auto;
+            pointer-events: none;
+        }
+
+        .st-key-cash_office_hotspots .stButton > button {
+            width: 100%;
+            min-height: 82%;
+            padding: 0.3rem !important;
+            border-style: dashed !important;
+            border-color: rgba(104, 229, 222, 0.18) !important;
+            color: rgba(229, 251, 252, 0.48) !important;
+            background: radial-gradient(circle, rgba(61, 214, 207, 0.12), transparent 62%) !important;
+            box-shadow: none !important;
+            font-size: 0.55rem !important;
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        .st-key-cash_office_hotspots .stButton > button:hover {
+            border-color: rgba(107, 236, 226, 0.66) !important;
+            color: #ffffff !important;
+            background: radial-gradient(circle, rgba(55, 205, 198, 0.34), rgba(6, 31, 45, 0.35) 68%) !important;
+            box-shadow: 0 0 26px rgba(68, 223, 214, 0.22) !important;
+            opacity: 1;
+        }
+
+        .wfz-concept-board {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.62rem;
+            margin: 0 0 0.75rem;
+        }
+
+        .wfz-concept-card {
+            min-height: 9.6rem;
+            padding: 0.85rem;
+            border: 1px solid rgba(137, 220, 223, 0.18);
+            border-radius: 16px;
+            background: linear-gradient(145deg, rgba(7, 29, 47, 0.92), rgba(13, 55, 66, 0.76));
+            box-shadow: 0 16px 34px rgba(0, 7, 16, 0.26);
+            backdrop-filter: blur(13px);
+        }
+
+        .wfz-concept-card b {
+            display: grid;
+            width: 2.4rem;
+            height: 2.4rem;
+            place-items: center;
+            margin-bottom: 0.72rem;
+            border: 1px solid rgba(111, 231, 222, 0.34);
+            border-radius: 50%;
+            color: #83e9e1;
+            font-size: 1.05rem;
+            background: rgba(70, 188, 185, 0.10);
+        }
+
+        .wfz-concept-card strong,
+        .wfz-concept-card span {
+            display: block;
+        }
+
+        .wfz-concept-card strong {
+            color: #f3fdff;
+            font-size: 0.88rem;
+        }
+
+        .wfz-concept-card span {
+            margin-top: 0.38rem;
+            color: #9eb9c4;
+            font-size: 0.66rem;
+            line-height: 1.5;
+        }
+
+        .wfz-defense-dossier {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.45rem;
+            margin: 0.55rem 0 0.8rem;
+        }
+
+        .wfz-defense-evidence {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.55rem;
+            align-items: start;
+            min-height: 4.5rem;
+            padding: 0.65rem;
+            border: 1px solid rgba(137, 220, 223, 0.15);
+            border-radius: 12px;
+            color: #b8d0d8;
+            background: linear-gradient(145deg, rgba(255,255,255,0.045), rgba(255,255,255,0.012));
+            font-size: 0.64rem;
+            line-height: 1.45;
+        }
+
+        .wfz-defense-evidence b {
+            display: grid;
+            width: 1.55rem;
+            height: 1.55rem;
+            place-items: center;
+            border-radius: 7px;
+            color: #79e2da;
+            background: rgba(66, 181, 179, 0.13);
+        }
+
+        @media (max-width: 820px) {
+            .st-key-cash_game_scene_content:has(.wfz-visual-stage) {
+                padding: 46vh 0.72rem 5rem !important;
+            }
+
+            .wfz-visual-stage {
+                height: 44vh;
+                min-height: 44vh;
+                bottom: auto;
+            }
+
+            .wfz-visual-stage > img {
+                width: 100%;
+                height: 100%;
+                object-position: center 28%;
+            }
+
+            .wfz-visual-stage::before {
+                background:
+                    linear-gradient(0deg, #071726 0 5%, rgba(7,23,38,0.72) 38%, transparent 76%),
+                    linear-gradient(90deg, rgba(4,15,27,0.56), transparent 66%);
+            }
+
+            .wfz-visual-stage-copy {
+                top: 0.8rem;
+                left: 0.7rem;
+                width: calc(100% - 1.4rem);
+            }
+
+            .wfz-visual-stage-copy strong {
+                max-width: 72%;
+                font-size: clamp(1.35rem, 7vw, 2.1rem);
+            }
+
+            .wfz-visual-stage-copy p {
+                display: none;
+            }
+
+            .wfz-visual-stage-mentor {
+                right: 0.7rem;
+                bottom: 0.65rem;
+                width: min(72%, 300px);
+                padding: 0.55rem 0.65rem;
+            }
+
+            .st-key-cash_game_scene_content:has(.wfz-visual-stage)
+            [role="radiogroup"] {
+                grid-template-columns: 1fr;
+            }
+
+            .wfz-concept-board {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                margin-top: 0;
+                gap: 0.35rem;
+            }
+
+            .wfz-concept-card {
+                min-height: 8.1rem;
+                padding: 0.58rem;
+            }
+
+            .wfz-concept-card b {
+                width: 1.85rem;
+                height: 1.85rem;
+                margin-bottom: 0.45rem;
+                font-size: 0.78rem;
+            }
+
+            .wfz-concept-card strong {
+                font-size: 0.72rem;
+            }
+
+            .wfz-concept-card span {
+                font-size: 0.56rem;
+                line-height: 1.35;
+            }
+
+            .wfz-defense-dossier {
+                grid-template-columns: 1fr;
+            }
+
         }
         </style>
         """,
@@ -7552,8 +8036,50 @@ def _show_cash_evidence_documents(
     return option_labels
 
 
+def _show_cash_visual_stage(
+    step: int,
+    title: str,
+    objective: str,
+    *,
+    scene_label: str,
+) -> None:
+    """Place one full-scene mentor photograph behind the playable controls.
+
+    The raster asset is deliberately separate from the controls: the game keeps
+    real, accessible Streamlit inputs while looking like an investigation set
+    instead of a stack of web forms.  Copy stays short because the task itself
+    must be learned by interacting with the scene.
+    """
+    mentor = mentor_for_step(step)
+    image_path = f"/app/static/cash-game-mentor-{step:02d}.png"
+    st.html(
+        f"""
+        <section class="wfz-visual-stage" data-visual-step="{step}"
+                 aria-label="第{step}幕：{escape(title)}">
+            <img src="{image_path}" alt="{escape(mentor.name)}，{escape(mentor.role)}">
+            <div class="wfz-visual-stage-copy">
+                <small>SCENE {step:02d} · {escape(scene_label)}</small>
+                <strong>{escape(title)}</strong>
+                <p>{escape(objective)}</p>
+            </div>
+            <aside class="wfz-visual-stage-mentor">
+                <small>{escape(mentor.role)}</small>
+                <strong>{escape(mentor.name)}</strong>
+                <span>{escape(mentor.reminder)}</span>
+            </aside>
+        </section>
+        """
+    )
+
+
 def _render_cash_investigation_node(player_name: str) -> None:
     """Let the player physically search the office before opening files."""
+    _show_cash_visual_stage(
+        4,
+        "失序办公室",
+        "八个位置里只有六份材料。点击房间中的物件取证；显眼不等于重要。",
+        scene_label="INTERACTIVE SEARCH",
+    )
     attempt_index = int(
         st.session_state.get("cash_evidence_attempt_index", 0)
     )
@@ -7578,21 +8104,6 @@ def _render_cash_investigation_node(player_name: str) -> None:
     ]
     st.session_state["cash_discovered_document_ids"] = discovered_ids
 
-    st.html(
-        f"""
-        <section class="wfz-office-search-scene">
-            <div class="wfz-office-search-copy">
-                <span>04 · OFFICE SEARCH</span>
-                <strong>调查员 {escape(player_name)}，六份文件藏在八个位置里。</strong>
-                <p>两处只有看起来很重要的物件。先搜完整个房间，再决定哪些文件值得相信。</p>
-            </div>
-            <div class="wfz-office-search-count">
-                已发现 <strong>{len(discovered_ids)} / 6</strong>
-            </div>
-        </section>
-        """
-    )
-
     search_targets: list[tuple[str, str | None]] = [
         (str(document["location"]), str(document["document_id"]))
         for document in evidence_case["documents"]
@@ -7600,33 +8111,38 @@ def _render_cash_investigation_node(player_name: str) -> None:
         ("窗边的水晶奖杯", None),
         ("写着 INVESTMENT 的咖啡杯", None),
     ]
-    st.caption("点击办公室中的位置进行搜查｜不要根据物件名称预判价值")
-    for start in range(0, len(search_targets), 4):
-        target_columns = st.columns(4)
-        for column, (location, document_id) in zip(
-            target_columns,
-            search_targets[start : start + 4],
-            strict=True,
-        ):
+    with st.container(key="cash_office_scene"):
+        st.html(
+            f"""
+            <section class="wfz-office-search-scene">
+                <div class="wfz-office-search-copy">
+                    <span>04 · OFFICE SEARCH</span>
+                    <strong>调查员 {escape(player_name)}，六份文件藏在八个位置里。</strong>
+                    <p>点击画面中的发光物件。两处只是长得像线索的干扰项。</p>
+                </div>
+                <div class="wfz-office-search-count">
+                    已发现 <strong>{len(discovered_ids)} / 6</strong>
+                </div>
+            </section>
+            """
+        )
+
+        for hotspot_index, (location, document_id) in enumerate(search_targets):
             already_found = document_id in discovered_ids
-            with column:
+            with st.container(key=f"cash_office_target_{hotspot_index}"):
                 if st.button(
-                    (
-                        f"已取证｜{location}"
-                        if already_found
-                        else f"搜查｜{location}"
-                    ),
+                    "✓" if already_found else "◉",
                     key=(
-                        f"search_office_{attempt_index}_"
-                        f"{document_id or location}"
+                        f"visual_office_target_{attempt_index}_"
+                        f"{hotspot_index}"
                     ),
+                    help=f"搜查｜{location}",
                     disabled=already_found,
-                    width="stretch",
                 ):
                     if document_id is None:
                         st.session_state["cash_office_search_feedback"] = (
-                            f"{location}很显眼，但没有日期、金额、签章或来源。"
-                            "它可能只是干扰项。"
+                            f"{location}很显眼，但没有日期、金额、"
+                            "签章或来源。它只是现场干扰项。"
                         )
                     else:
                         st.session_state["cash_discovered_document_ids"] = [
@@ -7634,10 +8150,50 @@ def _render_cash_investigation_node(player_name: str) -> None:
                             document_id,
                         ]
                         st.session_state["cash_office_search_feedback"] = (
-                            f"已从{location}取得一份材料。先收进卷宗，不代表"
-                            "它已经被认定为证据。"
+                            f"已从{location}取得一份材料。先收进卷宗，"
+                            "不代表它已经被认定为证据。"
                         )
                     st.rerun()
+
+    with st.container(key="cash_office_hotspots"):
+        st.caption("点击场景物件进行搜查｜不要根据物件名称预判价值")
+        for start in range(0, len(search_targets), 4):
+            target_columns = st.columns(4)
+            for column, (location, document_id) in zip(
+                target_columns,
+                search_targets[start : start + 4],
+                strict=True,
+            ):
+                already_found = document_id in discovered_ids
+                with column:
+                    if st.button(
+                        (
+                            f"已取证｜{location}"
+                            if already_found
+                            else f"搜查｜{location}"
+                        ),
+                        key=(
+                            f"search_office_{attempt_index}_"
+                            f"{document_id or location}"
+                        ),
+                        disabled=already_found,
+                        width="stretch",
+                    ):
+                        if document_id is None:
+                            st.session_state["cash_office_search_feedback"] = (
+                                f"{location}很显眼，但没有日期、金额、签章或来源。"
+                                "它可能只是干扰项。"
+                            )
+                        else:
+                            st.session_state["cash_discovered_document_ids"] = [
+                                *discovered_ids,
+                                document_id,
+                            ]
+                            st.session_state["cash_office_search_feedback"] = (
+                                f"已从{location}取得一份材料。先收进卷宗，不代表"
+                                "它已经被认定为证据。"
+                            )
+                        st.rerun()
 
     feedback = st.session_state.pop("cash_office_search_feedback", None)
     if isinstance(feedback, str):
@@ -7671,6 +8227,12 @@ def _render_cash_investigation_node(player_name: str) -> None:
 
 def _render_cash_reading_node(player_name: str) -> None:
     """Make the player read every found document before cross-checking it."""
+    _show_cash_visual_stage(
+        5,
+        "字缝里的时间",
+        "把文件当作可翻阅的证物：找日期、金额、签章、来源和限制条件。",
+        scene_label="DOCUMENT LAB",
+    )
     attempt_index = int(
         st.session_state.get("cash_evidence_attempt_index", 0)
     )
@@ -7702,6 +8264,12 @@ def _render_cash_reading_node(player_name: str) -> None:
 
 def _render_cash_cross_check_node(player_name: str) -> None:
     """Check whether the player can respect the report-date boundary."""
+    _show_cash_visual_stage(
+        6,
+        "关掉事后诸葛亮",
+        "把报告期末已经发生的事实，与年后才出现的证据分回各自的时间。",
+        scene_label="TIME BOUNDARY",
+    )
     attempt_index = int(
         st.session_state.get("cash_evidence_attempt_index", 0)
     )
@@ -7715,12 +8283,16 @@ def _render_cash_cross_check_node(player_name: str) -> None:
         st.caption("06 · REPORTING-DATE CROSS-CHECK")
         st.markdown(f"#### {escape(player_name)}，先关掉“事后诸葛亮”")
         st.write(task["prompt"])
-        selected_options = st.multiselect(
-            "选择恰好3条能够成立的表述",
-            options=task["options"],
-            max_selections=3,
-            placeholder="注意文件来源与发生日期",
-        )
+        st.caption("点亮恰好三张能够成立的证据卡")
+        selected_options: list[str] = []
+        option_columns = st.columns(2)
+        for option_index, option in enumerate(task["options"]):
+            with option_columns[option_index % 2]:
+                if st.checkbox(
+                    option,
+                    key=f"cross_check_card_{task['task_id']}_{option_index}",
+                ):
+                    selected_options.append(option)
         submitted = st.form_submit_button(
             "提交交叉核验",
             type="primary",
@@ -7750,6 +8322,12 @@ def _render_cash_cross_check_node(player_name: str) -> None:
 
 def _render_cash_evidence_node(player_name: str) -> None:
     """Render the exact evidence-chain check on its own page."""
+    _show_cash_visual_stage(
+        7,
+        "让四环证据闭合",
+        "只留下能共同解释利润与现金时间差的四份材料；多选不是谨慎。",
+        scene_label="EVIDENCE BOARD",
+    )
     evidence_completed = (
         st.session_state.get("cash_case_stage") == "evidence_completed"
     )
@@ -7789,13 +8367,19 @@ def _render_cash_evidence_node(player_name: str) -> None:
         ):
             st.markdown("#### 提交你的证据链")
             st.write(evidence_case["question"])
-            selected_labels = st.multiselect(
-                "选择恰好4份材料",
-                options=list(option_labels),
-                max_selections=4,
-                placeholder="阅读文件后再选择，不要只看标题",
-                key=f"cash_evidence_selection_{evidence_case['case_id']}",
-            )
+            st.caption("点击材料卡，把恰好四份送上证据板")
+            selected_labels: list[str] = []
+            label_columns = st.columns(2)
+            for label_index, label in enumerate(option_labels):
+                with label_columns[label_index % 2]:
+                    if st.checkbox(
+                        label,
+                        key=(
+                            "cash_evidence_card_"
+                            f"{evidence_case['case_id']}_{label_index}"
+                        ),
+                    ):
+                        selected_labels.append(label)
             evidence_submitted = st.form_submit_button(
                 "提交证据链",
                 type="primary",
@@ -7929,15 +8513,15 @@ def _render_cash_mentor_council(player_name: str) -> None:
 
     council_columns = st.columns(3)
     for index, mentor in enumerate(CASH_GAME_MENTORS):
-        col = (mentor.step - 1) % 3
-        row = (mentor.step - 1) // 3
+        mentor_image = f"/app/static/cash-game-mentor-{mentor.step:02d}.png"
         has_used_hint = mentor.keepsake_id in used
         with council_columns[index % 3]:
             st.html(
                 f"""
                 <article class="wfz-council-mentor">
                     <div class="wfz-council-mentor-portrait"
-                         style="--mentor-col:{col};--mentor-row:{row};"></div>
+                         style="background-image:url('{mentor_image}');
+                                background-size:cover;background-position:center;"></div>
                     <div class="wfz-council-mentor-copy">
                         <small>席位 {mentor.step:02d} · {escape(mentor.role)}</small>
                         <strong>{escape(mentor.name)}</strong>
@@ -8014,6 +8598,12 @@ def _render_cash_mentor_council(player_name: str) -> None:
 
 def _render_cash_defense_node(player_name: str) -> None:
     """Render the three-round formal defence with one shared life pool."""
+    _show_cash_visual_stage(
+        8,
+        "审查席已经亮灯",
+        "三轮答辩共用三次容错。结论、边界与下一步核验缺一不可。",
+        scene_label="REVIEW COMMITTEE",
+    )
     stage = str(st.session_state.get("cash_case_stage", "defense"))
     lives = int(st.session_state.get("cash_defense_lives", 3))
     round_index = int(st.session_state.get("cash_defense_round_index", 0))
@@ -8078,9 +8668,19 @@ def _render_cash_defense_node(player_name: str) -> None:
         border=True,
     ):
         st.markdown(f"#### 新案卷｜{question['company_name']}")
-        st.caption("委员会只确认以下材料，不允许添加题外假设：")
-        for evidence_item in question["evidence_items"]:
-            st.write(f"- {evidence_item}")
+        evidence_cards = "".join(
+            '<div class="wfz-defense-evidence">'
+            f'<b>{index:02d}</b><span>{escape(str(evidence_item))}</span>'
+            "</div>"
+            for index, evidence_item in enumerate(
+                question["evidence_items"],
+                start=1,
+            )
+        )
+        st.html(
+            '<div class="wfz-defense-dossier" '
+            f'aria-label="委员会确认材料">{evidence_cards}</div>'
+        )
         st.markdown(f"**{question['prompt']}**")
         selected_option = st.radio(
             "选择唯一最严谨的答辩意见",
@@ -8229,13 +8829,13 @@ def _render_cash_game_reward_overlay(player_name: str) -> None:
     next_stage = str(
         st.session_state.get("_wfz_cash_game_reward_next_stage", "briefing")
     )
-    col = (mentor.step - 1) % 3
-    row = (mentor.step - 1) // 3
+    mentor_image = f"/app/static/cash-game-mentor-{mentor.step:02d}.png"
     st.html(
         f"""
         <section class="wfz-keepsake-reward" aria-label="获得角色信物">
             <div class="wfz-keepsake-reward-portrait"
-                 style="--mentor-col:{col};--mentor-row:{row};"></div>
+                 style="background-image:url('{mentor_image}');background-size:cover;
+                        background-position:center;"></div>
             <div class="wfz-keepsake-reward-copy">
                 <small>HIDDEN OBJECT RECOVERED · SCENE {mentor.step:02d}</small>
                 <h2>{escape(player_name)}，你获得了“{escape(mentor.keepsake_name)}”</h2>
@@ -8407,45 +9007,37 @@ def _render_cash_teaching_node() -> None:
             st.rerun()
         return
 
-    with st.container(border=True):
-        st.caption("22:17 · FANGZHENG AI 调查部")
-        st.markdown(f"#### 调查员 {escape(player_name)}，第一份案卷已经送达")
-        st.write(
-            "岚桥智能报告显示：利润增长38%，经营现金流却下降22%。"
-            "有人据此断言公司一定造假，也有人认为利润增长就代表现金"
-            "充足。你的第一项任务不是选边站，而是先弄清两种数字各自在"
-            "回答什么问题。"
-        )
+    _show_cash_visual_stage(
+        2,
+        "两只时钟，两种真相",
+        "利润记录业务完成，现金记录真实收付。先理解，再碰下一份案卷。",
+        scene_label="ZERO-BASE BRIEFING",
+    )
 
-    teaching_columns = st.columns(3)
-    with teaching_columns[0].container(border=True):
-        st.caption("01 / PROFIT")
-        st.markdown("#### 利润看什么？")
-        st.write(
-            "利润先问：这段期间完成了多少业务、为这些业务承担了多少"
-            "成本。符合确认条件的收入，不必等客户真正付款后才进入利润。"
-        )
-    with teaching_columns[1].container(border=True):
-        st.caption("02 / CASH")
-        st.markdown("#### 现金看什么？")
-        st.write(
-            "现金只问：钱在什么时候真正进入或离开账户。已经确认的收入"
-            "如果尚未收款，会形成应收款，但不会变成本月收到的现金。"
-        )
-    with teaching_columns[2].container(border=True):
-        st.caption("03 / JUDGEMENT")
-        st.markdown("#### 差异代表什么？")
-        st.write(
-            "利润与现金不一致是一条调查线索，不是自动定罪。还要检查合同、"
-            "验收、回款期限、应收账款和期后收款，才能解释差异。"
-        )
-
-    st.info(
-        "记住两个问题：利润看“业务是否完成”，现金看“钱是否真的"
-        "收付”。准备好后调取下一份业务档案。"
+    st.html(
+        f"""
+        <section class="wfz-concept-board" aria-label="利润与现金教学台">
+            <article class="wfz-concept-card">
+                <b>01</b><strong>利润时钟</strong>
+                <span>问业务是否已经完成，以及收入减去相关成本后留下多少。</span>
+            </article>
+            <article class="wfz-concept-card">
+                <b>02</b><strong>现金时钟</strong>
+                <span>只认账户里真正收到和付出的金额；应收款不等于现金。</span>
+            </article>
+            <article class="wfz-concept-card">
+                <b>03</b><strong>调查边界</strong>
+                <span>两只时钟不同步只是线索。合同、验收与回款才能解释原因。</span>
+            </article>
+        </section>
+        <div class="wfz-council-hint">
+            <strong>给 {escape(player_name)} 的第一条调查准则</strong>
+            <p>利润看“业务完成了吗”；现金看“钱真的动了吗”。</p>
+        </div>
+        """
     )
     if st.button(
-        "完成简报｜调取业务档案",
+        "我已分清两只时钟｜调取业务档案",
         type="primary",
         width="stretch",
         key="cash_case_start_practice",
@@ -8455,6 +9047,12 @@ def _render_cash_teaching_node() -> None:
 
 def _render_cash_practice_node(player_name: str) -> None:
     """Render the changing timing calculation inside scene two."""
+    _show_cash_visual_stage(
+        3,
+        "校准业务时间线",
+        "先把四张事件卡排进时间轴，再分别启动利润表和现金表。",
+        scene_label="TIMELINE LAB",
+    )
     stage = str(st.session_state.get("cash_case_stage", "practice"))
 
     if stage == "practice":
@@ -8736,7 +9334,7 @@ def _render_cash_practice_node(player_name: str) -> None:
 
 
 def render_game_hub_page() -> None:
-    """Render the prologue and all seven scenes on one canonical game page."""
+    """Render the prologue and all nine scenes on one canonical game page."""
     apply_product_theme()
     apply_cash_game_theme()
     mission_completed_in_session = (
@@ -8857,6 +9455,12 @@ def render_game_hub_page() -> None:
 
 def _render_cash_migration_node(player_name: str) -> None:
     """Render the one deliberate bridge from the game to real research."""
+    _show_cash_visual_stage(
+        9,
+        "拒绝用明天解释今天",
+        "进入真实历史研究区，冻结当时可见的信息；这一幕不再提供答案按钮。",
+        scene_label="OPEN INVESTIGATION",
+    )
     mission = HISTORICAL_GAME_MISSION
     with st.container(border=True):
         st.markdown(f"#### 调查员 {escape(player_name)}的新委托")

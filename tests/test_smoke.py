@@ -648,6 +648,13 @@ st.session_state.setdefault("cash_discovered_document_ids", [])
 render_game_hub_page()
 """
     app_test = AppTest.from_string(script).run()
+    rendered_markup = _all_rendered_markup(app_test)
+    assert "wfz-visual-stage" in rendered_markup
+    assert "cash-game-mentor-04.png" in rendered_markup
+    assert "wfz-office-search-scene" in rendered_markup
+    assert len(
+        [button for button in app_test.button if button.label == "◉"]
+    ) == 8
     finish_button = next(
         item for item in app_test.button
         if item.label == "结束搜查｜进入多材料深度研读"
@@ -698,10 +705,11 @@ render_game_hub_page()
 """
     app_test = AppTest.from_string(script).run()
     task = build_cash_cross_check_task(build_cash_evidence_case(0))
-    next(
-        item for item in app_test.multiselect
-        if item.label == "选择恰好3条能够成立的表述"
-    ).set_value(task["correct_options"])
+    for correct_option in task["correct_options"]:
+        next(
+            item for item in app_test.checkbox
+            if item.label == correct_option
+        ).set_value(True)
     next(
         item for item in app_test.button
         if item.label == "提交交叉核验"
@@ -731,11 +739,7 @@ render_game_hub_page()
     app_test = AppTest.from_string(script).run()
 
     assert not app_test.exception
-    first_multiselect = next(
-        item for item in app_test.multiselect
-        if item.label == "选择恰好4份材料"
-    )
-    first_options = list(first_multiselect.options)
+    first_options = [item.label for item in app_test.checkbox]
     weak_chain = [
         option for option in first_options
         if any(
@@ -748,7 +752,11 @@ render_game_hub_page()
             )
         )
     ]
-    first_multiselect.set_value(weak_chain)
+    for label in weak_chain:
+        next(
+            item for item in app_test.checkbox
+            if item.label == label
+        ).set_value(True)
     next(
         item for item in app_test.button
         if item.label == "提交证据链"
@@ -778,12 +786,9 @@ render_game_hub_page()
     app_test = AppTest.from_string(script).run()
 
     assert not app_test.exception
-    evidence_picker = next(
-        item for item in app_test.multiselect
-        if item.label == "选择恰好4份材料"
-    )
+    evidence_options = [item.label for item in app_test.checkbox]
     complete_chain = [
-        option for option in evidence_picker.options
+        option for option in evidence_options
         if any(
             clue in option
             for clue in (
@@ -794,7 +799,11 @@ render_game_hub_page()
             )
         )
     ]
-    evidence_picker.set_value(complete_chain)
+    for label in complete_chain:
+        next(
+            item for item in app_test.checkbox
+            if item.label == label
+        ).set_value(True)
     next(
         item for item in app_test.button
         if item.label == "提交证据链"
@@ -979,7 +988,7 @@ render_game_hub_page()
 
     next(
         item for item in app_test.button
-        if item.label == "完成简报｜调取业务档案"
+        if item.label == "我已分清两只时钟｜调取业务档案"
     ).click().run()
 
     assert app_test.session_state["cash_game_keepsakes"] == [
