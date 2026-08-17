@@ -15,6 +15,8 @@ import re
 from typing import Any, Mapping, MutableMapping
 import unicodedata
 
+from src.cash_game_characters import normalise_keepsake_ids
+
 
 # Version 2 deliberately starts a fresh case after the game-shell redesign.
 # The earlier prototype stored a player before the cinematic intake existed,
@@ -103,6 +105,9 @@ _MANAGED_SESSION_KEYS = frozenset(
     {
         "game_player_name",
         "cash_case_stage",
+        "cash_game_keepsakes",
+        "cash_game_pending_keepsakes",
+        "cash_game_used_hints",
         "cash_timing_order_ids",
         "cash_discovered_document_ids",
         "cash_defense_completed_explanations",
@@ -248,6 +253,25 @@ def normalise_cash_game_progress_snapshot(
             ):
                 safe_timing_order_ids.append(event_id)
     snapshot["cash_timing_order_ids"] = safe_timing_order_ids
+
+    snapshot["cash_game_keepsakes"] = normalise_keepsake_ids(
+        value.get("cash_game_keepsakes")
+    )
+    owned_keepsakes = set(snapshot["cash_game_keepsakes"])
+    snapshot["cash_game_pending_keepsakes"] = [
+        keepsake_id
+        for keepsake_id in normalise_keepsake_ids(
+            value.get("cash_game_pending_keepsakes")
+        )
+        if keepsake_id not in owned_keepsakes
+    ]
+    snapshot["cash_game_used_hints"] = [
+        keepsake_id
+        for keepsake_id in normalise_keepsake_ids(
+            value.get("cash_game_used_hints")
+        )
+        if keepsake_id in owned_keepsakes
+    ]
 
     for field in _BOOLEAN_FIELDS:
         value_for_field = value.get(field)

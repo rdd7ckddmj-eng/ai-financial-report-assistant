@@ -6,6 +6,13 @@ reasoning through a sequential story-led case, while the **Listed Company
 Research Hub** connects public market data, official disclosures, annual-report
 evidence, and auditable Agent workflows.
 
+The game uses nine distinct scene mentors, nine research capabilities and
+nine character keepsakes. Optional escape-room-style objects can be found in
+scenes and exchanged with the matching mentor during the final council for a
+role-specific reasoning prompt. Keepsakes and used prompts remain
+device-local; they do not create accounts, IP profiles or server-side player
+records.
+
 The root URL opens a visible Chinese **首页** above the two product branches.
 Selecting the game opens one complete game screen immediately: alias creation
 and rules are the playable prologue, not a website introduction, and scenes

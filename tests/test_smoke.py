@@ -439,6 +439,7 @@ from src.historical_game_mission import HISTORICAL_MISSION_ID
 st.session_state["game_player_name"] = "北辰"
 st.session_state["cash_case_stage"] = "migration_completed"
 st.session_state["historical_game_mission_completed"] = HISTORICAL_MISSION_ID
+st.session_state["cash_game_keepsakes"] = ["unwritten_verdict_seal"]
 original_storage = app._HONOUR_ARCHIVE_STORAGE
 original_poster = app._HONOUR_POSTER
 try:
@@ -949,9 +950,70 @@ render_game_hub_page()
         app_test.session_state["cash_defense_completed_explanations"]
     ) == 3
     assert any(
-        item.label == "接受真实历史委托｜进入迁移调查"
+        item.label == "结束联合复核｜接受真实历史调查"
         for item in app_test.button
     )
+
+
+def test_hidden_scene_keepsake_is_revealed_only_after_scene_completion() -> None:
+    """A discovered object should wait for the scene result before revealing."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_game_hub_page
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state["cash_case_stage"] = "briefing"
+render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+    next(item for item in app_test.button if item.label == "·").click().run()
+
+    assert app_test.session_state["cash_game_pending_keepsakes"] == [
+        "dual_dial_watch"
+    ]
+    assert app_test.session_state["cash_game_keepsakes"] == []
+
+    next(
+        item for item in app_test.button
+        if item.label == "完成简报｜调取业务档案"
+    ).click().run()
+
+    assert app_test.session_state["cash_game_keepsakes"] == [
+        "dual_dial_watch"
+    ]
+    assert app_test.session_state["_wfz_cash_game_overlay"] == "reward"
+    assert "双刻度怀表" in _all_rendered_markup(app_test)
+
+
+def test_final_council_consumes_only_a_correctly_matched_keepsake() -> None:
+    """Touch-friendly handoff should unlock the matching mentor hint once."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from src.app import render_game_hub_page
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state["cash_case_stage"] = "case_completed"
+st.session_state["cash_game_keepsakes"] = ["double_sided_prism"]
+render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+    next(
+        item for item in app_test.selectbox
+        if item.label == "从信物栏取出一件信物"
+    ).set_value("◇ 双面棱镜")
+    next(
+        item for item in app_test.button
+        if item.label == "交给 苏棱　→"
+    ).click().run()
+
+    assert app_test.session_state["cash_game_used_hints"] == [
+        "double_sided_prism"
+    ]
+    assert "同源复述不能算交叉验证" in _all_rendered_markup(app_test)
 
 
 def test_research_workspace_groups_tools_by_user_task() -> None:

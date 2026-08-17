@@ -27,6 +27,12 @@ def test_build_snapshot_preserves_complete_game_checkpoint() -> None:
             "contract_clause",
             "signed_acceptance",
         ],
+        "cash_game_keepsakes": [
+            "blank_access_card",
+            "dual_dial_watch",
+        ],
+        "cash_game_pending_keepsakes": ["brass_timeline_ruler"],
+        "cash_game_used_hints": ["blank_access_card"],
         "cash_case_attempt_index": 8,
         "cash_evidence_attempt_index": 4,
         "cash_defense_lives": 2,
@@ -65,6 +71,14 @@ def test_build_snapshot_preserves_complete_game_checkpoint() -> None:
         "contract_clause",
         "signed_acceptance",
     ]
+    assert snapshot["cash_game_keepsakes"] == [
+        "blank_access_card",
+        "dual_dial_watch",
+    ]
+    assert snapshot["cash_game_pending_keepsakes"] == [
+        "brass_timeline_ruler"
+    ]
+    assert snapshot["cash_game_used_hints"] == ["blank_access_card"]
     assert snapshot["cash_timing_order_ids"] == [
         "service_completed",
         "customer_accepted",
@@ -102,6 +116,19 @@ def test_snapshot_applies_strict_bounds_and_discards_unsafe_fields() -> None:
                 "cash_collected",
                 "service_completed",
             ],
+            "cash_game_keepsakes": [
+                "dual_dial_watch",
+                "../../unsafe",
+            ],
+            "cash_game_pending_keepsakes": [
+                "dual_dial_watch",
+                "brass_timeline_ruler",
+                "unknown",
+            ],
+            "cash_game_used_hints": [
+                "blank_access_card",
+                "dual_dial_watch",
+            ],
             "cash_case_attempt_index": 99_999_999,
             "cash_evidence_attempt_index": -12,
             "cash_defense_lives": 100,
@@ -137,6 +164,11 @@ def test_snapshot_applies_strict_bounds_and_discards_unsafe_fields() -> None:
         "cash_collected",
         "service_completed",
     ]
+    assert snapshot["cash_game_keepsakes"] == ["dual_dial_watch"]
+    assert snapshot["cash_game_pending_keepsakes"] == [
+        "brass_timeline_ruler"
+    ]
+    assert snapshot["cash_game_used_hints"] == ["dual_dial_watch"]
     assert snapshot["cash_defense_round_index"] == 2
     assert snapshot["cash_defense_attempt_index"] == 0
     assert snapshot["historical_game_mission_reasoning_attempt"] == 0

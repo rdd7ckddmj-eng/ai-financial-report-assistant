@@ -74,6 +74,12 @@ from src.cash_case_game import (
     build_cash_timing_question,
     evaluate_cash_evidence_selection,
 )
+from src.cash_game_characters import (
+    CASH_GAME_MENTORS,
+    MENTOR_BY_KEEPSAKE,
+    mentor_for_step,
+    normalise_keepsake_ids,
+)
 from src.china_stock import (
     CompanyIdentity,
     DataSourceError,
@@ -3158,12 +3164,202 @@ def apply_cash_game_theme() -> None:
             color: #5b7182;
         }
 
+        .wfz-game-screen[data-mentor-step="1"] { --mentor-accent: #7fd8f5; }
+        .wfz-game-screen[data-mentor-step="2"] { --mentor-accent: #a8c7ff; }
+        .wfz-game-screen[data-mentor-step="3"] { --mentor-accent: #51ddd4; }
+        .wfz-game-screen[data-mentor-step="4"] { --mentor-accent: #d487a7; }
+        .wfz-game-screen[data-mentor-step="5"] { --mentor-accent: #e7d1a8; }
+        .wfz-game-screen[data-mentor-step="6"] { --mentor-accent: #9cb4d8; }
+        .wfz-game-screen[data-mentor-step="7"] { --mentor-accent: #78b69b; }
+        .wfz-game-screen[data-mentor-step="8"] { --mentor-accent: #d7ab5c; }
+        .wfz-game-screen[data-mentor-step="9"] { --mentor-accent: #a7d7ff; }
+
+        .wfz-keepsake-inventory {
+            display: grid;
+            grid-template-columns: auto auto minmax(0, 1fr);
+            gap: 0.45rem;
+            align-items: center;
+            padding: 0.28rem 0.62rem;
+            border-bottom: 1px solid rgba(143, 227, 229, 0.08);
+            background: rgba(1, 13, 24, 0.54);
+        }
+
+        .wfz-keepsake-inventory > strong {
+            color: #d8f4f4;
+            font-size: 0.62rem;
+            letter-spacing: 0.08em;
+        }
+
+        .wfz-keepsake-inventory > em {
+            color: #68899d;
+            font-size: 0.58rem;
+            font-style: normal;
+            white-space: nowrap;
+        }
+
+        .wfz-keepsake-slots {
+            display: grid;
+            grid-template-columns: repeat(9, minmax(52px, 1fr));
+            gap: 0.25rem;
+            min-width: 0;
+        }
+
+        .wfz-keepsake-slot {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0 0.24rem;
+            align-items: center;
+            min-width: 0;
+            padding: 0.18rem 0.3rem;
+            border: 1px dashed rgba(126, 173, 191, 0.14);
+            border-radius: 8px;
+            color: #516c7d;
+            background: rgba(255, 255, 255, 0.018);
+        }
+
+        .wfz-keepsake-slot > span {
+            grid-row: 1 / 3;
+            color: inherit;
+            font-size: 0.88rem;
+        }
+
+        .wfz-keepsake-slot > small,
+        .wfz-keepsake-slot > b {
+            overflow: hidden;
+            color: inherit;
+            font-size: 0.48rem;
+            line-height: 1.05;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .wfz-keepsake-slot--owned {
+            border-style: solid;
+            border-color: color-mix(in srgb, var(--mentor-accent) 45%, transparent);
+            color: #bce9e5;
+            background: rgba(60, 173, 167, 0.075);
+        }
+
+        .wfz-keepsake-slot--used {
+            border-style: solid;
+            border-color: rgba(217, 174, 103, 0.28);
+            color: #b89f78;
+            background: rgba(184, 128, 57, 0.07);
+            filter: saturate(0.68);
+        }
+
+        .wfz-keepsake-slot--current {
+            box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mentor-accent) 36%, transparent);
+        }
+
         .wfz-game-scene-heading {
             display: grid;
-            grid-template-columns: auto minmax(0, 1fr);
+            grid-template-columns: auto minmax(0, 1fr) minmax(205px, 265px);
             gap: 0.8rem;
-            align-items: start;
+            align-items: center;
             padding: 0.5rem 0.75rem 0.32rem;
+        }
+
+        .wfz-scene-mentor {
+            display: grid;
+            grid-template-columns: 130px minmax(0, 1fr);
+            gap: 0.55rem;
+            align-items: center;
+            min-width: 0;
+            padding: 0.28rem 0.4rem;
+            border: 1px solid color-mix(in srgb, var(--mentor-accent) 26%, transparent);
+            border-radius: 13px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.055), rgba(255,255,255,0.012));
+        }
+
+        .wfz-scene-mentor-portrait {
+            width: 130px;
+            height: 74px;
+            border: 1px solid color-mix(in srgb, var(--mentor-accent) 46%, transparent);
+            border-radius: 10px;
+            background-image: url("/app/static/cash-game-character-roster-v1.png");
+            background-repeat: no-repeat;
+            background-position:
+                calc(var(--mentor-col) * 50%) calc(var(--mentor-row) * 50%);
+            background-size: 300% 300%;
+            box-shadow: 0 8px 18px rgba(0, 7, 18, 0.28);
+        }
+
+        .wfz-scene-mentor small,
+        .wfz-scene-mentor strong,
+        .wfz-scene-mentor span {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .wfz-scene-mentor small {
+            color: var(--mentor-accent);
+            font-size: 0.48rem;
+            font-weight: 820;
+            letter-spacing: 0.08em;
+        }
+
+        .wfz-scene-mentor strong {
+            margin: 0.1rem 0;
+            color: #f1fcff;
+            font-size: 0.92rem;
+        }
+
+        .wfz-scene-mentor span {
+            color: #88a7b7;
+            font-size: 0.62rem;
+        }
+
+        .wfz-game-screen--intake > .wfz-scene-mentor {
+            position: relative;
+            z-index: 3;
+            width: min(330px, calc(100% - 1.5rem));
+            margin: 0.45rem 0.75rem 0.55rem auto;
+        }
+
+        .wfz-game-screen[data-mentor-step="2"] .wfz-game-scene-heading,
+        .wfz-game-screen[data-mentor-step="5"] .wfz-game-scene-heading,
+        .wfz-game-screen[data-mentor-step="8"] .wfz-game-scene-heading {
+            grid-template-columns: minmax(205px, 265px) auto minmax(0, 1fr);
+        }
+
+        .wfz-game-screen[data-mentor-step="2"] .wfz-scene-mentor,
+        .wfz-game-screen[data-mentor-step="5"] .wfz-scene-mentor,
+        .wfz-game-screen[data-mentor-step="8"] .wfz-scene-mentor {
+            order: -1;
+        }
+
+        .wfz-game-screen[data-mentor-step="3"] .wfz-scene-mentor,
+        .wfz-game-screen[data-mentor-step="6"] .wfz-scene-mentor,
+        .wfz-game-screen[data-mentor-step="9"] .wfz-scene-mentor {
+            grid-template-columns: 130px minmax(0, 1fr);
+        }
+
+        .wfz-game-screen[data-mentor-step="3"] .wfz-scene-mentor-portrait,
+        .wfz-game-screen[data-mentor-step="6"] .wfz-scene-mentor-portrait,
+        .wfz-game-screen[data-mentor-step="9"] .wfz-scene-mentor-portrait {
+            width: 130px;
+            border-radius: 28px 10px 28px 10px;
+        }
+
+        .st-key-cash_game_shell:has([data-mentor-step="2"])
+        .st-key-cash_game_scene_content,
+        .st-key-cash_game_shell:has([data-mentor-step="5"])
+        .st-key-cash_game_scene_content,
+        .st-key-cash_game_shell:has([data-mentor-step="8"])
+        .st-key-cash_game_scene_content {
+            background-image: radial-gradient(circle at 12% 18%, rgba(119, 136, 220, 0.075), transparent 34%);
+        }
+
+        .st-key-cash_game_shell:has([data-mentor-step="3"])
+        .st-key-cash_game_scene_content,
+        .st-key-cash_game_shell:has([data-mentor-step="6"])
+        .st-key-cash_game_scene_content,
+        .st-key-cash_game_shell:has([data-mentor-step="9"])
+        .st-key-cash_game_scene_content {
+            background-image: linear-gradient(115deg, rgba(25, 94, 96, 0.055), transparent 42%, rgba(155, 114, 60, 0.045));
         }
 
         .wfz-game-scene-number {
@@ -3209,12 +3405,12 @@ def apply_cash_game_theme() -> None:
             align-items: center;
             margin: 0 0.75rem 0.48rem;
             padding: 0.38rem 0.55rem;
-            border-left: 3px solid #4fd4ca;
+            border-left: 3px solid var(--mentor-accent, #4fd4ca);
             background: rgba(75, 193, 190, 0.075);
         }
 
         .wfz-game-director-line span {
-            color: #75d9d2;
+            color: var(--mentor-accent, #75d9d2);
             font-size: 0.65rem;
             font-weight: 850;
             letter-spacing: 0.08em;
@@ -4070,6 +4266,276 @@ def apply_cash_game_theme() -> None:
             margin-left: auto;
         }
 
+        .wfz-keepsake-reward {
+            position: relative;
+            display: grid;
+            grid-template-columns: minmax(190px, 0.68fr) minmax(0, 1.32fr);
+            min-height: 100%;
+            overflow: hidden;
+            border: 1px solid rgba(146, 224, 227, 0.2);
+            border-radius: 22px;
+            background:
+                radial-gradient(circle at 78% 18%, rgba(89, 221, 215, 0.13), transparent 28%),
+                linear-gradient(135deg, #061526, #0b2940 68%, #102b3b);
+            box-shadow: 0 24px 54px rgba(0, 7, 18, 0.38);
+        }
+
+        .wfz-keepsake-reward-portrait {
+            min-height: 280px;
+            background-image:
+                linear-gradient(90deg, transparent 62%, rgba(6,21,38,0.96)),
+                url("/app/static/cash-game-character-roster-v1.png");
+            background-repeat: no-repeat;
+            background-position:
+                center,
+                calc(var(--mentor-col) * 50%) calc(var(--mentor-row) * 50%);
+            background-size: 100% 100%, 300% 300%;
+        }
+
+        .wfz-keepsake-reward-copy {
+            position: relative;
+            z-index: 2;
+            align-self: center;
+            padding: clamp(1.1rem, 3.5vw, 2.8rem);
+        }
+
+        .wfz-keepsake-reward-copy small {
+            color: #72ddd3;
+            font-size: 0.62rem;
+            font-weight: 850;
+            letter-spacing: 0.13em;
+        }
+
+        .wfz-keepsake-reward-copy h2 {
+            max-width: 680px;
+            margin: 0.5rem 0 0.7rem;
+            color: #f4fdff;
+            font-size: clamp(1.45rem, 3.2vw, 2.5rem);
+            line-height: 1.12;
+        }
+
+        .wfz-keepsake-reward-copy p,
+        .wfz-keepsake-reward-copy blockquote {
+            color: #bed5dd;
+            line-height: 1.7;
+        }
+
+        .wfz-keepsake-reward-copy blockquote {
+            margin: 0.9rem 0;
+            padding-left: 0.8rem;
+            border-left: 3px solid #65dbd2;
+            font-weight: 720;
+        }
+
+        .wfz-keepsake-reward-copy > span {
+            color: #6f8c9d;
+            font-size: 0.62rem;
+        }
+
+        .wfz-keepsake-reward-mark {
+            position: absolute;
+            top: 0.7rem;
+            right: 1rem;
+            color: rgba(125, 232, 223, 0.19);
+            font-size: clamp(4rem, 9vw, 8rem);
+            line-height: 1;
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-keepsake-reward)
+        .stButton > button {
+            position: absolute;
+            z-index: 6;
+            right: 2rem;
+            bottom: 1.25rem;
+            width: min(20rem, calc(100% - 4rem));
+        }
+
+        .st-key-cash_game_scene_content:has(.wfz-intake-scene) {
+            position: relative;
+        }
+
+        .st-key-cash_game_scene_content {
+            position: relative;
+        }
+
+        .st-key-cash_hidden_keepsake_one {
+            position: absolute;
+            z-index: 8;
+            top: 58%;
+            left: 44%;
+            width: 2.2rem;
+            transform: rotate(-8deg);
+        }
+
+        .st-key-cash_hidden_keepsake_one [data-testid="stBaseButton-secondary"] {
+            width: 1.35rem !important;
+            min-height: 1.35rem !important;
+            padding: 0 !important;
+            border: 0 !important;
+            border-radius: 50%;
+            color: rgba(185, 240, 244, 0.42);
+            background: radial-gradient(circle, rgba(120, 234, 229, 0.2), transparent 68%) !important;
+            box-shadow: none !important;
+            font-size: 0.65rem;
+            opacity: 0.22;
+            animation: wfz-keepsake-glint 4.8s ease-in-out infinite;
+        }
+
+        .st-key-cash_hidden_keepsake_one [data-testid="stBaseButton-secondary"]:hover {
+            color: #d5ffff;
+            background: radial-gradient(circle, rgba(120, 234, 229, 0.45), transparent 70%);
+            box-shadow: 0 0 20px rgba(87, 226, 219, 0.26);
+        }
+
+        div[class*="st-key-cash_hidden_keepsake_"]:not(.st-key-cash_hidden_keepsake_one) {
+            position: absolute;
+            z-index: 9;
+            top: 23%;
+            left: 83%;
+            width: 2rem;
+        }
+
+        div[class*="st-key-cash_hidden_keepsake_"]:not(.st-key-cash_hidden_keepsake_one)
+        [data-testid="stBaseButton-secondary"] {
+            width: 1.15rem !important;
+            min-height: 1.15rem !important;
+            padding: 0 !important;
+            border: 0 !important;
+            border-radius: 50%;
+            color: rgba(176, 235, 239, 0.28);
+            background: radial-gradient(circle, rgba(98, 225, 218, 0.14), transparent 69%) !important;
+            box-shadow: none !important;
+            font-size: 0.7rem;
+            opacity: 0.16;
+            animation: wfz-keepsake-glint 5.6s ease-in-out infinite;
+        }
+
+        .st-key-cash_game_shell:has([data-mentor-step="3"])
+        div[class*="st-key-cash_hidden_keepsake_"] { top: 71%; left: 63%; }
+        .st-key-cash_game_shell:has([data-mentor-step="4"])
+        div[class*="st-key-cash_hidden_keepsake_"] { top: 58%; left: 17%; }
+        .st-key-cash_game_shell:has([data-mentor-step="5"])
+        div[class*="st-key-cash_hidden_keepsake_"] { top: 77%; left: 88%; }
+        .st-key-cash_game_shell:has([data-mentor-step="6"])
+        div[class*="st-key-cash_hidden_keepsake_"] { top: 36%; left: 47%; }
+        .st-key-cash_game_shell:has([data-mentor-step="7"])
+        div[class*="st-key-cash_hidden_keepsake_"] { top: 82%; left: 25%; }
+        .st-key-cash_game_shell:has([data-mentor-step="8"])
+        div[class*="st-key-cash_hidden_keepsake_"] { top: 64%; left: 76%; }
+
+        @keyframes wfz-keepsake-glint {
+            0%, 72%, 100% { opacity: 0.18; transform: scale(0.82); }
+            78% { opacity: 0.82; transform: scale(1.08); }
+            84% { opacity: 0.3; transform: scale(0.9); }
+        }
+
+        .wfz-mentor-council-intro {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 1rem;
+            align-items: end;
+            padding: 0.8rem 0.9rem;
+            border: 1px solid rgba(119, 219, 215, 0.18);
+            border-radius: 16px;
+            background:
+                linear-gradient(135deg, rgba(7, 28, 45, 0.96), rgba(11, 48, 65, 0.88)),
+                repeating-linear-gradient(90deg, transparent 0 79px, rgba(255,255,255,0.018) 80px);
+        }
+
+        .wfz-mentor-council-intro small,
+        .wfz-mentor-council-intro span {
+            color: #71dcd5;
+            font-size: 0.58rem;
+            font-weight: 820;
+            letter-spacing: 0.11em;
+        }
+
+        .wfz-mentor-council-intro h2 {
+            margin: 0.25rem 0;
+            color: #f1fcff;
+            font-size: clamp(1.4rem, 3vw, 2.25rem);
+        }
+
+        .wfz-mentor-council-intro p {
+            max-width: 760px;
+            margin: 0;
+            color: #a9c4ce !important;
+            line-height: 1.55;
+        }
+
+        .wfz-council-mentor {
+            position: relative;
+            min-height: 138px;
+            overflow: hidden;
+            border: 1px solid rgba(121, 205, 207, 0.14);
+            border-radius: 14px;
+            background: linear-gradient(145deg, rgba(11, 40, 57, 0.96), rgba(5, 21, 35, 0.96));
+        }
+
+        .wfz-council-mentor-portrait {
+            position: absolute;
+            inset: 0 52% 0 0;
+            background-image:
+                linear-gradient(90deg, transparent 36%, rgba(7,25,39,0.96)),
+                url("/app/static/cash-game-character-roster-v1.png");
+            background-repeat: no-repeat;
+            background-position:
+                center,
+                calc(var(--mentor-col) * 50%) calc(var(--mentor-row) * 50%);
+            background-size: 100% 100%, 300% 300%;
+        }
+
+        .wfz-council-mentor-copy {
+            position: relative;
+            z-index: 2;
+            margin-left: 43%;
+            padding: 0.7rem 0.55rem 0.55rem;
+        }
+
+        .wfz-council-mentor-copy small,
+        .wfz-council-mentor-copy strong,
+        .wfz-council-mentor-copy span {
+            display: block;
+        }
+
+        .wfz-council-mentor-copy small {
+            color: #6cd8d2;
+            font-size: 0.48rem;
+            letter-spacing: 0.08em;
+        }
+
+        .wfz-council-mentor-copy strong {
+            margin: 0.14rem 0;
+            color: #f3fbfd;
+            font-size: 0.83rem;
+        }
+
+        .wfz-council-mentor-copy span {
+            color: #8daab7;
+            font-size: 0.55rem;
+            line-height: 1.35;
+        }
+
+        .wfz-council-hint {
+            margin: 0.35rem 0;
+            padding: 0.65rem 0.78rem;
+            border-left: 3px solid #68d9d1;
+            border-radius: 4px 12px 12px 4px;
+            background: rgba(26, 93, 104, 0.14);
+        }
+
+        .wfz-council-hint strong {
+            color: #dff9f7;
+            font-size: 0.72rem;
+        }
+
+        .wfz-council-hint p {
+            margin: 0.18rem 0 0;
+            color: #9fbcc6 !important;
+            font-size: 0.68rem;
+            line-height: 1.5;
+        }
+
         .wfz-game-shell-footer {
             margin-top: 1.15rem;
             padding-top: 1rem;
@@ -4131,6 +4597,45 @@ def apply_cash_game_theme() -> None:
 
             .wfz-game-control-scene {
                 padding: 0.75rem 0.8rem;
+            }
+
+            .wfz-keepsake-reward {
+                grid-template-columns: 1fr;
+            }
+
+            .wfz-keepsake-reward-portrait {
+                min-height: 10rem;
+                background-image:
+                    linear-gradient(0deg, rgba(6,21,38,0.98), transparent 56%),
+                    url("/app/static/cash-game-character-roster-v1.png");
+                background-position:
+                    center,
+                    calc(var(--mentor-col) * 50%) calc(var(--mentor-row) * 50%);
+                background-size: 100% 100%, 300% 300%;
+            }
+
+            .wfz-keepsake-reward-copy {
+                padding: 0.8rem 0.9rem 4.4rem;
+            }
+
+            .st-key-cash_game_scene_content:has(.wfz-keepsake-reward)
+            .stButton > button {
+                right: 1rem;
+                bottom: 0.85rem;
+                width: calc(100% - 2rem);
+            }
+
+            .st-key-cash_hidden_keepsake_one {
+                top: 46%;
+                left: 69%;
+            }
+
+            .wfz-mentor-council-intro {
+                grid-template-columns: 1fr;
+            }
+
+            .wfz-council-mentor {
+                min-height: 112px;
             }
 
             .st-key-cash_game_scene_content {
@@ -4286,10 +4791,63 @@ def apply_cash_game_theme() -> None:
                 padding: 0.38rem 0.45rem;
             }
 
+            .wfz-keepsake-inventory {
+                grid-template-columns: auto auto;
+                padding: 0.26rem 0.45rem 0.35rem;
+            }
+
+            .wfz-keepsake-slots {
+                grid-column: 1 / -1;
+                grid-template-columns: repeat(9, 60px);
+                overflow-x: auto;
+                padding-bottom: 0.1rem;
+                scrollbar-width: thin;
+            }
+
             .wfz-game-scene-heading {
                 grid-template-columns: auto minmax(0, 1fr);
                 gap: 0.5rem;
                 padding: 0.42rem 0.55rem 0.3rem;
+            }
+
+            .wfz-game-screen[data-mentor-step="2"] .wfz-game-scene-heading,
+            .wfz-game-screen[data-mentor-step="5"] .wfz-game-scene-heading,
+            .wfz-game-screen[data-mentor-step="8"] .wfz-game-scene-heading {
+                grid-template-columns: auto minmax(0, 1fr);
+            }
+
+            .wfz-game-screen[data-mentor-step="2"] .wfz-scene-mentor,
+            .wfz-game-screen[data-mentor-step="5"] .wfz-scene-mentor,
+            .wfz-game-screen[data-mentor-step="8"] .wfz-scene-mentor {
+                order: initial;
+            }
+
+            .wfz-scene-mentor {
+                grid-column: 1 / -1;
+                grid-template-columns: 96px minmax(0, 1fr);
+                padding: 0.22rem 0.34rem;
+            }
+
+            .wfz-scene-mentor-portrait {
+                width: 96px;
+                height: 54px;
+            }
+
+            .wfz-game-screen[data-mentor-step="3"] .wfz-scene-mentor,
+            .wfz-game-screen[data-mentor-step="6"] .wfz-scene-mentor,
+            .wfz-game-screen[data-mentor-step="9"] .wfz-scene-mentor {
+                grid-template-columns: 96px minmax(0, 1fr);
+            }
+
+            .wfz-game-screen[data-mentor-step="3"] .wfz-scene-mentor-portrait,
+            .wfz-game-screen[data-mentor-step="6"] .wfz-scene-mentor-portrait,
+            .wfz-game-screen[data-mentor-step="9"] .wfz-scene-mentor-portrait {
+                width: 96px;
+            }
+
+            .wfz-game-screen--intake > .wfz-scene-mentor {
+                width: calc(100% - 1.1rem);
+                margin: 0.35rem 0.55rem 0.45rem;
             }
 
             .wfz-game-director-line {
@@ -5036,6 +5594,9 @@ def _clear_cash_game_round_state() -> None:
         if str(key).startswith(game_widget_prefixes):
             st.session_state.pop(key, None)
     st.session_state.pop("game_player_identity_input", None)
+    st.session_state.pop("_wfz_cash_game_reward_step", None)
+    st.session_state.pop("_wfz_cash_game_reward_next_stage", None)
+    st.session_state.pop("_wfz_cash_game_selected_keepsake", None)
 
 
 def _restart_cash_game(*, require_new_identity: bool) -> None:
@@ -5060,6 +5621,8 @@ def _go_back_one_cash_game_step(stage: str) -> None:
     if stage == "briefing":
         st.session_state["cash_identity_required"] = True
         st.session_state.pop("_wfz_cash_game_overlay", None)
+        st.session_state.pop("_wfz_cash_game_reward_step", None)
+        st.session_state.pop("_wfz_cash_game_reward_next_stage", None)
         st.rerun()
     if stage == "defense_failed":
         st.session_state["cash_evidence_attempt_index"] = (
@@ -6792,6 +7355,51 @@ def _cash_game_scene_meta(stage: str) -> tuple[int, str, str, str]:
     return _CASH_GAME_SCENE_META.get(stage, _CASH_GAME_SCENE_META["briefing"])
 
 
+def _cash_game_owned_keepsakes() -> list[str]:
+    """Return the player's durable keepsakes in canonical scene order."""
+    keepsakes = normalise_keepsake_ids(
+        st.session_state.get("cash_game_keepsakes")
+    )
+    st.session_state["cash_game_keepsakes"] = keepsakes
+    return keepsakes
+
+
+def _cash_game_inventory_html(current_step: int) -> str:
+    """Build the compact nine-slot inventory shown below the scene route."""
+    owned = set(_cash_game_owned_keepsakes())
+    used = set(
+        normalise_keepsake_ids(st.session_state.get("cash_game_used_hints"))
+    ) & owned
+    st.session_state["cash_game_used_hints"] = normalise_keepsake_ids(
+        list(used)
+    )
+    slots: list[str] = []
+    for mentor in CASH_GAME_MENTORS:
+        is_owned = mentor.keepsake_id in owned
+        is_used = mentor.keepsake_id in used
+        state_class = "used" if is_used else ("owned" if is_owned else "empty")
+        if mentor.step == current_step:
+            state_class += " current"
+        label = (
+            f"{mentor.keepsake_name} · 已交付"
+            if is_used
+            else (mentor.keepsake_name if is_owned else "未发现")
+        )
+        mark = mentor.keepsake_mark if is_owned else "·"
+        slots.append(
+            f'<div class="wfz-keepsake-slot wfz-keepsake-slot--{state_class}" '
+            f'title="{escape(label)}">'
+            f'<span>{escape(mark)}</span><small>{mentor.step:02d}</small>'
+            f'<b>{escape(label)}</b></div>'
+        )
+    return (
+        '<div class="wfz-keepsake-inventory" aria-label="调查员信物栏">'
+        '<strong>信物栏</strong>'
+        f'<em>{len(owned)} / 9</em>'
+        f'<div class="wfz-keepsake-slots">{"".join(slots)}</div></div>'
+    )
+
+
 def _show_cash_game_stage(
     step_number: int,
     title: str,
@@ -6807,7 +7415,7 @@ def _show_cash_game_stage(
     progress_text = "第 1 / 09 幕" if prologue else f"第 {step_number} / 09 幕"
     lives = int(st.session_state.get("cash_defense_lives", 3))
     lives_html = ""
-    if not prologue and step_number == 5:
+    if not prologue and step_number == 8:
         life_dots = "".join(
             '<span class="wfz-game-life wfz-game-life--live"></span>'
             if index < lives
@@ -6843,6 +7451,20 @@ def _show_cash_game_stage(
     )
     scene_heading_html = ""
     director_html = ""
+    mentor = mentor_for_step(step_number)
+    mentor_col = (mentor.step - 1) % 3
+    mentor_row = (mentor.step - 1) // 3
+    mentor_html = f"""
+        <aside class="wfz-scene-mentor" aria-label="本幕导师">
+            <div class="wfz-scene-mentor-portrait"
+                 style="--mentor-col:{mentor_col};--mentor-row:{mentor_row};"></div>
+            <div>
+                <small>SCENE MENTOR · {escape(mentor.role)}</small>
+                <strong>{escape(mentor.name)}</strong>
+                <span>{escape(mentor.capability)}</span>
+            </div>
+        </aside>
+    """
     if not prologue:
         scene_heading_html = f"""
             <div class="wfz-game-scene-heading">
@@ -6852,12 +7474,13 @@ def _show_cash_game_stage(
                     <h1>{escape(title)}</h1>
                     <p>{escape(subtitle)}</p>
                 </div>
+                {mentor_html}
             </div>
         """
         director_html = f"""
             <div class="wfz-game-director-line">
-                <span>调查主任留言</span>
-                <p>{escape(taunt)}</p>
+                <span>{escape(mentor.name)} · 思考提醒</span>
+                <p>{escape(mentor.reminder)}</p>
             </div>
         """
     # ``st.html`` bypasses Markdown parsing. A missing optional HUD fragment
@@ -6866,6 +7489,7 @@ def _show_cash_game_stage(
         f"""
         <section class="wfz-game-screen {'wfz-game-screen--intake' if prologue else ''}"
                  data-wfz-game-screen="true" data-game-step="{step_value}"
+                 data-mentor-step="{mentor.step}"
                  data-game-mode="{'intake' if prologue else 'case'}">
             <div class="wfz-game-commandbar">
                 <div class="wfz-game-case-mark">
@@ -6890,7 +7514,9 @@ def _show_cash_game_stage(
                 </div>
             </div>
             {stage_track_html}
+            {"" if prologue else _cash_game_inventory_html(step_number)}
             {scene_heading_html}
+            {mentor_html if prologue else ""}
             {director_html}
         </section>
         """
@@ -7039,7 +7665,7 @@ def _render_cash_investigation_node(player_name: str) -> None:
         key="finish_cash_investigation",
         disabled=not search_complete,
     ):
-        _advance_game("reading")
+        _queue_cash_game_keepsake_reward(4, "reading")
 
 
 def _render_cash_reading_node(player_name: str) -> None:
@@ -7070,7 +7696,7 @@ def _render_cash_reading_node(player_name: str) -> None:
         width="stretch",
         key="finish_cash_document_reading",
     ):
-        _advance_game("cross_check")
+        _queue_cash_game_keepsake_reward(5, "cross_check")
 
 
 def _render_cash_cross_check_node(player_name: str) -> None:
@@ -7109,7 +7735,7 @@ def _render_cash_cross_check_node(player_name: str) -> None:
         st.session_state["cash_cross_check_explanation"] = task[
             "explanation"
         ]
-        _advance_game("evidence")
+        _queue_cash_game_keepsake_reward(6, "evidence")
         return
 
     st.session_state["cash_evidence_attempt_index"] = attempt_index + 1
@@ -7233,7 +7859,156 @@ def _render_cash_evidence_node(player_name: str) -> None:
         st.session_state["cash_defense_attempt_index"] = 0
         st.session_state["cash_defense_completed_explanations"] = []
         st.session_state.pop("cash_defense_feedback", None)
-        _advance_game("defense")
+        _queue_cash_game_keepsake_reward(7, "defense")
+
+
+def _render_cash_mentor_council(player_name: str) -> None:
+    """Exchange discovered keepsakes for optional, role-specific final hints."""
+    owned = set(_cash_game_owned_keepsakes())
+    used = set(
+        normalise_keepsake_ids(st.session_state.get("cash_game_used_hints"))
+    ) & owned
+    st.session_state["cash_game_used_hints"] = normalise_keepsake_ids(
+        list(used)
+    )
+    available = [
+        mentor
+        for mentor in CASH_GAME_MENTORS
+        if mentor.keepsake_id in owned and mentor.keepsake_id not in used
+    ]
+    st.html(
+        f"""
+        <section class="wfz-mentor-council-intro" aria-label="九席联合复核会">
+            <div>
+                <small>FINAL COUNCIL · NINE DISCIPLINES</small>
+                <h2>{escape(player_name)}，九席已经到齐。</h2>
+                <p>最后一项任务会重新调用前面学过的时间、来源、因果、边界与反证。
+                   你可以不用任何提示直接出发，也可以把找到的信物交还给主人，
+                   换取一条只属于其专业位置的思考方法。</p>
+            </div>
+            <span>{len(owned)} 件已发现 · {len(used)} 件已交付</span>
+        </section>
+        """
+    )
+
+    feedback = st.session_state.pop("cash_game_council_feedback", None)
+    if isinstance(feedback, str):
+        level, _, message = feedback.partition("|")
+        if level == "success":
+            st.success(message)
+        else:
+            st.warning(message)
+
+    selected_keepsake_id = ""
+    if available:
+        label_to_id = {
+            f"{mentor.keepsake_mark} {mentor.keepsake_name}": mentor.keepsake_id
+            for mentor in available
+        }
+        selected_label = st.selectbox(
+            "从信物栏取出一件信物",
+            options=list(label_to_id),
+            index=None,
+            placeholder="先选择信物，再把它交给九席中的一人",
+            key=f"cash_game_council_token_{len(used)}",
+            help=(
+                "电脑端选择信物后点击角色下方的交付箭头；手机端直接触屏"
+                "选择。只有交给正确角色，信物才会被使用。"
+            ),
+        )
+        if selected_label is not None:
+            selected_keepsake_id = label_to_id[selected_label]
+    elif owned:
+        st.info("已发现的信物都已完成交付；所有对应思考提醒均已解锁。")
+    else:
+        st.warning(
+            "你的信物栏仍是空的。通过关卡不等于看见了关卡里的一切；"
+            "你仍可不使用提示，直接接受最终调查。"
+        )
+
+    council_columns = st.columns(3)
+    for index, mentor in enumerate(CASH_GAME_MENTORS):
+        col = (mentor.step - 1) % 3
+        row = (mentor.step - 1) // 3
+        has_used_hint = mentor.keepsake_id in used
+        with council_columns[index % 3]:
+            st.html(
+                f"""
+                <article class="wfz-council-mentor">
+                    <div class="wfz-council-mentor-portrait"
+                         style="--mentor-col:{col};--mentor-row:{row};"></div>
+                    <div class="wfz-council-mentor-copy">
+                        <small>席位 {mentor.step:02d} · {escape(mentor.role)}</small>
+                        <strong>{escape(mentor.name)}</strong>
+                        <span>{escape(mentor.capability)}</span>
+                    </div>
+                </article>
+                """
+            )
+            if mentor.step == 9:
+                st.button(
+                    "主持席｜等待最终裁决",
+                    key="cash_council_chair_waiting",
+                    disabled=True,
+                    width="stretch",
+                )
+            elif has_used_hint:
+                st.button(
+                    "已交付｜提醒已解锁",
+                    key=f"cash_council_used_{mentor.keepsake_id}",
+                    disabled=True,
+                    width="stretch",
+                )
+            else:
+                if st.button(
+                    f"交给 {mentor.name}　→",
+                    key=f"cash_council_give_{mentor.keepsake_id}_{len(used)}",
+                    disabled=not selected_keepsake_id,
+                    width="stretch",
+                ):
+                    selected_mentor = MENTOR_BY_KEEPSAKE.get(
+                        selected_keepsake_id
+                    )
+                    if selected_mentor is mentor:
+                        st.session_state["cash_game_used_hints"] = (
+                            normalise_keepsake_ids([*used, mentor.keepsake_id])
+                        )
+                        st.session_state["cash_game_council_feedback"] = (
+                            "success|信物交付正确。"
+                            f"{mentor.name}已经把一条方法写入你的复核席。"
+                        )
+                    else:
+                        st.session_state["cash_game_council_feedback"] = (
+                            "warning|这件信物没有被接收。别按人物气场猜，"
+                            "请把物件的用途与角色负责的方法对应起来。"
+                        )
+                    st.rerun()
+
+    if used:
+        st.markdown("#### 已解锁的联合复核提醒")
+        for mentor in CASH_GAME_MENTORS:
+            if mentor.keepsake_id not in used:
+                continue
+            st.html(
+                f"""
+                <div class="wfz-council-hint">
+                    <strong>{escape(mentor.name)} · {escape(mentor.role)}</strong>
+                    <p>{escape(mentor.council_hint)}</p>
+                </div>
+                """
+            )
+
+    st.caption(
+        "提示不是标准答案。它只改变你检查问题的角度；最终结论仍需由"
+        "公开证据承担。没有找到全部信物，也不会阻止继续。"
+    )
+    if st.button(
+        "结束联合复核｜接受真实历史调查",
+        type="primary",
+        width="stretch",
+        key="open_cash_migration_stage",
+    ):
+        _advance_game("migration")
 
 
 def _render_cash_defense_node(player_name: str) -> None:
@@ -7276,25 +8051,7 @@ def _render_cash_defense_node(player_name: str) -> None:
         return
 
     if stage in {"case_completed", "migration_completed"}:
-        st.success("08 现场通过｜委员会接受你的研究判断。")
-        with st.container(border=True):
-            st.markdown(f"#### 调查员 {escape(player_name)}的答辩记录")
-            for explanation in st.session_state.get(
-                "cash_defense_completed_explanations",
-                [],
-            ):
-                st.write(f"- {explanation}")
-            st.caption(
-                "你证明的不是会背一个结论，而是能在新材料中区分事实、"
-                "风险、判断边界和下一步行动。"
-            )
-        if stage == "case_completed" and st.button(
-            "接受真实历史委托｜进入迁移调查",
-            type="primary",
-            width="stretch",
-            key="open_cash_migration_stage",
-        ):
-            _advance_game("migration")
+        _render_cash_mentor_council(player_name)
         return
 
     question = build_cash_defense_question(round_index, attempt_index)
@@ -7353,7 +8110,7 @@ def _render_cash_defense_node(player_name: str) -> None:
             completed_explanations
         )
         if round_index == 2:
-            st.session_state["cash_case_stage"] = "case_completed"
+            _queue_cash_game_keepsake_reward(8, "case_completed")
         else:
             st.session_state["cash_defense_round_index"] = round_index + 1
             st.session_state["cash_defense_attempt_index"] = attempt_index + 1
@@ -7402,6 +8159,104 @@ def _render_cash_game_controls(stage: str) -> None:
             ):
                 st.session_state["_wfz_cash_game_overlay"] = "reset"
                 st.rerun()
+
+
+def _queue_cash_game_keepsake_reward(
+    step: int,
+    next_stage: str,
+    *,
+    require_discovery: bool = True,
+) -> None:
+    """Award one scene keepsake before continuing to the next scene."""
+    mentor = mentor_for_step(step)
+    owned = _cash_game_owned_keepsakes()
+    if mentor.keepsake_id in owned:
+        _advance_game(next_stage)
+    pending = normalise_keepsake_ids(
+        st.session_state.get("cash_game_pending_keepsakes")
+    )
+    if require_discovery and mentor.keepsake_id not in pending:
+        _advance_game(next_stage)
+    st.session_state["cash_game_keepsakes"] = [
+        *owned,
+        mentor.keepsake_id,
+    ]
+    st.session_state["cash_game_pending_keepsakes"] = [
+        keepsake_id
+        for keepsake_id in pending
+        if keepsake_id != mentor.keepsake_id
+    ]
+    st.session_state["_wfz_cash_game_reward_step"] = mentor.step
+    st.session_state["_wfz_cash_game_reward_next_stage"] = next_stage
+    st.session_state["_wfz_cash_game_overlay"] = "reward"
+    st.rerun()
+
+
+def _render_cash_hidden_keepsake_hotspot(step: int) -> None:
+    """Place one unobtrusive escape-room object in scenes two through eight."""
+    if not 2 <= step <= 8:
+        return
+    mentor = mentor_for_step(step)
+    owned = set(_cash_game_owned_keepsakes())
+    pending = set(
+        normalise_keepsake_ids(
+            st.session_state.get("cash_game_pending_keepsakes")
+        )
+    )
+    if mentor.keepsake_id in owned or mentor.keepsake_id in pending:
+        return
+    with st.container(key=f"cash_hidden_keepsake_{step}"):
+        if st.button(
+            "·",
+            key=f"discover_cash_keepsake_{mentor.keepsake_id}",
+            help="这里的反光不像普通界面装饰。",
+        ):
+            st.session_state["cash_game_pending_keepsakes"] = (
+                normalise_keepsake_ids([*pending, mentor.keepsake_id])
+            )
+            st.toast(
+                "你触到了一件不属于场景陈设的东西。先完成本幕。",
+                icon="🔎",
+            )
+            st.rerun()
+
+
+def _render_cash_game_reward_overlay(player_name: str) -> None:
+    """Reveal a newly collected keepsake without turning it into a certificate."""
+    reward_step = int(st.session_state.get("_wfz_cash_game_reward_step", 1))
+    mentor = mentor_for_step(reward_step)
+    next_stage = str(
+        st.session_state.get("_wfz_cash_game_reward_next_stage", "briefing")
+    )
+    col = (mentor.step - 1) % 3
+    row = (mentor.step - 1) // 3
+    st.html(
+        f"""
+        <section class="wfz-keepsake-reward" aria-label="获得角色信物">
+            <div class="wfz-keepsake-reward-portrait"
+                 style="--mentor-col:{col};--mentor-row:{row};"></div>
+            <div class="wfz-keepsake-reward-copy">
+                <small>HIDDEN OBJECT RECOVERED · SCENE {mentor.step:02d}</small>
+                <h2>{escape(player_name)}，你获得了“{escape(mentor.keepsake_name)}”</h2>
+                <p>{escape(mentor.name)}把它留给真正看见细节的人。它将在最终会师时，
+                   换取一条属于“{escape(mentor.role)}”的思考提醒。</p>
+                <div class="wfz-keepsake-reward-mark">{escape(mentor.keepsake_mark)}</div>
+                <blockquote>{escape(mentor.reminder)}</blockquote>
+                <span>别把“页面允许继续”，误认为“这一幕已经没有东西值得再看”。</span>
+            </div>
+        </section>
+        """
+    )
+    if st.button(
+        "收起信物｜继续案件",
+        type="primary",
+        width="stretch",
+        key=f"accept_cash_keepsake_{mentor.keepsake_id}",
+    ):
+        st.session_state.pop("_wfz_cash_game_reward_step", None)
+        st.session_state.pop("_wfz_cash_game_reward_next_stage", None)
+        st.session_state.pop("_wfz_cash_game_overlay", None)
+        _advance_game(next_stage)
 
 
 def _render_cash_game_control_overlay(player_name: str) -> None:
@@ -7502,13 +8357,26 @@ def _render_cash_teaching_node() -> None:
                     <span>正式判断三次容错</span>
                 </div>
                 <div class="wfz-intake-dialogue">
-                    <small>调查主任 · 加密通讯</small>
+                    <small>周既白 · 证据边界官 · 加密通讯</small>
                     <strong>门已经打开，但案卷还不认识你。</strong>
                     <p>先给故事里的自己取一个名字。别用真实姓名——代号不是账户，也不会与别人合并。</p>
                 </div>
             </section>
             """
         )
+        first_mentor = mentor_for_step(1)
+        if first_mentor.keepsake_id not in _cash_game_owned_keepsakes():
+            with st.container(key="cash_hidden_keepsake_one"):
+                if st.button(
+                    "·",
+                    key="discover_blank_access_card",
+                    help="案卷封套边缘似乎反了一下光。",
+                ):
+                    _queue_cash_game_keepsake_reward(
+                        1,
+                        "briefing",
+                        require_discovery=False,
+                    )
         with st.form("game_player_identity_form", border=True):
             st.markdown("#### 给故事里的自己取一个名字")
             st.caption(
@@ -7581,7 +8449,7 @@ def _render_cash_teaching_node() -> None:
         width="stretch",
         key="cash_case_start_practice",
     ):
-        _advance_game("practice")
+        _queue_cash_game_keepsake_reward(2, "practice")
 
 
 def _render_cash_practice_node(player_name: str) -> None:
@@ -7862,7 +8730,7 @@ def _render_cash_practice_node(player_name: str) -> None:
         ):
             st.session_state["cash_evidence_attempt_index"] = 0
             st.session_state["cash_discovered_document_ids"] = []
-            _advance_game("investigation")
+            _queue_cash_game_keepsake_reward(3, "investigation")
         return
 
 
@@ -7890,7 +8758,7 @@ def render_game_hub_page() -> None:
     should_restore_honour = (
         honour_record is not None
         and not identity_required
-        and overlay not in {"rename", "reset"}
+        and overlay not in {"rename", "reset", "reward"}
         and (not active_player_name or stage == "migration_completed")
     )
     if should_restore_honour and honour_record is not None:
@@ -7903,6 +8771,22 @@ def render_game_hub_page() -> None:
             HISTORICAL_MISSION_ID
         )
         stage = "migration_completed"
+    final_mentor = mentor_for_step(9)
+    if (
+        mission_completed_in_session
+        and stage == "migration_completed"
+        and final_mentor.keepsake_id not in _cash_game_owned_keepsakes()
+    ):
+        st.session_state["cash_game_keepsakes"] = [
+            *_cash_game_owned_keepsakes(),
+            final_mentor.keepsake_id,
+        ]
+        st.session_state["_wfz_cash_game_reward_step"] = 9
+        st.session_state["_wfz_cash_game_reward_next_stage"] = (
+            "migration_completed"
+        )
+        st.session_state["_wfz_cash_game_overlay"] = "reward"
+        overlay = "reward"
     has_player = bool(
         str(st.session_state.get("game_player_name", "")).strip()
     ) and not identity_required
@@ -7924,12 +8808,18 @@ def render_game_hub_page() -> None:
         with st.container(key="cash_game_scene_content"):
             # The browser page never scrolls. Dense clues scroll only inside
             # this scene viewport while the case HUD remains fixed above it.
-            if has_player and overlay in {"rename", "reset"}:
+            if has_player and overlay == "reward":
+                _render_cash_game_reward_overlay(player_name)
+            elif has_player and overlay in {"rename", "reset"}:
                 _render_cash_game_control_overlay(player_name)
             elif not has_player:
                 _render_cash_teaching_node()
             else:
                 player_name = str(st.session_state["game_player_name"]).strip()
+                if not overlay:
+                    _render_cash_hidden_keepsake_hotspot(
+                        _cash_game_scene_meta(stage)[0]
+                    )
                 if stage == "briefing":
                     _render_cash_teaching_node()
                 elif stage in {"practice", "timing_completed", "completed"}:
