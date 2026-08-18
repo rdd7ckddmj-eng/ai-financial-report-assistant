@@ -47,7 +47,19 @@ _INTEGER_FIELDS: dict[str, tuple[int, int, int]] = {
     # it to reject stale writes from an older open tab.
     "cash_game_progress_revision": (0, 9_000_000_000_000_000, 0),
     "cash_case_attempt_index": (0, 10_000, 0),
+    # Scene-three has its own small schema so an old form-based checkpoint
+    # cannot skip the new interactive dual-clock investigation.
+    "cash_dual_clock_version": (0, 1, 0),
+    "cash_dual_clock_revision": (0, 100, 0),
+    # Stages five through seven share one evidence-laboratory checkpoint.
+    # Its private sub-version lets the app migrate the former checkbox scenes
+    # without discarding the player's earlier case progress.
+    "cash_evidence_lab_version": (0, 1, 0),
+    "cash_evidence_lab_revision": (0, 1_000_000, 0),
     "cash_evidence_attempt_index": (0, 10_000, 0),
+    # Stage eight has a separate interaction schema and per-command revision.
+    "cash_defense_committee_version": (0, 1, 0),
+    "cash_defense_committee_revision": (0, 1_000_000, 0),
     "cash_defense_lives": (0, 3, 3),
     "cash_defense_round_index": (0, 2, 0),
     "cash_defense_attempt_index": (0, 10_000, 0),
@@ -66,13 +78,25 @@ _BOOLEAN_FIELDS = frozenset(
     {
         "cash_identity_required",
         "cash_clock_assignment_unlocked",
+        "cash_gap_hypothesis_unlocked",
+        "cash_investigation_orders_unlocked",
     }
+)
+
+_CASH_DUAL_CLOCK_PHASES = frozenset(
+    {"routes", "hypothesis", "orders", "door"}
+)
+
+_CASH_EVIDENCE_LAB_PHASES = frozenset(
+    {"reading", "classification", "chain"}
 )
 
 _IDENTIFIER_FIELDS = frozenset(
     {
         "cash_timing_order_question_id",
         "cash_timing_order_completed_question_id",
+        "cash_evidence_lab_task_id",
+        "cash_defense_committee_task_id",
         "historical_game_mission_id",
         "historical_game_mission_date_completed",
         "historical_game_mission_completed",
@@ -111,15 +135,59 @@ _EVIDENCE_DOCUMENT_IDS = frozenset(
     }
 )
 
+_EVIDENCE_LAB_ACCEPTED_FIELD_IDS = frozenset(
+    {
+        "contract_reference",
+        "contract_payment_window",
+        "acceptance_date",
+        "acceptance_external_seal",
+        "ar_year_end_balance",
+        "ar_due_status",
+        "receipt_date",
+        "receipt_bank_match",
+    }
+)
+
+_EVIDENCE_LAB_CLASSIFICATION_ANSWERS = {
+    "contract_term_at_year_end": "year_end_fact",
+    "signed_acceptance_before_cutoff": "year_end_fact",
+    "year_end_ar_not_due": "year_end_fact",
+    "later_bank_receipt": "subsequent_evidence",
+    "chat_expectation": "unverified_claim",
+    "management_forecast": "unverified_claim",
+}
+
+_EVIDENCE_LAB_CHAIN_ANSWERS = {
+    "claim_payment_boundary": "contract_clause",
+    "claim_completion_before_cutoff": "signed_acceptance",
+    "claim_year_end_balance": "ar_subledger",
+    "claim_later_cash": "post_period_receipt",
+}
+
+_DEFENSE_COMMITTEE_SEAT_IDS = frozenset(
+    {"conclusion_strength", "evidence_boundary", "next_action"}
+)
+
+_DEFENSE_COMMITTEE_CARD_ID = re.compile(
+    r"^(conclusion_strength|evidence_boundary|next_action):card:[1-6]$"
+)
+
 _MANAGED_SESSION_KEYS = frozenset(
     {
         "game_player_name",
         "cash_case_stage",
+        "cash_dual_clock_phase",
         "cash_game_keepsakes",
         "cash_game_pending_keepsakes",
         "cash_game_used_hints",
         "cash_timing_order_ids",
         "cash_discovered_document_ids",
+        "cash_evidence_lab_phase",
+        "cash_evidence_lab_reading_viewed_ids",
+        "cash_evidence_lab_reading_accepted_ids",
+        "cash_evidence_lab_classification_accepted",
+        "cash_evidence_lab_chain_accepted",
+        "cash_defense_committee_accepted_placements",
         "cash_defense_completed_explanations",
         *_BOOLEAN_FIELDS,
         *_INTEGER_FIELDS,
@@ -252,6 +320,81 @@ def normalise_cash_game_progress_snapshot(
                 safe_discovered_ids.append(document_id)
     snapshot["cash_discovered_document_ids"] = safe_discovered_ids
 
+    viewed_ids = value.get("cash_evidence_lab_reading_viewed_ids")
+    safe_viewed_ids: list[str] = []
+    if isinstance(viewed_ids, (list, tuple)):
+        for document_id in viewed_ids:
+            if (
+                isinstance(document_id, str)
+                and document_id in _EVIDENCE_DOCUMENT_IDS
+                and document_id not in safe_viewed_ids
+            ):
+                safe_viewed_ids.append(document_id)
+    snapshot["cash_evidence_lab_reading_viewed_ids"] = safe_viewed_ids
+
+    accepted_field_ids = value.get(
+        "cash_evidence_lab_reading_accepted_ids"
+    )
+    safe_accepted_field_ids: list[str] = []
+    if isinstance(accepted_field_ids, (list, tuple)):
+        for field_id in accepted_field_ids:
+            if (
+                isinstance(field_id, str)
+                and field_id in _EVIDENCE_LAB_ACCEPTED_FIELD_IDS
+                and field_id not in safe_accepted_field_ids
+            ):
+                safe_accepted_field_ids.append(field_id)
+    snapshot["cash_evidence_lab_reading_accepted_ids"] = (
+        safe_accepted_field_ids
+    )
+
+    placements = value.get("cash_evidence_lab_classification_accepted")
+    safe_placements: dict[str, str] = {}
+    if isinstance(placements, Mapping):
+        for item_id, class_id in placements.items():
+            if (
+                isinstance(item_id, str)
+                and isinstance(class_id, str)
+                and _EVIDENCE_LAB_CLASSIFICATION_ANSWERS.get(item_id)
+                == class_id
+            ):
+                safe_placements[item_id] = class_id
+    snapshot["cash_evidence_lab_classification_accepted"] = safe_placements
+
+    links = value.get("cash_evidence_lab_chain_accepted")
+    safe_links: dict[str, str] = {}
+    if isinstance(links, Mapping):
+        for claim_id, document_id in links.items():
+            if (
+                isinstance(claim_id, str)
+                and isinstance(document_id, str)
+                and _EVIDENCE_LAB_CHAIN_ANSWERS.get(claim_id)
+                == document_id
+            ):
+                safe_links[claim_id] = document_id
+    snapshot["cash_evidence_lab_chain_accepted"] = safe_links
+
+    committee_placements = value.get(
+        "cash_defense_committee_accepted_placements"
+    )
+    safe_committee_placements: dict[str, str] = {}
+    if isinstance(committee_placements, Mapping):
+        for seat_id, card_id in committee_placements.items():
+            if (
+                isinstance(seat_id, str)
+                and seat_id in _DEFENSE_COMMITTEE_SEAT_IDS
+                and isinstance(card_id, str)
+                and _DEFENSE_COMMITTEE_CARD_ID.fullmatch(card_id)
+                and card_id.startswith(f"{seat_id}:card:")
+            ):
+                safe_committee_placements[seat_id] = card_id
+    # This is only a structural browser allow-list.  ``src.app`` re-evaluates
+    # every restored mapping against the current server challenge before it is
+    # exposed as accepted progress.
+    snapshot["cash_defense_committee_accepted_placements"] = (
+        safe_committee_placements
+    )
+
     timing_order_ids = value.get("cash_timing_order_ids")
     safe_timing_order_ids: list[str] = []
     if isinstance(timing_order_ids, (list, tuple)):
@@ -282,6 +425,14 @@ def normalise_cash_game_progress_snapshot(
         )
         if keepsake_id in owned_keepsakes
     ]
+
+    dual_clock_phase = value.get("cash_dual_clock_phase")
+    if dual_clock_phase in _CASH_DUAL_CLOCK_PHASES:
+        snapshot["cash_dual_clock_phase"] = dual_clock_phase
+
+    evidence_lab_phase = value.get("cash_evidence_lab_phase")
+    if evidence_lab_phase in _CASH_EVIDENCE_LAB_PHASES:
+        snapshot["cash_evidence_lab_phase"] = evidence_lab_phase
 
     for field in _BOOLEAN_FIELDS:
         value_for_field = value.get(field)

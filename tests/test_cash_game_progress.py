@@ -34,7 +34,39 @@ def test_build_snapshot_preserves_complete_game_checkpoint() -> None:
         "cash_game_pending_keepsakes": ["brass_timeline_ruler"],
         "cash_game_used_hints": ["blank_access_card"],
         "cash_case_attempt_index": 8,
+        "cash_dual_clock_version": 1,
+        "cash_dual_clock_revision": 3,
+        "cash_dual_clock_phase": "door",
+        "cash_clock_assignment_unlocked": True,
+        "cash_gap_hypothesis_unlocked": True,
+        "cash_investigation_orders_unlocked": True,
         "cash_evidence_attempt_index": 4,
+        "cash_evidence_lab_version": 1,
+        "cash_evidence_lab_revision": 7,
+        "cash_evidence_lab_task_id": "cash-evidence-lab:case-4",
+        "cash_evidence_lab_phase": "chain",
+        "cash_evidence_lab_reading_viewed_ids": [
+            "contract_clause",
+            "signed_acceptance",
+        ],
+        "cash_evidence_lab_reading_accepted_ids": [
+            "contract_reference",
+            "acceptance_date",
+        ],
+        "cash_evidence_lab_classification_accepted": {
+            "contract_term_at_year_end": "year_end_fact",
+        },
+        "cash_evidence_lab_chain_accepted": {
+            "claim_payment_boundary": "contract_clause",
+        },
+        "cash_defense_committee_version": 1,
+        "cash_defense_committee_revision": 9,
+        "cash_defense_committee_task_id": (
+            "cash-defense-committee:2:6:cash-defense-2-6"
+        ),
+        "cash_defense_committee_accepted_placements": {
+            "evidence_boundary": "evidence_boundary:card:3",
+        },
         "cash_defense_lives": 2,
         "cash_defense_round_index": 1,
         "cash_defense_attempt_index": 5,
@@ -67,6 +99,37 @@ def test_build_snapshot_preserves_complete_game_checkpoint() -> None:
     assert snapshot["cash_case_stage"] == "migration"
     assert snapshot["cash_identity_required"] is False
     assert snapshot["cash_defense_lives"] == 2
+    assert snapshot["cash_dual_clock_version"] == 1
+    assert snapshot["cash_dual_clock_revision"] == 3
+    assert snapshot["cash_dual_clock_phase"] == "door"
+    assert snapshot["cash_evidence_lab_version"] == 1
+    assert snapshot["cash_evidence_lab_revision"] == 7
+    assert snapshot["cash_evidence_lab_phase"] == "chain"
+    assert snapshot["cash_evidence_lab_reading_viewed_ids"] == [
+        "contract_clause",
+        "signed_acceptance",
+    ]
+    assert snapshot["cash_evidence_lab_reading_accepted_ids"] == [
+        "contract_reference",
+        "acceptance_date",
+    ]
+    assert snapshot["cash_evidence_lab_classification_accepted"] == {
+        "contract_term_at_year_end": "year_end_fact"
+    }
+    assert snapshot["cash_evidence_lab_chain_accepted"] == {
+        "claim_payment_boundary": "contract_clause"
+    }
+    assert snapshot["cash_defense_committee_version"] == 1
+    assert snapshot["cash_defense_committee_revision"] == 9
+    assert snapshot["cash_defense_committee_task_id"] == (
+        "cash-defense-committee:2:6:cash-defense-2-6"
+    )
+    assert snapshot["cash_defense_committee_accepted_placements"] == {
+        "evidence_boundary": "evidence_boundary:card:3"
+    }
+    assert snapshot["cash_clock_assignment_unlocked"] is True
+    assert snapshot["cash_gap_hypothesis_unlocked"] is True
+    assert snapshot["cash_investigation_orders_unlocked"] is True
     assert snapshot["cash_discovered_document_ids"] == [
         "contract_clause",
         "signed_acceptance",
@@ -130,7 +193,42 @@ def test_snapshot_applies_strict_bounds_and_discards_unsafe_fields() -> None:
                 "dual_dial_watch",
             ],
             "cash_case_attempt_index": 99_999_999,
+            "cash_dual_clock_version": 99,
+            "cash_dual_clock_revision": -5,
+            "cash_dual_clock_phase": "skip-everything",
             "cash_evidence_attempt_index": -12,
+            "cash_evidence_lab_version": 99,
+            "cash_evidence_lab_revision": -9,
+            "cash_evidence_lab_task_id": "../../unsafe",
+            "cash_evidence_lab_phase": "skip",
+            "cash_evidence_lab_reading_viewed_ids": [
+                "contract_clause",
+                "../../unsafe",
+                "contract_clause",
+            ],
+            "cash_evidence_lab_reading_accepted_ids": [
+                "contract_reference",
+                "contract_polished_layout",
+                "contract_reference",
+            ],
+            "cash_evidence_lab_classification_accepted": {
+                "contract_term_at_year_end": "subsequent_evidence",
+                "later_bank_receipt": "subsequent_evidence",
+                "unknown": "year_end_fact",
+            },
+            "cash_evidence_lab_chain_accepted": {
+                "claim_payment_boundary": "executive_slide",
+                "claim_later_cash": "post_period_receipt",
+            },
+            "cash_defense_committee_version": 99,
+            "cash_defense_committee_revision": -4,
+            "cash_defense_committee_task_id": "../../unsafe",
+            "cash_defense_committee_accepted_placements": {
+                "conclusion_strength": "conclusion_strength:card:2",
+                "evidence_boundary": "conclusion_strength:card:1",
+                "next_action": "next_action:card:99",
+                "unknown": "unknown:card:1",
+            },
             "cash_defense_lives": 100,
             "cash_defense_round_index": 20,
             "cash_defense_attempt_index": True,
@@ -157,7 +255,32 @@ def test_snapshot_applies_strict_bounds_and_discards_unsafe_fields() -> None:
     assert snapshot["cash_case_stage"] == "briefing"
     assert "cash_identity_required" not in snapshot
     assert snapshot["cash_case_attempt_index"] == 10_000
+    assert snapshot["cash_dual_clock_version"] == 1
+    assert snapshot["cash_dual_clock_revision"] == 0
+    assert "cash_dual_clock_phase" not in snapshot
     assert snapshot["cash_evidence_attempt_index"] == 0
+    assert snapshot["cash_evidence_lab_version"] == 1
+    assert snapshot["cash_evidence_lab_revision"] == 0
+    assert "cash_evidence_lab_task_id" not in snapshot
+    assert "cash_evidence_lab_phase" not in snapshot
+    assert snapshot["cash_evidence_lab_reading_viewed_ids"] == [
+        "contract_clause"
+    ]
+    assert snapshot["cash_evidence_lab_reading_accepted_ids"] == [
+        "contract_reference"
+    ]
+    assert snapshot["cash_evidence_lab_classification_accepted"] == {
+        "later_bank_receipt": "subsequent_evidence"
+    }
+    assert snapshot["cash_evidence_lab_chain_accepted"] == {
+        "claim_later_cash": "post_period_receipt"
+    }
+    assert snapshot["cash_defense_committee_version"] == 1
+    assert snapshot["cash_defense_committee_revision"] == 0
+    assert "cash_defense_committee_task_id" not in snapshot
+    assert snapshot["cash_defense_committee_accepted_placements"] == {
+        "conclusion_strength": "conclusion_strength:card:2"
+    }
     assert snapshot["cash_defense_lives"] == 3
     assert snapshot["cash_discovered_document_ids"] == ["contract_clause"]
     assert snapshot["cash_timing_order_ids"] == [
@@ -216,6 +339,16 @@ def test_restore_replaces_only_durable_game_state() -> None:
         "game_player_name": "旧代号",
         "cash_case_stage": "migration_completed",
         "cash_evidence_explanation": "旧的后期解释",
+        "cash_evidence_lab_version": 1,
+        "cash_evidence_lab_phase": "chain",
+        "cash_evidence_lab_chain_accepted": {
+            "claim_later_cash": "post_period_receipt"
+        },
+        "cash_defense_committee_version": 1,
+        "cash_defense_committee_task_id": "cash-defense-committee:old",
+        "cash_defense_committee_accepted_placements": {
+            "next_action": "next_action:card:2"
+        },
         "historical_game_mission_completed": "old-mission",
         "unrelated_research_page": "保留",
     }
@@ -241,6 +374,12 @@ def test_restore_replaces_only_durable_game_state() -> None:
     assert state["cash_evidence_attempt_index"] == 2
     assert state["cash_discovered_document_ids"] == ["ar_subledger"]
     assert "cash_evidence_explanation" not in state
+    assert "cash_evidence_lab_phase" not in state
+    assert state["cash_evidence_lab_chain_accepted"] == {}
+    assert state["cash_defense_committee_version"] == 0
+    assert state["cash_defense_committee_revision"] == 0
+    assert "cash_defense_committee_task_id" not in state
+    assert state["cash_defense_committee_accepted_placements"] == {}
     assert "historical_game_mission_completed" not in state
     assert state["unrelated_research_page"] == "保留"
 
@@ -261,6 +400,12 @@ def test_schema_upgrade_clear_preserves_unrelated_research_state() -> None:
     state: dict[str, object] = {
         "game_player_name": "旧版调查员",
         "cash_case_stage": "evidence",
+        "cash_evidence_lab_version": 1,
+        "cash_evidence_lab_phase": "classification",
+        "cash_defense_committee_version": 1,
+        "cash_defense_committee_accepted_placements": {
+            "next_action": "next_action:card:2"
+        },
         "selected_company": {"code": "600519"},
     }
 
@@ -268,6 +413,10 @@ def test_schema_upgrade_clear_preserves_unrelated_research_state() -> None:
 
     assert "game_player_name" not in state
     assert "cash_case_stage" not in state
+    assert "cash_evidence_lab_version" not in state
+    assert "cash_evidence_lab_phase" not in state
+    assert "cash_defense_committee_version" not in state
+    assert "cash_defense_committee_accepted_placements" not in state
     assert state["selected_company"] == {"code": "600519"}
 
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+from collections.abc import Mapping
 from datetime import date, timedelta
 from typing import TypedDict
 
@@ -47,6 +49,29 @@ class CashClockAssignmentEvaluation(TypedDict):
     profit_is_correct: bool
     cash_is_correct: bool
     feedback: str
+
+
+class CashClockCommand(TypedDict):
+    """One validated browser command without any server-side answer key."""
+
+    schema_version: int
+    command_id: str
+    question_id: str
+    revision: int
+    action: str
+    clean_payload: dict[str, object]
+
+
+class CashClockCommandEvaluation(TypedDict):
+    """Authoritative result returned after one visual-game submission."""
+
+    phase: str
+    action: str
+    accepted: list[str]
+    rejected: list[str]
+    feedback: str
+    complete: bool
+    clean_payload: dict[str, object]
 
 
 class EvidenceDocument(TypedDict):
@@ -99,6 +124,31 @@ class EvidenceSelectionEvaluation(TypedDict):
     feedback: str
 
 
+class CashEvidenceLabCommand(TypedDict):
+    """One validated Stage 5--7 command with no embedded answer key."""
+
+    schema_version: int
+    command_id: str
+    task_id: str
+    revision: int
+    action: str
+    clean_payload: dict[str, object]
+
+
+class CashEvidenceLabEvaluation(TypedDict):
+    """Stable result shape used by the three evidence-lab scenes."""
+
+    phase: str
+    action: str
+    accepted: list[str]
+    rejected: list[str]
+    feedback: str
+    complete: bool
+    accepted_count: int
+    target_count: int
+    clean_payload: dict[str, object]
+
+
 class CashDefenseQuestion(TypedDict):
     """One changing formal-defence question with a defensible boundary."""
 
@@ -114,6 +164,33 @@ class CashDefenseQuestion(TypedDict):
     options: list[str]
     correct_option: str
     explanation: str
+
+
+class CashDefenseCommitteeCommand(TypedDict):
+    """One validated three-seat formal-defence submission."""
+
+    schema_version: int
+    command_id: str
+    task_id: str
+    revision: int
+    action: str
+    clean_payload: dict[str, object]
+
+
+class CashDefenseCommitteeEvaluation(TypedDict):
+    """Authoritative committee result, including formal life cost."""
+
+    phase: str
+    action: str
+    accepted: list[str]
+    rejected: list[str]
+    feedback: str
+    complete: bool
+    accepted_count: int
+    target_count: int
+    consume_life: bool
+    replace_challenge: bool
+    clean_payload: dict[str, object]
 
 
 def _signed_wan(value: int) -> str:
@@ -392,8 +469,439 @@ def evaluate_cash_clock_assignment(
     }
 
 
+CASH_CLOCK_COMMAND_SCHEMA_VERSION = 1
+
+_CASH_CLOCK_ACTIONS = {
+    "submit_routes",
+    "submit_hypothesis",
+    "submit_orders",
+    "discover_keepsake",
+    "open_door",
+}
+_CASH_CLOCK_BINS = {"profit", "cash", "both", "neither"}
+_CASH_CLOCK_HYPOTHESES = {
+    "receivable_pending",
+    "proven_fraud",
+    "customer_default",
+    "cash_received",
+}
+_CASH_CLOCK_POCKET_IDS = {
+    "income_boundary",
+    "receivable_existence",
+    "subsequent_cash",
+}
+_CASH_CLOCK_ORDER_IDS = {
+    "contract_acceptance",
+    "receivable_aging",
+    "bank_statement",
+    "management_promise",
+}
+_CASH_CLOCK_CORRECT_ORDERS = {
+    "income_boundary": "contract_acceptance",
+    "receivable_existence": "receivable_aging",
+    "subsequent_cash": "bank_statement",
+}
+_COMMAND_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
+
+
+def _require_exact_keys(
+    value: Mapping[str, object],
+    *,
+    required: set[str],
+    optional: set[str] | None = None,
+    subject: str,
+) -> None:
+    """Reject missing and unexpected fields instead of guessing intent."""
+
+    optional = optional or set()
+    actual = set(value)
+    missing = required - actual
+    unexpected = actual - required - optional
+    if missing:
+        raise ValueError(
+            f"{subject}缺少字段：{', '.join(sorted(missing))}。"
+        )
+    if unexpected:
+        raise ValueError(
+            f"{subject}包含未知字段：{', '.join(sorted(unexpected))}。"
+        )
+
+
+def _cash_clock_event_ids(question: CashTimingQuestion) -> list[str]:
+    """Read and validate the six public event IDs in display order."""
+
+    event_ids = [event["event_id"] for event in question["event_cards"]]
+    if len(event_ids) != 6:
+        raise ValueError("当前双时钟题必须恰好包含6张事实卡。")
+    if len(set(event_ids)) != len(event_ids):
+        raise ValueError("当前双时钟题的事实卡编号存在重复。")
+    return event_ids
+
+
+def normalise_cash_clock_command(
+    question: CashTimingQuestion,
+    command: object,
+    expected_revision: int,
+) -> CashClockCommand:
+    """Strictly validate one command sent by the visual game.
+
+    The browser sends only the player's placements.  Correct buckets,
+    hypotheses and evidence matches are deliberately derived later in Python,
+    so inspecting or modifying browser state cannot reveal or change the
+    answer key.
+    """
+
+    if (
+        not isinstance(expected_revision, int)
+        or isinstance(expected_revision, bool)
+        or expected_revision < 0
+    ):
+        raise ValueError("服务端题目版本必须是非负整数。")
+    if not isinstance(command, Mapping):
+        raise ValueError("游戏命令必须是对象。")
+
+    common_fields = {
+        "schema_version",
+        "command_id",
+        "question_id",
+        "revision",
+        "action",
+    }
+    _require_exact_keys(
+        command,
+        required=common_fields,
+        optional={"bins", "hypothesis_id", "pockets", "discarded"},
+        subject="游戏命令",
+    )
+
+    schema_version = command["schema_version"]
+    if (
+        not isinstance(schema_version, int)
+        or isinstance(schema_version, bool)
+        or schema_version != CASH_CLOCK_COMMAND_SCHEMA_VERSION
+    ):
+        raise ValueError("游戏命令schema_version不受支持。")
+
+    command_id = command["command_id"]
+    if (
+        not isinstance(command_id, str)
+        or not _COMMAND_ID_PATTERN.fullmatch(command_id)
+    ):
+        raise ValueError("游戏命令command_id格式无效。")
+
+    question_id = command["question_id"]
+    if not isinstance(question_id, str) or question_id != question["question_id"]:
+        raise ValueError("游戏命令question_id与当前题目不一致。")
+
+    revision = command["revision"]
+    if not isinstance(revision, int) or isinstance(revision, bool):
+        raise ValueError("游戏命令revision必须是整数。")
+    if revision != expected_revision:
+        raise ValueError("游戏命令revision已经过期，请按当前画面重新提交。")
+
+    action = command["action"]
+    if not isinstance(action, str) or action not in _CASH_CLOCK_ACTIONS:
+        raise ValueError("游戏命令action不受支持。")
+
+    event_ids = _cash_clock_event_ids(question)
+    clean_payload: dict[str, object]
+    if action == "submit_routes":
+        _require_exact_keys(
+            command,
+            required=common_fields | {"bins"},
+            subject="事实卡归位命令",
+        )
+        raw_bins = command["bins"]
+        if not isinstance(raw_bins, Mapping):
+            raise ValueError("bins必须是事实卡编号到时钟区域的对象。")
+        submitted_ids = set(raw_bins)
+        valid_ids = set(event_ids)
+        unknown_ids = submitted_ids - valid_ids
+        missing_ids = valid_ids - submitted_ids
+        if unknown_ids:
+            raise ValueError(
+                "bins包含未知事实卡："
+                f"{', '.join(sorted(str(item) for item in unknown_ids))}。"
+            )
+        if missing_ids:
+            raise ValueError(
+                "bins缺少事实卡："
+                f"{', '.join(sorted(missing_ids))}。"
+            )
+        if len(raw_bins) != len(event_ids):
+            raise ValueError("bins中的事实卡编号存在重复。")
+        bins: dict[str, str] = {}
+        for event_id in event_ids:
+            bucket = raw_bins[event_id]
+            if not isinstance(bucket, str) or bucket not in _CASH_CLOCK_BINS:
+                raise ValueError(f"事实卡{event_id}的归位区域无效。")
+            bins[event_id] = bucket
+        clean_payload = {"bins": bins}
+    elif action == "submit_hypothesis":
+        _require_exact_keys(
+            command,
+            required=common_fields | {"hypothesis_id"},
+            subject="差额假设命令",
+        )
+        hypothesis_id = command["hypothesis_id"]
+        if (
+            not isinstance(hypothesis_id, str)
+            or hypothesis_id not in _CASH_CLOCK_HYPOTHESES
+        ):
+            raise ValueError("hypothesis_id不属于当前题目的合法假设。")
+        clean_payload = {"hypothesis_id": hypothesis_id}
+    elif action == "submit_orders":
+        _require_exact_keys(
+            command,
+            required=common_fields | {"pockets"},
+            optional={"discarded"},
+            subject="调查令命令",
+        )
+        raw_pockets = command["pockets"]
+        if not isinstance(raw_pockets, Mapping):
+            raise ValueError("pockets必须是调查目标到材料编号的对象。")
+        pocket_ids = set(raw_pockets)
+        unknown_pockets = pocket_ids - _CASH_CLOCK_POCKET_IDS
+        missing_pockets = _CASH_CLOCK_POCKET_IDS - pocket_ids
+        if unknown_pockets:
+            raise ValueError(
+                "pockets包含未知调查目标："
+                f"{', '.join(sorted(str(item) for item in unknown_pockets))}。"
+            )
+        if missing_pockets:
+            raise ValueError(
+                "pockets缺少调查目标："
+                f"{', '.join(sorted(missing_pockets))}。"
+            )
+        pockets: dict[str, str] = {}
+        for pocket_id in sorted(_CASH_CLOCK_POCKET_IDS):
+            order_id = raw_pockets[pocket_id]
+            if not isinstance(order_id, str) or order_id not in _CASH_CLOCK_ORDER_IDS:
+                raise ValueError(f"调查目标{pocket_id}使用了未知材料编号。")
+            pockets[pocket_id] = order_id
+
+        discarded_value = command.get("discarded", [])
+        if not isinstance(discarded_value, (list, tuple)):
+            raise ValueError("discarded必须是材料编号列表。")
+        if len(discarded_value) > 1:
+            raise ValueError("调查令最多只能丢弃1项干扰材料。")
+        discarded: list[str] = []
+        for order_id in discarded_value:
+            if not isinstance(order_id, str) or order_id not in _CASH_CLOCK_ORDER_IDS:
+                raise ValueError("discarded包含未知材料编号。")
+            discarded.append(order_id)
+
+        used_order_ids = list(pockets.values()) + discarded
+        if len(set(used_order_ids)) != len(used_order_ids):
+            raise ValueError("同一调查材料不能重复放入多个位置。")
+        clean_payload = {"pockets": pockets, "discarded": discarded}
+    else:
+        _require_exact_keys(
+            command,
+            required=common_fields,
+            subject="场景动作命令",
+        )
+        clean_payload = {}
+
+    return {
+        "schema_version": CASH_CLOCK_COMMAND_SCHEMA_VERSION,
+        "command_id": command_id,
+        "question_id": question_id,
+        "revision": revision,
+        "action": action,
+        "clean_payload": clean_payload,
+    }
+
+
+def _cash_clock_result(
+    command: CashClockCommand,
+    *,
+    phase: str,
+    accepted: list[str],
+    rejected: list[str],
+    feedback: str,
+    complete: bool,
+) -> CashClockCommandEvaluation:
+    """Build one stable result shape for all three visual-game phases."""
+
+    return {
+        "phase": phase,
+        "action": command["action"],
+        "accepted": accepted,
+        "rejected": rejected,
+        "feedback": feedback,
+        "complete": complete,
+        "clean_payload": command["clean_payload"],
+    }
+
+
+def evaluate_cash_clock_bins(
+    question: CashTimingQuestion,
+    raw_command: object,
+    expected_revision: int,
+) -> CashClockCommandEvaluation:
+    """Authoritatively classify all six facts into four semantic regions."""
+
+    command = normalise_cash_clock_command(
+        question, raw_command, expected_revision
+    )
+    if command["action"] != "submit_routes":
+        raise ValueError("事实卡判定只接受submit_routes命令。")
+    bins = command["clean_payload"]["bins"]
+    assert isinstance(bins, dict)
+
+    expected_bins: dict[str, str] = {}
+    event_ids: list[str] = []
+    for event in question["event_cards"]:
+        event_id = event["event_id"]
+        event_ids.append(event_id)
+        if event["affects_profit"] and event["affects_cash"]:
+            expected_bins[event_id] = "both"
+        elif event["affects_profit"]:
+            expected_bins[event_id] = "profit"
+        elif event["affects_cash"]:
+            expected_bins[event_id] = "cash"
+        else:
+            expected_bins[event_id] = "neither"
+
+    accepted = [
+        event_id
+        for event_id in event_ids
+        if bins[event_id] == expected_bins[event_id]
+    ]
+    rejected = [event_id for event_id in event_ids if event_id not in accepted]
+    complete = not rejected
+    if complete:
+        feedback = (
+            "六张事实卡都已归位。履约和成本发生回答利润，银行实收实付"
+            "回答现金；合同签署和未来承诺本身不改变这两只时钟。"
+        )
+    elif "future_payment_plan" in rejected or "contract_signed" in rejected:
+        feedback = (
+            f"已有{len(accepted)}张归位，{len(rejected)}张仍需复核。承诺、"
+            "合同和实际发生不是一回事；先问履约，再问银行是否真的收付。"
+        )
+    else:
+        feedback = (
+            f"已有{len(accepted)}张归位，{len(rejected)}张仍需复核。成本"
+            "发生影响利润，费用实际支付影响现金，同一业务事实不要重复计算。"
+        )
+    return _cash_clock_result(
+        command,
+        phase="routes",
+        accepted=accepted,
+        rejected=rejected,
+        feedback=feedback,
+        complete=complete,
+    )
+
+
+def evaluate_cash_gap_hypothesis(
+    question: CashTimingQuestion,
+    raw_command: object,
+    expected_revision: int,
+) -> CashClockCommandEvaluation:
+    """Check whether the gap is framed as a testable receivable hypothesis."""
+
+    command = normalise_cash_clock_command(
+        question, raw_command, expected_revision
+    )
+    if command["action"] != "submit_hypothesis":
+        raise ValueError("差额假设判定只接受submit_hypothesis命令。")
+    hypothesis_id = command["clean_payload"]["hypothesis_id"]
+    assert isinstance(hypothesis_id, str)
+    complete = hypothesis_id == "receivable_pending"
+    accepted = [hypothesis_id] if complete else []
+    rejected = [] if complete else [hypothesis_id]
+    feedback_by_hypothesis = {
+        "receivable_pending": (
+            "假设成立，但尚未成为结论：利润与现金的差额可能形成应收款，"
+            "下一步必须用履约、期末余额和期后回款交叉核实。"
+        ),
+        "proven_fraud": (
+            "差额只能触发调查，不能直接证明造假。把怀疑写成结论，会让"
+            "后续证据只剩下替结论找理由。"
+        ),
+        "customer_default": (
+            "尚未核对合同期限和账龄，不能把未收款直接升级为客户违约。"
+        ),
+        "cash_received": (
+            "收入确认、应收款和客户付款承诺都不是银行到账。现金只认"
+            "报告期内真实发生的收付。"
+        ),
+    }
+    return _cash_clock_result(
+        command,
+        phase="hypothesis",
+        accepted=accepted,
+        rejected=rejected,
+        feedback=feedback_by_hypothesis[hypothesis_id],
+        complete=complete,
+    )
+
+
+def evaluate_cash_investigation_orders(
+    question: CashTimingQuestion,
+    raw_command: object,
+    expected_revision: int,
+) -> CashClockCommandEvaluation:
+    """Match three evidence requests and reject a management promise."""
+
+    command = normalise_cash_clock_command(
+        question, raw_command, expected_revision
+    )
+    if command["action"] != "submit_orders":
+        raise ValueError("调查令判定只接受submit_orders命令。")
+    pockets = command["clean_payload"]["pockets"]
+    discarded = command["clean_payload"]["discarded"]
+    assert isinstance(pockets, dict)
+    assert isinstance(discarded, list)
+
+    accepted: list[str] = []
+    rejected: list[str] = []
+    for pocket_id in sorted(_CASH_CLOCK_POCKET_IDS):
+        order_id = pockets[pocket_id]
+        if order_id == _CASH_CLOCK_CORRECT_ORDERS[pocket_id]:
+            accepted.append(order_id)
+        else:
+            rejected.append(order_id)
+    if discarded:
+        if discarded[0] == "management_promise":
+            accepted.append("management_promise")
+        else:
+            rejected.append(discarded[0])
+
+    complete = all(
+        pockets[pocket_id] == expected_order_id
+        for pocket_id, expected_order_id in _CASH_CLOCK_CORRECT_ORDERS.items()
+    )
+    if complete:
+        feedback = (
+            "调查令已封装：履约验收核对收入边界，期末应收核对余额存在，"
+            "期后银行流水核对后来回款。管理层承诺只能提供方向，不能替代证据。"
+        )
+    elif "management_promise" in pockets.values():
+        feedback = (
+            "管理层承诺被误放进了证据口袋。它可以提示去哪里查，却不能"
+            "证明履约、年末余额或后来到账。"
+        )
+    else:
+        feedback = (
+            f"{len(accepted)}项调查令方向正确，{len(rejected)}项需要换位。"
+            "三只口袋分别回答：收入何时赚到、年末还欠多少、后来是否到账。"
+        )
+    return _cash_clock_result(
+        command,
+        phase="orders",
+        accepted=accepted,
+        rejected=rejected,
+        feedback=feedback,
+        complete=complete,
+    )
+
+
 def build_cash_evidence_case(attempt_index: int) -> CashEvidenceCase:
-    """Build a new six-document investigation after each failed chain.
+    """Build one six-document investigation tied to the selected dossier.
 
     Four documents form a complete, cross-checked chain. Two polished-looking
     documents are distractions because they are internal claims rather than
@@ -402,13 +910,21 @@ def build_cash_evidence_case(attempt_index: int) -> CashEvidenceCase:
     if not isinstance(attempt_index, int) or attempt_index < 0:
         raise ValueError("证据卷宗序号必须是非负整数。")
 
-    reporting_date = date(2025, 12, 31)
-    contract_amount_wan = 460 + attempt_index * 23
-    deposit_wan = 90 + attempt_index * 5
+    # Scene four is the investigation opened by scene three's signed order,
+    # not a second, unrelated case.  Reuse the same reporting boundary,
+    # revenue and cash received so the player never walks through a door and
+    # finds that the company and amounts have silently changed.
+    timing_question = build_cash_timing_question(attempt_index)
+    reporting_date = timing_question["reporting_date"]
+    contract_amount_wan = timing_question["revenue_wan"]
+    deposit_wan = timing_question["cash_collected_wan"]
     outstanding_wan = contract_amount_wan - deposit_wan
-    acceptance_date = date(2025, 12, 22) + timedelta(
-        days=attempt_index % 5
+    acceptance_event = next(
+        event
+        for event in timing_question["event_cards"]
+        if event["event_id"] == "service_completed"
     )
+    acceptance_date = acceptance_event["event_date"]
     payment_days = (30, 45, 60)[attempt_index % 3]
     due_date = acceptance_date + timedelta(days=payment_days)
     receipt_date = due_date - timedelta(days=attempt_index % 4)
@@ -590,6 +1106,665 @@ def build_cash_cross_check_task(
             "和管理层判断可以成为搜索线索，但不能独立证明外部事实。"
         ),
     }
+
+
+CASH_EVIDENCE_LAB_COMMAND_SCHEMA_VERSION = 1
+
+_CASH_EVIDENCE_LAB_ACTIONS = {
+    "submit_reading",
+    "submit_classification",
+    "submit_chain",
+}
+_CASH_EVIDENCE_LAB_CLASS_IDS = {
+    "year_end_fact",
+    "subsequent_evidence",
+    "unverified_claim",
+}
+_CASH_EVIDENCE_LAB_REQUIRED_FIELD_IDS = {
+    "contract_reference",
+    "contract_payment_window",
+    "acceptance_date",
+    "acceptance_external_seal",
+    "ar_year_end_balance",
+    "ar_due_status",
+    "receipt_date",
+    "receipt_bank_match",
+}
+_CASH_EVIDENCE_LAB_CLASSIFICATION_ANSWER = {
+    "contract_term_at_year_end": "year_end_fact",
+    "signed_acceptance_before_cutoff": "year_end_fact",
+    "year_end_ar_not_due": "year_end_fact",
+    "later_bank_receipt": "subsequent_evidence",
+    "chat_expectation": "unverified_claim",
+    "management_forecast": "unverified_claim",
+}
+_CASH_EVIDENCE_LAB_CHAIN_ANSWER = {
+    "claim_payment_boundary": "contract_clause",
+    "claim_completion_before_cutoff": "signed_acceptance",
+    "claim_year_end_balance": "ar_subledger",
+    "claim_later_cash": "post_period_receipt",
+}
+
+
+def _cash_evidence_lab_task_id(evidence_case: CashEvidenceCase) -> str:
+    """Return the stable public identifier shared by all three lab scenes."""
+
+    return f"cash-evidence-lab:{evidence_case['case_id']}"
+
+
+def _cash_evidence_lab_documents(
+    evidence_case: CashEvidenceCase,
+) -> dict[str, EvidenceDocument]:
+    """Validate and index the six documents without exposing relevance."""
+
+    documents = {
+        document["document_id"]: document
+        for document in evidence_case["documents"]
+    }
+    if len(documents) != len(evidence_case["documents"]):
+        raise ValueError("当前证据卷宗的材料编号存在重复。")
+    expected_ids = {
+        "executive_slide",
+        "contract_clause",
+        "celebration_chat",
+        "signed_acceptance",
+        "ar_subledger",
+        "post_period_receipt",
+    }
+    if set(documents) != expected_ids:
+        raise ValueError("当前证据卷宗缺少证据实验室所需材料。")
+    return documents
+
+
+def build_cash_evidence_lab_public_task(
+    evidence_case: CashEvidenceCase,
+) -> dict[str, object]:
+    """Build the answer-free Stage 5--7 contract consumed by the browser.
+
+    The public task contains only objects the player can see or manipulate.
+    Correct field marks, category placements and evidence links remain in
+    module-private Python mappings and are evaluated only after submission.
+    """
+
+    documents = _cash_evidence_lab_documents(evidence_case)
+    document_cards = [
+        {
+            "document_id": document["document_id"],
+            "location": document["location"],
+            "title": document["title"],
+            "document_type": document["document_type"],
+            "body": document["body"],
+            "footer": document["footer"],
+        }
+        for document in evidence_case["documents"]
+    ]
+    field_options = [
+        {
+            "field_id": "contract_reference",
+            "document_id": "contract_clause",
+            "label": f"合同编号 {evidence_case['contract_number']} 与双方盖章",
+        },
+        {
+            "field_id": "contract_payment_window",
+            "document_id": "contract_clause",
+            "label": (
+                f"最终验收后{evidence_case['payment_days']}日内支付尾款"
+            ),
+        },
+        {
+            "field_id": "contract_polished_layout",
+            "document_id": "contract_clause",
+            "label": "合同采用正式排版并带有公司页眉",
+        },
+        {
+            "field_id": "acceptance_date",
+            "document_id": "signed_acceptance",
+            "label": (
+                "最终验收落款日 "
+                f"{evidence_case['acceptance_date'].isoformat()}"
+            ),
+        },
+        {
+            "field_id": "acceptance_external_seal",
+            "document_id": "signed_acceptance",
+            "label": f"{evidence_case['customer_name']}合同专用章",
+        },
+        {
+            "field_id": "acceptance_plain_title",
+            "document_id": "signed_acceptance",
+            "label": "文件标题看起来只是一张普通运维表",
+        },
+        {
+            "field_id": "ar_year_end_balance",
+            "document_id": "ar_subledger",
+            "label": (
+                f"报告期末未收余额{evidence_case['outstanding_wan']}万元"
+            ),
+        },
+        {
+            "field_id": "ar_due_status",
+            "document_id": "ar_subledger",
+            "label": (
+                f"合同到期日{evidence_case['due_date'].isoformat()}，"
+                "年末未逾期"
+            ),
+        },
+        {
+            "field_id": "ar_filename_version",
+            "document_id": "ar_subledger",
+            "label": "文件名带有“最终版7”字样",
+        },
+        {
+            "field_id": "receipt_date",
+            "document_id": "post_period_receipt",
+            "label": (
+                f"银行入账日{evidence_case['receipt_date'].isoformat()}"
+            ),
+        },
+        {
+            "field_id": "receipt_bank_match",
+            "document_id": "post_period_receipt",
+            "label": (
+                f"付款人、合同号和{evidence_case['outstanding_wan']}万元"
+                "均与年末应收匹配"
+            ),
+        },
+        {
+            "field_id": "receipt_auto_printed",
+            "document_id": "post_period_receipt",
+            "label": "回单由系统自动打印",
+        },
+        {
+            "field_id": "slide_confidence_phrase",
+            "document_id": "executive_slide",
+            "label": "管理层写下“回款确定性高”",
+        },
+        {
+            "field_id": "chat_bonus_phrase",
+            "document_id": "celebration_chat",
+            "label": "项目经理在群聊中写下“年终奖稳了”",
+        },
+    ]
+    classification_items = [
+        {
+            "item_id": "contract_term_at_year_end",
+            "label": (
+                f"合同在年末前已经约定：验收后"
+                f"{evidence_case['payment_days']}日内支付尾款。"
+            ),
+        },
+        {
+            "item_id": "signed_acceptance_before_cutoff",
+            "label": (
+                f"客户于{evidence_case['acceptance_date'].isoformat()}"
+                "签署最终验收确认书。"
+            ),
+        },
+        {
+            "item_id": "year_end_ar_not_due",
+            "label": (
+                f"截至{evidence_case['reporting_date'].isoformat()}仍有"
+                f"{evidence_case['outstanding_wan']}万元未收且尚未逾期。"
+            ),
+        },
+        {
+            "item_id": "later_bank_receipt",
+            "label": (
+                f"{evidence_case['receipt_date'].isoformat()}银行回单显示"
+                "尾款后来到账。"
+            ),
+        },
+        {
+            "item_id": "chat_expectation",
+            "label": "项目群认为客户满意、奖金已经稳了。",
+        },
+        {
+            "item_id": "management_forecast",
+            "label": "管理层预计回款确定性高。",
+        },
+    ]
+    chain_claims = [
+        {
+            "claim_id": "claim_payment_boundary",
+            "label": "尾款何时到期，由什么条件触发？",
+        },
+        {
+            "claim_id": "claim_completion_before_cutoff",
+            "label": "业务是否在报告期末前完成？",
+        },
+        {
+            "claim_id": "claim_year_end_balance",
+            "label": "年末还有多少未收，是否已经逾期？",
+        },
+        {
+            "claim_id": "claim_later_cash",
+            "label": "未收尾款后来是否真正进入银行账户？",
+        },
+    ]
+    return {
+        "schema_version": CASH_EVIDENCE_LAB_COMMAND_SCHEMA_VERSION,
+        "task_id": _cash_evidence_lab_task_id(evidence_case),
+        "case_id": evidence_case["case_id"],
+        "reading": {
+            "documents": document_cards,
+            "field_options": field_options,
+            "required_view_count": len(documents),
+            "target_mark_count": len(
+                _CASH_EVIDENCE_LAB_REQUIRED_FIELD_IDS
+            ),
+        },
+        "classification": {
+            "classes": [
+                {"class_id": "year_end_fact", "label": "年末事实"},
+                {
+                    "class_id": "subsequent_evidence",
+                    "label": "期后证据",
+                },
+                {"class_id": "unverified_claim", "label": "未经证实"},
+            ],
+            "items": classification_items,
+        },
+        "chain": {
+            "claims": chain_claims,
+            "documents": document_cards,
+        },
+    }
+
+
+def _normalise_cash_evidence_lab_id_list(
+    value: object,
+    *,
+    allowed_ids: set[str],
+    subject: str,
+) -> list[str]:
+    """Validate one JSON ID list and preserve its submitted order."""
+
+    if not isinstance(value, list):
+        raise ValueError(f"{subject}必须是编号列表。")
+    clean_ids: list[str] = []
+    for raw_id in value:
+        if not isinstance(raw_id, str) or raw_id not in allowed_ids:
+            raise ValueError(f"{subject}包含未知编号。")
+        clean_ids.append(raw_id)
+    if len(set(clean_ids)) != len(clean_ids):
+        raise ValueError(f"{subject}不能包含重复编号。")
+    return clean_ids
+
+
+def normalise_cash_evidence_lab_command(
+    evidence_case: CashEvidenceCase,
+    command: object,
+    expected_revision: int,
+) -> CashEvidenceLabCommand:
+    """Strictly validate one Stage 5--7 browser command.
+
+    Only player-authored placements are normalised.  The returned payload does
+    not contain correctness flags or any of the private answer mappings.
+    """
+
+    if (
+        not isinstance(expected_revision, int)
+        or isinstance(expected_revision, bool)
+        or expected_revision < 0
+    ):
+        raise ValueError("服务端证据实验室版本必须是非负整数。")
+    if not isinstance(command, Mapping):
+        raise ValueError("证据实验室命令必须是对象。")
+    common_fields = {
+        "schema_version",
+        "command_id",
+        "task_id",
+        "revision",
+        "action",
+    }
+    _require_exact_keys(
+        command,
+        required=common_fields,
+        optional={
+            "viewed_document_ids",
+            "marked_field_ids",
+            "placements",
+            "links",
+        },
+        subject="证据实验室命令",
+    )
+    schema_version = command["schema_version"]
+    if (
+        not isinstance(schema_version, int)
+        or isinstance(schema_version, bool)
+        or schema_version != CASH_EVIDENCE_LAB_COMMAND_SCHEMA_VERSION
+    ):
+        raise ValueError("证据实验室命令schema_version不受支持。")
+    command_id = command["command_id"]
+    if (
+        not isinstance(command_id, str)
+        or not _COMMAND_ID_PATTERN.fullmatch(command_id)
+    ):
+        raise ValueError("证据实验室命令command_id格式无效。")
+    task_id = command["task_id"]
+    if (
+        not isinstance(task_id, str)
+        or task_id != _cash_evidence_lab_task_id(evidence_case)
+    ):
+        raise ValueError("证据实验室命令task_id与当前卷宗不一致。")
+    revision = command["revision"]
+    if not isinstance(revision, int) or isinstance(revision, bool):
+        raise ValueError("证据实验室命令revision必须是整数。")
+    if revision != expected_revision:
+        raise ValueError("证据实验室命令revision已经过期。")
+    action = command["action"]
+    if not isinstance(action, str) or action not in _CASH_EVIDENCE_LAB_ACTIONS:
+        raise ValueError("证据实验室命令action不受支持。")
+
+    public_task = build_cash_evidence_lab_public_task(evidence_case)
+    reading = public_task["reading"]
+    classification = public_task["classification"]
+    chain = public_task["chain"]
+    assert isinstance(reading, Mapping)
+    assert isinstance(classification, Mapping)
+    assert isinstance(chain, Mapping)
+    document_ids = {
+        document["document_id"]
+        for document in reading["documents"]  # type: ignore[index,union-attr]
+    }
+    field_ids = {
+        option["field_id"]
+        for option in reading["field_options"]  # type: ignore[index,union-attr]
+    }
+    classification_ids = {
+        item["item_id"]
+        for item in classification["items"]  # type: ignore[index,union-attr]
+    }
+    claim_ids = {
+        claim["claim_id"]
+        for claim in chain["claims"]  # type: ignore[index,union-attr]
+    }
+
+    clean_payload: dict[str, object]
+    if action == "submit_reading":
+        _require_exact_keys(
+            command,
+            required=common_fields
+            | {"viewed_document_ids", "marked_field_ids"},
+            subject="证物研读命令",
+        )
+        clean_payload = {
+            "viewed_document_ids": _normalise_cash_evidence_lab_id_list(
+                command["viewed_document_ids"],
+                allowed_ids=document_ids,
+                subject="viewed_document_ids",
+            ),
+            "marked_field_ids": _normalise_cash_evidence_lab_id_list(
+                command["marked_field_ids"],
+                allowed_ids=field_ids,
+                subject="marked_field_ids",
+            ),
+        }
+    elif action == "submit_classification":
+        _require_exact_keys(
+            command,
+            required=common_fields | {"placements"},
+            subject="时间边界分类命令",
+        )
+        raw_placements = command["placements"]
+        if not isinstance(raw_placements, Mapping):
+            raise ValueError("placements必须是材料编号到区域编号的对象。")
+        unknown_ids = set(raw_placements) - classification_ids
+        if unknown_ids:
+            raise ValueError("placements包含未知分类卡编号。")
+        placements: dict[str, str] = {}
+        for item_id, raw_class_id in raw_placements.items():
+            if not isinstance(item_id, str):
+                raise ValueError("placements的分类卡编号必须是字符串。")
+            if (
+                not isinstance(raw_class_id, str)
+                or raw_class_id not in _CASH_EVIDENCE_LAB_CLASS_IDS
+            ):
+                raise ValueError(f"分类卡{item_id}的区域编号无效。")
+            placements[item_id] = raw_class_id
+        clean_payload = {"placements": placements}
+    else:
+        _require_exact_keys(
+            command,
+            required=common_fields | {"links"},
+            subject="证据链连线命令",
+        )
+        raw_links = command["links"]
+        if not isinstance(raw_links, Mapping):
+            raise ValueError("links必须是主张编号到材料编号的对象。")
+        unknown_claims = set(raw_links) - claim_ids
+        if unknown_claims:
+            raise ValueError("links包含未知主张编号。")
+        links: dict[str, str] = {}
+        for claim_id, raw_document_id in raw_links.items():
+            if not isinstance(claim_id, str):
+                raise ValueError("links的主张编号必须是字符串。")
+            if (
+                not isinstance(raw_document_id, str)
+                or raw_document_id not in document_ids
+            ):
+                raise ValueError(f"主张{claim_id}使用了未知材料编号。")
+            links[claim_id] = raw_document_id
+        clean_payload = {"links": links}
+
+    return {
+        "schema_version": CASH_EVIDENCE_LAB_COMMAND_SCHEMA_VERSION,
+        "command_id": command_id,
+        "task_id": task_id,
+        "revision": revision,
+        "action": action,
+        "clean_payload": clean_payload,
+    }
+
+
+def _cash_evidence_lab_result(
+    command: CashEvidenceLabCommand,
+    *,
+    phase: str,
+    accepted: list[str],
+    rejected: list[str],
+    feedback: str,
+    complete: bool,
+    target_count: int,
+) -> CashEvidenceLabEvaluation:
+    """Return enough information to lock correct work and release only errors."""
+
+    return {
+        "phase": phase,
+        "action": command["action"],
+        "accepted": accepted,
+        "rejected": rejected,
+        "feedback": feedback,
+        "complete": complete,
+        "accepted_count": len(accepted),
+        "target_count": target_count,
+        "clean_payload": command["clean_payload"],
+    }
+
+
+def evaluate_cash_evidence_reading(
+    evidence_case: CashEvidenceCase,
+    raw_command: object,
+    expected_revision: int,
+) -> CashEvidenceLabEvaluation:
+    """Require deliberate page views and evidence-bearing field marks."""
+
+    command = normalise_cash_evidence_lab_command(
+        evidence_case, raw_command, expected_revision
+    )
+    if command["action"] != "submit_reading":
+        raise ValueError("证物研读判定只接受submit_reading命令。")
+    viewed_document_ids = command["clean_payload"]["viewed_document_ids"]
+    marked_field_ids = command["clean_payload"]["marked_field_ids"]
+    assert isinstance(viewed_document_ids, list)
+    assert isinstance(marked_field_ids, list)
+    document_ids = set(_cash_evidence_lab_documents(evidence_case))
+    accepted = [
+        field_id
+        for field_id in marked_field_ids
+        if field_id in _CASH_EVIDENCE_LAB_REQUIRED_FIELD_IDS
+    ]
+    rejected = [
+        field_id
+        for field_id in marked_field_ids
+        if field_id not in _CASH_EVIDENCE_LAB_REQUIRED_FIELD_IDS
+    ]
+    unseen_count = len(document_ids - set(viewed_document_ids))
+    missing_mark_count = len(
+        _CASH_EVIDENCE_LAB_REQUIRED_FIELD_IDS - set(accepted)
+    )
+    complete = (
+        unseen_count == 0
+        and missing_mark_count == 0
+        and not rejected
+    )
+    if complete:
+        feedback = (
+            "六份材料已经逐页核验，八个决定时间、金额、来源与边界的"
+            "字段已封装。"
+        )
+    elif rejected:
+        feedback = (
+            f"{len(accepted)}个关键字段已锁定，{len(rejected)}个标记只反映"
+            "外观、语气或文件名，已退回。正确标记和阅读进度不会清空。"
+        )
+    elif unseen_count:
+        feedback = (
+            f"关键标记已锁定；仍有{unseen_count}份材料没有完整翻阅。"
+            "干扰材料也要读，才能知道它缺少什么。"
+        )
+    else:
+        feedback = (
+            f"已锁定{len(accepted)}个关键字段，还缺{missing_mark_count}个。"
+            "优先寻找日期、金额、合同号、签章、付款期限和独立来源。"
+        )
+    return _cash_evidence_lab_result(
+        command,
+        phase="reading",
+        accepted=accepted,
+        rejected=rejected,
+        feedback=feedback,
+        complete=complete,
+        target_count=len(_CASH_EVIDENCE_LAB_REQUIRED_FIELD_IDS),
+    )
+
+
+def evaluate_cash_evidence_classification(
+    evidence_case: CashEvidenceCase,
+    raw_command: object,
+    expected_revision: int,
+) -> CashEvidenceLabEvaluation:
+    """Classify statements without turning later evidence into earlier fact."""
+
+    command = normalise_cash_evidence_lab_command(
+        evidence_case, raw_command, expected_revision
+    )
+    if command["action"] != "submit_classification":
+        raise ValueError(
+            "时间边界分类判定只接受submit_classification命令。"
+        )
+    placements = command["clean_payload"]["placements"]
+    assert isinstance(placements, dict)
+    accepted = [
+        item_id
+        for item_id in _CASH_EVIDENCE_LAB_CLASSIFICATION_ANSWER
+        if placements.get(item_id)
+        == _CASH_EVIDENCE_LAB_CLASSIFICATION_ANSWER[item_id]
+    ]
+    rejected = [
+        item_id
+        for item_id in _CASH_EVIDENCE_LAB_CLASSIFICATION_ANSWER
+        if item_id in placements
+        and placements[item_id]
+        != _CASH_EVIDENCE_LAB_CLASSIFICATION_ANSWER[item_id]
+    ]
+    missing_count = len(
+        set(_CASH_EVIDENCE_LAB_CLASSIFICATION_ANSWER) - set(placements)
+    )
+    complete = (
+        len(accepted) == len(_CASH_EVIDENCE_LAB_CLASSIFICATION_ANSWER)
+        and not rejected
+    )
+    if complete:
+        feedback = (
+            "时间边界已守住：年末事实、期后证据与未经证实的内部主张"
+            "已经分开。"
+        )
+    elif rejected:
+        feedback = (
+            f"{len(accepted)}张卡已锁定，{len(rejected)}张卡放错时间或"
+            "证明层级，已单独退回；不会重搜办公室，也不会更换卷宗。"
+        )
+    else:
+        feedback = (
+            f"{len(accepted)}张卡已锁定，仍有{missing_count}张未归位。"
+            "问自己：这件事在年末已经发生，还是年后才出现？"
+        )
+    return _cash_evidence_lab_result(
+        command,
+        phase="classification",
+        accepted=accepted,
+        rejected=rejected,
+        feedback=feedback,
+        complete=complete,
+        target_count=len(_CASH_EVIDENCE_LAB_CLASSIFICATION_ANSWER),
+    )
+
+
+def evaluate_cash_evidence_chain(
+    evidence_case: CashEvidenceCase,
+    raw_command: object,
+    expected_revision: int,
+) -> CashEvidenceLabEvaluation:
+    """Connect each research claim to the document that directly supports it."""
+
+    command = normalise_cash_evidence_lab_command(
+        evidence_case, raw_command, expected_revision
+    )
+    if command["action"] != "submit_chain":
+        raise ValueError("证据链判定只接受submit_chain命令。")
+    links = command["clean_payload"]["links"]
+    assert isinstance(links, dict)
+    accepted = [
+        claim_id
+        for claim_id in _CASH_EVIDENCE_LAB_CHAIN_ANSWER
+        if links.get(claim_id) == _CASH_EVIDENCE_LAB_CHAIN_ANSWER[claim_id]
+    ]
+    rejected = [
+        claim_id
+        for claim_id in _CASH_EVIDENCE_LAB_CHAIN_ANSWER
+        if claim_id in links
+        and links[claim_id] != _CASH_EVIDENCE_LAB_CHAIN_ANSWER[claim_id]
+    ]
+    missing_count = len(set(_CASH_EVIDENCE_LAB_CHAIN_ANSWER) - set(links))
+    complete = (
+        len(accepted) == len(_CASH_EVIDENCE_LAB_CHAIN_ANSWER)
+        and not rejected
+    )
+    if complete:
+        feedback = (
+            "四环证据链闭合：合同界定付款边界，客户验收证明履约，"
+            "年末明细定位余额，银行回单验证后来到账。"
+        )
+    elif rejected:
+        feedback = (
+            f"{len(accepted)}条连线已锁定，{len(rejected)}条连线证明对象"
+            "不匹配，已单独断开；其余正确工作全部保留。"
+        )
+    else:
+        feedback = (
+            f"{len(accepted)}条连线已锁定，还缺{missing_count}条。"
+            "一份材料先回答一个最直接的问题，不要用语气代替来源。"
+        )
+    return _cash_evidence_lab_result(
+        command,
+        phase="chain",
+        accepted=accepted,
+        rejected=rejected,
+        feedback=feedback,
+        complete=complete,
+        target_count=len(_CASH_EVIDENCE_LAB_CHAIN_ANSWER),
+    )
 
 
 def evaluate_cash_evidence_selection(
@@ -851,4 +2026,309 @@ def build_cash_defense_question(
             if round_index == 1 else next_step
         ),
         "explanation": explanation,
+    }
+
+
+CASH_DEFENSE_COMMITTEE_COMMAND_SCHEMA_VERSION = 1
+
+_CASH_DEFENSE_COMMITTEE_ACTION = "submit_committee_statement"
+_CASH_DEFENSE_COMMITTEE_SEATS = (
+    "conclusion_strength",
+    "evidence_boundary",
+    "next_action",
+)
+_CASH_DEFENSE_SCENARIO_TYPES = (
+    "explained_timing_gap",
+    "late_acceptance",
+    "overdue_uncollected",
+    "partial_acceptance",
+)
+
+
+def _cash_defense_committee_bundle(
+    round_index: int,
+    challenge_index: int,
+) -> tuple[dict[str, object], dict[str, str], dict[str, str]]:
+    """Build one coherent three-seat challenge and keep answers private."""
+
+    if not isinstance(round_index, int) or isinstance(round_index, bool):
+        raise ValueError("委员会轮次必须是整数。")
+    if not 0 <= round_index <= 2:
+        raise ValueError("委员会轮次必须是0、1或2。")
+    if (
+        not isinstance(challenge_index, int)
+        or isinstance(challenge_index, bool)
+        or challenge_index < 0
+    ):
+        raise ValueError("委员会挑战序号必须是非负整数。")
+
+    # Every committee round asks for a complete research statement.  A failed
+    # formal challenge rotates only this scenario; already passed rounds live
+    # outside this stateless builder and remain untouched.
+    scenario_counter = round_index + challenge_index
+    scenario_index = scenario_counter % len(_CASH_DEFENSE_SCENARIO_TYPES)
+    cycle = scenario_counter // len(_CASH_DEFENSE_SCENARIO_TYPES)
+    attempts = {
+        "conclusion_strength": scenario_index + cycle * 4,
+        "evidence_boundary": (scenario_index - 1) % 4 + cycle * 4,
+        "next_action": (scenario_index - 2) % 4 + cycle * 4,
+    }
+    questions = {
+        "conclusion_strength": build_cash_defense_question(
+            0, attempts["conclusion_strength"]
+        ),
+        "evidence_boundary": build_cash_defense_question(
+            1, attempts["evidence_boundary"]
+        ),
+        "next_action": build_cash_defense_question(
+            2, attempts["next_action"]
+        ),
+    }
+    scenario_type = _CASH_DEFENSE_SCENARIO_TYPES[scenario_index]
+    if any(
+        question["scenario_type"] != scenario_type
+        for question in questions.values()
+    ):
+        raise ValueError("委员会三席未能生成同一情境。")
+
+    seat_meta = {
+        "conclusion_strength": {
+            "title": "结论强度席",
+            "examiner": "叶知衡｜首席审查官",
+            "instruction": "只说证据能够支持的强度，不抢跑到定罪。",
+        },
+        "evidence_boundary": {
+            "title": "证据边界席",
+            "examiner": "沈砚清｜证据边界官",
+            "instruction": "说明结论不能外推到谁、哪个期间和什么问题。",
+        },
+        "next_action": {
+            "title": "行动优先席",
+            "examiner": "程未央｜核验行动官",
+            "instruction": "先补最能改变判断的缺口，不用大而空的调查。",
+        },
+    }
+    seats: list[dict[str, object]] = []
+    answer_by_seat: dict[str, str] = {}
+    explanation_by_seat: dict[str, str] = {}
+    for seat_id in _CASH_DEFENSE_COMMITTEE_SEATS:
+        question = questions[seat_id]
+        cards = [
+            {
+                "card_id": f"{seat_id}:card:{index + 1}",
+                "text": option,
+            }
+            for index, option in enumerate(question["options"])
+        ]
+        correct_card = next(
+            card
+            for card in cards
+            if card["text"] == question["correct_option"]
+        )
+        answer_by_seat[seat_id] = str(correct_card["card_id"])
+        explanation_by_seat[seat_id] = question["explanation"]
+        seats.append(
+            {
+                "seat_id": seat_id,
+                **seat_meta[seat_id],
+                "prompt": question["prompt"],
+                "cards": cards,
+            }
+        )
+
+    anchor_question = questions["conclusion_strength"]
+    task_id = (
+        f"cash-defense-committee:{round_index + 1}:"
+        f"{challenge_index + 1}:{anchor_question['question_id']}"
+    )
+    public_task = {
+        "schema_version": CASH_DEFENSE_COMMITTEE_COMMAND_SCHEMA_VERSION,
+        "task_id": task_id,
+        "round_index": round_index,
+        "round_number": round_index + 1,
+        "challenge_number": challenge_index + 1,
+        "scenario_type": scenario_type,
+        "company_name": anchor_question["company_name"],
+        "evidence_items": list(anchor_question["evidence_items"]),
+        "committee_rule": (
+            "从三组答辩牌各取一枚，依次放上结论、边界与行动席。"
+            "空席不消耗生命；正式错误才消耗一次容错并更换当前挑战。"
+        ),
+        "seats": seats,
+    }
+    return public_task, answer_by_seat, explanation_by_seat
+
+
+def build_cash_defense_committee_public_task(
+    round_index: int,
+    challenge_index: int,
+) -> dict[str, object]:
+    """Return an answer-free draggable three-seat committee challenge."""
+
+    public_task, _answer_by_seat, _explanation_by_seat = (
+        _cash_defense_committee_bundle(round_index, challenge_index)
+    )
+    return public_task
+
+
+def normalise_cash_defense_committee_command(
+    round_index: int,
+    challenge_index: int,
+    command: object,
+    expected_revision: int,
+) -> CashDefenseCommitteeCommand:
+    """Strictly validate one formal committee submission."""
+
+    if (
+        not isinstance(expected_revision, int)
+        or isinstance(expected_revision, bool)
+        or expected_revision < 0
+    ):
+        raise ValueError("服务端委员会版本必须是非负整数。")
+    if not isinstance(command, Mapping):
+        raise ValueError("委员会命令必须是对象。")
+    common_fields = {
+        "schema_version",
+        "command_id",
+        "task_id",
+        "revision",
+        "action",
+        "placements",
+    }
+    _require_exact_keys(
+        command,
+        required=common_fields,
+        subject="委员会命令",
+    )
+    schema_version = command["schema_version"]
+    if (
+        not isinstance(schema_version, int)
+        or isinstance(schema_version, bool)
+        or schema_version != CASH_DEFENSE_COMMITTEE_COMMAND_SCHEMA_VERSION
+    ):
+        raise ValueError("委员会命令schema_version不受支持。")
+    command_id = command["command_id"]
+    if (
+        not isinstance(command_id, str)
+        or not _COMMAND_ID_PATTERN.fullmatch(command_id)
+    ):
+        raise ValueError("委员会命令command_id格式无效。")
+    public_task = build_cash_defense_committee_public_task(
+        round_index, challenge_index
+    )
+    task_id = command["task_id"]
+    if not isinstance(task_id, str) or task_id != public_task["task_id"]:
+        raise ValueError("委员会命令task_id与当前挑战不一致。")
+    revision = command["revision"]
+    if not isinstance(revision, int) or isinstance(revision, bool):
+        raise ValueError("委员会命令revision必须是整数。")
+    if revision != expected_revision:
+        raise ValueError("委员会命令revision已经过期。")
+    action = command["action"]
+    if action != _CASH_DEFENSE_COMMITTEE_ACTION:
+        raise ValueError("委员会命令action不受支持。")
+    raw_placements = command["placements"]
+    if not isinstance(raw_placements, Mapping):
+        raise ValueError("placements必须是席位编号到答辩牌编号的对象。")
+    unknown_seats = set(raw_placements) - set(_CASH_DEFENSE_COMMITTEE_SEATS)
+    if unknown_seats:
+        raise ValueError("placements包含未知委员会席位。")
+
+    seats = public_task["seats"]
+    assert isinstance(seats, list)
+    valid_cards_by_seat = {
+        str(seat["seat_id"]): {
+            str(card["card_id"])
+            for card in seat["cards"]  # type: ignore[index,union-attr]
+        }
+        for seat in seats
+    }
+    placements: dict[str, str] = {}
+    for raw_seat_id, raw_card_id in raw_placements.items():
+        if not isinstance(raw_seat_id, str):
+            raise ValueError("placements的席位编号必须是字符串。")
+        if (
+            not isinstance(raw_card_id, str)
+            or raw_card_id not in valid_cards_by_seat[raw_seat_id]
+        ):
+            raise ValueError(f"席位{raw_seat_id}使用了无效答辩牌。")
+        placements[raw_seat_id] = raw_card_id
+    return {
+        "schema_version": CASH_DEFENSE_COMMITTEE_COMMAND_SCHEMA_VERSION,
+        "command_id": command_id,
+        "task_id": task_id,
+        "revision": revision,
+        "action": _CASH_DEFENSE_COMMITTEE_ACTION,
+        "clean_payload": {"placements": placements},
+    }
+
+
+def evaluate_cash_defense_committee(
+    round_index: int,
+    challenge_index: int,
+    raw_command: object,
+    expected_revision: int,
+) -> CashDefenseCommitteeEvaluation:
+    """Judge a full statement and charge lives only for formal errors."""
+
+    command = normalise_cash_defense_committee_command(
+        round_index,
+        challenge_index,
+        raw_command,
+        expected_revision,
+    )
+    _public_task, answer_by_seat, explanation_by_seat = (
+        _cash_defense_committee_bundle(round_index, challenge_index)
+    )
+    placements = command["clean_payload"]["placements"]
+    assert isinstance(placements, dict)
+    accepted = [
+        seat_id
+        for seat_id in _CASH_DEFENSE_COMMITTEE_SEATS
+        if placements.get(seat_id) == answer_by_seat[seat_id]
+    ]
+    rejected = [
+        seat_id
+        for seat_id in _CASH_DEFENSE_COMMITTEE_SEATS
+        if seat_id in placements
+        and placements[seat_id] != answer_by_seat[seat_id]
+    ]
+    missing_count = len(set(_CASH_DEFENSE_COMMITTEE_SEATS) - set(placements))
+    complete = (
+        len(accepted) == len(_CASH_DEFENSE_COMMITTEE_SEATS)
+        and not rejected
+    )
+    consume_life = bool(rejected)
+    replace_challenge = bool(rejected)
+    if complete:
+        feedback = (
+            "三席一致通过。"
+            + " ".join(
+                explanation_by_seat[seat_id]
+                for seat_id in _CASH_DEFENSE_COMMITTEE_SEATS
+            )
+        )
+    elif rejected:
+        feedback = (
+            f"{len(accepted)}席认可，{len(rejected)}席否决。正式答辩消耗"
+            "1次容错并更换当前挑战；已经通过的委员会轮次继续保留，"
+            "不回办公室、不重做证据链。"
+        )
+    else:
+        feedback = (
+            f"{len(accepted)}席已就位，仍有{missing_count}席为空。"
+            "尚未形成完整陈述，不消耗容错。"
+        )
+    return {
+        "phase": "committee",
+        "action": command["action"],
+        "accepted": accepted,
+        "rejected": rejected,
+        "feedback": feedback,
+        "complete": complete,
+        "accepted_count": len(accepted),
+        "target_count": len(_CASH_DEFENSE_COMMITTEE_SEATS),
+        "consume_life": consume_life,
+        "replace_challenge": replace_challenge,
+        "clean_payload": command["clean_payload"],
     }

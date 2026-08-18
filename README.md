@@ -18,9 +18,11 @@ Selecting the game opens one complete game screen immediately: alias creation
 and rules are the playable prologue, not a website introduction, and scenes
 01–09 continue inside that same screen. The game route locks the browser page
 to one viewport; only a dense clue panel can scroll inside the fixed case
-screen. Guided practice first asks the player to order four dated business
-events; only a correct timeline unlocks the profit-versus-cash calculation,
-and either mistake replaces the complete dossier without consuming a life.
+screen. Guided practice now uses a playable dual-clock desk: the player routes
+six facts to profit, cash, both, or neither; turns the resulting gap into a
+falsifiable hypothesis; and packs three evidence requests before opening the
+office. Wrong moves return only the conflicting material and never erase work
+that the player has already established.
 Selecting the Research Hub reveals
 five task-based tool groups without crowding the top-level navigation.
 Game checkpoints and honour progress are stored in the current browser's local
@@ -28,9 +30,11 @@ storage; they are not keyed by alias or IP. The interface responds to phone and
 desktop widths and also offers a persistent manual layout override.
 The fixed case screen also exposes previous-scene, rename-alias, and restart
 controls. Restart can either retain the alias and return to teaching or clear
-the alias and return to identity creation. Practice mistakes generate a new
-exercise without costing a life; only the formal three-round defence shares
-three lives, after which the player returns to the office for a new dossier.
+the alias and return to identity creation. Practice mistakes keep the same
+dossier and preserve accepted work. Only the formal three-round defence uses
+lives: a rejected statement replaces the current hearing challenge, while
+three rejected statements restart that hearing without sending the player
+back through the office or erasing earlier scenes and passed defence rounds.
 
 Its purpose is to help retail investors, junior analysts, and finance students
 complete a traceable first-pass review of a mainland listed company. Starting
@@ -94,17 +98,21 @@ Build a web application that can:
     investment score or recommendation;
 27. turn an explicit company search into that conclusion in one action, while
     keeping passive page navigation free from unexpected public-data requests.
-28. run the first three sequential nodes of a beginner finance case: a changing
-    profit-versus-cash calculation, a six-document office search, and a formal
-    three-round defence of conclusion, evidence boundary, and next action;
-29. share three lives only across the formal defence, replace the company and
-    evidence after every wrong answer, return failed players to a new office
-    file, and unlock the real Historical Lens investigation only after all
-    three rounds are passed.
+28. run the first sequential nodes of a beginner finance case as playable
+    scenes: a dual-clock fact-routing desk, a falsifiable-gap lab, an
+    investigation-order assembly, a spatial office search, document reading
+    and field marking, reporting-date classification, evidence-chain assembly,
+    and a formal three-round defence of conclusion, evidence boundary, and next
+    action;
+29. preserve correct practice work after mistakes, reserve the shared three
+    lives for the formal defence, restart only the current hearing after three
+    rejected statements while retaining the first seven scenes and passed
+    defence rounds, and unlock the real Historical Lens investigation only
+    after all three defence rounds are passed.
 30. complete that Historical Lens migration in two stages: find the first
     official-publication date, then distinguish it from the effective K-line
     date and next trading session before marking the first case complete.
-31. unlock a bright horizontal Honour Archive only after the six-stage case is
+31. unlock a bright horizontal Honour Archive only after the nine-scene case is
     complete, display an ordinary device-local completion rank separately from
     its six-digit honour number, and generate an optional 1080-by-1920 social
     poster without presenting the result as a professional qualification or a
@@ -220,9 +228,10 @@ secret environment settings. It must never be committed to the repository.
 ## Current working features
 
 - Present two clear top-level modules on the home page and preserve all
-  existing real-company tools inside the Company Research Terminal. The game
-  hub currently documents the six-stage learning loop and accurately labels
-  the first playable case as under development.
+  existing real-company tools inside the Company Research Terminal. The first
+  playable case now runs as a nine-scene, fixed-screen investigation with
+  device-local checkpoints, distinct interaction mechanics, hidden keepsakes,
+  and a source-bound Historical Lens transfer challenge.
 - Present two explicit coverage layers in the Company Research Terminal:
   on-demand identity,
   market, disclosure, and annual-report entry points for Shanghai, Shenzhen,

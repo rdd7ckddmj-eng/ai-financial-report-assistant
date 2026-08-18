@@ -178,6 +178,10 @@ def test_game_intake_and_all_nine_scenes_share_one_screen_contract() -> None:
 import streamlit as st
 from types import SimpleNamespace
 from src import app
+from src.cash_case_game import (
+    build_cash_evidence_case,
+    build_cash_evidence_lab_public_task,
+)
 
 if {has_player!r}:
     st.session_state["game_player_name"] = "北辰"
@@ -186,6 +190,33 @@ st.session_state.setdefault("cash_defense_lives", 3)
 st.session_state.setdefault("cash_defense_round_index", 0)
 st.session_state.setdefault("cash_defense_attempt_index", 0)
 st.session_state.setdefault("cash_defense_completed_explanations", [])
+if {stage!r} in {{"reading", "cross_check", "evidence"}}:
+    evidence_case = build_cash_evidence_case(0)
+    lab_task = build_cash_evidence_lab_public_task(evidence_case)
+    phase = {{
+        "reading": "reading",
+        "cross_check": "classification",
+        "evidence": "chain",
+    }}[{stage!r}]
+    st.session_state["cash_evidence_attempt_index"] = 0
+    st.session_state["cash_discovered_document_ids"] = [
+        item["document_id"] for item in evidence_case["documents"]
+    ]
+    st.session_state["cash_evidence_lab_version"] = 1
+    st.session_state["cash_evidence_lab_revision"] = 0
+    st.session_state["cash_evidence_lab_task_id"] = lab_task["task_id"]
+    st.session_state["cash_evidence_lab_phase"] = phase
+    st.session_state["cash_evidence_lab_reading_viewed_ids"] = []
+    st.session_state["cash_evidence_lab_reading_accepted_ids"] = []
+    st.session_state["cash_evidence_lab_classification_accepted"] = {{}}
+    st.session_state["cash_evidence_lab_chain_accepted"] = {{}}
+    app.render_cash_evidence_lab = lambda **kwargs: SimpleNamespace(
+        command=None
+    )
+if {stage!r} == "defense":
+    app.render_cash_defense_committee = lambda **kwargs: SimpleNamespace(
+        command=None
+    )
 original_storage = app._HONOUR_ARCHIVE_STORAGE
 original_poster = app._HONOUR_POSTER
 try:
@@ -198,7 +229,7 @@ finally:
     app._HONOUR_ARCHIVE_STORAGE = original_storage
     app._HONOUR_POSTER = original_poster
 '''
-        app_test = AppTest.from_string(script).run()
+        app_test = AppTest.from_string(script).run(timeout=10)
 
         assert not app_test.exception
         page_markup = _all_rendered_markup(app_test)
@@ -469,495 +500,1463 @@ finally:
     assert "你也想发抖音吗" in page_markup
 
 
-def test_cash_case_fact_attribution_unlocks_the_inference_terminal() -> None:
-    """Scene three should test two-clock attribution, not date sorting."""
+def test_cash_case_scene_mounts_a_playable_component_without_form_widgets() -> None:
+    """Scene three is one interactive game surface, not a disguised form."""
     from streamlit.testing.v1 import AppTest
 
     script = """
 import streamlit as st
-from src.app import render_game_hub_page
+from types import SimpleNamespace
+from src import app
+
+def fake_component(**kwargs):
+    st.session_state["_test_dual_clock_state"] = kwargs["state"]
+    return SimpleNamespace(command=None)
 
 st.session_state["game_player_name"] = "北辰"
-st.session_state["cash_case_stage"] = "practice"
+st.session_state.setdefault("cash_case_stage", "practice")
 st.session_state.setdefault("cash_case_attempt_index", 0)
-render_game_hub_page()
+app.render_cash_dual_clock_game = fake_component
+app.render_game_hub_page()
 """
     app_test = AppTest.from_string(script).run()
 
     assert not app_test.exception
     assert not app_test.radio
-    assert [item.label for item in app_test.multiselect] == [
-        "利润时钟｜确认与成本",
-        "现金时钟｜真实收付",
-    ]
-    page_markup = _all_rendered_markup(app_test)
-    assert "日期只划报告期边界，不是排序题" in "\n".join(
-        item.value for item in app_test.caption
-    )
-    assert "双时钟证据板" in page_markup
-
-    app_test.multiselect[0].set_value(
-        ["service_completed", "expense_incurred"]
-    )
-    app_test.multiselect[1].set_value(
-        ["expense_paid", "cash_collected"]
-    )
-    next(
-        item
-        for item in app_test.button
-        if item.label == "锁定事实归因｜启动双表计算"
-    ).click().run()
-
-    assert not app_test.exception
-    assert app_test.session_state["cash_clock_assignment_unlocked"] is True
-    assert any(
-        item.label == "这个差额目前最稳妥的解释是什么？"
-        for item in app_test.radio
-    )
-    assert "归因成立" in _all_rendered_markup(app_test)
+    assert not app_test.multiselect
+    assert app_test.session_state["cash_dual_clock_phase"] == "routes"
+    assert app_test.session_state["cash_dual_clock_version"] == 1
+    state = app_test.session_state["_test_dual_clock_state"]
+    assert len(state["cards"]) == 6
+    assert {item["id"] for item in state["zones"]} == {
+        "profit", "cash", "both", "neither"
+    }
+    assert state["keepsake_discovered"] is False
 
 
 def test_wrong_clock_assignment_stays_on_the_same_dossier() -> None:
-    """A wrong attribution should teach the distinction without busywork."""
+    """Only conflicting cards bounce; accepted work remains on the desk."""
     from streamlit.testing.v1 import AppTest
 
     script = """
 import streamlit as st
-from src.app import render_game_hub_page
+from types import SimpleNamespace
+from src import app
+from src.cash_case_game import build_cash_timing_question
+
+question = build_cash_timing_question(0)
+if "_test_dual_clock_seeded" not in st.session_state:
+    st.session_state["_test_dual_clock_seeded"] = True
+    st.session_state["_test_dual_clock_command"] = {
+        "schema_version": 1,
+        "command_id": "wrong-route-1",
+        "question_id": question["question_id"],
+        "revision": 0,
+        "action": "submit_routes",
+        "bins": {
+            "contract_signed": "neither",
+            "service_completed": "profit",
+            "expense_incurred": "profit",
+            "expense_paid": "cash",
+            "cash_collected": "cash",
+            "future_payment_plan": "cash",
+        },
+    }
+
+def fake_component(**kwargs):
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_dual_clock_command", None)
+    )
 
 st.session_state["game_player_name"] = "北辰"
 st.session_state["cash_case_stage"] = "practice"
 st.session_state.setdefault("cash_case_attempt_index", 0)
-render_game_hub_page()
+app.render_cash_dual_clock_game = fake_component
+app.render_game_hub_page()
 """
     app_test = AppTest.from_string(script).run()
-
-    app_test.multiselect[0].set_value(["contract_signed"])
-    app_test.multiselect[1].set_value(["future_payment_plan"])
-    next(
-        item
-        for item in app_test.button
-        if item.label == "锁定事实归因｜启动双表计算"
-    ).click().run()
 
     assert not app_test.exception
     assert app_test.session_state["cash_case_attempt_index"] == 0
     assert "cash_clock_assignment_unlocked" not in app_test.session_state
-    retry_markup = _all_rendered_markup(app_test)
-    assert "DYNAMIC DOSSIER 01" in retry_markup
-    assert "两只时钟都混入了不属于自己的事实" in retry_markup
-    assert len(app_test.multiselect) == 2
+    assert app_test.session_state["cash_dual_clock_phase"] == "routes"
+    assert app_test.session_state["cash_dual_clock_revision"] == 0
+    placements = app_test.session_state[
+        "_wfz_cash_dual_clock_placements_routes"
+    ]
+    assert len(placements) == 5
+    assert "future_payment_plan" not in placements
+    feedback = app_test.session_state["_wfz_cash_dual_clock_feedback"]
+    assert feedback["title"] == "只退回有矛盾的材料"
 
 
-def test_cash_case_wrong_inference_preserves_completed_attribution() -> None:
-    """A wrong inference must not make the player repeat the prior challenge."""
+def test_correct_clock_routes_unlock_the_gap_token_scene() -> None:
+    """Correct dragging advances one scene and never exposes a radio quiz."""
     from streamlit.testing.v1 import AppTest
 
     script = """
 import streamlit as st
-from src.app import render_game_hub_page
+from types import SimpleNamespace
+from src import app
+from src.cash_case_game import build_cash_timing_question
+
+question = build_cash_timing_question(0)
+if "_test_dual_clock_seeded" not in st.session_state:
+    st.session_state["_test_dual_clock_seeded"] = True
+    st.session_state["_test_dual_clock_command"] = {
+        "schema_version": 1,
+        "command_id": "correct-route-1",
+        "question_id": question["question_id"],
+        "revision": 0,
+        "action": "submit_routes",
+        "bins": {
+            "contract_signed": "neither",
+            "service_completed": "profit",
+            "expense_incurred": "profit",
+            "expense_paid": "cash",
+            "cash_collected": "cash",
+            "future_payment_plan": "neither",
+        },
+    }
+
+def fake_component(**kwargs):
+    st.session_state["_test_dual_clock_state"] = kwargs["state"]
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_dual_clock_command", None)
+    )
 
 st.session_state["game_player_name"] = "北辰"
 st.session_state["cash_case_stage"] = "practice"
 st.session_state.setdefault("cash_case_attempt_index", 0)
-st.session_state["cash_clock_assignment_unlocked"] = True
-render_game_hub_page()
+app.render_cash_dual_clock_game = fake_component
+app.render_game_hub_page()
 """
     app_test = AppTest.from_string(script).run()
 
     assert not app_test.exception
-    first_markup = _all_rendered_markup(app_test)
-    assert "wfz-practice-scene" in first_markup
-    assert "一笔业务，两只计量表" in first_markup
-    assert "双时钟证据板" in first_markup
-    first_radio = next(
-        item for item in app_test.radio
-        if item.label == "这个差额目前最稳妥的解释是什么？"
-    )
-    first_radio.set_value(
-        "100万元说明回款质量已经恶化；即使尚未检查合同到期日，也应把"
-        "‘客户可能违约’写成确定结论。"
-    )
-    next(
-        item for item in app_test.button
-        if item.label == "签发调查令｜进入证据现场"
-    ).click().run()
-
-    assert not app_test.exception
-    assert app_test.session_state["cash_case_attempt_index"] == 0
     assert app_test.session_state["cash_clock_assignment_unlocked"] is True
-    assert any(
-        item.label == "这个差额目前最稳妥的解释是什么？"
-        for item in app_test.radio
-    )
-    retry_markup = _all_rendered_markup(app_test)
-    assert "前置归因已经保留，不需要重做" in retry_markup
-    assert "风险信号不能跳过合同期限直接升级为违约结论" in retry_markup
-    assert "wfz-practice-director--retry" in retry_markup
+    assert app_test.session_state["cash_dual_clock_phase"] == "hypothesis"
+    assert app_test.session_state["cash_dual_clock_revision"] == 1
+    assert not app_test.radio
+    state = app_test.session_state["_test_dual_clock_state"]
+    assert state["phase"] == "hypothesis"
+    assert state["gap_token"]["title"] == "100 万元"
 
 
-def test_cash_case_correct_answer_opens_evidence_room_but_keeps_mission_locked() -> None:
-    """The calculation node should lead to evidence, not skip the sequence."""
-    from src.cash_case_game import build_cash_timing_question
+def test_wrong_gap_hypothesis_preserves_completed_clock_routes() -> None:
+    """A wrong hypothesis should not make the player sort six facts again."""
     from streamlit.testing.v1 import AppTest
 
     script = """
 import streamlit as st
-from src.app import render_game_hub_page
+from types import SimpleNamespace
+from src import app
+from src.cash_case_game import build_cash_timing_question
+
+question = build_cash_timing_question(0)
+accepted_routes = {
+    "contract_signed": "neither",
+    "service_completed": "profit",
+    "expense_incurred": "profit",
+    "expense_paid": "cash",
+    "cash_collected": "cash",
+    "future_payment_plan": "neither",
+}
+if "_test_dual_clock_seeded" not in st.session_state:
+    st.session_state["_test_dual_clock_seeded"] = True
+    st.session_state["cash_dual_clock_version"] = 1
+    st.session_state["cash_dual_clock_revision"] = 1
+    st.session_state["cash_dual_clock_phase"] = "hypothesis"
+    st.session_state["cash_clock_assignment_unlocked"] = True
+    st.session_state["_wfz_cash_dual_clock_placements_routes"] = accepted_routes
+    st.session_state["_test_dual_clock_command"] = {
+        "schema_version": 1,
+        "command_id": "wrong-hypothesis-1",
+        "question_id": question["question_id"],
+        "revision": 1,
+        "action": "submit_hypothesis",
+        "hypothesis_id": "proven_fraud",
+    }
+
+def fake_component(**kwargs):
+    st.session_state["_test_dual_clock_state"] = kwargs["state"]
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_dual_clock_command", None)
+    )
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state["cash_case_stage"] = "practice"
+st.session_state.setdefault("cash_case_attempt_index", 0)
+app.render_cash_dual_clock_game = fake_component
+app.render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_dual_clock_phase"] == "hypothesis"
+    assert app_test.session_state["cash_dual_clock_revision"] == 1
+    assert app_test.session_state["cash_clock_assignment_unlocked"] is True
+    assert app_test.session_state[
+        "_wfz_cash_dual_clock_placements_routes"
+    ] == {
+        "contract_signed": "neither",
+        "service_completed": "profit",
+        "expense_incurred": "profit",
+        "expense_paid": "cash",
+        "cash_collected": "cash",
+        "future_payment_plan": "neither",
+    }
+    assert app_test.session_state[
+        "_wfz_cash_dual_clock_placements_hypothesis"
+    ] == {}
+    feedback = app_test.session_state["_wfz_cash_dual_clock_feedback"]
+    assert feedback["title"] == "只退回有矛盾的材料"
+    assert "不能直接证明造假" in feedback["message"]
+    assert not app_test.radio
+    assert not app_test.multiselect
+
+
+def test_correct_orders_unlock_door_then_open_evidence_room() -> None:
+    """The issued order must pass Python checks before the office opens."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+from src.cash_case_game import build_cash_timing_question
+
+question = build_cash_timing_question(0)
+if "_test_dual_clock_seeded" not in st.session_state:
+    st.session_state["_test_dual_clock_seeded"] = True
+    st.session_state["cash_dual_clock_version"] = 1
+    st.session_state["cash_dual_clock_revision"] = 2
+    st.session_state["cash_dual_clock_phase"] = "orders"
+    st.session_state["cash_clock_assignment_unlocked"] = True
+    st.session_state["cash_gap_hypothesis_unlocked"] = True
+    st.session_state["_test_dual_clock_command"] = {
+        "schema_version": 1,
+        "command_id": "correct-orders-1",
+        "question_id": question["question_id"],
+        "revision": 2,
+        "action": "submit_orders",
+        "pockets": {
+            "income_boundary": "contract_acceptance",
+            "receivable_existence": "receivable_aging",
+            "subsequent_cash": "bank_statement",
+        },
+        "discarded": ["management_promise"],
+    }
+
+def fake_component(**kwargs):
+    st.session_state["_test_dual_clock_state"] = kwargs["state"]
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_dual_clock_command", None)
+    )
 
 st.session_state["game_player_name"] = "北辰"
 st.session_state.setdefault("cash_case_stage", "practice")
 st.session_state.setdefault("cash_case_attempt_index", 0)
-st.session_state["cash_clock_assignment_unlocked"] = True
-render_game_hub_page()
+app.render_cash_dual_clock_game = fake_component
+app.render_game_hub_page()
 """
     app_test = AppTest.from_string(script).run()
 
     assert not app_test.exception
-    question = build_cash_timing_question(0)
-    next(
-        item for item in app_test.radio
-        if item.label == "这个差额目前最稳妥的解释是什么？"
-    ).set_value(question["correct_inference_option"])
-    next(
-        item for item in app_test.button
-        if item.label == "签发调查令｜进入证据现场"
-    ).click().run()
+    assert app_test.session_state["cash_dual_clock_phase"] == "door"
+    assert app_test.session_state["cash_dual_clock_revision"] == 3
+    assert app_test.session_state[
+        "cash_investigation_orders_unlocked"
+    ] is True
+    assert app_test.session_state[
+        "_wfz_cash_dual_clock_placements_orders"
+    ] == {
+        "contract_acceptance": "income_boundary",
+        "receivable_aging": "receivable_existence",
+        "bank_statement": "subsequent_cash",
+        "management_promise": "discarded",
+    }
+    door_state = app_test.session_state["_test_dual_clock_state"]
+    assert door_state["phase"] == "door"
+
+    question_id = door_state["question_id"] if "question_id" in door_state else None
+    if question_id is None:
+        from src.cash_case_game import build_cash_timing_question
+
+        question_id = build_cash_timing_question(0)["question_id"]
+    app_test.session_state["_test_dual_clock_command"] = {
+        "schema_version": 1,
+        "command_id": "open-door-1",
+        "question_id": question_id,
+        "revision": 3,
+        "action": "open_door",
+    }
+    app_test.run()
 
     assert not app_test.exception
-    assert app_test.session_state["cash_case_stage"] == "timing_completed"
-    completed_markup = _all_rendered_markup(app_test)
-    assert "wfz-practice-complete-scene" in completed_markup
-    assert "你解释了差额，但还没有证明差额" in completed_markup
-    assert "调查令 01｜收入边界" in completed_markup
-    assert "调查令 02｜应收存在" in completed_markup
-    assert "调查令 03｜期后回款" in completed_markup
-    assert any(
-        button.label == "打开办公室门禁｜开始证据探索"
-        for button in app_test.button
-    )
+    assert app_test.session_state["cash_case_stage"] == "investigation"
+    assert app_test.session_state["cash_evidence_attempt_index"] == 0
+    assert app_test.session_state["cash_discovered_document_ids"] == []
 
 
-def test_office_search_requires_all_six_documents_before_reading() -> None:
-    """The office is a searchable scene, not a decorative introduction."""
+def test_discover_dual_clock_keepsake_does_not_advance_the_phase() -> None:
+    """A hidden-object discovery is optional and must not skip learning."""
     from streamlit.testing.v1 import AppTest
 
     script = """
 import streamlit as st
-from src.app import render_game_hub_page
+from types import SimpleNamespace
+from src import app
+from src.cash_case_game import build_cash_timing_question
+
+question = build_cash_timing_question(0)
+if "_test_dual_clock_seeded" not in st.session_state:
+    st.session_state["_test_dual_clock_seeded"] = True
+    st.session_state["_test_dual_clock_command"] = {
+        "schema_version": 1,
+        "command_id": "discover-ruler-1",
+        "question_id": question["question_id"],
+        "revision": 0,
+        "action": "discover_keepsake",
+    }
+
+def fake_component(**kwargs):
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_dual_clock_command", None)
+    )
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state["cash_case_stage"] = "practice"
+st.session_state.setdefault("cash_case_attempt_index", 0)
+app.render_cash_dual_clock_game = fake_component
+app.render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_dual_clock_phase"] == "routes"
+    assert app_test.session_state["cash_dual_clock_revision"] == 0
+    assert app_test.session_state["cash_game_pending_keepsakes"] == [
+        "brass_timeline_ruler"
+    ]
+    feedback = app_test.session_state["_wfz_cash_dual_clock_feedback"]
+    assert feedback["title"] == "物品栏新增｜双轨校准尺"
+
+
+def test_dual_clock_toolbar_go_back_stays_inside_scene_three() -> None:
+    """Back from hypothesis returns to routes without leaving the game scene."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+from src.cash_case_game import build_cash_timing_question
+
+question = build_cash_timing_question(0)
+accepted_routes = {
+    "contract_signed": "neither",
+    "service_completed": "profit",
+    "expense_incurred": "profit",
+    "expense_paid": "cash",
+    "cash_collected": "cash",
+    "future_payment_plan": "neither",
+}
+if "_test_toolbar_seeded" not in st.session_state:
+    st.session_state["_test_toolbar_seeded"] = True
+    st.session_state["cash_dual_clock_version"] = 1
+    st.session_state["cash_dual_clock_revision"] = 1
+    st.session_state["cash_dual_clock_phase"] = "hypothesis"
+    st.session_state["cash_clock_assignment_unlocked"] = True
+    st.session_state["_wfz_cash_dual_clock_placements_routes"] = accepted_routes
+    st.session_state["_wfz_cash_dual_clock_last_command_id"] = "finance-ack-1"
+    st.session_state["_test_dual_clock_command"] = {
+        "schema_version": 1,
+        "command_id": "toolbar-back-1",
+        "question_id": question["question_id"],
+        "revision": 1,
+        "action": "go_back",
+    }
+
+def fake_component(**kwargs):
+    st.session_state["_test_dual_clock_state"] = kwargs["state"]
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_dual_clock_command", None)
+    )
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state["cash_case_stage"] = "practice"
+st.session_state.setdefault("cash_case_attempt_index", 0)
+app.render_cash_dual_clock_game = fake_component
+app.render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_case_stage"] == "practice"
+    assert app_test.session_state["cash_dual_clock_phase"] == "routes"
+    assert app_test.session_state["cash_dual_clock_revision"] == 2
+    assert app_test.session_state[
+        "_wfz_cash_dual_clock_placements_routes"
+    ] == {
+        "contract_signed": "neither",
+        "service_completed": "profit",
+        "expense_incurred": "profit",
+        "expense_paid": "cash",
+        "cash_collected": "cash",
+        "future_payment_plan": "neither",
+    }
+    assert app_test.session_state[
+        "_wfz_cash_dual_clock_last_command_id"
+    ] == "finance-ack-1"
+    assert app_test.session_state[
+        "_wfz_cash_dual_clock_last_ui_command_id"
+    ] == "toolbar-back-1"
+    assert app_test.session_state[
+        "_wfz_cash_dual_clock_draft_status"
+    ] == "preserve"
+    assert app_test.session_state["_test_dual_clock_state"]["phase"] == (
+        "routes"
+    )
+
+
+def test_dual_clock_toolbar_rename_opens_overlay_and_preserves_draft() -> None:
+    """Rename is a reversible overlay and must not acknowledge away a draft."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+from src.cash_case_game import build_cash_timing_question
+
+question = build_cash_timing_question(0)
+hypothesis_draft = {"profit-cash-gap": "receivable_pending"}
+if "_test_toolbar_seeded" not in st.session_state:
+    st.session_state["_test_toolbar_seeded"] = True
+    st.session_state["cash_dual_clock_version"] = 1
+    st.session_state["cash_dual_clock_revision"] = 1
+    st.session_state["cash_dual_clock_phase"] = "hypothesis"
+    st.session_state["cash_clock_assignment_unlocked"] = True
+    st.session_state["_wfz_cash_dual_clock_placements_hypothesis"] = (
+        hypothesis_draft
+    )
+    st.session_state["_wfz_cash_dual_clock_last_command_id"] = "finance-ack-2"
+    st.session_state["_test_dual_clock_command"] = {
+        "schema_version": 1,
+        "command_id": "toolbar-rename-1",
+        "question_id": question["question_id"],
+        "revision": 1,
+        "action": "rename_player",
+    }
+
+def fake_component(**kwargs):
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_dual_clock_command", None)
+    )
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state["cash_case_stage"] = "practice"
+st.session_state.setdefault("cash_case_attempt_index", 0)
+app.render_cash_dual_clock_game = fake_component
+app.render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    assert app_test.session_state["_wfz_cash_game_overlay"] == "rename"
+    assert app_test.session_state["cash_case_stage"] == "practice"
+    assert app_test.session_state["cash_dual_clock_phase"] == "hypothesis"
+    assert app_test.session_state["cash_dual_clock_revision"] == 1
+    assert app_test.session_state[
+        "_wfz_cash_dual_clock_placements_hypothesis"
+    ] == {"profit-cash-gap": "receivable_pending"}
+    assert app_test.session_state[
+        "_wfz_cash_dual_clock_last_command_id"
+    ] == "finance-ack-2"
+    assert app_test.session_state[
+        "_wfz_cash_dual_clock_draft_status"
+    ] == "preserve"
+    assert any(
+        item.label == "新的调查员代号" for item in app_test.text_input
+    )
+
+
+def test_dual_clock_toolbar_restart_opens_confirmation_without_reset() -> None:
+    """Restart must show the existing choice overlay before clearing progress."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+from src.cash_case_game import build_cash_timing_question
+
+question = build_cash_timing_question(0)
+orders_draft = {"contract_acceptance": "income_boundary"}
+if "_test_toolbar_seeded" not in st.session_state:
+    st.session_state["_test_toolbar_seeded"] = True
+    st.session_state["cash_dual_clock_version"] = 1
+    st.session_state["cash_dual_clock_revision"] = 2
+    st.session_state["cash_dual_clock_phase"] = "orders"
+    st.session_state["cash_clock_assignment_unlocked"] = True
+    st.session_state["cash_gap_hypothesis_unlocked"] = True
+    st.session_state["_wfz_cash_dual_clock_placements_orders"] = orders_draft
+    st.session_state["_test_dual_clock_command"] = {
+        "schema_version": 1,
+        "command_id": "toolbar-restart-1",
+        "question_id": question["question_id"],
+        "revision": 2,
+        "action": "restart_game",
+    }
+
+def fake_component(**kwargs):
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_dual_clock_command", None)
+    )
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state["cash_case_stage"] = "practice"
+st.session_state.setdefault("cash_case_attempt_index", 0)
+app.render_cash_dual_clock_game = fake_component
+app.render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    assert app_test.session_state["_wfz_cash_game_overlay"] == "reset"
+    assert app_test.session_state["cash_case_stage"] == "practice"
+    assert app_test.session_state["cash_dual_clock_phase"] == "orders"
+    assert app_test.session_state["cash_dual_clock_revision"] == 2
+    assert app_test.session_state[
+        "_wfz_cash_dual_clock_placements_orders"
+    ] == {"contract_acceptance": "income_boundary"}
+    button_labels = [item.label for item in app_test.button]
+    assert "保留代号｜从教学重新开始" in button_labels
+    assert "清除代号｜返回取名页" in button_labels
+
+
+def test_dual_clock_toolbar_exit_routes_home_without_resetting_scene() -> None:
+    """Exit hands off to home while leaving the resumable scene untouched."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+from src.cash_case_game import build_cash_timing_question
+
+question = build_cash_timing_question(0)
+route_draft = {"contract_signed": "neither"}
+if "_test_toolbar_seeded" not in st.session_state:
+    st.session_state["_test_toolbar_seeded"] = True
+    st.session_state["cash_dual_clock_version"] = 1
+    st.session_state["cash_dual_clock_revision"] = 0
+    st.session_state["cash_dual_clock_phase"] = "routes"
+    st.session_state["_wfz_cash_dual_clock_placements_routes"] = route_draft
+    st.session_state["_test_dual_clock_command"] = {
+        "schema_version": 1,
+        "command_id": "toolbar-exit-1",
+        "question_id": question["question_id"],
+        "revision": 0,
+        "action": "exit_game",
+    }
+
+def fake_component(**kwargs):
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_dual_clock_command", None)
+    )
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state["cash_case_stage"] = "practice"
+st.session_state.setdefault("cash_case_attempt_index", 0)
+app.render_cash_dual_clock_game = fake_component
+app._switch_page = lambda name: st.session_state.__setitem__(
+    "_test_target_page", name
+)
+app.render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    assert app_test.session_state["_test_target_page"] == "home"
+    assert app_test.session_state["cash_case_stage"] == "practice"
+    assert app_test.session_state["cash_dual_clock_phase"] == "routes"
+    assert app_test.session_state["cash_dual_clock_revision"] == 0
+    assert app_test.session_state[
+        "_wfz_cash_dual_clock_placements_routes"
+    ] == {"contract_signed": "neither"}
+    assert app_test.session_state[
+        "_wfz_cash_dual_clock_draft_status"
+    ] == "preserve"
+
+
+def test_office_search_requires_all_six_documents_before_reading() -> None:
+    """The spatial component discovers only server-mapped office documents."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+
+def fake_component(**kwargs):
+    st.session_state["_test_office_state"] = kwargs["state"]
+    st.session_state["_test_office_question_id"] = kwargs["question_id"]
+    st.session_state["_test_office_revision"] = kwargs["revision"]
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_office_command", None)
+    )
 
 st.session_state["game_player_name"] = "北辰"
 st.session_state.setdefault("cash_case_stage", "investigation")
 st.session_state.setdefault("cash_evidence_attempt_index", 0)
 st.session_state.setdefault("cash_discovered_document_ids", [])
-render_game_hub_page()
+app.render_cash_office_search = fake_component
+app.render_game_hub_page()
 """
     app_test = AppTest.from_string(script).run()
-    rendered_markup = _all_rendered_markup(app_test)
-    assert "wfz-visual-stage" in rendered_markup
-    assert "cash-game-mentor-04.png" in rendered_markup
-    assert "wfz-office-search-scene" in rendered_markup
-    assert len(
-        [button for button in app_test.button if button.label == "◉"]
-    ) == 8
-    finish_button = next(
-        item for item in app_test.button
-        if item.label == "结束搜查｜进入多材料深度研读"
-    )
-    assert finish_button.disabled is True
-
-    for location in (
-        "会议室投影幕布",
-        "上锁的合同柜",
-        "茶水间遗落的手机",
-        "打印机出纸托盘",
-        "财务共享盘的深层文件夹",
-        "碎纸机旁的待归档纸袋",
-    ):
-        next(
-            item for item in app_test.button
-            if item.label == f"搜查｜{location}"
-        ).click().run()
-
     assert not app_test.exception
-    assert len(app_test.session_state["cash_discovered_document_ids"]) == 6
-    finish_button = next(
-        item for item in app_test.button
-        if item.label == "结束搜查｜进入多材料深度研读"
+    first_state = app_test.session_state["_test_office_state"]
+    assert first_state["count"] == 0
+    assert first_state["required_count"] == 6
+    assert first_state["search_complete"] is False
+    assert len(first_state["locations"]) == 8
+    assert first_state["discovered_documents"] == []
+    assert all(
+        "document_id" not in location
+        for location in first_state["locations"]
+        if location["status"] == "unsearched"
     )
-    assert finish_button.disabled is False
-    finish_button.click().run()
+    assert [
+        order["id"] for order in first_state["handoff"]["orders"]
+    ] == [
+        "income_boundary",
+        "receivable_existence",
+        "subsequent_cash",
+    ]
+
+    question_id = app_test.session_state["_test_office_question_id"]
+    for command_index, location_id in enumerate(
+        (
+            "meeting_projection",
+            "locked_contract_cabinet",
+            "tea_room_phone",
+            "printer_output_tray",
+            "finance_shared_drive",
+            "shredder_archive_bag",
+        ),
+        start=1,
+    ):
+        app_test.session_state["_test_office_command"] = {
+            "schema_version": 1,
+            "command_id": f"office-discover-{command_index}",
+            "question_id": question_id,
+            "revision": app_test.session_state[
+                "cash_office_search_revision"
+            ],
+            "action": "discover_location",
+            "location_id": location_id,
+        }
+        app_test.run()
+        assert not app_test.exception
+
+    assert len(app_test.session_state["cash_discovered_document_ids"]) == 6
+    complete_state = app_test.session_state["_test_office_state"]
+    assert complete_state["count"] == 6
+    assert complete_state["search_complete"] is True
+    assert len(complete_state["discovered_documents"]) == 6
+    app_test.session_state["_test_office_command"] = {
+        "schema_version": 1,
+        "command_id": "office-finish-1",
+        "question_id": question_id,
+        "revision": app_test.session_state["cash_office_search_revision"],
+        "action": "finish_search",
+    }
+    app_test.run()
+    assert not app_test.exception
     assert app_test.session_state["cash_case_stage"] == "reading"
 
 
-def test_cross_check_opens_evidence_chain_only_after_report_date_boundary() -> None:
-    """A correct date-boundary check is required before evidence chaining."""
+def test_office_award_keepsake_survives_decoy_search_and_stage_exit() -> None:
+    """The crystal's second interaction must reach the Stage 4 inventory."""
     from streamlit.testing.v1 import AppTest
-
-    from src.cash_case_game import (
-        build_cash_cross_check_task,
-        build_cash_evidence_case,
-    )
 
     script = """
 import streamlit as st
-from src.app import render_game_hub_page
+from types import SimpleNamespace
+from src import app
+
+def fake_component(**kwargs):
+    st.session_state["_test_office_state"] = kwargs["state"]
+    st.session_state["_test_office_question_id"] = kwargs["question_id"]
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_office_command", None)
+    )
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state.setdefault("cash_case_stage", "investigation")
+st.session_state.setdefault("cash_evidence_attempt_index", 0)
+st.session_state.setdefault("cash_discovered_document_ids", [])
+app.render_cash_office_search = fake_component
+app.render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+    assert not app_test.exception
+    question_id = app_test.session_state["_test_office_question_id"]
+
+    app_test.session_state["_test_office_command"] = {
+        "schema_version": 1,
+        "command_id": "office-crystal-decoy-1",
+        "question_id": question_id,
+        "revision": 0,
+        "action": "discover_location",
+        "location_id": "crystal_award",
+    }
+    app_test.run()
+    assert not app_test.exception
+    assert next(
+        location
+        for location in app_test.session_state["_test_office_state"][
+            "locations"
+        ]
+        if location["id"] == "crystal_award"
+    )["status"] == "decoy"
+
+    app_test.session_state["_test_office_command"] = {
+        "schema_version": 1,
+        "command_id": "office-crystal-keepsake-1",
+        "question_id": question_id,
+        "revision": 1,
+        "action": "discover_keepsake",
+    }
+    app_test.run()
+    assert not app_test.exception
+    assert app_test.session_state["cash_game_pending_keepsakes"] == [
+        "frosted_lens"
+    ]
+    assert app_test.session_state["_test_office_state"][
+        "keepsake_discovered"
+    ] is True
+
+    for command_index, location_id in enumerate(
+        (
+            "meeting_projection",
+            "locked_contract_cabinet",
+            "tea_room_phone",
+            "printer_output_tray",
+            "finance_shared_drive",
+            "shredder_archive_bag",
+        ),
+        start=2,
+    ):
+        app_test.session_state["_test_office_command"] = {
+            "schema_version": 1,
+            "command_id": f"office-after-keepsake-{command_index}",
+            "question_id": question_id,
+            "revision": app_test.session_state[
+                "cash_office_search_revision"
+            ],
+            "action": "discover_location",
+            "location_id": location_id,
+        }
+        app_test.run()
+        assert not app_test.exception
+
+    app_test.session_state["_test_office_command"] = {
+        "schema_version": 1,
+        "command_id": "office-after-keepsake-finish",
+        "question_id": question_id,
+        "revision": app_test.session_state["cash_office_search_revision"],
+        "action": "finish_search",
+    }
+    app_test.run()
+    assert not app_test.exception
+    assert app_test.session_state["cash_game_keepsakes"] == ["frosted_lens"]
+    assert app_test.session_state["cash_game_pending_keepsakes"] == []
+    assert app_test.session_state["_wfz_cash_game_overlay"] == "reward"
+
+
+def test_office_component_cleanup_is_scoped_to_its_own_render() -> None:
+    """An old v2 cleanup must never cancel the next scene's listeners."""
+    source = Path("src/static/cash-office-search-game.js").read_text(
+        encoding="utf-8"
+    )
+
+    assert "const cleanup = () =>" in source
+    assert "if (root.__officeSearchCleanup === cleanup)" in source
+    assert (
+        "return () => {\n    root.__officeSearchCleanup?.();"
+        not in source
+    )
+
+
+def test_office_search_toolbar_back_preserves_discovered_documents() -> None:
+    """The full-screen back control returns to Stage 3 without erasing work."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+from src.cash_case_game import build_cash_evidence_case
+
+evidence_case = build_cash_evidence_case(0)
+if "_test_office_toolbar_seeded" not in st.session_state:
+    st.session_state["_test_office_toolbar_seeded"] = True
+    st.session_state["cash_discovered_document_ids"] = ["contract_clause"]
+    st.session_state["_test_office_command"] = {
+        "schema_version": 1,
+        "command_id": "office-back-1",
+        "question_id": f"cash-office-search:{evidence_case['case_id']}",
+        "revision": 1,
+        "action": "go_back",
+    }
+
+def fake_component(**kwargs):
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_office_command", None)
+    )
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state.setdefault("cash_case_stage", "investigation")
+st.session_state.setdefault("cash_evidence_attempt_index", 0)
+app.render_cash_office_search = fake_component
+app.render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_case_stage"] == "practice"
+    assert app_test.session_state["cash_discovered_document_ids"] == [
+        "contract_clause"
+    ]
+    assert app_test.session_state[
+        "_wfz_cash_office_search_draft_status"
+    ] == "preserve"
+
+
+def test_office_search_toolbar_rename_preserves_discovered_documents() -> None:
+    """Rename opens the shared overlay while leaving Stage 4 progress intact."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+from src.cash_case_game import build_cash_evidence_case
+
+evidence_case = build_cash_evidence_case(0)
+if "_test_office_toolbar_seeded" not in st.session_state:
+    st.session_state["_test_office_toolbar_seeded"] = True
+    st.session_state["cash_discovered_document_ids"] = ["contract_clause"]
+    st.session_state["_test_office_command"] = {
+        "schema_version": 1,
+        "command_id": "office-rename-1",
+        "question_id": f"cash-office-search:{evidence_case['case_id']}",
+        "revision": 1,
+        "action": "rename_player",
+    }
+
+def fake_component(**kwargs):
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_office_command", None)
+    )
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state.setdefault("cash_case_stage", "investigation")
+st.session_state.setdefault("cash_evidence_attempt_index", 0)
+app.render_cash_office_search = fake_component
+app.render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_case_stage"] == "investigation"
+    assert app_test.session_state["_wfz_cash_game_overlay"] == "rename"
+    assert app_test.session_state["cash_discovered_document_ids"] == [
+        "contract_clause"
+    ]
+    assert app_test.session_state[
+        "_wfz_cash_office_search_draft_status"
+    ] == "preserve"
+    assert any(item.label == "新的调查员代号" for item in app_test.text_input)
+
+
+def test_evidence_lab_completes_three_phases_without_research_file_reset() -> None:
+    """The continuous lab advances only after each server-verified phase."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+from src.cash_case_game import build_cash_evidence_case
+
+evidence_case = build_cash_evidence_case(0)
+
+def fake_component(**kwargs):
+    st.session_state["_test_lab_state"] = kwargs["state"]
+    st.session_state["_test_lab_task_id"] = kwargs["task_id"]
+    st.session_state["_test_lab_revision"] = kwargs["revision"]
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_lab_command", None)
+    )
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state.setdefault("cash_case_stage", "reading")
+st.session_state.setdefault("cash_evidence_attempt_index", 0)
+st.session_state.setdefault(
+    "cash_discovered_document_ids",
+    [item["document_id"] for item in evidence_case["documents"]],
+)
+app.render_cash_evidence_lab = fake_component
+app.render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run(timeout=10)
+
+    assert not app_test.exception
+    task_id = app_test.session_state["_test_lab_task_id"]
+    task = app_test.session_state["_test_lab_state"]["task"]
+    document_ids = [
+        item["document_id"] for item in task["reading"]["documents"]
+    ]
+    app_test.session_state["_test_lab_command"] = {
+        "schema_version": 1,
+        "command_id": "lab-reading-complete-1",
+        "task_id": task_id,
+        "revision": 0,
+        "action": "submit_reading",
+        "viewed_document_ids": document_ids,
+        "marked_field_ids": [
+            "contract_reference",
+            "contract_payment_window",
+            "acceptance_date",
+            "acceptance_external_seal",
+            "ar_year_end_balance",
+            "ar_due_status",
+            "receipt_date",
+            "receipt_bank_match",
+        ],
+    }
+    app_test.run(timeout=10)
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_case_stage"] == "cross_check"
+    assert app_test.session_state["cash_evidence_lab_phase"] == (
+        "classification"
+    )
+    app_test.session_state["_test_lab_command"] = {
+        "schema_version": 1,
+        "command_id": "lab-classification-complete-1",
+        "task_id": task_id,
+        "revision": 1,
+        "action": "submit_classification",
+        "placements": {
+            "contract_term_at_year_end": "year_end_fact",
+            "signed_acceptance_before_cutoff": "year_end_fact",
+            "year_end_ar_not_due": "year_end_fact",
+            "later_bank_receipt": "subsequent_evidence",
+            "chat_expectation": "unverified_claim",
+            "management_forecast": "unverified_claim",
+        },
+    }
+    app_test.run(timeout=10)
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_case_stage"] == "evidence"
+    assert app_test.session_state["cash_evidence_lab_phase"] == "chain"
+    app_test.session_state["_test_lab_command"] = {
+        "schema_version": 1,
+        "command_id": "lab-chain-complete-1",
+        "task_id": task_id,
+        "revision": 2,
+        "action": "submit_chain",
+        "links": {
+            "claim_payment_boundary": "contract_clause",
+            "claim_completion_before_cutoff": "signed_acceptance",
+            "claim_year_end_balance": "ar_subledger",
+            "claim_later_cash": "post_period_receipt",
+        },
+    }
+    app_test.run(timeout=10)
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_case_stage"] == "defense"
+    assert app_test.session_state["cash_evidence_attempt_index"] == 0
+    assert len(app_test.session_state["cash_discovered_document_ids"]) == 6
+    assert app_test.session_state["cash_evidence_lab_revision"] == 3
+    assert app_test.session_state["cash_defense_lives"] == 3
+
+
+def test_evidence_lab_wrong_card_keeps_case_and_locks_correct_work() -> None:
+    """One bad placement is released without replacing the office dossier."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+from src.cash_case_game import (
+    build_cash_evidence_case,
+    build_cash_evidence_lab_public_task,
+)
+
+evidence_case = build_cash_evidence_case(0)
+task = build_cash_evidence_lab_public_task(evidence_case)
+
+def fake_component(**kwargs):
+    st.session_state["_test_lab_state"] = kwargs["state"]
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_lab_command", None)
+    )
 
 st.session_state["game_player_name"] = "北辰"
 st.session_state.setdefault("cash_case_stage", "cross_check")
 st.session_state.setdefault("cash_evidence_attempt_index", 0)
-render_game_hub_page()
+st.session_state.setdefault("cash_discovered_document_ids", [
+    item["document_id"] for item in evidence_case["documents"]
+])
+st.session_state.setdefault("cash_evidence_lab_version", 1)
+st.session_state.setdefault("cash_evidence_lab_revision", 4)
+st.session_state.setdefault("cash_evidence_lab_task_id", task["task_id"])
+st.session_state.setdefault("cash_evidence_lab_phase", "classification")
+st.session_state.setdefault("cash_evidence_lab_reading_viewed_ids", [
+    item["document_id"] for item in evidence_case["documents"]
+])
+st.session_state.setdefault("cash_evidence_lab_reading_accepted_ids", [])
+st.session_state.setdefault("cash_evidence_lab_classification_accepted", {})
+st.session_state.setdefault("cash_evidence_lab_chain_accepted", {})
+st.session_state.setdefault("_test_lab_command", {
+    "schema_version": 1,
+    "command_id": "lab-classification-mixed-1",
+    "task_id": task["task_id"],
+    "revision": 4,
+    "action": "submit_classification",
+    "placements": {
+        "contract_term_at_year_end": "year_end_fact",
+        "later_bank_receipt": "year_end_fact",
+    },
+})
+app.render_cash_evidence_lab = fake_component
+app.render_game_hub_page()
 """
-    app_test = AppTest.from_string(script).run()
-    task = build_cash_cross_check_task(build_cash_evidence_case(0))
-    for correct_option in task["correct_options"]:
-        next(
-            item for item in app_test.checkbox
-            if item.label == correct_option
-        ).set_value(True)
-    next(
-        item for item in app_test.button
-        if item.label == "提交交叉核验"
-    ).click().run()
+    app_test = AppTest.from_string(script).run(timeout=10)
 
     assert not app_test.exception
-    assert app_test.session_state["cash_case_stage"] == "evidence"
-    assert "期后银行回单只能证明后来到账" in app_test.session_state[
-        "cash_cross_check_explanation"
+    assert app_test.session_state["cash_case_stage"] == "cross_check"
+    assert app_test.session_state["cash_evidence_attempt_index"] == 0
+    assert len(app_test.session_state["cash_discovered_document_ids"]) == 6
+    assert app_test.session_state[
+        "cash_evidence_lab_classification_accepted"
+    ] == {"contract_term_at_year_end": "year_end_fact"}
+    evaluation = app_test.session_state[
+        "_wfz_cash_evidence_lab_evaluation"
     ]
+    assert evaluation["accepted"] == ["contract_term_at_year_end"]
+    assert evaluation["rejected"] == ["later_bank_receipt"]
+    assert evaluation["command_id"] == "lab-classification-mixed-1"
 
 
-def test_cash_evidence_wrong_chain_replaces_the_office_file() -> None:
-    """A weak four-document chain should trigger a fresh no-life-loss file."""
+def test_evidence_lab_back_and_legacy_migration_preserve_case_materials() -> None:
+    """Old Stage 6 cannot skip v2; internal back keeps accepted progress."""
     from streamlit.testing.v1 import AppTest
 
     script = """
 import streamlit as st
-from src.app import render_game_hub_page
+from types import SimpleNamespace
+from src import app
+from src.cash_case_game import (
+    build_cash_evidence_case,
+    build_cash_evidence_lab_public_task,
+)
+
+evidence_case = build_cash_evidence_case(0)
+task = build_cash_evidence_lab_public_task(evidence_case)
+
+def fake_component(**kwargs):
+    st.session_state["_test_lab_state"] = kwargs["state"]
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_lab_command", None)
+    )
 
 st.session_state["game_player_name"] = "北辰"
-st.session_state.setdefault("cash_case_stage", "evidence")
-st.session_state.setdefault("cash_case_attempt_index", 0)
+st.session_state.setdefault("cash_case_stage", "cross_check")
 st.session_state.setdefault("cash_evidence_attempt_index", 0)
-render_game_hub_page()
+st.session_state.setdefault(
+    "cash_discovered_document_ids",
+    [item["document_id"] for item in evidence_case["documents"]],
+)
+app.render_cash_evidence_lab = fake_component
+app.render_game_hub_page()
 """
-    app_test = AppTest.from_string(script).run()
+    app_test = AppTest.from_string(script).run(timeout=10)
 
     assert not app_test.exception
-    first_options = [item.label for item in app_test.checkbox]
-    weak_chain = [
-        option for option in first_options
-        if any(
-            clue in option
-            for clue in (
-                "会议室投影幕布",
-                "上锁的合同柜",
-                "茶水间遗落的手机",
-                "打印机出纸托盘",
-            )
-        )
-    ]
-    for label in weak_chain:
-        next(
-            item for item in app_test.checkbox
-            if item.label == label
-        ).set_value(True)
-    next(
-        item for item in app_test.button
-        if item.label == "提交证据链"
-    ).click().run()
+    assert app_test.session_state["cash_case_stage"] == "reading"
+    assert app_test.session_state["cash_evidence_lab_phase"] == "reading"
+    task_id = app_test.session_state["_test_lab_state"]["task"]["task_id"]
+    app_test.session_state["cash_case_stage"] = "cross_check"
+    app_test.session_state["cash_evidence_lab_phase"] = "classification"
+    app_test.session_state["cash_evidence_lab_revision"] = 5
+    app_test.session_state[
+        "cash_evidence_lab_classification_accepted"
+    ] = {"contract_term_at_year_end": "year_end_fact"}
+    app_test.session_state["_test_lab_command"] = {
+        "schema_version": 1,
+        "command_id": "lab-back-1",
+        "task_id": task_id,
+        "revision": 5,
+        "action": "go_back",
+    }
+    app_test.run(timeout=10)
 
     assert not app_test.exception
-    assert app_test.session_state["cash_evidence_attempt_index"] == 1
-    assert app_test.session_state["cash_case_stage"] == "investigation"
-    assert app_test.session_state["cash_discovered_document_ids"] == []
-    assert first_options
+    assert app_test.session_state["cash_case_stage"] == "reading"
+    assert app_test.session_state["cash_evidence_lab_phase"] == "reading"
+    assert app_test.session_state["cash_evidence_lab_revision"] == 6
+    assert app_test.session_state[
+        "cash_evidence_lab_classification_accepted"
+    ] == {"contract_term_at_year_end": "year_end_fact"}
+    assert len(app_test.session_state["cash_discovered_document_ids"]) == 6
 
 
-def test_complete_cash_evidence_chain_opens_defense_but_keeps_mission_locked() -> None:
-    """The evidence chain should lead to defence without skipping it."""
+def test_evidence_lab_rename_opens_overlay_without_clearing_progress() -> None:
+    """The component toolbar reuses the shared safe rename overlay."""
     from streamlit.testing.v1 import AppTest
 
     script = """
 import streamlit as st
-from src.app import render_game_hub_page
+from types import SimpleNamespace
+from src import app
+from src.cash_case_game import (
+    build_cash_evidence_case,
+    build_cash_evidence_lab_public_task,
+)
+
+evidence_case = build_cash_evidence_case(0)
+task = build_cash_evidence_lab_public_task(evidence_case)
+
+def fake_component(**kwargs):
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_lab_command", None)
+    )
 
 st.session_state["game_player_name"] = "北辰"
-st.session_state.setdefault("cash_case_stage", "evidence")
-st.session_state.setdefault("cash_case_attempt_index", 0)
-st.session_state.setdefault("cash_evidence_attempt_index", 0)
-render_game_hub_page()
+st.session_state["cash_case_stage"] = "reading"
+st.session_state["cash_evidence_attempt_index"] = 0
+st.session_state["cash_discovered_document_ids"] = [
+    item["document_id"] for item in evidence_case["documents"]
+]
+st.session_state["cash_evidence_lab_version"] = 1
+st.session_state["cash_evidence_lab_revision"] = 2
+st.session_state["cash_evidence_lab_task_id"] = task["task_id"]
+st.session_state["cash_evidence_lab_phase"] = "reading"
+st.session_state["cash_evidence_lab_reading_viewed_ids"] = [
+    "contract_clause"
+]
+st.session_state["cash_evidence_lab_reading_accepted_ids"] = [
+    "contract_reference"
+]
+st.session_state["cash_evidence_lab_classification_accepted"] = {}
+st.session_state["cash_evidence_lab_chain_accepted"] = {}
+st.session_state.setdefault("_test_lab_command", {
+    "schema_version": 1,
+    "command_id": "lab-rename-1",
+    "task_id": task["task_id"],
+    "revision": 2,
+    "action": "rename_player",
+})
+app.render_cash_evidence_lab = fake_component
+app.render_game_hub_page()
 """
-    app_test = AppTest.from_string(script).run()
+    app_test = AppTest.from_string(script).run(timeout=10)
 
     assert not app_test.exception
-    evidence_options = [item.label for item in app_test.checkbox]
-    complete_chain = [
-        option for option in evidence_options
-        if any(
-            clue in option
-            for clue in (
-                "上锁的合同柜",
-                "打印机出纸托盘",
-                "财务共享盘的深层文件夹",
-                "碎纸机旁的待归档纸袋",
-            )
-        )
-    ]
-    for label in complete_chain:
-        next(
-            item for item in app_test.checkbox
-            if item.label == label
-        ).set_value(True)
-    next(
-        item for item in app_test.button
-        if item.label == "提交证据链"
-    ).click().run()
-
-    assert not app_test.exception
-    assert app_test.session_state["cash_case_stage"] == "evidence_completed"
-    assert any(
-        "07 现场通过" in item.value for item in app_test.success
-    )
-    assert any(
-        item.label == "进入审查委员会｜开始三轮结论答辩"
-        for item in app_test.button
-    )
+    assert app_test.session_state["cash_case_stage"] == "reading"
+    assert app_test.session_state["_wfz_cash_game_overlay"] == "rename"
+    assert app_test.session_state[
+        "cash_evidence_lab_reading_accepted_ids"
+    ] == ["contract_reference"]
+    assert any(item.label == "新的调查员代号" for item in app_test.text_input)
 
 
 def test_cash_defense_wrong_answer_costs_life_and_changes_case() -> None:
-    """A formal wrong answer should cost one life and replace the scenario."""
+    """A rejected seat costs one life and replaces only Stage 8's challenge."""
     from streamlit.testing.v1 import AppTest
 
-    from src.cash_case_game import build_cash_defense_question
+    from src.cash_case_game import evaluate_cash_defense_committee
 
     script = """
 import streamlit as st
-from src.app import render_game_hub_page
+from types import SimpleNamespace
+from src import app
+
+def fake_component(**kwargs):
+    st.session_state["_test_committee_state"] = kwargs["state"]
+    st.session_state["_test_committee_task"] = kwargs["state"]["task"]
+    st.session_state["_test_committee_revision"] = kwargs["revision"]
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_committee_command", None)
+    )
 
 st.session_state["game_player_name"] = "北辰"
 st.session_state.setdefault("cash_case_stage", "defense")
-st.session_state.setdefault("cash_defense_lives", 3)
-st.session_state.setdefault("cash_defense_round_index", 0)
-st.session_state.setdefault("cash_defense_attempt_index", 0)
-st.session_state.setdefault("cash_defense_completed_explanations", [])
-render_game_hub_page()
+st.session_state.setdefault("cash_evidence_attempt_index", 4)
+st.session_state.setdefault("cash_defense_lives", 2)
+st.session_state.setdefault("cash_defense_round_index", 1)
+st.session_state.setdefault("cash_defense_attempt_index", 5)
+app.render_cash_defense_committee = fake_component
+app.render_game_hub_page()
 """
-    app_test = AppTest.from_string(script).run()
+    app_test = AppTest.from_string(script).run(timeout=10)
 
     assert not app_test.exception
-    first_radio = next(
-        item for item in app_test.radio
-        if item.label == "选择唯一最严谨的答辩意见"
+    # Legacy radio progress cannot bypass the redesigned interaction.
+    assert app_test.session_state["cash_defense_committee_version"] == 1
+    assert app_test.session_state["cash_defense_round_index"] == 0
+    assert app_test.session_state["cash_defense_attempt_index"] == 0
+    assert app_test.session_state["cash_defense_lives"] == 3
+    task = app_test.session_state["_test_committee_task"]
+    first_task_id = task["task_id"]
+    conclusion = next(
+        seat
+        for seat in task["seats"]
+        if seat["seat_id"] == "conclusion_strength"
     )
-    first_options = list(first_radio.options)
-    correct_option = build_cash_defense_question(0, 0)["correct_option"]
-    wrong_option = next(
-        option for option in first_radio.options
-        if option != correct_option
+    wrong_card = next(
+        card["card_id"]
+        for card in conclusion["cards"]
+        if evaluate_cash_defense_committee(
+            0,
+            0,
+            {
+                "schema_version": 1,
+                "command_id": "probe-wrong-seat",
+                "task_id": first_task_id,
+                "revision": 0,
+                "action": "submit_committee_statement",
+                "placements": {
+                    "conclusion_strength": card["card_id"]
+                },
+            },
+            0,
+        )["rejected"]
     )
-    first_radio.set_value(wrong_option)
-    next(
-        item for item in app_test.button
-        if item.label == "向委员会提交意见"
-    ).click().run()
+    app_test.session_state["_test_committee_command"] = {
+        "schema_version": 1,
+        "command_id": "committee-wrong-1",
+        "task_id": first_task_id,
+        "revision": 0,
+        "action": "submit_committee_statement",
+        "placements": {"conclusion_strength": wrong_card},
+    }
+    app_test.run(timeout=10)
 
     assert not app_test.exception
     assert app_test.session_state["cash_defense_lives"] == 2
     assert app_test.session_state["cash_defense_attempt_index"] == 1
-    second_radio = next(
-        item for item in app_test.radio
-        if item.label == "选择唯一最严谨的答辩意见"
+    assert app_test.session_state["cash_defense_round_index"] == 0
+    assert app_test.session_state["cash_case_stage"] == "defense"
+    assert app_test.session_state["cash_evidence_attempt_index"] == 4
+    assert app_test.session_state["_test_committee_task"]["task_id"] != (
+        first_task_id
     )
-    assert list(second_radio.options) != first_options
-    assert "已扣除一次容错机会" in "\n".join(
-        item.value for item in app_test.warning
+
+    # Pass the replacement challenge and verify that the next formal round
+    # does not recycle the dossier the player has just solved.  The rules use
+    # ``round_index + challenge_index`` to choose a scenario, so resetting the
+    # challenge to zero here would repeat Round 0/challenge 1 in Round 1.
+    replacement_task = app_test.session_state["_test_committee_task"]
+    replacement_revision = app_test.session_state[
+        "cash_defense_committee_revision"
+    ]
+    replacement_placements = {}
+    for seat in replacement_task["seats"]:
+        seat_id = seat["seat_id"]
+        replacement_placements[seat_id] = next(
+            card["card_id"]
+            for card in seat["cards"]
+            if seat_id in evaluate_cash_defense_committee(
+                0,
+                1,
+                {
+                    "schema_version": 1,
+                    "command_id": f"probe-replacement-{seat_id}",
+                    "task_id": replacement_task["task_id"],
+                    "revision": replacement_revision,
+                    "action": "submit_committee_statement",
+                    "placements": {seat_id: card["card_id"]},
+                },
+                replacement_revision,
+            )["accepted"]
+        )
+    app_test.session_state["_test_committee_command"] = {
+        "schema_version": 1,
+        "command_id": "committee-pass-replacement-1",
+        "task_id": replacement_task["task_id"],
+        "revision": replacement_revision,
+        "action": "submit_committee_statement",
+        "placements": replacement_placements,
+    }
+    app_test.run(timeout=10)
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_defense_round_index"] == 1
+    assert app_test.session_state["cash_defense_attempt_index"] == 2
+    next_round_task = app_test.session_state["_test_committee_task"]
+    assert next_round_task["scenario_type"] != (
+        replacement_task["scenario_type"]
     )
 
 
-def test_cash_defense_three_failures_return_to_new_evidence_file() -> None:
-    """Using all lives should require a fresh office investigation."""
+def test_cash_defense_three_failures_restart_only_current_hearing() -> None:
+    """Three failures restart only the hearing, never the evidence file."""
     from streamlit.testing.v1 import AppTest
 
-    from src.cash_case_game import build_cash_defense_question
+    from src.cash_case_game import evaluate_cash_defense_committee
 
     script = """
 import streamlit as st
-from src.app import render_game_hub_page
+from types import SimpleNamespace
+from src import app
+
+def fake_component(**kwargs):
+    st.session_state["_test_committee_task"] = kwargs["state"]["task"]
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_committee_command", None)
+    )
 
 st.session_state["game_player_name"] = "北辰"
 st.session_state.setdefault("cash_case_stage", "defense")
+st.session_state.setdefault("cash_defense_committee_version", 1)
+st.session_state.setdefault("cash_defense_committee_revision", 0)
 st.session_state.setdefault("cash_defense_lives", 3)
-st.session_state.setdefault("cash_defense_round_index", 0)
+st.session_state.setdefault("cash_defense_round_index", 1)
 st.session_state.setdefault("cash_defense_attempt_index", 0)
-st.session_state.setdefault("cash_defense_completed_explanations", [])
-render_game_hub_page()
+st.session_state.setdefault("cash_defense_completed_explanations", ["首轮通过"])
+st.session_state.setdefault("cash_evidence_attempt_index", 7)
+app.render_cash_defense_committee = fake_component
+app.render_game_hub_page()
 """
-    app_test = AppTest.from_string(script).run()
-    for attempt_index in range(3):
-        answer_radio = next(
-            item for item in app_test.radio
-            if item.label == "选择唯一最严谨的答辩意见"
+    app_test = AppTest.from_string(script).run(timeout=10)
+    for challenge_index in range(3):
+        task = app_test.session_state["_test_committee_task"]
+        conclusion = next(
+            seat
+            for seat in task["seats"]
+            if seat["seat_id"] == "conclusion_strength"
         )
-        correct_option = build_cash_defense_question(
-            0,
-            attempt_index,
-        )["correct_option"]
-        wrong_option = next(
-            option for option in answer_radio.options
-            if option != correct_option
+        revision = app_test.session_state[
+            "cash_defense_committee_revision"
+        ]
+        wrong_card = next(
+            card["card_id"]
+            for card in conclusion["cards"]
+            if evaluate_cash_defense_committee(
+                1,
+                challenge_index,
+                {
+                    "schema_version": 1,
+                    "command_id": f"probe-wrong-{challenge_index}",
+                    "task_id": task["task_id"],
+                    "revision": revision,
+                    "action": "submit_committee_statement",
+                    "placements": {
+                        "conclusion_strength": card["card_id"]
+                    },
+                },
+                revision,
+            )["rejected"]
         )
-        answer_radio.set_value(wrong_option)
-        next(
-            item for item in app_test.button
-            if item.label == "向委员会提交意见"
-        ).click().run()
+        app_test.session_state["_test_committee_command"] = {
+            "schema_version": 1,
+            "command_id": f"committee-failure-{challenge_index}",
+            "task_id": task["task_id"],
+            "revision": revision,
+            "action": "submit_committee_statement",
+            "placements": {"conclusion_strength": wrong_card},
+        }
+        app_test.run(timeout=10)
 
     assert not app_test.exception
-    assert app_test.session_state["cash_case_stage"] == "defense_failed"
-    assert app_test.session_state["cash_defense_lives"] == 0
-    restart_button = next(
-        item for item in app_test.button
-        if item.label == "返回办公室｜领取全新调查卷宗"
-    )
-    restart_button.click().run()
-    assert app_test.session_state["cash_case_stage"] == "investigation"
-    assert app_test.session_state["cash_evidence_attempt_index"] == 1
+    assert app_test.session_state["cash_case_stage"] == "defense"
+    assert app_test.session_state["cash_defense_lives"] == 3
+    assert app_test.session_state["cash_defense_round_index"] == 1
+    assert app_test.session_state["cash_defense_attempt_index"] == 3
+    assert app_test.session_state["cash_evidence_attempt_index"] == 7
+    assert app_test.session_state["cash_defense_completed_explanations"] == [
+        "首轮通过"
+    ]
 
 
 def test_cash_defense_three_correct_rounds_unlock_historical_mission() -> None:
     """Passing conclusion, boundary and action rounds should complete the case."""
     from streamlit.testing.v1 import AppTest
 
-    from src.cash_case_game import build_cash_defense_question
+    from src.cash_case_game import evaluate_cash_defense_committee
 
     script = """
 import streamlit as st
-from src.app import render_game_hub_page
+from types import SimpleNamespace
+from src import app
+
+def fake_component(**kwargs):
+    st.session_state["_test_committee_task"] = kwargs["state"]["task"]
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_committee_command", None)
+    )
 
 st.session_state["game_player_name"] = "北辰"
 st.session_state.setdefault("cash_case_stage", "defense")
+st.session_state.setdefault("cash_defense_committee_version", 1)
+st.session_state.setdefault("cash_defense_committee_revision", 0)
 st.session_state.setdefault("cash_defense_lives", 3)
 st.session_state.setdefault("cash_defense_round_index", 0)
 st.session_state.setdefault("cash_defense_attempt_index", 0)
 st.session_state.setdefault("cash_defense_completed_explanations", [])
-render_game_hub_page()
+app.render_cash_defense_committee = fake_component
+app.render_game_hub_page()
 """
-    app_test = AppTest.from_string(script).run()
+    app_test = AppTest.from_string(script).run(timeout=10)
 
     for round_index in range(3):
-        correct_option = build_cash_defense_question(
-            round_index,
-            round_index,
-        )["correct_option"]
-        next(
-            item for item in app_test.radio
-            if item.label == "选择唯一最严谨的答辩意见"
-        ).set_value(correct_option)
-        next(
-            item for item in app_test.button
-            if item.label == "向委员会提交意见"
-        ).click().run()
+        task = app_test.session_state["_test_committee_task"]
+        challenge_index = app_test.session_state[
+            "cash_defense_attempt_index"
+        ]
+        revision = app_test.session_state[
+            "cash_defense_committee_revision"
+        ]
+        placements = {}
+        for seat in task["seats"]:
+            seat_id = seat["seat_id"]
+            placements[seat_id] = next(
+                card["card_id"]
+                for card in seat["cards"]
+                if seat_id in evaluate_cash_defense_committee(
+                    round_index,
+                    challenge_index,
+                    {
+                        "schema_version": 1,
+                        "command_id": f"probe-{round_index}-{seat_id}",
+                        "task_id": task["task_id"],
+                        "revision": revision,
+                        "action": "submit_committee_statement",
+                        "placements": {seat_id: card["card_id"]},
+                    },
+                    revision,
+                )["accepted"]
+            )
+        app_test.session_state["_test_committee_command"] = {
+            "schema_version": 1,
+            "command_id": f"committee-complete-{round_index}",
+            "task_id": task["task_id"],
+            "revision": revision,
+            "action": "submit_committee_statement",
+            "placements": placements,
+        }
+        app_test.run(timeout=10)
 
     assert not app_test.exception
     assert app_test.session_state["cash_case_stage"] == "case_completed"
@@ -969,6 +1968,182 @@ render_game_hub_page()
         item.label == "结束联合复核｜接受真实历史调查"
         for item in app_test.button
     )
+
+
+def test_cash_defense_partial_acceptance_survives_rename_toolbar() -> None:
+    """A correct seat stays locked when the in-component rename action opens."""
+    from streamlit.testing.v1 import AppTest
+
+    from src.cash_case_game import evaluate_cash_defense_committee
+
+    script = """
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+
+def fake_component(**kwargs):
+    st.session_state["_test_committee_task"] = kwargs["state"]["task"]
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_committee_command", None)
+    )
+
+st.session_state.setdefault("game_player_name", "北辰")
+st.session_state.setdefault("cash_case_stage", "defense")
+st.session_state.setdefault("cash_defense_committee_version", 1)
+st.session_state.setdefault("cash_defense_committee_revision", 0)
+st.session_state.setdefault("cash_defense_lives", 3)
+st.session_state.setdefault("cash_defense_round_index", 0)
+st.session_state.setdefault("cash_defense_attempt_index", 0)
+st.session_state.setdefault("cash_defense_completed_explanations", [])
+app.render_cash_defense_committee = fake_component
+app.render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run(timeout=10)
+    task = app_test.session_state["_test_committee_task"]
+    conclusion = next(
+        seat
+        for seat in task["seats"]
+        if seat["seat_id"] == "conclusion_strength"
+    )
+    correct_card = next(
+        card["card_id"]
+        for card in conclusion["cards"]
+        if "conclusion_strength" in evaluate_cash_defense_committee(
+            0,
+            0,
+            {
+                "schema_version": 1,
+                "command_id": "probe-correct-conclusion",
+                "task_id": task["task_id"],
+                "revision": 0,
+                "action": "submit_committee_statement",
+                "placements": {
+                    "conclusion_strength": card["card_id"]
+                },
+            },
+            0,
+        )["accepted"]
+    )
+    app_test.session_state["_test_committee_command"] = {
+        "schema_version": 1,
+        "command_id": "committee-partial-1",
+        "task_id": task["task_id"],
+        "revision": 0,
+        "action": "submit_committee_statement",
+        "placements": {"conclusion_strength": correct_card},
+    }
+    app_test.run(timeout=10)
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_defense_lives"] == 3
+    assert app_test.session_state[
+        "cash_defense_committee_accepted_placements"
+    ] == {"conclusion_strength": correct_card}
+    app_test.session_state["_test_committee_command"] = {
+        "schema_version": 1,
+        "command_id": "committee-rename-1",
+        "task_id": task["task_id"],
+        "revision": 1,
+        "action": "rename_player",
+    }
+    app_test.run(timeout=10)
+
+    assert not app_test.exception
+    assert app_test.session_state["_wfz_cash_game_overlay"] == "rename"
+    assert app_test.session_state[
+        "cash_defense_committee_accepted_placements"
+    ] == {"conclusion_strength": correct_card}
+    assert any(item.label == "新的调查员代号" for item in app_test.text_input)
+
+
+def test_cash_defense_keepsake_and_back_stay_inside_existing_case() -> None:
+    """Stage 8 owns its keepsake and back opens the completed chain as review."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+from src.cash_case_game import (
+    build_cash_evidence_case,
+    build_cash_evidence_lab_public_task,
+)
+
+evidence_case = build_cash_evidence_case(0)
+lab_task = build_cash_evidence_lab_public_task(evidence_case)
+
+def fake_committee(**kwargs):
+    st.session_state["_test_committee_task"] = kwargs["state"]["task"]
+    return SimpleNamespace(
+        command=st.session_state.pop("_test_committee_command", None)
+    )
+
+def fake_lab(**kwargs):
+    return SimpleNamespace(command=None)
+
+st.session_state.setdefault("game_player_name", "北辰")
+st.session_state.setdefault("cash_case_stage", "defense")
+st.session_state.setdefault("cash_defense_committee_version", 1)
+st.session_state.setdefault("cash_defense_committee_revision", 0)
+st.session_state.setdefault("cash_defense_lives", 2)
+st.session_state.setdefault("cash_defense_round_index", 1)
+st.session_state.setdefault("cash_defense_attempt_index", 2)
+st.session_state.setdefault(
+    "cash_defense_completed_explanations", ["首轮通过"]
+)
+st.session_state.setdefault("cash_evidence_attempt_index", 0)
+st.session_state.setdefault("cash_discovered_document_ids", [
+    item["document_id"] for item in evidence_case["documents"]
+])
+st.session_state.setdefault("cash_evidence_lab_version", 1)
+st.session_state.setdefault("cash_evidence_lab_revision", 3)
+st.session_state.setdefault("cash_evidence_lab_task_id", lab_task["task_id"])
+st.session_state.setdefault("cash_evidence_lab_phase", "chain")
+st.session_state.setdefault("cash_evidence_lab_reading_viewed_ids", [])
+st.session_state.setdefault("cash_evidence_lab_reading_accepted_ids", [])
+st.session_state.setdefault("cash_evidence_lab_classification_accepted", {})
+st.session_state.setdefault("cash_evidence_lab_chain_accepted", {
+    "claim_payment_boundary": "contract_clause",
+    "claim_completion_before_cutoff": "signed_acceptance",
+    "claim_year_end_balance": "ar_subledger",
+    "claim_later_cash": "post_period_receipt",
+})
+app.render_cash_defense_committee = fake_committee
+app.render_cash_evidence_lab = fake_lab
+app.render_game_hub_page()
+"""
+    app_test = AppTest.from_string(script).run(timeout=10)
+    task = app_test.session_state["_test_committee_task"]
+    app_test.session_state["_test_committee_command"] = {
+        "schema_version": 1,
+        "command_id": "committee-keepsake-1",
+        "task_id": task["task_id"],
+        "revision": 0,
+        "action": "discover_keepsake",
+    }
+    app_test.run(timeout=10)
+
+    assert not app_test.exception
+    assert "reverse_black_piece" in app_test.session_state[
+        "cash_game_pending_keepsakes"
+    ]
+    app_test.session_state["_test_committee_command"] = {
+        "schema_version": 1,
+        "command_id": "committee-back-1",
+        "task_id": task["task_id"],
+        "revision": 0,
+        "action": "go_back",
+    }
+    app_test.run(timeout=10)
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_case_stage"] == "evidence"
+    assert app_test.session_state[
+        "_wfz_cash_evidence_lab_review_from_defense"
+    ] is True
+    assert app_test.session_state["cash_defense_round_index"] == 1
+    assert app_test.session_state["cash_defense_attempt_index"] == 2
+    assert app_test.session_state["cash_defense_lives"] == 2
 
 
 def test_hidden_scene_keepsake_is_revealed_only_after_scene_completion() -> None:

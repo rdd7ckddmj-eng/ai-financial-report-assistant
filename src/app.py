@@ -1,5 +1,6 @@
 import gc
 import json
+import re
 import sys
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
@@ -68,18 +69,35 @@ from src.baijiu_operating_quality import (
 )
 from src.cash_flow_extractor import find_cash_flow_figures
 from src.cash_case_game import (
+    build_cash_defense_committee_public_task,
+    build_cash_evidence_lab_public_task,
     build_cash_cross_check_task,
     build_cash_defense_question,
     build_cash_evidence_case,
     build_cash_timing_question,
-    evaluate_cash_clock_assignment,
+    evaluate_cash_clock_bins,
+    evaluate_cash_defense_committee,
     evaluate_cash_evidence_selection,
+    evaluate_cash_evidence_chain,
+    evaluate_cash_evidence_classification,
+    evaluate_cash_evidence_reading,
+    evaluate_cash_gap_hypothesis,
+    evaluate_cash_investigation_orders,
+    normalise_cash_clock_command,
+    normalise_cash_defense_committee_command,
+    normalise_cash_evidence_lab_command,
 )
 from src.cash_game_characters import (
     CASH_GAME_MENTORS,
     MENTOR_BY_KEEPSAKE,
     mentor_for_step,
     normalise_keepsake_ids,
+)
+from src.cash_dual_clock_component import render_cash_dual_clock_game
+from src.cash_office_search_component import render_cash_office_search
+from src.cash_evidence_lab_component import render_cash_evidence_lab
+from src.cash_defense_committee_component import (
+    render_cash_defense_committee,
 )
 from src.china_stock import (
     CompanyIdentity,
@@ -5485,6 +5503,217 @@ def apply_cash_game_theme() -> None:
                 grid-template-columns: 1fr;
             }
         }
+
+        /* Stage 03 component takeover --------------------------------------
+           The visual component owns this scene's HUD and controls.  Scope the
+           takeover to the live component marker so rename/reset/reward
+           overlays keep the normal game HUD and their Streamlit controls. */
+        .st-key-cash_game_shell:has(.st-key-cash_dual_clock_scene) {
+            padding: 0 !important;
+        }
+
+        .st-key-cash_game_shell:has(.st-key-cash_dual_clock_scene)
+        .wfz-game-screen,
+        .st-key-cash_game_shell:has(.st-key-cash_dual_clock_scene)
+        .st-key-cash_game_controls,
+        .st-key-cash_game_shell:has(.st-key-cash_dual_clock_scene)
+        .wfz-game-shell-footer {
+            display: none !important;
+        }
+
+        .st-key-cash_game_shell:has(.st-key-cash_dual_clock_scene)
+        > [data-testid="stLayoutWrapper"]:has(> .st-key-cash_game_scene_content),
+        .st-key-cash_game_shell:has(.st-key-cash_dual_clock_scene)
+        .st-key-cash_game_scene_content {
+            position: absolute !important;
+            inset: 0 !important;
+            box-sizing: border-box !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+
+        .st-key-cash_game_scene_content:has(.st-key-cash_dual_clock_scene)
+        > [data-testid="stLayoutWrapper"],
+        .st-key-cash_game_scene_content:has(.st-key-cash_dual_clock_scene)
+        > [data-testid="stVerticalBlock"],
+        .st-key-cash_dual_clock_scene,
+        .st-key-cash_dual_clock_scene > [data-testid="stLayoutWrapper"],
+        .st-key-cash_dual_clock_scene [data-testid="stVerticalBlock"] {
+            box-sizing: border-box !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+
+        .st-key-cash_dual_clock_scene {
+            position: absolute !important;
+            inset: 0 !important;
+        }
+
+        /* Stage 04 component takeover. The marker exists only while the live
+           office component is mounted, so rename/reset/reward overlays regain
+           the standard Streamlit HUD and confirmation controls. */
+        .st-key-cash_game_shell:has(.st-key-cash_office_search_scene_v2) {
+            padding: 0 !important;
+        }
+
+        .st-key-cash_game_shell:has(.st-key-cash_office_search_scene_v2)
+        .wfz-game-screen,
+        .st-key-cash_game_shell:has(.st-key-cash_office_search_scene_v2)
+        .st-key-cash_game_controls,
+        .st-key-cash_game_shell:has(.st-key-cash_office_search_scene_v2)
+        .wfz-game-shell-footer {
+            display: none !important;
+        }
+
+        .st-key-cash_game_shell:has(.st-key-cash_office_search_scene_v2)
+        > [data-testid="stLayoutWrapper"]:has(> .st-key-cash_game_scene_content),
+        .st-key-cash_game_shell:has(.st-key-cash_office_search_scene_v2)
+        .st-key-cash_game_scene_content {
+            position: absolute !important;
+            inset: 0 !important;
+            box-sizing: border-box !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+
+        .st-key-cash_game_scene_content:has(.st-key-cash_office_search_scene_v2)
+        > [data-testid="stLayoutWrapper"],
+        .st-key-cash_game_scene_content:has(.st-key-cash_office_search_scene_v2)
+        > [data-testid="stVerticalBlock"],
+        .st-key-cash_office_search_scene_v2,
+        .st-key-cash_office_search_scene_v2
+        > [data-testid="stLayoutWrapper"],
+        .st-key-cash_office_search_scene_v2 [data-testid="stVerticalBlock"] {
+            box-sizing: border-box !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+
+        .st-key-cash_office_search_scene_v2 {
+            position: absolute !important;
+            inset: 0 !important;
+        }
+
+        /* Stage 05--07 component takeover.  The marker is mounted only for
+           the live evidence laboratory, so rename/reset/reward overlays keep
+           the regular Streamlit HUD and confirmation controls. */
+        .st-key-cash_game_shell:has(.st-key-cash_evidence_lab_scene) {
+            padding: 0 !important;
+        }
+
+        .st-key-cash_game_shell:has(.st-key-cash_evidence_lab_scene)
+        .wfz-game-screen,
+        .st-key-cash_game_shell:has(.st-key-cash_evidence_lab_scene)
+        .st-key-cash_game_controls,
+        .st-key-cash_game_shell:has(.st-key-cash_evidence_lab_scene)
+        .wfz-game-shell-footer {
+            display: none !important;
+        }
+
+        .st-key-cash_game_shell:has(.st-key-cash_evidence_lab_scene)
+        > [data-testid="stLayoutWrapper"]:has(> .st-key-cash_game_scene_content),
+        .st-key-cash_game_shell:has(.st-key-cash_evidence_lab_scene)
+        .st-key-cash_game_scene_content {
+            position: absolute !important;
+            inset: 0 !important;
+            box-sizing: border-box !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+
+        .st-key-cash_game_scene_content:has(.st-key-cash_evidence_lab_scene)
+        > [data-testid="stLayoutWrapper"],
+        .st-key-cash_game_scene_content:has(.st-key-cash_evidence_lab_scene)
+        > [data-testid="stVerticalBlock"],
+        .st-key-cash_evidence_lab_scene,
+        .st-key-cash_evidence_lab_scene > [data-testid="stLayoutWrapper"],
+        .st-key-cash_evidence_lab_scene [data-testid="stVerticalBlock"] {
+            box-sizing: border-box !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+
+        .st-key-cash_evidence_lab_scene {
+            position: absolute !important;
+            inset: 0 !important;
+        }
+
+        /* Stage 08 component takeover.  Keep this conditional on the live
+           committee marker: rename/reset/reward overlays do not mount it and
+           therefore retain the standard game HUD and Streamlit controls. */
+        .st-key-cash_game_shell:has(.st-key-cash_defense_committee_scene) {
+            padding: 0 !important;
+        }
+
+        .st-key-cash_game_shell:has(.st-key-cash_defense_committee_scene)
+        .wfz-game-screen,
+        .st-key-cash_game_shell:has(.st-key-cash_defense_committee_scene)
+        .st-key-cash_game_controls,
+        .st-key-cash_game_shell:has(.st-key-cash_defense_committee_scene)
+        .wfz-game-shell-footer {
+            display: none !important;
+        }
+
+        .st-key-cash_game_shell:has(.st-key-cash_defense_committee_scene)
+        > [data-testid="stLayoutWrapper"]:has(> .st-key-cash_game_scene_content),
+        .st-key-cash_game_shell:has(.st-key-cash_defense_committee_scene)
+        .st-key-cash_game_scene_content {
+            position: absolute !important;
+            inset: 0 !important;
+            box-sizing: border-box !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+
+        .st-key-cash_game_scene_content:has(.st-key-cash_defense_committee_scene)
+        > [data-testid="stLayoutWrapper"],
+        .st-key-cash_game_scene_content:has(.st-key-cash_defense_committee_scene)
+        > [data-testid="stVerticalBlock"],
+        .st-key-cash_defense_committee_scene,
+        .st-key-cash_defense_committee_scene
+        > [data-testid="stLayoutWrapper"],
+        .st-key-cash_defense_committee_scene [data-testid="stVerticalBlock"] {
+            box-sizing: border-box !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+
+        .st-key-cash_defense_committee_scene {
+            position: absolute !important;
+            inset: 0 !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -5601,7 +5830,7 @@ def show_platform_modules() -> None:
                     拼接证据。到了审查委员会，你有三次容错；直觉可以进场，
                     但必须由证据买单。
                 </p>
-                <div class="wfz-module-path">九幕连贯剧情 · 不能跳关 · 错题自动换卷</div>
+                <div class="wfz-module-path">九幕连贯剧情 · 不能跳关 · 错误只退当前动作</div>
             </article>
             """,
             unsafe_allow_html=True,
@@ -6181,7 +6410,7 @@ _CASH_GAME_BACK_STAGES = {
     "practice": "briefing",
     "timing_completed": "practice",
     "completed": "practice",
-    "investigation": "timing_completed",
+    "investigation": "practice",
     "reading": "investigation",
     "cross_check": "reading",
     "evidence": "cross_check",
@@ -6206,6 +6435,14 @@ def _clear_cash_game_round_state() -> None:
     game_widget_prefixes = (
         "cash_timing_",
         "cash_case_",
+        "cash_dual_clock_",
+        "_wfz_cash_dual_clock_",
+        "cash_office_search_",
+        "_wfz_cash_office_search_",
+        "cash_evidence_lab_",
+        "_wfz_cash_evidence_lab_",
+        "cash_defense_committee_",
+        "_wfz_cash_defense_committee_",
         "cash_evidence_",
         "cash_cross_check_",
         "cash_defense_",
@@ -6239,6 +6476,82 @@ def _restart_cash_game(*, require_new_identity: bool) -> None:
 
 def _go_back_one_cash_game_step(stage: str) -> None:
     """Return to the previous playable scene without erasing the whole run."""
+    if stage == "practice":
+        phase = str(
+            st.session_state.get("cash_dual_clock_phase", "routes")
+        )
+        previous_phase = {
+            "door": "orders",
+            "orders": "hypothesis",
+            "hypothesis": "routes",
+        }.get(phase)
+        if previous_phase is not None:
+            st.session_state["cash_dual_clock_phase"] = previous_phase
+            if phase == "door":
+                st.session_state.pop(
+                    "cash_investigation_orders_unlocked", None
+                )
+            elif phase == "orders":
+                st.session_state.pop("cash_gap_hypothesis_unlocked", None)
+            elif phase == "hypothesis":
+                st.session_state.pop("cash_clock_assignment_unlocked", None)
+            st.session_state["cash_dual_clock_revision"] = (
+                int(st.session_state.get("cash_dual_clock_revision", 0)) + 1
+            )
+            st.session_state.pop("_wfz_cash_dual_clock_feedback", None)
+            st.rerun()
+    if (
+        stage in {"cross_check", "evidence", "evidence_completed"}
+        and int(st.session_state.get("cash_evidence_lab_version", 0)) == 1
+    ):
+        phase = str(
+            st.session_state.get("cash_evidence_lab_phase", "reading")
+        )
+        previous_phase = {
+            "classification": ("reading", "reading"),
+            "chain": ("classification", "cross_check"),
+        }.get(phase)
+        if previous_phase is not None:
+            prior_phase, prior_stage = previous_phase
+            st.session_state["cash_evidence_lab_phase"] = prior_phase
+            st.session_state["cash_case_stage"] = prior_stage
+            st.session_state["cash_evidence_lab_revision"] = min(
+                int(
+                    st.session_state.get(
+                        "cash_evidence_lab_revision", 0
+                    )
+                )
+                + 1,
+                1_000_000,
+            )
+            st.session_state.pop(
+                "_wfz_cash_evidence_lab_evaluation", None
+            )
+            st.session_state.pop("_wfz_cash_evidence_lab_feedback", None)
+            st.session_state.pop("_wfz_cash_game_overlay", None)
+            st.rerun()
+    if (
+        stage == "defense"
+        and int(
+            st.session_state.get("cash_defense_committee_version", 0)
+        )
+        == 1
+    ):
+        # Stage 8 owns a separate committee checkpoint.  Returning to the
+        # evidence chain is a read-only review path: preserve passed rounds,
+        # lives and the current challenge, then let a fresh chain submission
+        # re-enter the same committee state without reinitialising it.
+        st.session_state["cash_evidence_lab_phase"] = "chain"
+        st.session_state["cash_case_stage"] = "evidence"
+        st.session_state["_wfz_cash_evidence_lab_review_from_defense"] = True
+        st.session_state["cash_evidence_lab_revision"] = min(
+            int(st.session_state.get("cash_evidence_lab_revision", 0)) + 1,
+            1_000_000,
+        )
+        st.session_state.pop("_wfz_cash_evidence_lab_evaluation", None)
+        st.session_state.pop("_wfz_cash_evidence_lab_feedback", None)
+        st.session_state.pop("_wfz_cash_game_overlay", None)
+        st.rerun()
     if stage == "briefing":
         st.session_state["cash_identity_required"] = True
         st.session_state.pop("_wfz_cash_game_overlay", None)
@@ -7947,8 +8260,8 @@ _CASH_GAME_SCENE_META: dict[str, tuple[int, str, str, str]] = {
     "defense_failed": (
         8,
         "结论答辩｜审查席",
-        "案件被退回；领取新卷宗，重新建立证据链。",
-        "失败不可怕，拿着旧答案审新案才可怕。",
+        "当前听证已重置；前七幕证据与已通过轮次仍然保留。",
+        "被否决的是这次陈述，不是你已经证明过的事实。",
     ),
     "case_completed": (
         8,
@@ -8208,8 +8521,8 @@ def _show_cash_visual_stage(
     )
 
 
-def _render_cash_investigation_node(player_name: str) -> None:
-    """Let the player physically search the office before opening files."""
+def _render_cash_investigation_node_legacy(player_name: str) -> None:
+    """Legacy Streamlit hotspot scene retained only for safe rollback."""
     _show_cash_visual_stage(
         4,
         "失序办公室",
@@ -8361,7 +8674,626 @@ def _render_cash_investigation_node(player_name: str) -> None:
         _queue_cash_game_keepsake_reward(4, "reading")
 
 
-def _render_cash_reading_node(player_name: str) -> None:
+_CASH_OFFICE_SEARCH_SCENE_VERSION = 2
+_CASH_OFFICE_SEARCH_COMMAND_ID_PATTERN = re.compile(
+    r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z"
+)
+_CASH_OFFICE_SEARCH_COMMON_FIELDS = frozenset(
+    {
+        "schema_version",
+        "command_id",
+        "question_id",
+        "revision",
+        "action",
+    }
+)
+_CASH_OFFICE_SEARCH_UI_ACTIONS = frozenset(
+    {"go_back", "rename_player", "restart_game", "exit_game"}
+)
+_CASH_OFFICE_SEARCH_KEEPSAKE_ACTION = "discover_keepsake"
+_CASH_OFFICE_SEARCH_LOCATION_SPECS: tuple[Mapping[str, object], ...] = (
+    {
+        "id": "meeting_projection",
+        "label": "会议室投影幕布",
+        "x": 21.3,
+        "y": 30.3,
+        "document_id": "executive_slide",
+    },
+    {
+        "id": "locked_contract_cabinet",
+        "label": "上锁的合同柜",
+        "x": 75.3,
+        "y": 42.0,
+        "document_id": "contract_clause",
+    },
+    {
+        "id": "tea_room_phone",
+        "label": "茶水间遗落的手机",
+        "x": 18.0,
+        "y": 71.5,
+        "document_id": "celebration_chat",
+    },
+    {
+        "id": "printer_output_tray",
+        "label": "打印机出纸托盘",
+        "x": 60.0,
+        "y": 50.5,
+        "document_id": "signed_acceptance",
+    },
+    {
+        "id": "finance_shared_drive",
+        "label": "财务共享盘的深层文件夹",
+        "x": 93.0,
+        "y": 68.5,
+        "document_id": "ar_subledger",
+    },
+    {
+        "id": "shredder_archive_bag",
+        "label": "碎纸机旁的待归档纸袋",
+        "x": 84.0,
+        "y": 66.0,
+        "document_id": "post_period_receipt",
+    },
+    {
+        "id": "crystal_award",
+        "label": "窗边的水晶奖杯",
+        "x": 91.0,
+        "y": 24.0,
+        "document_id": None,
+    },
+    {
+        "id": "investment_mug",
+        "label": "写着 INVESTMENT 的咖啡杯",
+        "x": 59.8,
+        "y": 79.0,
+        "document_id": None,
+    },
+)
+
+
+def _normalise_cash_office_search_command(
+    raw_command: object,
+    *,
+    question_id: str,
+    revision: int,
+) -> dict[str, str]:
+    """Validate one spatial-search command without trusting browser truth."""
+    if not isinstance(raw_command, Mapping):
+        raise ValueError("现场命令格式无效。请按当前画面重新搜查。")
+    action = raw_command.get("action")
+    if action == "discover_location":
+        expected_fields = _CASH_OFFICE_SEARCH_COMMON_FIELDS | {"location_id"}
+    elif (
+        action == "finish_search"
+        or action == _CASH_OFFICE_SEARCH_KEEPSAKE_ACTION
+        or action in _CASH_OFFICE_SEARCH_UI_ACTIONS
+    ):
+        expected_fields = _CASH_OFFICE_SEARCH_COMMON_FIELDS
+    else:
+        raise ValueError("当前现场不接受这项操作。")
+    if set(raw_command) != expected_fields:
+        raise ValueError("现场命令字段不完整，或包含未公开字段。")
+
+    schema_version = raw_command.get("schema_version")
+    if (
+        isinstance(schema_version, bool)
+        or not isinstance(schema_version, int)
+        or schema_version != 1
+    ):
+        raise ValueError("现场命令版本无效。请刷新本幕后重试。")
+    command_id = raw_command.get("command_id")
+    if not isinstance(command_id, str) or not (
+        _CASH_OFFICE_SEARCH_COMMAND_ID_PATTERN.fullmatch(command_id)
+    ):
+        raise ValueError("现场命令编号无效。请刷新本幕后重试。")
+    supplied_question_id = raw_command.get("question_id")
+    if supplied_question_id != question_id:
+        raise ValueError("这条搜查命令不属于当前卷宗。")
+    supplied_revision = raw_command.get("revision")
+    if (
+        isinstance(supplied_revision, bool)
+        or not isinstance(supplied_revision, int)
+        or supplied_revision != revision
+    ):
+        raise ValueError(
+            "这条搜查命令已经过期。请按当前画面重新操作。"
+        )
+
+    clean_command = {"action": str(action), "command_id": command_id}
+    if action == "discover_location":
+        location_id = raw_command.get("location_id")
+        legal_location_ids = {
+            str(spec["id"]) for spec in _CASH_OFFICE_SEARCH_LOCATION_SPECS
+        }
+        if (
+            not isinstance(location_id, str)
+            or location_id not in legal_location_ids
+        ):
+            raise ValueError("这个搜查位置不属于当前办公室。")
+        clean_command["location_id"] = location_id
+    return clean_command
+
+
+def _initialise_cash_office_search_scene(
+    evidence_case: Mapping[str, object],
+    question_id: str,
+) -> None:
+    """Migrate old hotspot progress into the server-owned spatial scene."""
+    raw_documents = evidence_case.get("documents", [])
+    documents = raw_documents if isinstance(raw_documents, list) else []
+    valid_document_ids = {
+        str(document.get("document_id"))
+        for document in documents
+        if isinstance(document, Mapping)
+        and isinstance(document.get("document_id"), str)
+    }
+    raw_discovered = st.session_state.get("cash_discovered_document_ids", [])
+    discovered_ids: list[str] = []
+    if isinstance(raw_discovered, (list, tuple)):
+        for document_id in raw_discovered:
+            if (
+                isinstance(document_id, str)
+                and document_id in valid_document_ids
+                and document_id not in discovered_ids
+            ):
+                discovered_ids.append(document_id)
+    st.session_state["cash_discovered_document_ids"] = discovered_ids
+
+    collected_location_ids = [
+        str(spec["id"])
+        for spec in _CASH_OFFICE_SEARCH_LOCATION_SPECS
+        if spec.get("document_id") in discovered_ids
+    ]
+    same_scene = (
+        st.session_state.get("cash_office_search_version")
+        == _CASH_OFFICE_SEARCH_SCENE_VERSION
+        and st.session_state.get("cash_office_search_question_id")
+        == question_id
+    )
+    legal_location_ids = {
+        str(spec["id"]) for spec in _CASH_OFFICE_SEARCH_LOCATION_SPECS
+    }
+    searched_location_ids: list[str] = []
+    raw_searched = st.session_state.get(
+        "_wfz_cash_office_search_searched_location_ids", []
+    )
+    if same_scene and isinstance(raw_searched, (list, tuple)):
+        for location_id in raw_searched:
+            if (
+                isinstance(location_id, str)
+                and location_id in legal_location_ids
+                and location_id not in searched_location_ids
+            ):
+                searched_location_ids.append(location_id)
+    for location_id in collected_location_ids:
+        if location_id not in searched_location_ids:
+            searched_location_ids.append(location_id)
+
+    if not same_scene:
+        for key in (
+            "_wfz_cash_office_search_feedback",
+            "_wfz_cash_office_search_reveal",
+            "_wfz_cash_office_search_last_command_id",
+            "_wfz_cash_office_search_last_trigger_id",
+            "_wfz_cash_office_search_draft_status",
+        ):
+            st.session_state.pop(key, None)
+    st.session_state["cash_office_search_version"] = (
+        _CASH_OFFICE_SEARCH_SCENE_VERSION
+    )
+    st.session_state["cash_office_search_question_id"] = question_id
+    st.session_state[
+        "_wfz_cash_office_search_searched_location_ids"
+    ] = searched_location_ids
+    if not same_scene:
+        st.session_state["cash_office_search_revision"] = len(
+            searched_location_ids
+        )
+    else:
+        current_revision = st.session_state.get("cash_office_search_revision", 0)
+        if isinstance(current_revision, bool) or not isinstance(
+            current_revision, int
+        ):
+            current_revision = 0
+        st.session_state["cash_office_search_revision"] = max(
+            current_revision, len(searched_location_ids)
+        )
+
+
+def _set_cash_office_search_feedback(
+    *,
+    tone: str,
+    title: str,
+    message: str,
+    reveal: Mapping[str, str] | None = None,
+) -> None:
+    st.session_state["_wfz_cash_office_search_feedback"] = {
+        "tone": tone[:20],
+        "title": title[:90],
+        "message": message[:240],
+    }
+    if reveal is None:
+        st.session_state.pop("_wfz_cash_office_search_reveal", None)
+    else:
+        st.session_state["_wfz_cash_office_search_reveal"] = dict(reveal)
+
+
+def _cash_office_search_public_state(
+    evidence_case: Mapping[str, object],
+    player_name: str,
+) -> dict[str, object]:
+    """Return public presentation state with no undiscovered document truth."""
+    raw_documents = evidence_case.get("documents", [])
+    documents = raw_documents if isinstance(raw_documents, list) else []
+    documents_by_id = {
+        str(document["document_id"]): document
+        for document in documents
+        if isinstance(document, Mapping)
+        and isinstance(document.get("document_id"), str)
+    }
+    discovered_ids = [
+        document_id
+        for document_id in st.session_state.get(
+            "cash_discovered_document_ids", []
+        )
+        if document_id in documents_by_id
+    ]
+    searched_location_ids = set(
+        st.session_state.get(
+            "_wfz_cash_office_search_searched_location_ids", []
+        )
+    )
+    public_locations: list[dict[str, object]] = []
+    for spec in _CASH_OFFICE_SEARCH_LOCATION_SPECS:
+        document_id = spec.get("document_id")
+        location_id = str(spec["id"])
+        if document_id in discovered_ids:
+            status = "collected"
+        elif document_id is None and location_id in searched_location_ids:
+            status = "decoy"
+        else:
+            status = "unsearched"
+        public_locations.append(
+            {
+                "id": location_id,
+                "label": str(spec["label"]),
+                "x": float(spec["x"]),
+                "y": float(spec["y"]),
+                "status": status,
+            }
+        )
+
+    mentor = mentor_for_step(4)
+    known_keepsakes = set(_cash_game_owned_keepsakes()) | set(
+        normalise_keepsake_ids(
+            st.session_state.get("cash_game_pending_keepsakes")
+        )
+    )
+    last_explanation = str(
+        st.session_state.get("cash_case_last_explanation", "")
+    ).strip()
+    handoff_body = (
+        last_explanation[:220]
+        if last_explanation
+        else (
+            "第3幕已把利润与现金拆开。"
+            "现在按三条调查边界寻找材料。"
+        )
+    )
+    return {
+        "player_name": player_name,
+        "scene_title": "失序办公室｜空间取证",
+        "objective": (
+            "在八个真实物件中找齐六份材料；显眼不等于重要。"
+        ),
+        "locations": public_locations,
+        "discovered_documents": [
+            {
+                "document_id": document_id,
+                "location": str(
+                    documents_by_id[document_id].get("location", "")
+                ),
+                "title": str(documents_by_id[document_id].get("title", "")),
+                "document_type": str(
+                    documents_by_id[document_id].get("document_type", "")
+                ),
+            }
+            for document_id in discovered_ids
+        ],
+        "count": len(discovered_ids),
+        "required_count": len(documents_by_id),
+        "search_complete": len(discovered_ids) == len(documents_by_id),
+        "npc": {
+            "name": mentor.name,
+            "role": mentor.role,
+            "line": mentor.reminder,
+        },
+        "handoff": {
+            "title": "双时钟调查令｜已签发",
+            "body": handoff_body,
+            "orders": [
+                {
+                    "id": "income_boundary",
+                    "title": "调查令 01｜收入边界",
+                    "objective": "核对合同与验收，确认收入何时赚到。",
+                },
+                {
+                    "id": "receivable_existence",
+                    "title": "调查令 02｜应收存在",
+                    "objective": "核对年末余额、到期日和客户构成。",
+                },
+                {
+                    "id": "subsequent_cash",
+                    "title": "调查令 03｜期后回款",
+                    "objective": "追查报告期后是否真实到账。",
+                },
+            ],
+        },
+        "feedback": st.session_state.get(
+            "_wfz_cash_office_search_feedback", {}
+        ),
+        "reveal": st.session_state.get("_wfz_cash_office_search_reveal", {}),
+        "acknowledged_command_id": st.session_state.get(
+            "_wfz_cash_office_search_last_command_id", ""
+        ),
+        "draft_status": st.session_state.get(
+            "_wfz_cash_office_search_draft_status", "idle"
+        ),
+        "keepsake_discovered": mentor.keepsake_id in known_keepsakes,
+    }
+
+
+def _process_cash_office_search_command(
+    evidence_case: Mapping[str, object],
+    *,
+    question_id: str,
+    raw_command: object,
+) -> None:
+    """Apply a validated scene command to authoritative Python progress."""
+    candidate_command_id = (
+        raw_command.get("command_id")
+        if isinstance(raw_command, Mapping)
+        else None
+    )
+    if (
+        isinstance(candidate_command_id, str)
+        and candidate_command_id
+        and candidate_command_id
+        == st.session_state.get("_wfz_cash_office_search_last_trigger_id")
+    ):
+        return
+    revision = int(st.session_state.get("cash_office_search_revision", 0))
+    try:
+        command = _normalise_cash_office_search_command(
+            raw_command,
+            question_id=question_id,
+            revision=revision,
+        )
+    except ValueError as error:
+        can_deduplicate = isinstance(candidate_command_id, str) and bool(
+            _CASH_OFFICE_SEARCH_COMMAND_ID_PATTERN.fullmatch(
+                candidate_command_id
+            )
+        )
+        if can_deduplicate:
+            st.session_state[
+                "_wfz_cash_office_search_last_trigger_id"
+            ] = candidate_command_id
+        _set_cash_office_search_feedback(
+            tone="error",
+            title="现场终端拒绝了这条命令",
+            message=str(error),
+        )
+        st.session_state["_wfz_cash_office_search_draft_status"] = "rejected"
+        if can_deduplicate:
+            st.rerun()
+        return
+
+    command_id = command["command_id"]
+    st.session_state["_wfz_cash_office_search_last_trigger_id"] = command_id
+    st.session_state["_wfz_cash_office_search_last_command_id"] = command_id
+    if command["action"] in _CASH_OFFICE_SEARCH_UI_ACTIONS:
+        st.session_state["_wfz_cash_office_search_draft_status"] = "preserve"
+        if command["action"] == "go_back":
+            _go_back_one_cash_game_step("investigation")
+            return
+        if command["action"] == "rename_player":
+            st.session_state["_wfz_cash_game_overlay"] = "rename"
+            st.rerun()
+            return
+        if command["action"] == "restart_game":
+            st.session_state["_wfz_cash_game_overlay"] = "reset"
+            st.rerun()
+            return
+        st.session_state.pop("_wfz_cash_game_overlay", None)
+        _switch_page("home")
+        return
+
+    if command["action"] == _CASH_OFFICE_SEARCH_KEEPSAKE_ACTION:
+        mentor = mentor_for_step(4)
+        pending = normalise_keepsake_ids(
+            st.session_state.get("cash_game_pending_keepsakes")
+        )
+        if (
+            mentor.keepsake_id not in _cash_game_owned_keepsakes()
+            and mentor.keepsake_id not in pending
+        ):
+            st.session_state["cash_game_pending_keepsakes"] = [
+                *pending,
+                mentor.keepsake_id,
+            ]
+        _set_cash_office_search_feedback(
+            tone="success",
+            title=f"物品栏新增｜{mentor.keepsake_name}",
+            message=(
+                "你检查了奖杯最不显眼的底座。真正的搜查，"
+                "往往从第一次判断结束之后才开始。"
+            ),
+        )
+        st.session_state["_wfz_cash_office_search_draft_status"] = "accepted"
+        st.rerun()
+        return
+
+    documents = evidence_case.get("documents", [])
+    documents_by_id = (
+        {
+            str(document["document_id"]): document
+            for document in documents
+            if isinstance(document, Mapping)
+            and isinstance(document.get("document_id"), str)
+        }
+        if isinstance(documents, list)
+        else {}
+    )
+    discovered_ids = [
+        document_id
+        for document_id in st.session_state.get(
+            "cash_discovered_document_ids", []
+        )
+        if document_id in documents_by_id
+    ]
+
+    if command["action"] == "finish_search":
+        if len(discovered_ids) != len(documents_by_id):
+            _set_cash_office_search_feedback(
+                tone="warning",
+                title="证物袋尚未封装完整",
+                message=(
+                    "现场仍有未核验的位置。"
+                    "不要只拿最像证据的文件就离开。"
+                ),
+            )
+            st.session_state[
+                "_wfz_cash_office_search_draft_status"
+            ] = "rejected"
+            st.rerun()
+            return
+        st.session_state["_wfz_cash_office_search_draft_status"] = "accepted"
+        _queue_cash_game_keepsake_reward(4, "reading")
+        return
+
+    location_id = command["location_id"]
+    location_spec = next(
+        spec
+        for spec in _CASH_OFFICE_SEARCH_LOCATION_SPECS
+        if spec["id"] == location_id
+    )
+    searched_location_ids = list(
+        st.session_state.get(
+            "_wfz_cash_office_search_searched_location_ids", []
+        )
+    )
+    if location_id in searched_location_ids:
+        _set_cash_office_search_feedback(
+            tone="info",
+            title="这个位置已经核验",
+            message=(
+                "现场记录没有重复计数。继续检查尚未搜查的物件。"
+            ),
+        )
+        st.session_state["_wfz_cash_office_search_draft_status"] = "accepted"
+        st.rerun()
+        return
+
+    searched_location_ids.append(location_id)
+    st.session_state[
+        "_wfz_cash_office_search_searched_location_ids"
+    ] = searched_location_ids
+    st.session_state["cash_office_search_revision"] = min(
+        revision + 1, 1_000_000
+    )
+    document_id = location_spec.get("document_id")
+    if isinstance(document_id, str) and document_id in documents_by_id:
+        if document_id not in discovered_ids:
+            discovered_ids.append(document_id)
+        st.session_state["cash_discovered_document_ids"] = discovered_ids
+        document = documents_by_id[document_id]
+        _set_cash_office_search_feedback(
+            tone="success",
+            title="一份材料已进入证物袋",
+            message="先封装，不急着下结论；下一幕再逐页深读。",
+            reveal={
+                "location_id": location_id,
+                "outcome": "collected",
+                "title": str(document.get("title", "材料已封装"))[:150],
+                "message": (
+                    "位置、来源和文件名称已登记。"
+                    "搜到材料不等于完成判断。"
+                ),
+            },
+        )
+    else:
+        _set_cash_office_search_feedback(
+            tone="warning",
+            title="高拟真干扰项｜不构成证据",
+            message=(
+                "外观、语气和位置只能吸引注意，"
+                "不能替代日期、签章和来源。"
+            ),
+            reveal={
+                "location_id": location_id,
+                "outcome": "decoy",
+                "title": f"{location_spec['label']}很显眼，但证明力为零",
+                "message": (
+                    "它没有可核验的日期、金额、签章或独立来源。"
+                ),
+            },
+        )
+    st.session_state["_wfz_cash_office_search_draft_status"] = "accepted"
+    st.rerun()
+
+
+def _render_cash_investigation_node(player_name: str) -> None:
+    """Render Stage 4 as one server-authoritative spatial search scene."""
+    attempt_index = int(
+        st.session_state.get("cash_evidence_attempt_index", 0)
+    )
+    evidence_case = build_cash_evidence_case(attempt_index)
+    question_id = f"cash-office-search:{evidence_case['case_id']}"
+    _initialise_cash_office_search_scene(evidence_case, question_id)
+
+    returned_feedback = st.session_state.pop(
+        "cash_cross_check_feedback",
+        st.session_state.pop("cash_evidence_feedback", None),
+    )
+    if isinstance(returned_feedback, str) and not st.session_state.get(
+        "_wfz_cash_office_search_feedback"
+    ):
+        _set_cash_office_search_feedback(
+            tone="warning",
+            title="复核意见已带回现场",
+            message=returned_feedback,
+        )
+
+    state = _cash_office_search_public_state(evidence_case, player_name)
+    with st.container(key="cash_office_search_scene_v2"):
+        try:
+            result = render_cash_office_search(
+                state=state,
+                question_id=question_id,
+                revision=int(
+                    st.session_state.get("cash_office_search_revision", 0)
+                ),
+                key=f"wfz_cash_office_search_{evidence_case['case_id']}",
+                on_command_change=lambda: None,
+            )
+        except ValueError as error:
+            if "is not registered" not in str(error):
+                raise
+            return
+
+    raw_command = getattr(result, "command", None)
+    if raw_command is None and isinstance(result, Mapping):
+        raw_command = result.get("command")
+    if raw_command is not None:
+        _process_cash_office_search_command(
+            evidence_case,
+            question_id=question_id,
+            raw_command=raw_command,
+        )
+
+
+def _render_cash_reading_node_legacy(player_name: str) -> None:
     """Make the player read every found document before cross-checking it."""
     _show_cash_visual_stage(
         5,
@@ -8398,7 +9330,7 @@ def _render_cash_reading_node(player_name: str) -> None:
         _queue_cash_game_keepsake_reward(5, "cross_check")
 
 
-def _render_cash_cross_check_node(player_name: str) -> None:
+def _render_cash_cross_check_node_legacy(player_name: str) -> None:
     """Check whether the player can respect the report-date boundary."""
     _show_cash_visual_stage(
         6,
@@ -8456,7 +9388,7 @@ def _render_cash_cross_check_node(player_name: str) -> None:
     _advance_game("investigation")
 
 
-def _render_cash_evidence_node(player_name: str) -> None:
+def _render_cash_evidence_node_legacy(player_name: str) -> None:
     """Render the exact evidence-chain check on its own page."""
     _show_cash_visual_stage(
         7,
@@ -8581,6 +9513,616 @@ def _render_cash_evidence_node(player_name: str) -> None:
         st.session_state["cash_defense_completed_explanations"] = []
         st.session_state.pop("cash_defense_feedback", None)
         _queue_cash_game_keepsake_reward(7, "defense")
+
+
+_CASH_EVIDENCE_LAB_VERSION = 1
+_CASH_EVIDENCE_LAB_COMMAND_ID_PATTERN = re.compile(
+    r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z"
+)
+_CASH_EVIDENCE_LAB_COMMON_FIELDS = frozenset(
+    {"schema_version", "command_id", "task_id", "revision", "action"}
+)
+_CASH_EVIDENCE_LAB_UI_ACTIONS = frozenset(
+    {"go_back", "rename_player", "restart_game", "exit_game"}
+)
+_CASH_EVIDENCE_LAB_KEEPSAKE_ACTION = "discover_keepsake"
+_CASH_EVIDENCE_LAB_PHASE_STAGES = {
+    "reading": "reading",
+    "classification": "cross_check",
+    "chain": "evidence",
+}
+_CASH_EVIDENCE_LAB_PHASE_STEPS = {
+    "reading": 5,
+    "classification": 6,
+    "chain": 7,
+}
+
+
+def _clear_cash_evidence_lab_scene_state() -> None:
+    """Clear only the shared Stage 5--7 component checkpoint."""
+    for key in list(st.session_state):
+        if str(key).startswith(
+            ("cash_evidence_lab_", "_wfz_cash_evidence_lab_")
+        ):
+            st.session_state.pop(key, None)
+
+
+def _initialise_cash_evidence_lab_scene(
+    task: Mapping[str, object],
+    *,
+    current_stage: str,
+) -> None:
+    """Migrate old checkbox stages and align one authoritative lab phase."""
+    task_id = str(task["task_id"])
+    version_matches = (
+        int(st.session_state.get("cash_evidence_lab_version", 0))
+        == _CASH_EVIDENCE_LAB_VERSION
+    )
+    task_matches = (
+        st.session_state.get("cash_evidence_lab_task_id") == task_id
+    )
+    if not version_matches or not task_matches:
+        _clear_cash_evidence_lab_scene_state()
+        st.session_state["cash_evidence_lab_version"] = (
+            _CASH_EVIDENCE_LAB_VERSION
+        )
+        st.session_state["cash_evidence_lab_task_id"] = task_id
+        st.session_state["cash_evidence_lab_revision"] = 0
+        st.session_state["cash_evidence_lab_phase"] = "reading"
+        st.session_state["cash_evidence_lab_reading_viewed_ids"] = []
+        st.session_state["cash_evidence_lab_reading_accepted_ids"] = []
+        st.session_state["cash_evidence_lab_classification_accepted"] = {}
+        st.session_state["cash_evidence_lab_chain_accepted"] = {}
+        # Former checkbox checkpoints must not bypass the new reading,
+        # classification and evidence-linking interactions.
+        if current_stage in {
+            "cross_check",
+            "evidence",
+            "evidence_completed",
+        }:
+            st.session_state["cash_case_stage"] = "reading"
+        return
+
+    phase = st.session_state.get("cash_evidence_lab_phase")
+    if phase not in _CASH_EVIDENCE_LAB_PHASE_STAGES:
+        phase = "reading"
+        st.session_state["cash_evidence_lab_phase"] = phase
+    st.session_state.setdefault("cash_evidence_lab_revision", 0)
+    st.session_state.setdefault(
+        "cash_evidence_lab_reading_viewed_ids", []
+    )
+    st.session_state.setdefault(
+        "cash_evidence_lab_reading_accepted_ids", []
+    )
+    st.session_state.setdefault(
+        "cash_evidence_lab_classification_accepted", {}
+    )
+    st.session_state.setdefault("cash_evidence_lab_chain_accepted", {})
+
+    chain = task.get("chain", {})
+    claims = chain.get("claims", []) if isinstance(chain, Mapping) else []
+    accepted_links = st.session_state.get(
+        "cash_evidence_lab_chain_accepted", {}
+    )
+    chain_is_complete = (
+        isinstance(accepted_links, Mapping)
+        and isinstance(claims, list)
+        and bool(claims)
+        and len(accepted_links) == len(claims)
+    )
+    expected_stage = _CASH_EVIDENCE_LAB_PHASE_STAGES[str(phase)]
+    if (
+        str(phase) == "chain"
+        and chain_is_complete
+        and not st.session_state.get(
+            "_wfz_cash_evidence_lab_review_from_defense"
+        )
+    ):
+        expected_stage = "evidence_completed"
+    if current_stage != expected_stage:
+        st.session_state["cash_case_stage"] = expected_stage
+
+
+def _normalise_cash_evidence_lab_control_command(
+    raw_command: object,
+    *,
+    task_id: str,
+    revision: int,
+) -> dict[str, object]:
+    """Strictly accept only common-envelope lab toolbar commands."""
+    if not isinstance(raw_command, Mapping):
+        raise ValueError("证据实验室控制命令必须是对象。")
+    if set(raw_command) != set(_CASH_EVIDENCE_LAB_COMMON_FIELDS):
+        raise ValueError("证据实验室控制命令字段不完整或包含额外字段。")
+    schema_version = raw_command.get("schema_version")
+    if (
+        not isinstance(schema_version, int)
+        or isinstance(schema_version, bool)
+        or schema_version != 1
+    ):
+        raise ValueError("证据实验室控制命令schema_version不受支持。")
+    command_id = raw_command.get("command_id")
+    if (
+        not isinstance(command_id, str)
+        or not _CASH_EVIDENCE_LAB_COMMAND_ID_PATTERN.fullmatch(command_id)
+    ):
+        raise ValueError("证据实验室控制命令command_id格式无效。")
+    if raw_command.get("task_id") != task_id:
+        raise ValueError("证据实验室控制命令task_id与当前卷宗不一致。")
+    raw_revision = raw_command.get("revision")
+    if (
+        not isinstance(raw_revision, int)
+        or isinstance(raw_revision, bool)
+        or raw_revision != revision
+    ):
+        raise ValueError("证据实验室控制命令revision已经过期。")
+    action = raw_command.get("action")
+    if action not in (
+        _CASH_EVIDENCE_LAB_UI_ACTIONS
+        | {_CASH_EVIDENCE_LAB_KEEPSAKE_ACTION}
+    ):
+        raise ValueError("证据实验室控制命令action不受支持。")
+    return {
+        "schema_version": 1,
+        "command_id": command_id,
+        "task_id": task_id,
+        "revision": revision,
+        "action": action,
+    }
+
+
+def _set_cash_evidence_lab_feedback(
+    *, tone: str, title: str, message: str
+) -> None:
+    st.session_state["_wfz_cash_evidence_lab_feedback"] = {
+        "tone": tone,
+        "title": title,
+        "message": message,
+    }
+
+
+def _cash_evidence_lab_public_state(
+    task: Mapping[str, object],
+    *,
+    player_name: str,
+) -> dict[str, object]:
+    """Expose only the answer-free task and server-confirmed progress."""
+    phase = str(st.session_state.get("cash_evidence_lab_phase", "reading"))
+    if phase not in _CASH_EVIDENCE_LAB_PHASE_STEPS:
+        phase = "reading"
+    mentor = mentor_for_step(_CASH_EVIDENCE_LAB_PHASE_STEPS[phase])
+    known_keepsakes = set(_cash_game_owned_keepsakes()) | set(
+        normalise_keepsake_ids(
+            st.session_state.get("cash_game_pending_keepsakes")
+        )
+    )
+    state: dict[str, object] = {
+        "phase": phase,
+        "player_name": player_name,
+        "task": dict(task),
+        "progress": {
+            "viewed_document_ids": list(
+                st.session_state.get(
+                    "cash_evidence_lab_reading_viewed_ids", []
+                )
+            ),
+            "accepted_field_ids": list(
+                st.session_state.get(
+                    "cash_evidence_lab_reading_accepted_ids", []
+                )
+            ),
+            "accepted_placements": dict(
+                st.session_state.get(
+                    "cash_evidence_lab_classification_accepted", {}
+                )
+            ),
+            "accepted_links": dict(
+                st.session_state.get(
+                    "cash_evidence_lab_chain_accepted", {}
+                )
+            ),
+        },
+        "acknowledged_command_id": st.session_state.get(
+            "_wfz_cash_evidence_lab_last_command_id", ""
+        ),
+        "npc": {
+            "name": mentor.name,
+            "role": mentor.role,
+            "line": mentor.reminder,
+            "image_url": f"/app/static/cash-game-mentor-{mentor.step:02d}.png",
+        },
+        "keepsake_discovered": mentor.keepsake_id in known_keepsakes,
+    }
+    evaluation = st.session_state.get("_wfz_cash_evidence_lab_evaluation")
+    if isinstance(evaluation, Mapping):
+        state["evaluation"] = dict(evaluation)
+    feedback = st.session_state.get("_wfz_cash_evidence_lab_feedback")
+    if isinstance(feedback, Mapping):
+        state["feedback"] = dict(feedback)
+    return state
+
+
+def _merge_cash_evidence_lab_evaluation(
+    evaluation: Mapping[str, object],
+    *,
+    task: Mapping[str, object],
+) -> None:
+    """Persist only IDs that the server evaluator explicitly accepted."""
+    phase = str(evaluation["phase"])
+    accepted = {
+        value
+        for value in evaluation.get("accepted", [])
+        if isinstance(value, str)
+    }
+    clean_payload = evaluation.get("clean_payload", {})
+    if not isinstance(clean_payload, Mapping):
+        clean_payload = {}
+    if phase == "reading":
+        reading = task.get("reading", {})
+        documents = (
+            reading.get("documents", [])
+            if isinstance(reading, Mapping)
+            else []
+        )
+        fields = (
+            reading.get("field_options", [])
+            if isinstance(reading, Mapping)
+            else []
+        )
+        viewed = clean_payload.get("viewed_document_ids", [])
+        old_viewed = set(
+            st.session_state.get(
+                "cash_evidence_lab_reading_viewed_ids", []
+            )
+        )
+        submitted_viewed = set(viewed) if isinstance(viewed, list) else set()
+        st.session_state["cash_evidence_lab_reading_viewed_ids"] = [
+            str(document["document_id"])
+            for document in documents
+            if isinstance(document, Mapping)
+            and document.get("document_id") in old_viewed | submitted_viewed
+        ]
+        old_accepted = set(
+            st.session_state.get(
+                "cash_evidence_lab_reading_accepted_ids", []
+            )
+        )
+        st.session_state["cash_evidence_lab_reading_accepted_ids"] = [
+            str(field["field_id"])
+            for field in fields
+            if isinstance(field, Mapping)
+            and field.get("field_id") in old_accepted | accepted
+        ]
+        return
+    if phase == "classification":
+        placements = clean_payload.get("placements", {})
+        existing = dict(
+            st.session_state.get(
+                "cash_evidence_lab_classification_accepted", {}
+            )
+        )
+        if isinstance(placements, Mapping):
+            existing.update(
+                {
+                    item_id: class_id
+                    for item_id, class_id in placements.items()
+                    if item_id in accepted
+                    and isinstance(item_id, str)
+                    and isinstance(class_id, str)
+                }
+            )
+        st.session_state["cash_evidence_lab_classification_accepted"] = (
+            existing
+        )
+        return
+    links = clean_payload.get("links", {})
+    existing_links = dict(
+        st.session_state.get("cash_evidence_lab_chain_accepted", {})
+    )
+    if isinstance(links, Mapping):
+        existing_links.update(
+            {
+                claim_id: document_id
+                for claim_id, document_id in links.items()
+                if claim_id in accepted
+                and isinstance(claim_id, str)
+                and isinstance(document_id, str)
+            }
+        )
+    st.session_state["cash_evidence_lab_chain_accepted"] = existing_links
+
+
+def _initialise_cash_defense_after_evidence() -> None:
+    for key in list(st.session_state):
+        if str(key).startswith(
+            ("cash_defense_committee_", "_wfz_cash_defense_committee_")
+        ):
+            st.session_state.pop(key, None)
+    st.session_state["cash_defense_committee_version"] = 1
+    st.session_state["cash_defense_committee_revision"] = 0
+    st.session_state["cash_defense_committee_accepted_placements"] = {}
+    st.session_state["cash_defense_lives"] = 3
+    st.session_state["cash_defense_round_index"] = 0
+    st.session_state["cash_defense_attempt_index"] = 0
+    st.session_state["cash_defense_completed_explanations"] = []
+    st.session_state.pop("cash_defense_feedback", None)
+
+
+def _process_cash_evidence_lab_command(
+    evidence_case: Mapping[str, object],
+    task: Mapping[str, object],
+    raw_command: object,
+) -> None:
+    """Validate and apply one Stage 5--7 component command."""
+    candidate_command_id = (
+        raw_command.get("command_id")
+        if isinstance(raw_command, Mapping)
+        else None
+    )
+    if (
+        isinstance(candidate_command_id, str)
+        and candidate_command_id
+        == st.session_state.get("_wfz_cash_evidence_lab_last_trigger_id")
+    ):
+        return
+
+    revision = int(st.session_state.get("cash_evidence_lab_revision", 0))
+    task_id = str(task["task_id"])
+    raw_action = (
+        raw_command.get("action")
+        if isinstance(raw_command, Mapping)
+        else None
+    )
+    control_actions = _CASH_EVIDENCE_LAB_UI_ACTIONS | {
+        _CASH_EVIDENCE_LAB_KEEPSAKE_ACTION
+    }
+    try:
+        if raw_action in control_actions:
+            command = _normalise_cash_evidence_lab_control_command(
+                raw_command,
+                task_id=task_id,
+                revision=revision,
+            )
+        else:
+            command = normalise_cash_evidence_lab_command(
+                evidence_case, raw_command, revision  # type: ignore[arg-type]
+            )
+            phase = str(
+                st.session_state.get("cash_evidence_lab_phase", "reading")
+            )
+            expected_action = {
+                "reading": "submit_reading",
+                "classification": "submit_classification",
+                "chain": "submit_chain",
+            }.get(phase)
+            if command["action"] != expected_action:
+                raise ValueError("这条提交命令不属于当前证据实验室阶段。")
+    except ValueError as error:
+        can_acknowledge = isinstance(candidate_command_id, str) and bool(
+            _CASH_EVIDENCE_LAB_COMMAND_ID_PATTERN.fullmatch(
+                candidate_command_id
+            )
+        )
+        if can_acknowledge:
+            st.session_state[
+                "_wfz_cash_evidence_lab_last_trigger_id"
+            ] = candidate_command_id
+            st.session_state[
+                "_wfz_cash_evidence_lab_last_command_id"
+            ] = candidate_command_id
+            st.session_state.pop(
+                "_wfz_cash_evidence_lab_evaluation", None
+            )
+        _set_cash_evidence_lab_feedback(
+            tone="error",
+            title="证据实验室拒绝了这条命令",
+            message=str(error),
+        )
+        if can_acknowledge:
+            st.rerun()
+        return
+
+    command_id = str(command["command_id"])
+    action = str(command["action"])
+    st.session_state["_wfz_cash_evidence_lab_last_trigger_id"] = command_id
+    st.session_state["_wfz_cash_evidence_lab_last_command_id"] = command_id
+
+    if action in _CASH_EVIDENCE_LAB_UI_ACTIONS:
+        st.session_state.pop("_wfz_cash_evidence_lab_evaluation", None)
+        if action == "go_back":
+            _go_back_one_cash_game_step(
+                str(st.session_state.get("cash_case_stage", "reading"))
+            )
+            return
+        if action == "rename_player":
+            st.session_state["_wfz_cash_game_overlay"] = "rename"
+            st.rerun()
+            return
+        if action == "restart_game":
+            st.session_state["_wfz_cash_game_overlay"] = "reset"
+            st.rerun()
+            return
+        st.session_state.pop("_wfz_cash_game_overlay", None)
+        _switch_page("home")
+        return
+
+    if action == _CASH_EVIDENCE_LAB_KEEPSAKE_ACTION:
+        st.session_state.pop("_wfz_cash_evidence_lab_evaluation", None)
+        phase = str(
+            st.session_state.get("cash_evidence_lab_phase", "reading")
+        )
+        step = _CASH_EVIDENCE_LAB_PHASE_STEPS.get(phase, 5)
+        mentor = mentor_for_step(step)
+        pending = normalise_keepsake_ids(
+            st.session_state.get("cash_game_pending_keepsakes")
+        )
+        if (
+            mentor.keepsake_id not in _cash_game_owned_keepsakes()
+            and mentor.keepsake_id not in pending
+        ):
+            st.session_state["cash_game_pending_keepsakes"] = [
+                *pending,
+                mentor.keepsake_id,
+            ]
+        _set_cash_evidence_lab_feedback(
+            tone="success",
+            title=f"物品栏新增｜{mentor.keepsake_name}",
+            message=(
+                "你没有把完成任务当成结束，而是又检查了一次场景边缘。"
+            ),
+        )
+        st.rerun()
+        return
+
+    phase = str(st.session_state.get("cash_evidence_lab_phase", "reading"))
+    evaluator = {
+        "reading": evaluate_cash_evidence_reading,
+        "classification": evaluate_cash_evidence_classification,
+        "chain": evaluate_cash_evidence_chain,
+    }[phase]
+    evaluation = evaluator(
+        evidence_case, raw_command, revision  # type: ignore[arg-type]
+    )
+    _merge_cash_evidence_lab_evaluation(evaluation, task=task)
+    st.session_state["_wfz_cash_evidence_lab_evaluation"] = {
+        **evaluation,
+        "command_id": command_id,
+    }
+    st.session_state["cash_evidence_lab_revision"] = min(
+        revision + 1, 1_000_000
+    )
+    complete = bool(evaluation["complete"])
+    _set_cash_evidence_lab_feedback(
+        tone="success" if complete else "warning",
+        title=(
+            "核验通过｜下一间实验室已解锁"
+            if complete
+            else "正确工作已锁定｜只退回有问题的部分"
+        ),
+        message=str(evaluation["feedback"]),
+    )
+    if not complete:
+        st.rerun()
+        return
+
+    if phase == "reading":
+        st.session_state["cash_evidence_lab_phase"] = "classification"
+        _queue_cash_game_keepsake_reward(5, "cross_check")
+        return
+    if phase == "classification":
+        st.session_state["cash_evidence_lab_phase"] = "chain"
+        st.session_state["cash_cross_check_explanation"] = str(
+            evaluation["feedback"]
+        )
+        _queue_cash_game_keepsake_reward(6, "evidence")
+        return
+
+    st.session_state["cash_case_stage"] = "evidence_completed"
+    st.session_state["cash_evidence_explanation"] = str(
+        evidence_case.get("explanation", evaluation["feedback"])
+    )
+    returned_from_defense = bool(
+        st.session_state.pop(
+            "_wfz_cash_evidence_lab_review_from_defense", False
+        )
+    )
+    if not returned_from_defense:
+        _initialise_cash_defense_after_evidence()
+    _queue_cash_game_keepsake_reward(7, "defense")
+
+
+def _render_cash_evidence_lab_node(player_name: str) -> None:
+    """Render Stages 5--7 as one continuous server-verified lab."""
+    attempt_index = int(
+        st.session_state.get("cash_evidence_attempt_index", 0)
+    )
+    evidence_case = build_cash_evidence_case(attempt_index)
+    task = build_cash_evidence_lab_public_task(evidence_case)
+    task_documents = task.get("reading", {})
+    task_documents = (
+        task_documents.get("documents", [])
+        if isinstance(task_documents, Mapping)
+        else []
+    )
+    required_document_ids = {
+        str(document["document_id"])
+        for document in task_documents
+        if isinstance(document, Mapping)
+    }
+    discovered_document_ids = set(
+        st.session_state.get("cash_discovered_document_ids", [])
+    )
+    if discovered_document_ids != required_document_ids:
+        st.session_state["cash_case_stage"] = "investigation"
+        _set_cash_office_search_feedback(
+            tone="warning",
+            title="证物袋不完整｜已返回办公室",
+            message="证据实验室只接收完成空间搜查后的六份原始材料。",
+        )
+        st.rerun()
+
+    current_stage = str(st.session_state.get("cash_case_stage", "reading"))
+    _initialise_cash_evidence_lab_scene(task, current_stage=current_stage)
+    current_stage = str(st.session_state.get("cash_case_stage", "reading"))
+    accepted_links = st.session_state.get(
+        "cash_evidence_lab_chain_accepted", {}
+    )
+    chain = task.get("chain", {})
+    claims = chain.get("claims", []) if isinstance(chain, Mapping) else []
+    if (
+        current_stage == "evidence_completed"
+        and not st.session_state.get(
+            "_wfz_cash_evidence_lab_review_from_defense"
+        )
+        and isinstance(accepted_links, Mapping)
+        and isinstance(claims, list)
+        and len(accepted_links) == len(claims)
+    ):
+        _initialise_cash_defense_after_evidence()
+        _queue_cash_game_keepsake_reward(7, "defense")
+        return
+
+    state = _cash_evidence_lab_public_state(task, player_name=player_name)
+    with st.container(key="cash_evidence_lab_scene"):
+        try:
+            result = render_cash_evidence_lab(
+                state=state,
+                task_id=str(task["task_id"]),
+                revision=int(
+                    st.session_state.get("cash_evidence_lab_revision", 0)
+                ),
+                draft_storage_key=(
+                    f"wfz.cash-evidence-lab.v1:{task['task_id']}"
+                ),
+                key=f"wfz_cash_evidence_lab_{task['case_id']}",
+                on_command_change=lambda: None,
+            )
+        except ValueError as error:
+            if "is not registered" not in str(error):
+                raise
+            return
+
+    raw_command = getattr(result, "command", None)
+    if raw_command is None and isinstance(result, Mapping):
+        raw_command = result.get("command")
+    if raw_command is not None:
+        _process_cash_evidence_lab_command(
+            evidence_case,
+            task,
+            raw_command,
+        )
+
+
+def _render_cash_reading_node(player_name: str) -> None:
+    _render_cash_evidence_lab_node(player_name)
+
+
+def _render_cash_cross_check_node(player_name: str) -> None:
+    _render_cash_evidence_lab_node(player_name)
+
+
+def _render_cash_evidence_node(player_name: str) -> None:
+    _render_cash_evidence_lab_node(player_name)
 
 
 def _render_cash_mentor_council(player_name: str) -> None:
@@ -8732,7 +10274,7 @@ def _render_cash_mentor_council(player_name: str) -> None:
         _advance_game("migration")
 
 
-def _render_cash_defense_node(player_name: str) -> None:
+def _render_cash_defense_node_legacy(player_name: str) -> None:
     """Render the three-round formal defence with one shared life pool."""
     _show_cash_visual_stage(
         8,
@@ -8867,6 +10409,556 @@ def _render_cash_defense_node(player_name: str) -> None:
             "委员会已经换成新公司与新证据，请重新推理。"
         )
     st.rerun()
+
+
+_CASH_DEFENSE_COMMITTEE_VERSION = 1
+_CASH_DEFENSE_COMMITTEE_COMMAND_ID_PATTERN = re.compile(
+    r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z"
+)
+_CASH_DEFENSE_COMMITTEE_COMMON_FIELDS = frozenset(
+    {"schema_version", "command_id", "task_id", "revision", "action"}
+)
+_CASH_DEFENSE_COMMITTEE_UI_ACTIONS = frozenset(
+    {"go_back", "rename_player", "restart_game", "exit_game"}
+)
+_CASH_DEFENSE_COMMITTEE_KEEPSAKE_ACTION = "discover_keepsake"
+_CASH_DEFENSE_COMMITTEE_SEATS = (
+    "conclusion_strength",
+    "evidence_boundary",
+    "next_action",
+)
+
+
+def _clear_cash_defense_committee_scene_state() -> None:
+    """Clear only the Stage 8 v2 checkpoint and transient acknowledgements."""
+    for key in list(st.session_state):
+        if str(key).startswith(
+            ("cash_defense_committee_", "_wfz_cash_defense_committee_")
+        ):
+            st.session_state.pop(key, None)
+
+
+def _normalise_cash_defense_committee_control_command(
+    raw_command: object,
+    *,
+    task_id: str,
+    revision: int,
+) -> dict[str, object]:
+    """Strictly accept only the component's common-envelope toolbar actions."""
+    if not isinstance(raw_command, Mapping):
+        raise ValueError("审查委员会控制命令必须是对象。")
+    if set(raw_command) != set(_CASH_DEFENSE_COMMITTEE_COMMON_FIELDS):
+        raise ValueError("审查委员会控制命令字段不完整或包含额外字段。")
+    schema_version = raw_command.get("schema_version")
+    if (
+        not isinstance(schema_version, int)
+        or isinstance(schema_version, bool)
+        or schema_version != 1
+    ):
+        raise ValueError("审查委员会控制命令schema_version不受支持。")
+    command_id = raw_command.get("command_id")
+    if (
+        not isinstance(command_id, str)
+        or not _CASH_DEFENSE_COMMITTEE_COMMAND_ID_PATTERN.fullmatch(
+            command_id
+        )
+    ):
+        raise ValueError("审查委员会控制命令command_id格式无效。")
+    if raw_command.get("task_id") != task_id:
+        raise ValueError("审查委员会控制命令task_id与当前挑战不一致。")
+    raw_revision = raw_command.get("revision")
+    if (
+        not isinstance(raw_revision, int)
+        or isinstance(raw_revision, bool)
+        or raw_revision != revision
+    ):
+        raise ValueError("审查委员会控制命令revision已经过期。")
+    action = raw_command.get("action")
+    if action not in (
+        _CASH_DEFENSE_COMMITTEE_UI_ACTIONS
+        | {_CASH_DEFENSE_COMMITTEE_KEEPSAKE_ACTION}
+    ):
+        raise ValueError("审查委员会控制命令action不受支持。")
+    return {
+        "schema_version": 1,
+        "command_id": command_id,
+        "task_id": task_id,
+        "revision": revision,
+        "action": action,
+    }
+
+
+def _set_cash_defense_committee_feedback(
+    *,
+    tone: str,
+    title: str,
+    message: str,
+) -> None:
+    st.session_state["_wfz_cash_defense_committee_feedback"] = {
+        "tone": tone,
+        "title": title,
+        "message": message,
+    }
+
+
+def _defense_committee_safe_counter(
+    key: str,
+    *,
+    default: int,
+    minimum: int,
+    maximum: int,
+) -> int:
+    value = st.session_state.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, int):
+        value = default
+    value = max(minimum, min(int(value), maximum))
+    st.session_state[key] = value
+    return value
+
+
+def _initialise_cash_defense_committee_scene() -> tuple[
+    int,
+    int,
+    int,
+    dict[str, object],
+]:
+    """Migrate legacy radio rounds and restore one server-verified challenge."""
+    version_matches = (
+        st.session_state.get("cash_defense_committee_version")
+        == _CASH_DEFENSE_COMMITTEE_VERSION
+    )
+    if not version_matches:
+        # A legacy radio answer must not silently count as a passed round in
+        # the new three-seat interaction.  Preserve earlier investigation and
+        # evidence work, but begin the committee itself from a clean Round 1.
+        _clear_cash_defense_committee_scene_state()
+        st.session_state["cash_defense_committee_version"] = (
+            _CASH_DEFENSE_COMMITTEE_VERSION
+        )
+        st.session_state["cash_defense_committee_revision"] = 0
+        st.session_state["cash_defense_committee_accepted_placements"] = {}
+        st.session_state["cash_defense_lives"] = 3
+        st.session_state["cash_defense_round_index"] = 0
+        st.session_state["cash_defense_attempt_index"] = 0
+        st.session_state["cash_defense_completed_explanations"] = []
+        st.session_state.pop("cash_defense_feedback", None)
+        if st.session_state.get("cash_case_stage") == "defense_failed":
+            st.session_state["cash_case_stage"] = "defense"
+
+    round_index = _defense_committee_safe_counter(
+        "cash_defense_round_index",
+        default=0,
+        minimum=0,
+        maximum=2,
+    )
+    challenge_index = _defense_committee_safe_counter(
+        "cash_defense_attempt_index",
+        default=0,
+        minimum=0,
+        maximum=10_000,
+    )
+    revision = _defense_committee_safe_counter(
+        "cash_defense_committee_revision",
+        default=0,
+        minimum=0,
+        maximum=1_000_000,
+    )
+    _defense_committee_safe_counter(
+        "cash_defense_lives",
+        default=3,
+        minimum=0,
+        maximum=3,
+    )
+    task = build_cash_defense_committee_public_task(
+        round_index, challenge_index
+    )
+    task_id = str(task["task_id"])
+    if st.session_state.get("cash_defense_committee_task_id") != task_id:
+        st.session_state["cash_defense_committee_task_id"] = task_id
+        st.session_state["cash_defense_committee_accepted_placements"] = {}
+        st.session_state.pop(
+            "_wfz_cash_defense_committee_evaluation", None
+        )
+
+    # Browser checkpoints are user-controlled.  Re-evaluate every restored
+    # mapping against the current server task before calling it "accepted".
+    raw_accepted = st.session_state.get(
+        "cash_defense_committee_accepted_placements", {}
+    )
+    accepted_placements: dict[str, str] = {}
+    if isinstance(raw_accepted, Mapping) and raw_accepted:
+        probe = {
+            "schema_version": 1,
+            "command_id": "restore-defense-committee",
+            "task_id": task_id,
+            "revision": revision,
+            "action": "submit_committee_statement",
+            "placements": dict(raw_accepted),
+        }
+        try:
+            restored_evaluation = evaluate_cash_defense_committee(
+                round_index,
+                challenge_index,
+                probe,
+                revision,
+            )
+            restored_payload = restored_evaluation.get("clean_payload", {})
+            restored_mapping = (
+                restored_payload.get("placements", {})
+                if isinstance(restored_payload, Mapping)
+                else {}
+            )
+            accepted_seats = set(restored_evaluation.get("accepted", []))
+            if isinstance(restored_mapping, Mapping):
+                accepted_placements = {
+                    seat_id: card_id
+                    for seat_id, card_id in restored_mapping.items()
+                    if seat_id in accepted_seats
+                    and isinstance(seat_id, str)
+                    and isinstance(card_id, str)
+                }
+        except ValueError:
+            accepted_placements = {}
+    st.session_state["cash_defense_committee_accepted_placements"] = (
+        accepted_placements
+    )
+    st.session_state.setdefault("cash_defense_completed_explanations", [])
+    return round_index, challenge_index, revision, task
+
+
+def _cash_defense_committee_public_state(
+    task: Mapping[str, object],
+    *,
+    player_name: str,
+) -> dict[str, object]:
+    round_index = int(st.session_state.get("cash_defense_round_index", 0))
+    mentor = mentor_for_step(8)
+    known_keepsakes = set(_cash_game_owned_keepsakes()) | set(
+        normalise_keepsake_ids(
+            st.session_state.get("cash_game_pending_keepsakes")
+        )
+    )
+    state: dict[str, object] = {
+        "task": dict(task),
+        "player_name": player_name,
+        "lives": int(st.session_state.get("cash_defense_lives", 3)),
+        "max_lives": 3,
+        "passed_round_numbers": list(range(1, round_index + 1)),
+        "progress": {
+            "accepted_placements": dict(
+                st.session_state.get(
+                    "cash_defense_committee_accepted_placements", {}
+                )
+            )
+        },
+        "acknowledged_command_id": st.session_state.get(
+            "_wfz_cash_defense_committee_last_command_id", ""
+        ),
+        "keepsake_discovered": mentor.keepsake_id in known_keepsakes,
+    }
+    evaluation = st.session_state.get(
+        "_wfz_cash_defense_committee_evaluation"
+    )
+    if isinstance(evaluation, Mapping):
+        state["evaluation"] = dict(evaluation)
+        state["evaluation_task_id"] = evaluation.get("task_id", "")
+    feedback = st.session_state.get(
+        "_wfz_cash_defense_committee_feedback"
+    )
+    if isinstance(feedback, Mapping):
+        state["feedback"] = dict(feedback)
+    return state
+
+
+def _process_cash_defense_committee_command(
+    task: Mapping[str, object],
+    raw_command: object,
+) -> None:
+    """Apply one strict Stage 8 command without reopening earlier scenes."""
+    candidate_command_id = (
+        raw_command.get("command_id")
+        if isinstance(raw_command, Mapping)
+        else None
+    )
+    if (
+        isinstance(candidate_command_id, str)
+        and candidate_command_id
+        == st.session_state.get(
+            "_wfz_cash_defense_committee_last_trigger_id"
+        )
+    ):
+        return
+
+    round_index = int(st.session_state.get("cash_defense_round_index", 0))
+    challenge_index = int(
+        st.session_state.get("cash_defense_attempt_index", 0)
+    )
+    revision = int(
+        st.session_state.get("cash_defense_committee_revision", 0)
+    )
+    task_id = str(task["task_id"])
+    raw_action = (
+        raw_command.get("action")
+        if isinstance(raw_command, Mapping)
+        else None
+    )
+    try:
+        if raw_action in (
+            _CASH_DEFENSE_COMMITTEE_UI_ACTIONS
+            | {_CASH_DEFENSE_COMMITTEE_KEEPSAKE_ACTION}
+        ):
+            command = _normalise_cash_defense_committee_control_command(
+                raw_command,
+                task_id=task_id,
+                revision=revision,
+            )
+        else:
+            command = normalise_cash_defense_committee_command(
+                round_index,
+                challenge_index,
+                raw_command,
+                revision,
+            )
+    except ValueError as error:
+        can_acknowledge = (
+            isinstance(candidate_command_id, str)
+            and bool(
+                _CASH_DEFENSE_COMMITTEE_COMMAND_ID_PATTERN.fullmatch(
+                    candidate_command_id
+                )
+            )
+            and candidate_command_id
+            != st.session_state.get(
+                "_wfz_cash_defense_committee_last_trigger_id"
+            )
+        )
+        if can_acknowledge:
+            st.session_state[
+                "_wfz_cash_defense_committee_last_trigger_id"
+            ] = candidate_command_id
+            st.session_state[
+                "_wfz_cash_defense_committee_last_command_id"
+            ] = candidate_command_id
+            st.session_state.pop(
+                "_wfz_cash_defense_committee_evaluation", None
+            )
+        _set_cash_defense_committee_feedback(
+            tone="error",
+            title="审查终端拒绝了这条命令",
+            message=str(error),
+        )
+        if can_acknowledge:
+            st.rerun()
+        return
+
+    command_id = str(command["command_id"])
+    action = str(command["action"])
+    st.session_state[
+        "_wfz_cash_defense_committee_last_trigger_id"
+    ] = command_id
+    st.session_state[
+        "_wfz_cash_defense_committee_last_command_id"
+    ] = command_id
+
+    if action in _CASH_DEFENSE_COMMITTEE_UI_ACTIONS:
+        st.session_state.pop(
+            "_wfz_cash_defense_committee_evaluation", None
+        )
+        if action == "go_back":
+            _go_back_one_cash_game_step("defense")
+            return
+        if action == "rename_player":
+            st.session_state["_wfz_cash_game_overlay"] = "rename"
+            st.rerun()
+            return
+        if action == "restart_game":
+            st.session_state["_wfz_cash_game_overlay"] = "reset"
+            st.rerun()
+            return
+        st.session_state.pop("_wfz_cash_game_overlay", None)
+        _switch_page("home")
+        return
+
+    if action == _CASH_DEFENSE_COMMITTEE_KEEPSAKE_ACTION:
+        st.session_state.pop(
+            "_wfz_cash_defense_committee_evaluation", None
+        )
+        mentor = mentor_for_step(8)
+        pending = normalise_keepsake_ids(
+            st.session_state.get("cash_game_pending_keepsakes")
+        )
+        if (
+            mentor.keepsake_id not in _cash_game_owned_keepsakes()
+            and mentor.keepsake_id not in pending
+        ):
+            st.session_state["cash_game_pending_keepsakes"] = [
+                *pending,
+                mentor.keepsake_id,
+            ]
+        _set_cash_defense_committee_feedback(
+            tone="success",
+            title=f"物品栏新增｜{mentor.keepsake_name}",
+            message=(
+                "你没有只盯着三张审查席，而是检查了结论背后的反向路径。"
+            ),
+        )
+        st.rerun()
+        return
+
+    evaluation = evaluate_cash_defense_committee(
+        round_index,
+        challenge_index,
+        raw_command,
+        revision,
+    )
+    clean_payload = evaluation.get("clean_payload", {})
+    placements = (
+        clean_payload.get("placements", {})
+        if isinstance(clean_payload, Mapping)
+        else {}
+    )
+    accepted_seats = set(evaluation.get("accepted", []))
+    existing = dict(
+        st.session_state.get(
+            "cash_defense_committee_accepted_placements", {}
+        )
+    )
+    if isinstance(placements, Mapping):
+        existing.update(
+            {
+                seat_id: card_id
+                for seat_id, card_id in placements.items()
+                if seat_id in accepted_seats
+                and isinstance(seat_id, str)
+                and isinstance(card_id, str)
+            }
+        )
+    st.session_state["cash_defense_committee_accepted_placements"] = existing
+    st.session_state["_wfz_cash_defense_committee_evaluation"] = {
+        **evaluation,
+        "task_id": task_id,
+        "command_id": command_id,
+    }
+    st.session_state["cash_defense_committee_revision"] = min(
+        revision + 1, 1_000_000
+    )
+
+    if bool(evaluation["complete"]):
+        explanations = [
+            str(value)
+            for value in st.session_state.get(
+                "cash_defense_completed_explanations", []
+            )
+            if isinstance(value, str)
+        ][:2]
+        explanations.append(str(evaluation["feedback"]))
+        st.session_state["cash_defense_completed_explanations"] = explanations
+        st.session_state["cash_defense_committee_accepted_placements"] = {}
+        st.session_state.pop("cash_defense_committee_task_id", None)
+        st.session_state.pop(
+            "_wfz_cash_defense_committee_evaluation", None
+        )
+        if round_index == 2:
+            _queue_cash_game_keepsake_reward(8, "case_completed")
+            return
+        st.session_state["cash_defense_round_index"] = round_index + 1
+        # ``scenario_counter = round + challenge`` in the rules builder.
+        # Advancing both counters by one moves two scenario slots, preventing
+        # a just-passed challenge from reappearing unchanged in the next
+        # formal round (for example Round 1/challenge 2 -> Round 2/challenge 1
+        # would otherwise both be the same late-acceptance dossier).
+        st.session_state["cash_defense_attempt_index"] = (
+            challenge_index + 1
+        ) % 4
+        _set_cash_defense_committee_feedback(
+            tone="success",
+            title=f"第 {round_index + 1} 轮通过｜下一席组已亮灯",
+            message=str(evaluation["feedback"]),
+        )
+        st.rerun()
+        return
+
+    if bool(evaluation["replace_challenge"]):
+        remaining_lives = max(
+            int(st.session_state.get("cash_defense_lives", 3)) - 1,
+            0,
+        )
+        exhausted = remaining_lives == 0
+        # Three formal errors restart only the current Stage 8 hearing.  The
+        # earlier investigation, evidence chain and passed committee rounds
+        # remain intact, matching the server rule's explicit boundary.
+        st.session_state["cash_defense_lives"] = 3 if exhausted else remaining_lives
+        st.session_state["cash_defense_attempt_index"] = min(
+            challenge_index + 1, 10_000
+        )
+        st.session_state["cash_defense_committee_accepted_placements"] = {}
+        st.session_state.pop("cash_defense_committee_task_id", None)
+        st.session_state.pop(
+            "_wfz_cash_defense_committee_evaluation", None
+        )
+        _set_cash_defense_committee_feedback(
+            tone="warning",
+            title=(
+                "本轮容错已用完｜只重开当前听证"
+                if exhausted
+                else "正式意见被否决｜已更换当前挑战"
+            ),
+            message=(
+                str(evaluation["feedback"])
+                + (
+                    " 三次容错已经结算；委员会补发三次新容错，"
+                    "已通过轮次与前七幕证据全部保留。"
+                    if exhausted
+                    else ""
+                )
+            ),
+        )
+        st.rerun()
+        return
+
+    _set_cash_defense_committee_feedback(
+        tone="info",
+        title="正确席位已锁定｜空席不扣生命",
+        message=str(evaluation["feedback"]),
+    )
+    st.rerun()
+
+
+def _render_cash_defense_node(player_name: str) -> None:
+    """Render Stage 8 as one full-screen, server-verified committee."""
+    stage = str(st.session_state.get("cash_case_stage", "defense"))
+    if stage in {"case_completed", "migration_completed"}:
+        _render_cash_mentor_council(player_name)
+        return
+    round_index, challenge_index, revision, task = (
+        _initialise_cash_defense_committee_scene()
+    )
+    if st.session_state.get("cash_case_stage") != "defense":
+        st.session_state["cash_case_stage"] = "defense"
+    state = _cash_defense_committee_public_state(
+        task,
+        player_name=player_name,
+    )
+    with st.container(key="cash_defense_committee_scene"):
+        try:
+            result = render_cash_defense_committee(
+                state=state,
+                task_id=str(task["task_id"]),
+                revision=revision,
+                draft_storage_key="wfz.cash-defense-committee.v1",
+                key="wfz_cash_defense_committee_stage_8",
+                on_command_change=lambda: None,
+            )
+        except ValueError as error:
+            if "is not registered" not in str(error):
+                raise
+            return
+
+    raw_command = getattr(result, "command", None)
+    if raw_command is None and isinstance(result, Mapping):
+        raw_command = result.get("command")
+    if raw_command is not None:
+        _process_cash_defense_committee_command(task, raw_command)
 
 
 def _render_cash_game_controls(stage: str) -> None:
@@ -9062,7 +11154,7 @@ def _render_cash_game_control_overlay(player_name: str) -> None:
                 st.caption("清除本轮进度，在游戏序章重新输入代号。")
             st.info(
                 "第03幕教学练习答错不扣生命；第08幕正式答辩三次失败后，"
-                "系统会强制退回办公室并更换整套调查卷宗。"
+                "只重开当前听证，前七幕调查成果和已通过轮次仍会保留。"
             )
         if st.button(
             "取消｜返回当前案件",
@@ -9181,300 +11273,598 @@ def _render_cash_teaching_node() -> None:
         _queue_cash_game_keepsake_reward(2, "practice")
 
 
-def _render_cash_practice_node(player_name: str) -> None:
-    """Render the dual-clock evidence-routing challenge inside scene three."""
-    _show_cash_visual_stage(
-        3,
-        "拆开利润与现金",
-        "日期只能划边界。把业务事实送进正确的时钟，再判断差额意味着什么。",
-        scene_label="DUAL-CLOCK LAB",
-    )
-    stage = str(st.session_state.get("cash_case_stage", "practice"))
+_CASH_DUAL_CLOCK_SCENE_VERSION = 1
+_CASH_DUAL_CLOCK_PHASES = ("routes", "hypothesis", "orders", "door")
+_CASH_DUAL_CLOCK_PUBLIC_COMMAND_FIELDS = frozenset(
+    {
+        "schema_version",
+        "command_id",
+        "question_id",
+        "revision",
+        "action",
+    }
+)
+_CASH_DUAL_CLOCK_UI_ACTIONS = frozenset(
+    {"go_back", "rename_player", "restart_game", "exit_game"}
+)
+_CASH_DUAL_CLOCK_COMMAND_ID_PATTERN = re.compile(
+    r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z"
+)
 
-    if stage == "practice":
-        feedback = st.session_state.pop("cash_case_feedback", None)
-        attempt_index = int(
-            st.session_state.get("cash_case_attempt_index", 0)
+
+def _normalise_cash_dual_clock_ui_command(
+    question: Mapping[str, object],
+    raw_command: Mapping[object, object],
+    revision: int,
+) -> str:
+    """Validate one control action against the public command envelope."""
+    if set(raw_command) != _CASH_DUAL_CLOCK_PUBLIC_COMMAND_FIELDS:
+        raise ValueError(
+            "界面控制命令字段不完整，或包含未公开字段。请刷新本幕后重试。"
         )
-        question = build_cash_timing_question(attempt_index)
-        question_id = question["question_id"]
-        # Preserve progress from the previous timeline prototype when a live
-        # browser session survives deployment.  New sessions use the clearer
-        # clock-assignment checkpoint below.
-        if (
-            not st.session_state.get("cash_clock_assignment_unlocked", False)
-            and st.session_state.get(
-                "cash_timing_order_completed_question_id"
+    schema_version = raw_command.get("schema_version")
+    if (
+        isinstance(schema_version, bool)
+        or not isinstance(schema_version, int)
+        or schema_version != 1
+    ):
+        raise ValueError("界面控制命令版本无效。请刷新本幕后重试。")
+    command_id = raw_command.get("command_id")
+    if not isinstance(command_id, str) or not (
+        _CASH_DUAL_CLOCK_COMMAND_ID_PATTERN.fullmatch(command_id)
+    ):
+        raise ValueError("界面控制命令编号无效。请刷新本幕后重试。")
+    question_id = raw_command.get("question_id")
+    if not isinstance(question_id, str) or question_id != question.get(
+        "question_id"
+    ):
+        raise ValueError("这条界面控制命令不属于当前卷宗。")
+    command_revision = raw_command.get("revision")
+    if (
+        isinstance(command_revision, bool)
+        or not isinstance(command_revision, int)
+        or command_revision != revision
+    ):
+        raise ValueError("这条界面控制命令已经过期。请按当前画面重新操作。")
+    action = raw_command.get("action")
+    if not isinstance(action, str) or action not in _CASH_DUAL_CLOCK_UI_ACTIONS:
+        raise ValueError("当前画面不接受这项界面控制操作。")
+    return action
+
+
+def _initialise_cash_dual_clock_scene() -> None:
+    """Migrate only scene three away from the former form-based prototype."""
+    if (
+        st.session_state.get("cash_dual_clock_version")
+        == _CASH_DUAL_CLOCK_SCENE_VERSION
+    ):
+        phase = st.session_state.get("cash_dual_clock_phase")
+        if phase not in _CASH_DUAL_CLOCK_PHASES:
+            st.session_state["cash_dual_clock_phase"] = "routes"
+        return
+
+    obsolete_keys = {
+        "cash_clock_assignment_unlocked",
+        "cash_gap_hypothesis_unlocked",
+        "cash_investigation_orders_unlocked",
+        "cash_timing_order_ids",
+        "cash_timing_order_question_id",
+        "cash_timing_order_completed_question_id",
+        "cash_case_feedback",
+    }
+    for key in list(st.session_state):
+        if key in obsolete_keys or str(key).startswith(
+            (
+                "cash_profit_clock_",
+                "cash_cash_clock_",
+                "cash_case_inference_",
+                "_wfz_cash_dual_clock_",
             )
         ):
-            st.session_state["cash_clock_assignment_unlocked"] = True
-        assignment_unlocked = bool(
-            st.session_state.get("cash_clock_assignment_unlocked", False)
-        )
-        outstanding_wan = (
-            question["revenue_wan"] - question["cash_collected_wan"]
-        )
-        feedback_message = (
-            feedback
-            if isinstance(feedback, str)
-            else (
-                "不要按日期排队。把每张事实分别问两遍：它改变本月利润吗？"
-                "它让银行账户在本月真实收付了吗？"
-            )
-        )
-        feedback_is_success = (
-            isinstance(feedback, str) and feedback.startswith("归因成立")
-        )
-        feedback_class = (
-            "wfz-practice-director--retry"
-            if isinstance(feedback, str) and not feedback_is_success
-            else ""
-        )
-        evidence_nodes: list[str] = []
-        for event_index, event in enumerate(question["event_cards"]):
-            node_class = ""
-            if assignment_unlocked:
-                if event["affects_profit"] and event["affects_cash"]:
-                    node_role = "利润＋现金"
-                    node_class = "wfz-practice-flow-node--profit"
-                elif event["affects_profit"]:
-                    node_role = "利润时钟"
-                    node_class = "wfz-practice-flow-node--profit"
-                elif event["affects_cash"]:
-                    node_role = "现金时钟"
-                    node_class = "wfz-practice-flow-node--cash"
-                else:
-                    node_role = "暂不触发"
-                    node_class = "wfz-practice-flow-node--neutral"
-            else:
-                node_role = f"线索 {event_index + 1:02d}"
-            evidence_nodes.append(
-                f'<div class="wfz-practice-flow-node {node_class}">'
-                f"<b>{escape(node_role)}</b>"
-                f"<span>{escape(event['date_label'])} · "
-                f"{escape(event['title'])}</span>"
-                f"<em>{escape(event['detail'])}</em>"
-                "</div>"
-            )
-        evidence_nodes_html = "".join(evidence_nodes)
-        fact_reference = "  \n".join(
-            f"**{event['date_label']}｜{event['title']}**：{event['detail']}"
-            for event in question["event_cards"]
-        )
-        st.html(
-            f"""
-            <section class="wfz-practice-scene" aria-label="利润与现金校准训练场">
-                <div class="wfz-intake-vignette"></div>
-                <div class="wfz-practice-mission">
-                    <small>DYNAMIC DOSSIER {question['attempt_number']:02d} · TRAINING ZONE</small>
-                    <h2>一笔业务，两只计量表</h2>
-                    <p>{escape(question['prompt'])}</p>
-                </div>
-                <div class="wfz-practice-facts" aria-label="业务档案关键数字">
-                    <div class="wfz-practice-fact">
-                        <span>已完成并验收</span>
-                        <strong>{question['revenue_wan']} 万元</strong>
-                    </div>
-                    <div class="wfz-practice-fact">
-                        <span>费用已经支付</span>
-                        <strong>{question['expense_wan']} 万元</strong>
-                    </div>
-                    <div class="wfz-practice-fact">
-                        <span>本月实际回款</span>
-                        <strong>{question['cash_collected_wan']} 万元</strong>
-                    </div>
-                    <div class="wfz-practice-fact">
-                        <span>尚未收到</span>
-                        <strong>{outstanding_wan} 万元</strong>
-                    </div>
-                </div>
-                <div class="wfz-practice-director {feedback_class}">
-                    <small>调查主任 · 实时通讯</small>
-                    <p>{escape(str(feedback_message))}</p>
-                </div>
-                <div class="wfz-practice-flow">
-                    <small>双时钟证据板｜6 项业务事实 · 截止 12 月 31 日</small>
-                    <div class="wfz-practice-flow-row">
-                        {evidence_nodes_html}
-                    </div>
-                </div>
-            </section>
-            """
-        )
-        if not assignment_unlocked:
-            event_ids = [
-                event["event_id"] for event in question["event_cards"]
-            ]
-            event_label_by_id = {
-                event["event_id"]: (
-                    f"{event['date_label']}｜{event['title']}"
-                )
-                for event in question["event_cards"]
-            }
-            with st.form(
-                key=f"cash_clock_assignment_{question_id}",
-                border=True,
-            ):
-                st.caption(
-                    f"03 / 双时钟归因 · 第 {question['attempt_number']} 份动态卷宗"
-                )
-                st.markdown("#### 把业务事实送进正确的时钟")
-                st.caption(
-                    "同一事实可以同时进入两只时钟；两边都不选，代表它在"
-                    "本月暂不触发两表。日期只划报告期边界，不是排序题。"
-                )
-                with st.expander("查看六张事实卡的完整内容"):
-                    st.markdown(fact_reference)
-                if isinstance(feedback, str):
-                    if feedback_is_success:
-                        st.success(feedback)
-                    else:
-                        st.warning(feedback)
-                profit_column, cash_column = st.columns(2)
-                with profit_column:
-                    profit_event_ids = st.multiselect(
-                        "利润时钟｜确认与成本",
-                        options=event_ids,
-                        format_func=lambda event_id: event_label_by_id[
-                            event_id
-                        ],
-                        key=f"cash_profit_clock_{question_id}",
-                    )
-                with cash_column:
-                    cash_event_ids = st.multiselect(
-                        "现金时钟｜真实收付",
-                        options=event_ids,
-                        format_func=lambda event_id: event_label_by_id[
-                            event_id
-                        ],
-                        key=f"cash_cash_clock_{question_id}",
-                    )
-                assignment_submitted = st.form_submit_button(
-                    "锁定事实归因｜启动双表计算",
-                    type="primary",
-                    width="stretch",
-                )
+            st.session_state.pop(key, None)
+    if st.session_state.get("cash_case_stage") in {
+        "timing_completed",
+        "completed",
+    }:
+        st.session_state["cash_case_stage"] = "practice"
+    st.session_state["cash_dual_clock_version"] = (
+        _CASH_DUAL_CLOCK_SCENE_VERSION
+    )
+    st.session_state["cash_dual_clock_revision"] = 0
+    st.session_state["cash_dual_clock_phase"] = "routes"
 
-            if assignment_submitted:
-                assignment_result = evaluate_cash_clock_assignment(
-                    question,
-                    profit_event_ids,
-                    cash_event_ids,
-                )
-                if assignment_result["is_correct"]:
-                    st.session_state["cash_clock_assignment_unlocked"] = True
-                st.session_state["cash_case_feedback"] = assignment_result[
-                    "feedback"
-                ]
-                st.rerun()
+
+def _cash_dual_clock_feedback() -> dict[str, object]:
+    """Return a bounded public feedback card for the visual component."""
+    raw = st.session_state.get("_wfz_cash_dual_clock_feedback")
+    if isinstance(raw, Mapping):
+        return {
+            "tone": str(raw.get("tone", "neutral"))[:20],
+            "label": str(raw.get("label", "调查室回执"))[:40],
+            "title": str(raw.get("title", "操作已记录"))[:100],
+            "message": str(raw.get("message", ""))[:320],
+        }
+    return {
+        "tone": "neutral",
+        "label": "程砚舟 · 双钟归因分析师",
+        "title": "别急着算。先决定每条事实能敲响哪只钟。",
+        "message": (
+            "拖拽只是动作，归因才是判断。电脑可拖动；手机可先点材料，"
+            "再点目标区域。"
+        ),
+    }
+
+
+def _cash_dual_clock_public_state(
+    question: Mapping[str, object],
+    player_name: str,
+) -> dict[str, object]:
+    """Build the answer-free scene data rendered by the browser component."""
+    phase = str(st.session_state.get("cash_dual_clock_phase", "routes"))
+    draft_key = f"_wfz_cash_dual_clock_placements_{phase}"
+    raw_placements = st.session_state.get(draft_key, {})
+    placements = dict(raw_placements) if isinstance(raw_placements, Mapping) else {}
+    outstanding_wan = int(question["revenue_wan"]) - int(
+        question["cash_collected_wan"]
+    )
+    mentor = mentor_for_step(3)
+    discovered = mentor.keepsake_id in set(
+        [
+            *_cash_game_owned_keepsakes(),
+            *normalise_keepsake_ids(
+                st.session_state.get("cash_game_pending_keepsakes")
+            ),
+        ]
+    )
+    event_cards = question["event_cards"]
+    assert isinstance(event_cards, list)
+    return {
+        "phase": phase,
+        "case_title": "CASE 01｜消失的现金 · 双时钟实验室",
+        "status_label": f"{player_name}｜第 {_CASH_DUAL_CLOCK_PHASES.index(phase) + 1} / 4 段",
+        "save_label": "本机草稿自动保存",
+        "npc": {
+            "name": mentor.name,
+            "role": mentor.role,
+            "line": mentor.reminder,
+            "image_url": "/app/static/cash-game-mentor-03.png",
+        },
+        "cards": [
+            {
+                "id": event["event_id"],
+                "eyebrow": event["date_label"],
+                "title": event["title"],
+                "body": event["detail"],
+            }
+            for event in event_cards
+        ],
+        "zones": [
+            {
+                "id": "profit",
+                "title": "利润时钟",
+                "hint": "履约确认与相关成本发生",
+            },
+            {
+                "id": "cash",
+                "title": "现金时钟",
+                "hint": "银行账户真实收到或付出",
+            },
+            {
+                "id": "both",
+                "title": "两只钟同时触发",
+                "hint": "同一事实同时改变利润与现金",
+            },
+            {
+                "id": "neither",
+                "title": "本月暂不触发",
+                "hint": "材料存在，但尚未改变本月两表",
+            },
+        ],
+        "metrics": {
+            "profit": f"{int(question['profit_effect_wan']):+d} 万元",
+            "cash": f"{int(question['cash_effect_wan']):+d} 万元",
+            "gap": f"{outstanding_wan} 万元",
+        },
+        "gap_token": {
+            "id": "profit-cash-gap",
+            "title": f"{outstanding_wan} 万元",
+            "body": "利润与现金的差额｜尚待解释",
+        },
+        "hypothesis_slots": [
+            {
+                "id": "receivable_pending",
+                "title": "可能形成应收款｜待核实",
+                "hint": "提出能被后续证据支持或推翻的假设",
+            },
+            {
+                "id": "proven_fraud",
+                "title": "已经证明造假",
+                "hint": "把风险信号直接升级为最终结论",
+            },
+            {
+                "id": "customer_default",
+                "title": "客户已经违约",
+                "hint": "尚未检查到期日与账龄",
+            },
+            {
+                "id": "cash_received",
+                "title": "本月已经收到现金",
+                "hint": "用确认收入或付款承诺代替银行到账",
+            },
+        ],
+        "materials": [
+            {
+                "id": "contract_acceptance",
+                "title": "合同条款＋客户验收",
+                "body": "确认服务内容、履约时点和客户签收。",
+            },
+            {
+                "id": "receivable_aging",
+                "title": "期末应收明细＋账龄",
+                "body": "核对年末余额、到期日和客户构成。",
+            },
+            {
+                "id": "bank_statement",
+                "title": "期后银行流水",
+                "body": "追查报告期后是否真实收到款项。",
+            },
+            {
+                "id": "management_promise",
+                "title": "管理层口头承诺",
+                "body": "客户肯定会付——这句话能否代替证据？",
+            },
+        ],
+        "evidence_pockets": [
+            {
+                "id": "income_boundary",
+                "title": "调查令 01｜收入边界",
+                "hint": "收入是否真的赚到？",
+            },
+            {
+                "id": "receivable_existence",
+                "title": "调查令 02｜应收存在",
+                "hint": "年末未收款是否真实存在？",
+            },
+            {
+                "id": "subsequent_cash",
+                "title": "调查令 03｜期后回款",
+                "hint": "后来是否真正到账？",
+            },
+            {
+                "id": "discarded",
+                "title": "方向线索｜不能替代证据",
+                "hint": "保留提示，但不放入证据口袋。",
+            },
+        ],
+        "issued_order": {
+            "id": "issued-investigation-order",
+            "title": "《消失的现金》调查令",
+            "body": (
+                "利润与现金差额已解释为待核实假设；三条证据路径已经签发。"
+            ),
+        },
+        "door": {
+            "id": "evidence-room-door",
+            "title": "办公室证据室门禁",
+            "hint": "拖入已签发调查令｜进入空间取证",
+        },
+        "placements": placements,
+        "acknowledged_command_id": str(
+            st.session_state.get(
+                "_wfz_cash_dual_clock_last_command_id", ""
+            )
+        ),
+        "draft_status": str(
+            st.session_state.get("_wfz_cash_dual_clock_draft_status", "")
+        ),
+        "feedback": _cash_dual_clock_feedback(),
+        "keepsake_discovered": discovered,
+    }
+
+
+def _set_cash_dual_clock_feedback(
+    *, tone: str, title: str, message: str
+) -> None:
+    st.session_state["_wfz_cash_dual_clock_feedback"] = {
+        "tone": tone,
+        "label": "程砚舟 · Python 核验回执",
+        "title": title,
+        "message": message,
+    }
+
+
+def _process_cash_dual_clock_command(
+    question: Mapping[str, object], raw_command: object
+) -> None:
+    """Validate one visual command and advance only an earned checkpoint."""
+    if not isinstance(raw_command, Mapping):
+        return
+    candidate_command_id = raw_command.get("command_id")
+    if not isinstance(candidate_command_id, str) or not candidate_command_id:
+        return
+    revision = int(st.session_state.get("cash_dual_clock_revision", 0))
+    raw_action = raw_command.get("action")
+    if (
+        isinstance(raw_action, str)
+        and raw_action in _CASH_DUAL_CLOCK_UI_ACTIONS
+    ):
+        if (
+            st.session_state.get(
+                "_wfz_cash_dual_clock_last_ui_command_id"
+            )
+            == candidate_command_id
+        ):
+            return
+        try:
+            ui_action = _normalise_cash_dual_clock_ui_command(
+                question, raw_command, revision
+            )
+        except ValueError as error:
+            if _CASH_DUAL_CLOCK_COMMAND_ID_PATTERN.fullmatch(
+                candidate_command_id
+            ):
+                st.session_state[
+                    "_wfz_cash_dual_clock_last_ui_command_id"
+                ] = candidate_command_id
+            _set_cash_dual_clock_feedback(
+                tone="error",
+                title="这次界面操作没有进入案卷",
+                message=str(error),
+            )
+            st.session_state["_wfz_cash_dual_clock_draft_status"] = (
+                "rejected"
+            )
+            st.rerun()
             return
 
-        with st.form(
-            key=f"cash_case_question_{question['question_id']}",
-            border=True,
-        ):
-            profit_effect_label = (
-                f"+{question['profit_effect_wan']}"
-                if question["profit_effect_wan"] > 0
-                else str(question["profit_effect_wan"])
-            )
-            cash_effect_label = (
-                f"+{question['cash_effect_wan']}"
-                if question["cash_effect_wan"] > 0
-                else str(question["cash_effect_wan"])
-            )
-            st.caption(
-                f"03 / 差额解释 · 第 {question['attempt_number']} 份动态卷宗"
-            )
-            st.markdown("#### 算式已经完成，现在守住结论边界")
-            with st.expander("复核六张事实卡的完整内容"):
-                st.markdown(fact_reference)
-            if isinstance(feedback, str):
-                if feedback_is_success:
-                    st.success(feedback)
-                else:
-                    st.warning(feedback)
-            st.caption(
-                f"利润：{question['revenue_wan']} − {question['expense_wan']}"
-                f" = {profit_effect_label}万元；"
-                f"现金：{question['cash_collected_wan']} − "
-                f"{question['expense_wan']} = "
-                f"{cash_effect_label}万元；"
-                f"两者差额为 {outstanding_wan} 万元。"
-            )
-            selected_option = st.radio(
-                "这个差额目前最稳妥的解释是什么？",
-                options=question["inference_options"],
-                index=None,
-                key=f"cash_case_inference_{question['question_id']}",
-            )
-            answer_submitted = st.form_submit_button(
-                "签发调查令｜进入证据现场",
-                type="primary",
-                width="stretch",
-            )
-
-        if answer_submitted:
-            if selected_option is None:
-                st.warning("请先选择一个答案，再提交判断。")
-            elif selected_option == question["correct_inference_option"]:
-                st.session_state["cash_case_stage"] = "timing_completed"
-                st.session_state["cash_case_last_explanation"] = question[
-                    "explanation"
-                ]
-                st.rerun()
-            else:
-                st.session_state["cash_case_feedback"] = (
-                    question["inference_feedback"].get(
-                        str(selected_option),
-                        "这个结论跨过了现有证据边界，请保留已完成归因并"
-                        "重新检查。",
-                    )
-                    + " 前置归因已经保留，不需要重做。"
-                )
-                st.rerun()
+        st.session_state["_wfz_cash_dual_clock_last_ui_command_id"] = (
+            candidate_command_id
+        )
+        # Navigation controls must not silently clear the component's local
+        # draft. Rename and restart deliberately open the existing overlays;
+        # the user still confirms any destructive choice there.
+        st.session_state["_wfz_cash_dual_clock_draft_status"] = "preserve"
+        if ui_action == "go_back":
+            _go_back_one_cash_game_step("practice")
+            return
+        if ui_action == "rename_player":
+            st.session_state["_wfz_cash_game_overlay"] = "rename"
+            st.rerun()
+            return
+        if ui_action == "restart_game":
+            st.session_state["_wfz_cash_game_overlay"] = "reset"
+            st.rerun()
+            return
+        st.session_state.pop("_wfz_cash_game_overlay", None)
+        _switch_page("home")
         return
 
-    explanation = str(
-        st.session_state.get("cash_case_last_explanation", "")
-    )
-    st.html(
-        f"""
-        <section class="wfz-practice-complete-scene" aria-label="双表校准完成">
-            <div class="wfz-intake-vignette"></div>
-            <div class="wfz-practice-complete-card">
-                <small>SCENE 03 · CALIBRATION COMPLETE</small>
-                <h2>{escape(player_name)}，你解释了差额，但还没有证明差额。</h2>
-                <p>{escape(explanation)} 算式给方向，证据给结论。训练卷宗已封存；下一幕将调取《消失的现金》实战案卷。</p>
-                <div class="wfz-practice-complete-result">
-                    <div>
-                        <span>调查令 01｜收入边界</span>
-                        <strong>收入是否真的赚到？核对合同条款与客户验收。</strong>
-                    </div>
-                    <div>
-                        <span>调查令 02｜应收存在</span>
-                        <strong>未收款是否真实存在？核对应收明细与账龄。</strong>
-                    </div>
-                    <div>
-                        <span>调查令 03｜期后回款</span>
-                        <strong>后来是否真正到账？追查期后银行流水。</strong>
-                    </div>
-                </div>
-            </div>
-        </section>
-        """
-    )
-    if stage in {"completed", "timing_completed"}:
-        if st.button(
-            "打开办公室门禁｜开始证据探索",
-            type="primary",
-            width="stretch",
-            key="open_cash_evidence_room",
-        ):
-            st.session_state["cash_evidence_attempt_index"] = 0
-            st.session_state["cash_discovered_document_ids"] = []
-            _queue_cash_game_keepsake_reward(3, "investigation")
+    candidate_command_id = candidate_command_id[:128]
+    if (
+        st.session_state.get("_wfz_cash_dual_clock_last_command_id")
+        == candidate_command_id
+        or st.session_state.get(
+            "_wfz_cash_dual_clock_last_rejected_command_id"
+        )
+        == candidate_command_id
+    ):
         return
+    try:
+        command = normalise_cash_clock_command(
+            question, raw_command, revision  # type: ignore[arg-type]
+        )
+    except ValueError as error:
+        # Rejected protocol messages must be deduplicated without being
+        # advertised to the browser as a server acknowledgement. Otherwise a
+        # malformed command could overwrite the player's unsubmitted draft.
+        st.session_state[
+            "_wfz_cash_dual_clock_last_rejected_command_id"
+        ] = candidate_command_id
+        _set_cash_dual_clock_feedback(
+            tone="error",
+            title="这次操作没有进入案卷",
+            message=str(error),
+        )
+        st.session_state["_wfz_cash_dual_clock_draft_status"] = "rejected"
+        st.rerun()
+        return
+
+    st.session_state.pop(
+        "_wfz_cash_dual_clock_last_rejected_command_id", None
+    )
+    st.session_state["_wfz_cash_dual_clock_last_command_id"] = (
+        candidate_command_id
+    )
+
+    phase = str(st.session_state.get("cash_dual_clock_phase", "routes"))
+    action = command["action"]
+    if action == "discover_keepsake":
+        mentor = mentor_for_step(3)
+        pending = normalise_keepsake_ids(
+            st.session_state.get("cash_game_pending_keepsakes")
+        )
+        if mentor.keepsake_id not in {
+            *_cash_game_owned_keepsakes(),
+            *pending,
+        }:
+            st.session_state["cash_game_pending_keepsakes"] = [
+                *pending,
+                mentor.keepsake_id,
+            ]
+        _set_cash_dual_clock_feedback(
+            tone="success",
+            title="物品栏新增｜双轨校准尺",
+            message=(
+                "你发现了桌沿不属于装饰的一段刻度。真正的过关，不只发生在"
+                "系统允许继续的时候。"
+            ),
+        )
+        st.session_state["_wfz_cash_dual_clock_draft_status"] = "accepted"
+        st.rerun()
+        return
+
+    expected_action = {
+        "routes": "submit_routes",
+        "hypothesis": "submit_hypothesis",
+        "orders": "submit_orders",
+        "door": "open_door",
+    }.get(phase)
+    if action != expected_action:
+        _set_cash_dual_clock_feedback(
+            tone="error",
+            title="操作顺序已经过期",
+            message="请按当前调查桌显示的阶段重新操作，已完成内容不会丢失。",
+        )
+        st.session_state["_wfz_cash_dual_clock_draft_status"] = "rejected"
+        st.rerun()
+        return
+
+    if action == "open_door":
+        if not st.session_state.get(
+            "cash_investigation_orders_unlocked", False
+        ):
+            _set_cash_dual_clock_feedback(
+                tone="warning",
+                title="门禁拒绝了这份调查令",
+                message="三条调查路径尚未全部核验，不能提前进入证据室。",
+            )
+            st.rerun()
+            return
+        st.session_state["cash_case_last_explanation"] = str(
+            question["explanation"]
+        )
+        # Returning from Stage 4 to re-read the signed orders must not erase
+        # an office search already completed on this browser.
+        st.session_state.setdefault(
+            "cash_evidence_attempt_index",
+            int(st.session_state.get("cash_case_attempt_index", 0)),
+        )
+        st.session_state.setdefault("cash_discovered_document_ids", [])
+        _queue_cash_game_keepsake_reward(3, "investigation")
+        return
+
+    evaluation: Mapping[str, object]
+    if action == "submit_routes":
+        evaluation = evaluate_cash_clock_bins(
+            question, raw_command, revision  # type: ignore[arg-type]
+        )
+        clean_payload = evaluation.get("clean_payload", {})
+        bins = (
+            clean_payload.get("bins", {})
+            if isinstance(clean_payload, Mapping)
+            else {}
+        )
+        accepted = set(evaluation.get("accepted", []))
+        st.session_state["_wfz_cash_dual_clock_placements_routes"] = {
+            event_id: target_id
+            for event_id, target_id in bins.items()
+            if event_id in accepted
+        }
+        if evaluation["complete"]:
+            st.session_state["cash_clock_assignment_unlocked"] = True
+            st.session_state["cash_dual_clock_phase"] = "hypothesis"
+    elif action == "submit_hypothesis":
+        evaluation = evaluate_cash_gap_hypothesis(
+            question, raw_command, revision  # type: ignore[arg-type]
+        )
+        clean_payload = evaluation.get("clean_payload", {})
+        hypothesis_id = (
+            clean_payload.get("hypothesis_id")
+            if isinstance(clean_payload, Mapping)
+            else None
+        )
+        st.session_state["_wfz_cash_dual_clock_placements_hypothesis"] = (
+            {"profit-cash-gap": hypothesis_id}
+            if evaluation["complete"] and isinstance(hypothesis_id, str)
+            else {}
+        )
+        if evaluation["complete"]:
+            st.session_state["cash_gap_hypothesis_unlocked"] = True
+            st.session_state["cash_dual_clock_phase"] = "orders"
+    else:
+        evaluation = evaluate_cash_investigation_orders(
+            question, raw_command, revision  # type: ignore[arg-type]
+        )
+        clean_payload = evaluation.get("clean_payload", {})
+        pockets = (
+            clean_payload.get("pockets", {})
+            if isinstance(clean_payload, Mapping)
+            else {}
+        )
+        discarded = (
+            clean_payload.get("discarded", [])
+            if isinstance(clean_payload, Mapping)
+            else []
+        )
+        accepted = set(evaluation.get("accepted", []))
+        accepted_placements = {
+            order_id: pocket_id
+            for pocket_id, order_id in pockets.items()
+            if order_id in accepted
+        }
+        if "management_promise" in accepted and (
+            isinstance(discarded, list)
+            and "management_promise" in discarded
+        ):
+            accepted_placements["management_promise"] = "discarded"
+        st.session_state["_wfz_cash_dual_clock_placements_orders"] = (
+            accepted_placements
+        )
+        if evaluation["complete"]:
+            st.session_state["cash_investigation_orders_unlocked"] = True
+            st.session_state["cash_dual_clock_phase"] = "door"
+
+    is_complete = bool(evaluation["complete"])
+    _set_cash_dual_clock_feedback(
+        tone="success" if is_complete else "warning",
+        title=(
+            "核验通过｜下一段调查已解锁"
+            if is_complete
+            else "只退回有矛盾的材料"
+        ),
+        message=str(evaluation["feedback"]),
+    )
+    st.session_state["_wfz_cash_dual_clock_draft_status"] = (
+        "accepted" if is_complete else "replace"
+    )
+    if is_complete:
+        st.session_state["cash_dual_clock_revision"] = min(
+            revision + 1, 100
+        )
+    st.rerun()
+
+
+def _render_cash_practice_node(player_name: str) -> None:
+    """Render a playable dual-clock scene instead of Streamlit form widgets."""
+    _initialise_cash_dual_clock_scene()
+    attempt_index = int(st.session_state.get("cash_case_attempt_index", 0))
+    question = build_cash_timing_question(attempt_index)
+    state = _cash_dual_clock_public_state(question, player_name)
+    with st.container(key="cash_dual_clock_scene"):
+        try:
+            result = render_cash_dual_clock_game(
+                state=state,
+                question_id=question["question_id"],
+                revision=int(
+                    st.session_state.get("cash_dual_clock_revision", 0)
+                ),
+                key=f"wfz_cash_dual_clock_game_{question['question_id']}",
+                draft_storage_key=(
+                    f"wfz.cash-dual-clock.v1:{question['question_id']}"
+                ),
+                on_command_change=lambda: None,
+            )
+        except ValueError as error:
+            if "is not registered" not in str(error):
+                raise
+            # Streamlit's isolated tester can reset the v2 component registry.
+            return
+
+    raw_command = getattr(result, "command", None)
+    if raw_command is None and isinstance(result, Mapping):
+        raw_command = result.get("command")
+    if raw_command is not None:
+        _process_cash_dual_clock_command(question, raw_command)
 
 
 def render_game_hub_page() -> None:
@@ -9559,7 +11949,11 @@ def render_game_hub_page() -> None:
                 _render_cash_teaching_node()
             else:
                 player_name = str(st.session_state["game_player_name"]).strip()
-                if not overlay:
+                if (
+                    not overlay
+                    and _cash_game_scene_meta(stage)[0]
+                    not in {3, 4, 5, 6, 7, 8}
+                ):
                     _render_cash_hidden_keepsake_hotspot(
                         _cash_game_scene_meta(stage)[0]
                     )
