@@ -84,7 +84,7 @@ def render_cash_office_search(
         },
         key=key,
         width="stretch",
-        height="content",
+        height="stretch",
         on_command_change=callback,
     )
 

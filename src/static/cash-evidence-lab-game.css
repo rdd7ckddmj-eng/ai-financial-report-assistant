@@ -1,6 +1,8 @@
 :host {
   display: block;
   width: 100%;
+  height: calc(100dvh - 1.3rem);
+  min-height: 0;
   overflow: hidden;
   color-scheme: dark;
   --lab-ink: #eefbff;
@@ -27,8 +29,9 @@ button {
 .evidence-lab {
   position: relative;
   width: 100%;
-  height: clamp(650px, calc(100dvh - 18px), 900px);
-  min-height: 650px;
+  height: calc(100dvh - 1.3rem);
+  max-height: calc(100dvh - 1.3rem);
+  min-height: 0;
   overflow: hidden;
   border: 1px solid rgba(102, 239, 233, 0.25);
   border-radius: 22px;
@@ -186,7 +189,8 @@ button {
   position: relative;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
+  overscroll-behavior: contain;
   border-right: 1px solid var(--lab-line);
 }
 
@@ -1015,8 +1019,9 @@ button {
 
 @media (max-width: 760px) {
   .evidence-lab {
-    height: max(640px, calc(100dvh - 6px));
-    min-height: 640px;
+    height: calc(100dvh - 1.3rem);
+    max-height: calc(100dvh - 1.3rem);
+    min-height: 0;
     border-radius: 0;
   }
 

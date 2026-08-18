@@ -6543,7 +6543,7 @@ def _go_back_one_cash_game_step(stage: str) -> None:
         # re-enter the same committee state without reinitialising it.
         st.session_state["cash_evidence_lab_phase"] = "chain"
         st.session_state["cash_case_stage"] = "evidence"
-        st.session_state["_wfz_cash_evidence_lab_review_from_defense"] = True
+        st.session_state["cash_evidence_lab_review_from_defense"] = True
         st.session_state["cash_evidence_lab_revision"] = min(
             int(st.session_state.get("cash_evidence_lab_revision", 0)) + 1,
             1_000_000,
@@ -9614,8 +9614,11 @@ def _initialise_cash_evidence_lab_scene(
     if (
         str(phase) == "chain"
         and chain_is_complete
-        and not st.session_state.get(
-            "_wfz_cash_evidence_lab_review_from_defense"
+        and not (
+            st.session_state.get("cash_evidence_lab_review_from_defense")
+            or st.session_state.get(
+                "_wfz_cash_evidence_lab_review_from_defense"
+            )
         )
     ):
         expected_stage = "evidence_completed"
@@ -9833,6 +9836,8 @@ def _merge_cash_evidence_lab_evaluation(
 
 
 def _initialise_cash_defense_after_evidence() -> None:
+    st.session_state.pop("cash_evidence_lab_review_from_defense", None)
+    st.session_state.pop("_wfz_cash_evidence_lab_review_from_defense", None)
     for key in list(st.session_state):
         if str(key).startswith(
             ("cash_defense_committee_", "_wfz_cash_defense_committee_")
@@ -10021,11 +10026,17 @@ def _process_cash_evidence_lab_command(
     st.session_state["cash_evidence_explanation"] = str(
         evidence_case.get("explanation", evaluation["feedback"])
     )
-    returned_from_defense = bool(
+    durable_review_return = bool(
+        st.session_state.pop(
+            "cash_evidence_lab_review_from_defense", False
+        )
+    )
+    legacy_review_return = bool(
         st.session_state.pop(
             "_wfz_cash_evidence_lab_review_from_defense", False
         )
     )
+    returned_from_defense = durable_review_return or legacy_review_return
     if not returned_from_defense:
         _initialise_cash_defense_after_evidence()
     _queue_cash_game_keepsake_reward(7, "defense")
@@ -10071,8 +10082,11 @@ def _render_cash_evidence_lab_node(player_name: str) -> None:
     claims = chain.get("claims", []) if isinstance(chain, Mapping) else []
     if (
         current_stage == "evidence_completed"
-        and not st.session_state.get(
-            "_wfz_cash_evidence_lab_review_from_defense"
+        and not (
+            st.session_state.get("cash_evidence_lab_review_from_defense")
+            or st.session_state.get(
+                "_wfz_cash_evidence_lab_review_from_defense"
+            )
         )
         and isinstance(accepted_links, Mapping)
         and isinstance(claims, list)
@@ -10389,6 +10403,10 @@ def _render_cash_defense_node_legacy(player_name: str) -> None:
             completed_explanations
         )
         if round_index == 2:
+            # The reward overlay is intentionally transient, but completion is
+            # not.  Persist the terminal stage before opening the keepsake
+            # reward so a refresh cannot remount and replay the final hearing.
+            st.session_state["cash_case_stage"] = "case_completed"
             _queue_cash_game_keepsake_reward(8, "case_completed")
         else:
             st.session_state["cash_defense_round_index"] = round_index + 1
@@ -10859,6 +10877,9 @@ def _process_cash_defense_committee_command(
             "_wfz_cash_defense_committee_evaluation", None
         )
         if round_index == 2:
+            # Keep the terminal checkpoint even if the transient keepsake
+            # overlay disappears during a refresh or process restart.
+            st.session_state["cash_case_stage"] = "case_completed"
             _queue_cash_game_keepsake_reward(8, "case_completed")
             return
         st.session_state["cash_defense_round_index"] = round_index + 1

@@ -93,7 +93,7 @@ def render_cash_dual_clock_game(
         },
         key=key,
         width="stretch",
-        height="content",
+        height="stretch",
         on_command_change=callback,
     )
 

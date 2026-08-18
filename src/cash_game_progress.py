@@ -80,6 +80,11 @@ _BOOLEAN_FIELDS = frozenset(
         "cash_clock_assignment_unlocked",
         "cash_gap_hypothesis_unlocked",
         "cash_investigation_orders_unlocked",
+        # A durable navigation checkpoint, not an answer flag.  Stage 8 lets a
+        # player step back into the completed evidence chain for review; a
+        # browser refresh must return to that same committee rather than
+        # initialise a new hearing.
+        "cash_evidence_lab_review_from_defense",
     }
 )
 

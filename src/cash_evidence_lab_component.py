@@ -86,7 +86,7 @@ def render_cash_evidence_lab(
         },
         key=key,
         width="stretch",
-        height="content",
+        height="stretch",
         on_command_change=callback,
     )
 

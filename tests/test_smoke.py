@@ -1900,8 +1900,16 @@ def test_cash_defense_three_correct_rounds_unlock_historical_mission() -> None:
 import streamlit as st
 from types import SimpleNamespace
 from src import app
+from src.cash_game_progress import (
+    build_cash_game_progress_snapshot,
+    clear_cash_game_progress_state,
+    restore_cash_game_progress_snapshot,
+)
 
 def fake_component(**kwargs):
+    st.session_state["_test_committee_mount_count"] = (
+        int(st.session_state.get("_test_committee_mount_count", 0)) + 1
+    )
     st.session_state["_test_committee_task"] = kwargs["state"]["task"]
     return SimpleNamespace(
         command=st.session_state.pop("_test_committee_command", None)
@@ -1915,6 +1923,16 @@ st.session_state.setdefault("cash_defense_lives", 3)
 st.session_state.setdefault("cash_defense_round_index", 0)
 st.session_state.setdefault("cash_defense_attempt_index", 0)
 st.session_state.setdefault("cash_defense_completed_explanations", [])
+if st.session_state.pop("_test_simulate_device_restore", False):
+    snapshot = build_cash_game_progress_snapshot(st.session_state)
+    for key in (
+        "_wfz_cash_game_overlay",
+        "_wfz_cash_game_reward_step",
+        "_wfz_cash_game_reward_next_stage",
+    ):
+        st.session_state.pop(key, None)
+    clear_cash_game_progress_state(st.session_state)
+    assert restore_cash_game_progress_snapshot(st.session_state, snapshot)
 app.render_cash_defense_committee = fake_component
 app.render_game_hub_page()
 """
@@ -1956,6 +1974,10 @@ app.render_game_hub_page()
             "action": "submit_committee_statement",
             "placements": placements,
         }
+        if round_index == 2:
+            app_test.session_state["cash_game_pending_keepsakes"] = [
+                "reverse_black_piece"
+            ]
         app_test.run(timeout=10)
 
     assert not app_test.exception
@@ -1964,6 +1986,24 @@ app.render_game_hub_page()
     assert len(
         app_test.session_state["cash_defense_completed_explanations"]
     ) == 3
+    assert app_test.session_state["_wfz_cash_game_overlay"] == "reward"
+    assert "reverse_black_piece" in app_test.session_state[
+        "cash_game_keepsakes"
+    ]
+
+    mounted_before_restore = app_test.session_state[
+        "_test_committee_mount_count"
+    ]
+    app_test.session_state["_test_simulate_device_restore"] = True
+    app_test.run(timeout=10)
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_case_stage"] == "case_completed"
+    assert "_wfz_cash_game_overlay" not in app_test.session_state
+    assert (
+        app_test.session_state["_test_committee_mount_count"]
+        == mounted_before_restore
+    )
     assert any(
         item.label == "结束联合复核｜接受真实历史调查"
         for item in app_test.button
@@ -2068,6 +2108,11 @@ from src.cash_case_game import (
     build_cash_evidence_case,
     build_cash_evidence_lab_public_task,
 )
+from src.cash_game_progress import (
+    build_cash_game_progress_snapshot,
+    clear_cash_game_progress_state,
+    restore_cash_game_progress_snapshot,
+)
 
 evidence_case = build_cash_evidence_case(0)
 lab_task = build_cash_evidence_lab_public_task(evidence_case)
@@ -2108,6 +2153,10 @@ st.session_state.setdefault("cash_evidence_lab_chain_accepted", {
     "claim_year_end_balance": "ar_subledger",
     "claim_later_cash": "post_period_receipt",
 })
+if st.session_state.pop("_test_simulate_device_restore", False):
+    snapshot = build_cash_game_progress_snapshot(st.session_state)
+    clear_cash_game_progress_state(st.session_state)
+    assert restore_cash_game_progress_snapshot(st.session_state, snapshot)
 app.render_cash_defense_committee = fake_committee
 app.render_cash_evidence_lab = fake_lab
 app.render_game_hub_page()
@@ -2139,7 +2188,21 @@ app.render_game_hub_page()
     assert not app_test.exception
     assert app_test.session_state["cash_case_stage"] == "evidence"
     assert app_test.session_state[
-        "_wfz_cash_evidence_lab_review_from_defense"
+        "cash_evidence_lab_review_from_defense"
+    ] is True
+    assert app_test.session_state["cash_defense_round_index"] == 1
+    assert app_test.session_state["cash_defense_attempt_index"] == 2
+    assert app_test.session_state["cash_defense_lives"] == 2
+
+    # A browser reopen restores only the allow-listed snapshot.  The review
+    # route must still be recognised and must not initialise a fresh hearing.
+    app_test.session_state["_test_simulate_device_restore"] = True
+    app_test.run(timeout=10)
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_case_stage"] == "evidence"
+    assert app_test.session_state[
+        "cash_evidence_lab_review_from_defense"
     ] is True
     assert app_test.session_state["cash_defense_round_index"] == 1
     assert app_test.session_state["cash_defense_attempt_index"] == 2

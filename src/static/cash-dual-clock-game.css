@@ -10,6 +10,8 @@
   --dc-green: #7fe1ad;
   display: block;
   width: 100%;
+  height: calc(100dvh - 1.3rem);
+  min-height: 0;
   font-family: "PingFang SC", "Microsoft YaHei", Inter, system-ui, sans-serif;
 }
 
@@ -20,8 +22,9 @@ button, [role="button"] { font: inherit; }
   position: relative;
   isolation: isolate;
   width: 100%;
-  height: clamp(650px, calc(100dvh - 18px), 880px);
-  min-height: 650px;
+  height: calc(100dvh - 1.3rem);
+  max-height: calc(100dvh - 1.3rem);
+  min-height: 0;
   overflow: hidden;
   border: 1px solid rgba(117, 225, 234, .24);
   border-radius: 28px;
@@ -735,7 +738,12 @@ button, [role="button"] { font: inherit; }
 .dc-keepsake-inventory span { color: var(--dc-gold); font-size: 15px; }
 
 @media (max-width: 900px) {
-  .dc-game { height: clamp(680px, calc(100dvh - 8px), 900px); border-radius: 20px; }
+  .dc-game {
+    height: calc(100dvh - 1.3rem);
+    max-height: calc(100dvh - 1.3rem);
+    min-height: 0;
+    border-radius: 20px;
+  }
   .dc-shell { padding: 10px; gap: 9px; }
   .dc-topbar { grid-template-columns: 1fr auto; min-height: 62px; padding: 9px 12px; }
   .dc-progress { grid-column: 1 / -1; grid-row: 2; }
@@ -759,7 +767,12 @@ button, [role="button"] { font: inherit; }
 }
 
 @media (max-width: 620px) {
-  .dc-game { min-height: 700px; height: calc(100dvh - 6px); border-radius: 14px; }
+  .dc-game {
+    height: calc(100dvh - 1.3rem);
+    max-height: calc(100dvh - 1.3rem);
+    min-height: 0;
+    border-radius: 14px;
+  }
   .dc-shell { padding: 7px; gap: 7px; }
   .dc-topbar { min-height: 56px; border-radius: 12px; }
   .dc-brand-kicker { display: none; }

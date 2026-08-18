@@ -45,6 +45,7 @@ def test_build_snapshot_preserves_complete_game_checkpoint() -> None:
         "cash_evidence_lab_revision": 7,
         "cash_evidence_lab_task_id": "cash-evidence-lab:case-4",
         "cash_evidence_lab_phase": "chain",
+        "cash_evidence_lab_review_from_defense": True,
         "cash_evidence_lab_reading_viewed_ids": [
             "contract_clause",
             "signed_acceptance",
@@ -105,6 +106,7 @@ def test_build_snapshot_preserves_complete_game_checkpoint() -> None:
     assert snapshot["cash_evidence_lab_version"] == 1
     assert snapshot["cash_evidence_lab_revision"] == 7
     assert snapshot["cash_evidence_lab_phase"] == "chain"
+    assert snapshot["cash_evidence_lab_review_from_defense"] is True
     assert snapshot["cash_evidence_lab_reading_viewed_ids"] == [
         "contract_clause",
         "signed_acceptance",
@@ -341,6 +343,7 @@ def test_restore_replaces_only_durable_game_state() -> None:
         "cash_evidence_explanation": "旧的后期解释",
         "cash_evidence_lab_version": 1,
         "cash_evidence_lab_phase": "chain",
+        "cash_evidence_lab_review_from_defense": True,
         "cash_evidence_lab_chain_accepted": {
             "claim_later_cash": "post_period_receipt"
         },
@@ -375,6 +378,7 @@ def test_restore_replaces_only_durable_game_state() -> None:
     assert state["cash_discovered_document_ids"] == ["ar_subledger"]
     assert "cash_evidence_explanation" not in state
     assert "cash_evidence_lab_phase" not in state
+    assert "cash_evidence_lab_review_from_defense" not in state
     assert state["cash_evidence_lab_chain_accepted"] == {}
     assert state["cash_defense_committee_version"] == 0
     assert state["cash_defense_committee_revision"] == 0

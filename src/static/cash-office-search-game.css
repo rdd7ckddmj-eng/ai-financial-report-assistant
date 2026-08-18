@@ -9,6 +9,8 @@
   --office-line: rgba(103, 247, 239, 0.25);
   display: block;
   width: 100%;
+  height: calc(100dvh - 1.3rem);
+  min-height: 0;
   overflow: hidden;
   background: #03111b;
   font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
@@ -25,8 +27,9 @@ button {
 .office-game {
   position: relative;
   width: 100%;
-  height: clamp(650px, calc(100dvh - 18px), 880px);
-  min-height: 650px;
+  height: calc(100dvh - 1.3rem);
+  max-height: calc(100dvh - 1.3rem);
+  min-height: 0;
   overflow: hidden;
   color: var(--office-ink);
   border: 1px solid rgba(103, 247, 239, 0.27);
@@ -195,10 +198,10 @@ button {
 .office-scene-scroll {
   position: relative;
   min-height: 0;
-  overflow: auto hidden;
+  overflow: auto;
   overscroll-behavior: contain;
   scrollbar-width: none;
-  touch-action: pan-x;
+  touch-action: pan-x pan-y;
   background: #020b12;
 }
 
@@ -730,8 +733,9 @@ button {
 
 @media (max-width: 760px) {
   .office-game {
-    height: max(640px, calc(100dvh - 6px));
-    min-height: 640px;
+    height: calc(100dvh - 1.3rem);
+    max-height: calc(100dvh - 1.3rem);
+    min-height: 0;
     border-radius: 0;
   }
 
@@ -787,15 +791,17 @@ button {
   }
 
   .office-npc-card {
+    left: 12px;
     right: 12px;
     bottom: 12px;
-    width: 310px;
+    width: auto;
   }
 
   .office-handoff {
     top: 10px;
     left: 10px;
-    width: 330px;
+    right: 10px;
+    width: auto;
     padding: 9px 11px;
   }
 
@@ -806,8 +812,9 @@ button {
 
   .office-feedback {
     left: 12px;
+    right: 12px;
     bottom: 12px;
-    width: 300px;
+    width: auto;
   }
 
   .office-evidence-bag {
@@ -827,6 +834,38 @@ button {
   .office-bag-item,
   .office-bag-empty {
     min-height: 54px;
+  }
+}
+
+@media (max-width: 420px) {
+  .office-hud {
+    display: grid;
+    grid-template-areas:
+      "brand progress"
+      "toolbar finish";
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 8px;
+    min-height: 96px;
+    padding: 7px 8px;
+  }
+
+  .office-brand { grid-area: brand; }
+  .office-mission { display: none; }
+  .office-progress {
+    grid-area: progress;
+    justify-self: end;
+  }
+  .office-toolbar {
+    grid-area: toolbar;
+    align-self: center;
+  }
+  .office-finish {
+    grid-area: finish;
+    min-width: 0;
+    min-height: 34px;
+    padding: 0 9px;
+    font-size: 0.66rem;
+    white-space: nowrap;
   }
 }
 
