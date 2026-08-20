@@ -336,6 +336,37 @@ def test_inconsistent_completed_stage_returns_to_recoverable_mission() -> None:
     assert snapshot["cash_case_stage"] == "migration"
 
 
+def test_council_match_and_case_completed_stage_survive_device_restore() -> None:
+    """A council refresh must restore accepted hints before continuing."""
+    original_state: dict[str, object] = {
+        "game_player_name": "北辰",
+        "cash_case_stage": "case_completed",
+        "cash_game_keepsakes": [
+            "dual_dial_watch",
+            "double_sided_prism",
+        ],
+        "cash_game_used_hints": ["double_sided_prism"],
+    }
+
+    snapshot = build_cash_game_progress_snapshot(original_state)
+    assert snapshot is not None
+    restored_state: dict[str, object] = {}
+    restored = restore_cash_game_progress_snapshot(
+        restored_state,
+        snapshot,
+    )
+
+    assert restored is True
+    assert restored_state["cash_case_stage"] == "case_completed"
+    assert restored_state["cash_game_keepsakes"] == [
+        "dual_dial_watch",
+        "double_sided_prism",
+    ]
+    assert restored_state["cash_game_used_hints"] == [
+        "double_sided_prism"
+    ]
+
+
 def test_restore_replaces_only_durable_game_state() -> None:
     state: dict[str, object] = {
         "game_player_name": "旧代号",

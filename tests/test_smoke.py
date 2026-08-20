@@ -1915,6 +1915,10 @@ def fake_component(**kwargs):
         command=st.session_state.pop("_test_committee_command", None)
     )
 
+def fake_council_component(**kwargs):
+    st.session_state["_test_council_state_after_defense"] = kwargs["state"]
+    return SimpleNamespace(command=None)
+
 st.session_state["game_player_name"] = "北辰"
 st.session_state.setdefault("cash_case_stage", "defense")
 st.session_state.setdefault("cash_defense_committee_version", 1)
@@ -1934,6 +1938,7 @@ if st.session_state.pop("_test_simulate_device_restore", False):
     clear_cash_game_progress_state(st.session_state)
     assert restore_cash_game_progress_snapshot(st.session_state, snapshot)
 app.render_cash_defense_committee = fake_component
+app.render_cash_mentor_council = fake_council_component
 app.render_game_hub_page()
 """
     app_test = AppTest.from_string(script).run(timeout=10)
@@ -2004,10 +2009,9 @@ app.render_game_hub_page()
         app_test.session_state["_test_committee_mount_count"]
         == mounted_before_restore
     )
-    assert any(
-        item.label == "结束联合复核｜接受真实历史调查"
-        for item in app_test.button
-    )
+    assert app_test.session_state[
+        "_test_council_state_after_defense"
+    ]["can_continue"] is True
 
 
 def test_cash_defense_partial_acceptance_survives_rename_toolbar() -> None:
@@ -2241,33 +2245,245 @@ render_game_hub_page()
     assert "双刻度怀表" in _all_rendered_markup(app_test)
 
 
-def test_final_council_consumes_only_a_correctly_matched_keepsake() -> None:
-    """Touch-friendly handoff should unlock the matching mentor hint once."""
+def test_final_council_rejects_wrong_match_and_locks_server_match() -> None:
+    """Wrong handoffs keep the item; only the server-owned pair is durable."""
     from streamlit.testing.v1 import AppTest
 
     script = """
 import streamlit as st
-from src.app import render_game_hub_page
+from types import SimpleNamespace
+from src import app
+
+def fake_council_component(**kwargs):
+    st.session_state["_test_council_state"] = kwargs["state"]
+    st.session_state["_test_council_task_id"] = kwargs["task_id"]
+    st.session_state["_test_council_revision"] = kwargs["revision"]
+    return SimpleNamespace(
+        command=st.session_state.get("_test_council_command")
+    )
 
 st.session_state["game_player_name"] = "北辰"
 st.session_state["cash_case_stage"] = "case_completed"
 st.session_state["cash_game_keepsakes"] = ["double_sided_prism"]
-render_game_hub_page()
+original_component = app.render_cash_mentor_council
+try:
+    app.render_cash_mentor_council = fake_council_component
+    app.render_game_hub_page()
+finally:
+    app.render_cash_mentor_council = original_component
 """
     app_test = AppTest.from_string(script).run()
-    next(
-        item for item in app_test.selectbox
-        if item.label == "从信物栏取出一件信物"
-    ).set_value("◇ 双面棱镜")
-    next(
-        item for item in app_test.button
-        if item.label == "交给 苏棱　→"
-    ).click().run()
+
+    assert not app_test.exception
+    assert app_test.session_state["_test_council_revision"] == 0
+    assert app_test.session_state["_test_council_state"]["can_continue"]
+    app_test.session_state["_test_council_command"] = {
+        "schema_version": 1,
+        "command_id": "council-wrong-1",
+        "task_id": "cash-mentor-council:v1",
+        "revision": 0,
+        "action": "submit_match",
+        "keepsake_id": "double_sided_prism",
+        "mentor_id": "mentor-01",
+    }
+    app_test.run()
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_game_used_hints"] == []
+    assert app_test.session_state["cash_game_keepsakes"] == [
+        "double_sided_prism"
+    ]
+    assert app_test.session_state[
+        "_wfz_cash_mentor_council_feedback"
+    ]["rejected_keepsake_id"] == "double_sided_prism"
+    assert app_test.session_state["_test_council_revision"] == 0
+
+    app_test.session_state["_test_council_command"] = {
+        "schema_version": 1,
+        "command_id": "council-correct-1",
+        "task_id": "cash-mentor-council:v1",
+        "revision": 0,
+        "action": "submit_match",
+        "keepsake_id": "double_sided_prism",
+        "mentor_id": "mentor-06",
+    }
+    app_test.run()
 
     assert app_test.session_state["cash_game_used_hints"] == [
         "double_sided_prism"
     ]
-    assert "同源复述不能算交叉验证" in _all_rendered_markup(app_test)
+    assert app_test.session_state["_test_council_revision"] == 1
+    mentor_state = next(
+        mentor
+        for mentor in app_test.session_state["_test_council_state"][
+            "mentors"
+        ]
+        if mentor["mentor_id"] == "mentor-06"
+    )
+    assert mentor_state["matched"] is True
+    assert "同源复述不能算交叉验证" in mentor_state["revealed_hint"]
+
+
+def test_final_council_allows_continue_without_tokens() -> None:
+    """Optional keepsakes must never block the real-history investigation."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+
+def fake_council_component(**kwargs):
+    st.session_state["_test_council_state"] = kwargs["state"]
+    return SimpleNamespace(
+        command=st.session_state.get("_test_council_command")
+    )
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state.setdefault("cash_case_stage", "case_completed")
+st.session_state.setdefault("cash_game_keepsakes", [])
+original_component = app.render_cash_mentor_council
+try:
+    app.render_cash_mentor_council = fake_council_component
+    app.render_game_hub_page()
+finally:
+    app.render_cash_mentor_council = original_component
+"""
+    app_test = AppTest.from_string(script).run()
+
+    assert not app_test.exception
+    assert app_test.session_state["_test_council_state"]["keepsakes"] == []
+    assert app_test.session_state["_test_council_state"]["can_continue"]
+    app_test.session_state["_test_council_command"] = {
+        "schema_version": 1,
+        "command_id": "council-continue-1",
+        "task_id": "cash-mentor-council:v1",
+        "revision": 0,
+        "action": "continue_investigation",
+    }
+    app_test.run()
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_case_stage"] == "migration"
+
+
+def test_final_council_toolbar_preserves_completed_match_state() -> None:
+    """Rename and safe-back controls must not erase accepted handoffs."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+
+def fake_council_component(**kwargs):
+    return SimpleNamespace(
+        command=st.session_state.get("_test_council_command")
+    )
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state["cash_case_stage"] = "case_completed"
+st.session_state["cash_game_keepsakes"] = ["double_sided_prism"]
+st.session_state["cash_game_used_hints"] = ["double_sided_prism"]
+original_component = app.render_cash_mentor_council
+try:
+    app.render_cash_mentor_council = fake_council_component
+    app.render_game_hub_page()
+finally:
+    app.render_cash_mentor_council = original_component
+"""
+    back_test = AppTest.from_string(script).run()
+    back_test.session_state["_test_council_command"] = {
+        "schema_version": 1,
+        "command_id": "council-back-1",
+        "task_id": "cash-mentor-council:v1",
+        "revision": 1,
+        "action": "go_back",
+    }
+    back_test.run()
+
+    assert not back_test.exception
+    assert back_test.session_state["cash_case_stage"] == "case_completed"
+    assert back_test.session_state["cash_game_used_hints"] == [
+        "double_sided_prism"
+    ]
+
+    rename_test = AppTest.from_string(script).run()
+    rename_test.session_state["_test_council_command"] = {
+        "schema_version": 1,
+        "command_id": "council-rename-1",
+        "task_id": "cash-mentor-council:v1",
+        "revision": 1,
+        "action": "rename_player",
+    }
+    rename_test.run()
+
+    assert not rename_test.exception
+    assert rename_test.session_state["_wfz_cash_game_overlay"] == "rename"
+    assert rename_test.session_state["cash_game_used_hints"] == [
+        "double_sided_prism"
+    ]
+
+
+def test_final_council_invalid_command_is_rejected_without_acknowledgement() -> None:
+    """A malformed envelope may be deduped but must never look accepted."""
+    from streamlit.testing.v1 import AppTest
+
+    script = """
+import streamlit as st
+from types import SimpleNamespace
+from src import app
+
+def fake_council_component(**kwargs):
+    st.session_state["_test_council_state"] = kwargs["state"]
+    return SimpleNamespace(
+        command=st.session_state.get("_test_council_command")
+    )
+
+st.session_state["game_player_name"] = "北辰"
+st.session_state.setdefault("cash_case_stage", "case_completed")
+st.session_state.setdefault(
+    "cash_game_keepsakes", ["double_sided_prism"]
+)
+original_component = app.render_cash_mentor_council
+try:
+    app.render_cash_mentor_council = fake_council_component
+    app.render_game_hub_page()
+finally:
+    app.render_cash_mentor_council = original_component
+"""
+    app_test = AppTest.from_string(script).run()
+    app_test.session_state["_test_council_command"] = {
+        "schema_version": 1,
+        "command_id": "council-invalid-1",
+        "task_id": "cash-mentor-council:v1",
+        "revision": 0,
+        "action": "submit_match",
+        "keepsake_id": "double_sided_prism",
+        "mentor_id": "mentor-06",
+        "unexpected": "must be rejected",
+    }
+    app_test.run()
+
+    assert not app_test.exception
+    assert app_test.session_state["cash_case_stage"] == "case_completed"
+    assert app_test.session_state["cash_game_used_hints"] == []
+    assert (
+        "_wfz_cash_mentor_council_last_command_id"
+        not in app_test.session_state
+    )
+    assert (
+        app_test.session_state[
+            "_wfz_cash_mentor_council_last_trigger_id"
+        ]
+        == "council-invalid-1"
+    )
+    assert (
+        app_test.session_state["_test_council_state"][
+            "acknowledged_command_id"
+        ]
+        == ""
+    )
 
 
 def test_research_workspace_groups_tools_by_user_task() -> None:

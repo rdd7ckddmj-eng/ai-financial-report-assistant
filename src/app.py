@@ -99,6 +99,7 @@ from src.cash_evidence_lab_component import render_cash_evidence_lab
 from src.cash_defense_committee_component import (
     render_cash_defense_committee,
 )
+from src.cash_mentor_council_component import render_cash_mentor_council
 from src.china_stock import (
     CompanyIdentity,
     DataSourceError,
@@ -5714,6 +5715,58 @@ def apply_cash_game_theme() -> None:
             position: absolute !important;
             inset: 0 !important;
         }
+
+        /* Post-Stage-08 council takeover.  The component owns the nine-seat
+           room, inventory and toolbar.  Control/reward overlays do not mount
+           this marker, so they automatically regain the normal game shell. */
+        .st-key-cash_game_shell:has(.st-key-cash_mentor_council_scene) {
+            padding: 0 !important;
+        }
+
+        .st-key-cash_game_shell:has(.st-key-cash_mentor_council_scene)
+        .wfz-game-screen,
+        .st-key-cash_game_shell:has(.st-key-cash_mentor_council_scene)
+        .st-key-cash_game_controls,
+        .st-key-cash_game_shell:has(.st-key-cash_mentor_council_scene)
+        .wfz-game-shell-footer {
+            display: none !important;
+        }
+
+        .st-key-cash_game_shell:has(.st-key-cash_mentor_council_scene)
+        > [data-testid="stLayoutWrapper"]:has(> .st-key-cash_game_scene_content),
+        .st-key-cash_game_shell:has(.st-key-cash_mentor_council_scene)
+        .st-key-cash_game_scene_content {
+            position: absolute !important;
+            inset: 0 !important;
+            box-sizing: border-box !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+
+        .st-key-cash_game_scene_content:has(.st-key-cash_mentor_council_scene)
+        > [data-testid="stLayoutWrapper"],
+        .st-key-cash_game_scene_content:has(.st-key-cash_mentor_council_scene)
+        > [data-testid="stVerticalBlock"],
+        .st-key-cash_mentor_council_scene,
+        .st-key-cash_mentor_council_scene > [data-testid="stLayoutWrapper"],
+        .st-key-cash_mentor_council_scene [data-testid="stVerticalBlock"] {
+            box-sizing: border-box !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+
+        .st-key-cash_mentor_council_scene {
+            position: absolute !important;
+            inset: 0 !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -6437,6 +6490,8 @@ def _clear_cash_game_round_state() -> None:
         "cash_case_",
         "cash_dual_clock_",
         "_wfz_cash_dual_clock_",
+        "cash_mentor_council_",
+        "_wfz_cash_mentor_council_",
         "cash_office_search_",
         "_wfz_cash_office_search_",
         "cash_evidence_lab_",
@@ -10139,7 +10194,7 @@ def _render_cash_evidence_node(player_name: str) -> None:
     _render_cash_evidence_lab_node(player_name)
 
 
-def _render_cash_mentor_council(player_name: str) -> None:
+def _render_cash_mentor_council_legacy(player_name: str) -> None:
     """Exchange discovered keepsakes for optional, role-specific final hints."""
     owned = set(_cash_game_owned_keepsakes())
     used = set(
@@ -10286,6 +10341,351 @@ def _render_cash_mentor_council(player_name: str) -> None:
         key="open_cash_migration_stage",
     ):
         _advance_game("migration")
+
+
+_CASH_MENTOR_COUNCIL_TASK_ID = "cash-mentor-council:v1"
+_CASH_MENTOR_COUNCIL_COMMAND_ID_PATTERN = re.compile(
+    r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z"
+)
+_CASH_MENTOR_COUNCIL_COMMON_FIELDS = frozenset(
+    {"schema_version", "command_id", "task_id", "revision", "action"}
+)
+_CASH_MENTOR_COUNCIL_UI_ACTIONS = frozenset(
+    {
+        "continue_investigation",
+        "go_back",
+        "rename_player",
+        "restart_game",
+        "exit_game",
+    }
+)
+_CASH_MENTOR_COUNCIL_MENTOR_ID_BY_STEP = {
+    mentor.step: f"mentor-{mentor.step:02d}"
+    for mentor in CASH_GAME_MENTORS
+}
+_CASH_MENTOR_COUNCIL_MENTOR_BY_ID = {
+    mentor_id: mentor_for_step(step)
+    for step, mentor_id in _CASH_MENTOR_COUNCIL_MENTOR_ID_BY_STEP.items()
+}
+
+
+def _cash_mentor_council_state_sets() -> tuple[set[str], set[str]]:
+    """Return canonical owned and correctly matched keepsake ids."""
+    owned = set(_cash_game_owned_keepsakes())
+    used = set(
+        normalise_keepsake_ids(st.session_state.get("cash_game_used_hints"))
+    ) & owned
+    st.session_state["cash_game_used_hints"] = normalise_keepsake_ids(
+        list(used)
+    )
+    return owned, used
+
+
+def _cash_mentor_council_revision() -> int:
+    """Derive a durable revision from accepted one-to-one matches."""
+    _, used = _cash_mentor_council_state_sets()
+    return len(used)
+
+
+def _normalise_cash_mentor_council_command(
+    raw_command: object,
+    *,
+    revision: int,
+) -> dict[str, object]:
+    """Strictly validate one public council command envelope."""
+    if not isinstance(raw_command, Mapping):
+        raise ValueError("联合复核命令必须是对象。")
+    action = raw_command.get("action")
+    if action == "submit_match":
+        expected_fields = _CASH_MENTOR_COUNCIL_COMMON_FIELDS | {
+            "keepsake_id",
+            "mentor_id",
+        }
+    elif action in _CASH_MENTOR_COUNCIL_UI_ACTIONS:
+        expected_fields = _CASH_MENTOR_COUNCIL_COMMON_FIELDS
+    else:
+        raise ValueError("联合复核会不接受这项操作。")
+    if set(raw_command) != expected_fields:
+        raise ValueError("联合复核命令字段不完整或包含额外字段。")
+
+    schema_version = raw_command.get("schema_version")
+    if (
+        not isinstance(schema_version, int)
+        or isinstance(schema_version, bool)
+        or schema_version != 1
+    ):
+        raise ValueError("联合复核命令schema_version不受支持。")
+    command_id = raw_command.get("command_id")
+    if (
+        not isinstance(command_id, str)
+        or not _CASH_MENTOR_COUNCIL_COMMAND_ID_PATTERN.fullmatch(command_id)
+    ):
+        raise ValueError("联合复核命令command_id格式无效。")
+    if raw_command.get("task_id") != _CASH_MENTOR_COUNCIL_TASK_ID:
+        raise ValueError("联合复核命令不属于当前会场。")
+    command_revision = raw_command.get("revision")
+    if (
+        not isinstance(command_revision, int)
+        or isinstance(command_revision, bool)
+        or command_revision != revision
+    ):
+        raise ValueError("联合复核命令已经过期，请按当前信物栏重新操作。")
+
+    command: dict[str, object] = {
+        "schema_version": 1,
+        "command_id": command_id,
+        "task_id": _CASH_MENTOR_COUNCIL_TASK_ID,
+        "revision": revision,
+        "action": action,
+    }
+    if action == "submit_match":
+        keepsake_id = raw_command.get("keepsake_id")
+        mentor_id = raw_command.get("mentor_id")
+        if (
+            not isinstance(keepsake_id, str)
+            or keepsake_id not in MENTOR_BY_KEEPSAKE
+        ):
+            raise ValueError("这件信物不属于当前案卷。")
+        if (
+            not isinstance(mentor_id, str)
+            or mentor_id not in _CASH_MENTOR_COUNCIL_MENTOR_BY_ID
+        ):
+            raise ValueError("这张角色席位不属于当前复核会。")
+        command["keepsake_id"] = keepsake_id
+        command["mentor_id"] = mentor_id
+    return command
+
+
+def _set_cash_mentor_council_feedback(
+    *,
+    tone: str,
+    title: str,
+    message: str,
+    rejected_keepsake_id: str | None = None,
+) -> None:
+    feedback: dict[str, str] = {
+        "tone": tone,
+        "title": title,
+        "message": message,
+    }
+    if rejected_keepsake_id is not None:
+        feedback["rejected_keepsake_id"] = rejected_keepsake_id
+    st.session_state["_wfz_cash_mentor_council_feedback"] = feedback
+
+
+def _cash_mentor_council_public_state(
+    player_name: str,
+) -> dict[str, object]:
+    """Build an answer-free council board from durable server progress."""
+    owned, used = _cash_mentor_council_state_sets()
+    mentors: list[dict[str, object]] = []
+    for mentor in CASH_GAME_MENTORS:
+        matched = mentor.keepsake_id in used
+        public_mentor: dict[str, object] = {
+            "mentor_id": _CASH_MENTOR_COUNCIL_MENTOR_ID_BY_STEP[mentor.step],
+            "step": mentor.step,
+            "name": mentor.name,
+            "role": mentor.role,
+            "capability": mentor.capability,
+            "image_url": f"/app/static/cash-game-mentor-{mentor.step:02d}.png",
+            "matched": matched,
+        }
+        if matched:
+            public_mentor["matched_keepsake"] = {
+                "keepsake_id": mentor.keepsake_id,
+                "name": mentor.keepsake_name,
+                "mark": mentor.keepsake_mark,
+            }
+            public_mentor["revealed_hint"] = mentor.council_hint
+        mentors.append(public_mentor)
+
+    state: dict[str, object] = {
+        "player_name": player_name,
+        "title": "九席联合复核｜把信物交还给它真正的主人",
+        "subtitle": (
+            "信物不是通关门票。正确交付会解锁一种研究方法；"
+            "没有信物也可以继续接受真实历史调查。"
+        ),
+        "mentors": mentors,
+        "keepsakes": [
+            {
+                "keepsake_id": mentor.keepsake_id,
+                "name": mentor.keepsake_name,
+                "mark": mentor.keepsake_mark,
+                "status": (
+                    "matched" if mentor.keepsake_id in used else "available"
+                ),
+            }
+            for mentor in CASH_GAME_MENTORS
+            if mentor.keepsake_id in owned
+        ],
+        "acknowledged_command_id": st.session_state.get(
+            "_wfz_cash_mentor_council_last_command_id", ""
+        ),
+        "counts": {
+            "discovered": len(owned),
+            "matched": len(used),
+        },
+        "can_continue": True,
+    }
+    feedback = st.session_state.get("_wfz_cash_mentor_council_feedback")
+    if isinstance(feedback, Mapping):
+        state["feedback"] = dict(feedback)
+    return state
+
+
+def _process_cash_mentor_council_command(raw_command: object) -> None:
+    """Apply one strict council match or toolbar action on the server."""
+    candidate_command_id = (
+        raw_command.get("command_id")
+        if isinstance(raw_command, Mapping)
+        else None
+    )
+    if (
+        isinstance(candidate_command_id, str)
+        and candidate_command_id
+        == st.session_state.get("_wfz_cash_mentor_council_last_trigger_id")
+    ):
+        return
+
+    revision = _cash_mentor_council_revision()
+    try:
+        command = _normalise_cash_mentor_council_command(
+            raw_command,
+            revision=revision,
+        )
+    except ValueError as error:
+        can_acknowledge = (
+            isinstance(candidate_command_id, str)
+            and bool(
+                _CASH_MENTOR_COUNCIL_COMMAND_ID_PATTERN.fullmatch(
+                    candidate_command_id
+                )
+            )
+        )
+        if can_acknowledge:
+            st.session_state[
+                "_wfz_cash_mentor_council_last_trigger_id"
+            ] = candidate_command_id
+        _set_cash_mentor_council_feedback(
+            tone="error",
+            title="联合复核终端拒绝了这条命令",
+            message=str(error),
+        )
+        if can_acknowledge:
+            st.rerun()
+        return
+
+    command_id = str(command["command_id"])
+    action = str(command["action"])
+    st.session_state[
+        "_wfz_cash_mentor_council_last_trigger_id"
+    ] = command_id
+    st.session_state[
+        "_wfz_cash_mentor_council_last_command_id"
+    ] = command_id
+
+    if action in _CASH_MENTOR_COUNCIL_UI_ACTIONS:
+        if action == "continue_investigation":
+            _advance_game("migration")
+            return
+        if action == "go_back":
+            # The formal hearing is already signed and its final task was
+            # intentionally cleared.  Re-entering the generic Stage-7 path
+            # would initialise a fresh Stage-8 hearing and destroy the meaning
+            # of completion.  Keep the sealed checkpoint and explain the
+            # boundary instead of silently forcing a replay.
+            _set_cash_mentor_council_feedback(
+                tone="info",
+                title="第八幕已经封存｜联合复核会保持打开",
+                message=(
+                    "已通过的三轮答辩不会因返回操作而重置。"
+                    "你可以继续核对信物，或直接接受真实历史调查。"
+                ),
+            )
+            st.rerun()
+            return
+        if action == "rename_player":
+            st.session_state["_wfz_cash_game_overlay"] = "rename"
+            st.rerun()
+            return
+        if action == "restart_game":
+            st.session_state["_wfz_cash_game_overlay"] = "reset"
+            st.rerun()
+            return
+        st.session_state.pop("_wfz_cash_game_overlay", None)
+        _switch_page("home")
+        return
+
+    owned, used = _cash_mentor_council_state_sets()
+    keepsake_id = str(command["keepsake_id"])
+    mentor_id = str(command["mentor_id"])
+    selected_mentor = _CASH_MENTOR_COUNCIL_MENTOR_BY_ID[mentor_id]
+    expected_mentor = MENTOR_BY_KEEPSAKE[keepsake_id]
+    if keepsake_id not in owned:
+        _set_cash_mentor_council_feedback(
+            tone="warning",
+            title="信物栏拒绝了这次交付",
+            message="这件信物尚未在当前案卷中发现，不能凭空交付。",
+            rejected_keepsake_id=keepsake_id,
+        )
+        st.rerun()
+        return
+    if keepsake_id in used:
+        _set_cash_mentor_council_feedback(
+            tone="info",
+            title="这件信物已经完成交付",
+            message="已解锁的方法仍保留在对应席位，不会重复计数。",
+        )
+        st.rerun()
+        return
+    if selected_mentor is not expected_mentor:
+        _set_cash_mentor_council_feedback(
+            tone="warning",
+            title="信物没有被接收｜物品仍在你的手中",
+            message=(
+                "别按人物气场猜。把信物的用途与角色负责的研究方法"
+                "重新对应；错配不会消耗信物。"
+            ),
+            rejected_keepsake_id=keepsake_id,
+        )
+        st.rerun()
+        return
+
+    st.session_state["cash_game_used_hints"] = normalise_keepsake_ids(
+        [*used, keepsake_id]
+    )
+    _set_cash_mentor_council_feedback(
+        tone="success",
+        title=f"交付成功｜{expected_mentor.name}的复核方法已解锁",
+        message=expected_mentor.council_hint,
+    )
+    st.rerun()
+
+
+def _render_cash_mentor_council(player_name: str) -> None:
+    """Render the final nine-seat handoff as one full-screen component."""
+    revision = _cash_mentor_council_revision()
+    state = _cash_mentor_council_public_state(player_name)
+    with st.container(key="cash_mentor_council_scene"):
+        try:
+            result = render_cash_mentor_council(
+                state=state,
+                task_id=_CASH_MENTOR_COUNCIL_TASK_ID,
+                revision=revision,
+                key="wfz_cash_mentor_council_case_01",
+                on_command_change=lambda: None,
+            )
+        except ValueError as error:
+            if "is not registered" not in str(error):
+                raise
+            return
+
+    raw_command = getattr(result, "command", None)
+    if raw_command is None and isinstance(result, Mapping):
+        raw_command = result.get("command")
+    if raw_command is not None:
+        _process_cash_mentor_council_command(raw_command)
 
 
 def _render_cash_defense_node_legacy(player_name: str) -> None:
