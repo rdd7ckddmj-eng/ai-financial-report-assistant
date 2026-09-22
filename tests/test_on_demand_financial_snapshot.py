@@ -116,6 +116,36 @@ def test_zero_comparison_denominator_stays_explicitly_unavailable() -> None:
     assert snapshot["metrics"][0]["change_rate"] is None
 
 
+@pytest.mark.parametrize('key,current,previous', [
+    ('net_profit', -50.0, -100.0),  # loss narrows
+    ('net_profit', 20.0, -100.0),   # turns profitable
+    ('operating_cash_flow', -150.0, -100.0),  # cash outflow grows
+    ('operating_cash_flow', 100.0, 0.0),
+])
+def test_nonpositive_base_keeps_amounts_without_misleading_growth(key, current, previous):
+    candidate = _candidate_result()
+    candidate['values'][f'current_{key}'] = current
+    candidate['values'][f'previous_{key}'] = previous
+    snapshot = build_on_demand_financial_snapshot(_company(), candidate)
+    metric = next(m for m in snapshot['metrics'] if m['key'] == key)
+    assert metric['current_yuan'] == current * 10_000
+    assert metric['previous_yuan'] == previous * 10_000
+    assert metric['change_rate'] is None
+    assert '基期为零或负数' in metric['change_rate_note']
+    html = build_financial_snapshot_report_html(snapshot)
+    assert metric['change_rate_note'] in html
+
+
+def test_positive_profit_base_can_still_show_transition_to_loss():
+    candidate = _candidate_result()
+    candidate['values']['current_net_profit'] = -50.0
+    candidate['values']['previous_net_profit'] = 100.0
+    snapshot = build_on_demand_financial_snapshot(_company(), candidate)
+    metric = next(m for m in snapshot['metrics'] if m['key'] == 'net_profit')
+    assert metric['change_rate'] == -1.5
+    assert metric['change_rate_note'] == ''
+
+
 def test_snapshot_rejects_untrusted_report_source() -> None:
     result = _candidate_result()
     result["source_url"] = "https://example.com/report.pdf"

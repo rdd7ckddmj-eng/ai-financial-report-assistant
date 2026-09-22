@@ -92,6 +92,25 @@ def _safe_radar_context(
     }
 
 
+def _public_history(brief):
+    from src.public_financial_history import validate_public_financial_history
+    raw = brief.get("public_financial_history")
+    if raw is None:
+        return None
+    history = validate_public_financial_history(raw)
+    if history["company"]["canonical_code"] != brief["company"]["canonical_code"] or history["fetched_at"][:10] != brief["generated_on"]:
+        raise ValueError("公开财务来源与本次公司或日期不匹配。")
+    return history
+
+
+def _public_history_html(brief):
+    history = _public_history(brief)
+    if history is None:
+        return ""
+    rows = "".join(f"<tr><td>{p['period_year']}</td><td>{_text(p['revenue'] if p['revenue'] is not None else '缺失')}</td><td>{_text(p['net_profit'] if p['net_profit'] is not None else '缺失')}</td><td>{_text(p['operating_cash_flow'] if p['operating_cash_flow'] is not None else '缺失')}</td></tr>" for p in history["points"])
+    return f"<h2>多年公开财务（待核验，人民币元）</h2><p>{_text(history['limitation'])}</p><p>取数：{_text(history['fetched_at'])} · <a href=\"{_text(history['source_url'])}\">公开数据源（非官方年报）</a></p><table><thead><tr><th>年度</th><th>营业收入</th><th>归母净利润</th><th>经营现金流</th></tr></thead><tbody>{rows}</tbody></table><p>数据指纹：{_text(history['fingerprint'])}</p>"
+
+
 def build_comprehensive_research_audit_payload(
     brief: ComprehensiveResearchBrief,
     *,
@@ -199,6 +218,9 @@ def build_comprehensive_research_audit_payload(
             "本文件不构成买入、卖出或持有建议。",
         ],
     }
+    public_history = _public_history(brief)
+    if public_history is not None:
+        payload_core["public_financial_history"] = public_history
     canonical_payload = json.dumps(
         payload_core,
         ensure_ascii=False,
@@ -571,7 +593,7 @@ def build_comprehensive_research_report_html(
     <div class="eyebrow">FANGZHENG AI · COMPREHENSIVE RESEARCH AGENT</div>
     <h1>{company_name}｜{canonical_code}</h1>
     <p>{exchange_name}｜研究生成日 {generated_on}</p>
-    <p>确定性计算 · 官方来源 · 页码溯源 · 缺失证据显式披露</p>
+    <p>确定性计算 · 来源分级 · 可用页码溯源 · 缺失证据显式披露</p>
   </header>
   <main>
     <section class="summary">
@@ -600,6 +622,8 @@ def build_comprehensive_research_report_html(
       <tbody>{trace_rows}</tbody>
     </table>
 
+    {public_financial_html}
+
     <h2>研究边界</h2>
     <div class="boundary"><ul>{limitations}</ul></div>
   </main>
@@ -611,6 +635,7 @@ def build_comprehensive_research_report_html(
 </body>
 </html>
 """.format(
+        public_financial_html=_public_history_html(brief),
         company_name=_text(company["name"]),
         canonical_code=_text(company["canonical_code"]),
         exchange_name=_text(company["exchange_name"]),

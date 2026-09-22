@@ -1,6 +1,7 @@
 """Deterministic extraction of key figures from an income-statement page."""
 
 import re
+from src.pdf_numeric_text import normalize_numeric_parentheses
 from collections.abc import Iterable
 from typing import TypedDict
 
@@ -28,8 +29,9 @@ CHINESE_UNIT_PATTERN = re.compile(
     r"(?:金额)?单位(?:[:：]|为)(?:人民币)?(元|千元|万元|百万元)"
 )
 CHINESE_NOTE_REFERENCE_PATTERN = re.compile(
-    r"^(?:附注)?[一二三四五六七八九十百0-9]+"
-    r"(?:[（(][A-Za-z0-9]+[）)])+(?:[,，、])?$"
+    r"^(?:附注)?(?:[一二三四五六七八九十百0-9]+"
+    r"(?:[（(][A-Za-z0-9]+[）)])+(?:[,，、])?"
+    r"|[一二三四五六七八九十百]+、[0-9]+)$"
 )
 CHINESE_REVENUE_LABELS = (
     "其中：营业收入",
@@ -48,7 +50,7 @@ CHINESE_NET_PROFIT_LABELS = (
 def _normalise_lines(page_text: str) -> list[str]:
     """Remove empty lines and normalise unusual PDF spacing."""
     lines: list[str] = []
-    for raw_line in page_text.splitlines():
+    for raw_line in normalize_numeric_parentheses(page_text).splitlines():
         line = " ".join(raw_line.replace("\xa0", " ").split())
         if not line or re.fullmatch(r"\d+\s*/\s*\d+", line):
             continue
@@ -170,6 +172,16 @@ def _chinese_label_span(
     for end_index in range(row_index, min(row_index + 3, len(lines))):
         combined += _compact_chinese_text(lines[end_index])
         if _chinese_label_matches(combined, label):
+            # A sign annotation can wrap after the label. Consume only this
+            # exact annotation, never another account or an arbitrary parenthesis.
+            annotation = re.search(r'[（(](?:净亏损|亏损总额|亏损|损失)以', combined)
+            if annotation and not re.search(r'[）)]', combined[annotation.start():]):
+                for extra in range(end_index + 1, min(end_index + 3, len(lines))):
+                    tail = combined[annotation.start():] + ''.join(
+                        _compact_chinese_text(t) for t in lines[end_index+1:extra+1])
+                    if re.fullmatch(r'[（(](?:净亏损|亏损总额|亏损|损失)以[“"‘]?[-−－—–][”"’]?号填列[）)]', tail):
+                        return extra
+                return None
             return end_index
         compact_label = _compact_chinese_text(label)
         without_prefix = re.sub(
@@ -276,8 +288,16 @@ def _extract_chinese_row_pair(
                 if continuation_values is not None:
                     following_values.extend(continuation_values)
                     continue
-                if following_values:
-                    break
+                # A wrapped sign convention still belongs to this row; only
+                # this explicit annotation may precede the numeric cells.
+                if not following_values and re.fullmatch(
+                    r'[（(](?:净亏损|亏损总额|亏损|损失)以[“"‘]?[-−－—–][”"’]?号填列[）)]',
+                    _compact_chinese_text(following_line),
+                ):
+                    continue
+                # A label may be a section heading (e.g. a bank's 营业收入
+                # followed by 利息收入). Never borrow the next account's values.
+                break
             following_pair = _select_chinese_period_pair(
                 following_values,
                 value_column_count=value_column_count,

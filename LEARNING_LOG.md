@@ -966,3 +966,31 @@ confirmation while keeping the boundary between browsing and execution clear.
 The one-action flow does not create a background scheduler, bulk-download
 A-share data, store user identity, or change the deterministic, non-advisory
 research rules.
+
+## 2026-08-30 — Free-server PDF safety boundary
+
+### What I built or changed
+
+Reduced the public upload ceiling from 200 MB to 32 MB and gave every production
+PDF path an explicit named limit. Manual and audited-company onboarding files use
+32 MB; validated official on-demand reports may use up to 45 MB. The extractor
+now rejects encrypted files, more than 1,000 pages, or more than 20 million
+characters, and only one PDF can be expanded by PyMuPDF at a time in each server
+process.
+
+### One concept I can now explain
+
+A file-size limit alone does not control PDF memory. A compressed PDF can expand
+into many pages and a large amount of Unicode text, while two visitors parsing at
+the same time can double the peak. A stable service therefore needs limits at the
+upload, download, document, text, and concurrency layers. If a boundary is hit,
+the correct behaviour is to reject the whole extraction rather than present a
+partial document as complete evidence.
+
+### Evidence and server boundary
+
+The current patch deliberately keeps the existing rerun caches so normal
+Streamlit interactions do not download and parse the same report repeatedly.
+The next isolated change will replace the raw-PDF and duplicated full-text cache
+entries with one session-scoped report lifecycle. That cache change needs its own
+tests for reruns, report switching, and cleanup.

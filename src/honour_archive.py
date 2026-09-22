@@ -16,10 +16,19 @@ FIRST_CASE_MISSION_ID = "moutai-repurchase-publication-boundary"
 FIRST_CASE_TITLE = "《消失的现金》"
 FIRST_CASE_HONOUR_PREFIX = "WFZ-C01"
 HONOUR_CAPABILITIES = (
-    "利润与现金",
+    "双钟归因",
+    "可证伪假设",
     "证据链阅读",
-    "结论边界",
     "历史时点迁移",
+)
+HONOUR_STORY_LINES = (
+    "起初，所有人都在等一个漂亮答案。",
+    "你却先让六张事实卡进入双钟，",
+    "再把利润与现金差额写成可证伪假设。",
+    "穿过九幕调查，闭合证据链，",
+    "最后回到真实历史时点，",
+    "把公开日、交易日和因果边界重新分开。",
+    "真正的通关，是知道什么仍然不能下结论。",
 )
 
 
@@ -160,6 +169,7 @@ def build_honour_archive_html(record: HonourRecord) -> str:
     player_name = escape(record["player_name"])
     rank = format_completion_rank(record["completion_rank"])
     completed_on = honour_completed_on(record)
+    story_html = "".join(escape(line) for line in HONOUR_STORY_LINES)
     capability_html = "".join(
         f'<span class="wfz-honour-skill">{escape(item)}</span>'
         for item in HONOUR_CAPABILITIES
@@ -175,9 +185,7 @@ def build_honour_archive_html(record: HonourRecord) -> str:
                 <div class="wfz-honour-kicker">首案完整通关纪念</div>
                 <h1>研究员<br><span>荣誉档案</span></h1>
                 <p class="wfz-honour-story">
-                    起初，所有人都在等一个漂亮答案。你却把结论停在证据
-                    边界之前，穿过六个阶段，回到真实时间线，拒绝用明天
-                    解释今天。现在，首案正式封存。
+                    {story_html}
                 </p>
                 <div class="wfz-honour-name">
                     <small>ARCHIVED FOR / 调查员</small>
@@ -224,15 +232,7 @@ def build_honour_poster_payload(record: HonourRecord) -> HonourPosterPayload:
         "completed_on": completed_on.isoformat(),
         "case_title": FIRST_CASE_TITLE,
         "headline": "首案封存｜拒绝用明天解释今天",
-        "story_lines": [
-            "起初，所有人都在等一个漂亮答案。",
-            "你却停在证据边界之前，",
-            "穿过教学、练习、调查、证据链与答辩，",
-            "最后回到真实历史时点，",
-            "把公开日与交易日重新分开。",
-            "最难的从来不是找到数字，",
-            "而是知道什么仍然不能下结论。",
-        ],
+        "story_lines": list(HONOUR_STORY_LINES),
         "capabilities": list(HONOUR_CAPABILITIES),
         "disclaimer": (
             "学习成就纪念｜不代表职业资格、执业许可或投资能力认证"

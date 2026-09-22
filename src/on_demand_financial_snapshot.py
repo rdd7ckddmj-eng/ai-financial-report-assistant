@@ -8,6 +8,8 @@ small structure has been created.
 from __future__ import annotations
 
 import math
+from src.bank_statement_extractor import BANK_TEMPLATE
+from src.financial_sector_policy import is_special_financial_template
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from html import escape
@@ -20,7 +22,22 @@ from src.audited_company_onboarding import (
 from src.china_stock import is_allowed_disclosure_url
 
 
-SNAPSHOT_SCHEMA_VERSION = "1.0"
+SNAPSHOT_SCHEMA_VERSION = "1.1"
+MAX_METRIC_EXCERPT_CHARS = 480
+
+
+class SnapshotMetricSource(TypedDict):
+    """Original statement evidence retained for one core metric."""
+
+    raw_current_value: float | None
+    raw_previous_value: float | None
+    original_unit: str
+    accounting_basis: str
+    comparison_basis: str
+    statement: str
+    pages: dict[str, int] | None
+    excerpt: str
+    excerpt_status: str
 
 
 class SnapshotMetric(TypedDict):
@@ -31,8 +48,10 @@ class SnapshotMetric(TypedDict):
     current_yuan: float | None
     previous_yuan: float | None
     change_rate: float | None
+    change_rate_note: str
     statement: str
     pages: dict[str, int] | None
+    source: SnapshotMetricSource
 
 
 class OnDemandFinancialSnapshot(TypedDict):
@@ -111,20 +130,93 @@ def _safe_change_rate(
     current: float | None,
     previous: float | None,
 ) -> float | None:
-    """Calculate a change rate only when its denominator is usable."""
-    if current is None or previous in {None, 0.0}:
+    """Do not label a loss reduction as negative percentage growth."""
+    if current is None or previous is None or previous <= 0:
         return None
-    return (current - previous) / previous
+    result = (current - previous) / previous
+    return result if math.isfinite(result) else None
+
+
+def _change_rate_note(current: float | None, previous: float | None) -> str:
+    if current is None or previous is None:
+        return "金额缺失或自动检查未通过，暂不计算变化率。"
+    if previous <= 0:
+        return "比较基期为零或负数，不展示百分比变化；请比较两期金额。"
+    if _safe_change_rate(current, previous) is None:
+        return "变化率超出可计算范围，暂不展示。"
+    return ""
 
 
 def _safe_ratio(
     numerator: float | None,
     denominator: float | None,
 ) -> float | None:
-    """Calculate a ratio without disguising a missing or zero denominator."""
-    if numerator is None or denominator in {None, 0.0}:
+    """Match public-history rules; a loss is not a cash-conversion base."""
+    if numerator is None or denominator is None or denominator <= 0:
         return None
-    return numerator / denominator
+    result = numerator / denominator
+    return result if math.isfinite(result) else None
+
+
+def _normalise_pages(value: object) -> dict[str, int] | None:
+    """Keep a valid inclusive page range without inventing provenance."""
+    if not isinstance(value, Mapping):
+        return None
+    try:
+        start = int(value["start"])
+        end = int(value["end"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if start <= 0 or end < start:
+        return None
+    return {"start": start, "end": end}
+
+
+def _normalise_metric_source(
+    raw_source: object,
+    *,
+    current_raw: float | None,
+    previous_raw: float | None,
+    unit: str,
+    statement: str,
+    pages: dict[str, int] | None,
+) -> SnapshotMetricSource:
+    """Support old candidates while explicitly flagging missing excerpts."""
+    source = raw_source if isinstance(raw_source, Mapping) else {}
+    excerpt = " ".join(str(source.get("excerpt", "")).split())
+    if len(excerpt) > MAX_METRIC_EXCERPT_CHARS:
+        excerpt = excerpt[: MAX_METRIC_EXCERPT_CHARS - 1].rstrip() + "…"
+    excerpt_status = str(source.get("excerpt_status", "")).strip()
+    if not excerpt:
+        excerpt_status = "unavailable_legacy"
+    elif excerpt_status != "captured":
+        excerpt_status = "captured"
+    return {
+        "raw_current_value": _finite_optional(
+            source.get("raw_current_value", current_raw)
+        ),
+        "raw_previous_value": _finite_optional(
+            source.get("raw_previous_value", previous_raw)
+        ),
+        "original_unit": str(
+            source.get("original_unit", unit)
+        ).strip(),
+        "accounting_basis": str(
+            source.get("accounting_basis", "报表口径待人工确认")
+        ).strip()
+        or "报表口径待人工确认",
+        "comparison_basis": str(
+            source.get(
+                "comparison_basis",
+                "本期与年报比较栏原值；可能包含追溯调整",
+            )
+        ).strip(),
+        "statement": str(source.get("statement", statement)).strip()
+        or statement,
+        "pages": _normalise_pages(source.get("pages")) or pages,
+        "excerpt": excerpt,
+        "excerpt_status": excerpt_status,
+    }
 
 
 def build_on_demand_financial_snapshot(
@@ -173,6 +265,9 @@ def build_on_demand_financial_snapshot(
     metrics: list[SnapshotMetric] = []
     values = result.get("values", {})
     pages_by_statement = result.get("statement_pages", {})
+    metric_evidence = result.get("metric_evidence", {})
+    if not isinstance(metric_evidence, Mapping):
+        metric_evidence = {}
     for (
         key,
         label,
@@ -194,22 +289,26 @@ def build_on_demand_financial_snapshot(
             else None
         )
         raw_pages = pages_by_statement.get(statement_key)
-        pages = (
-            {"start": int(raw_pages["start"]), "end": int(raw_pages["end"])}
-            if isinstance(raw_pages, Mapping)
-            and "start" in raw_pages
-            and "end" in raw_pages
-            else None
+        pages = _normalise_pages(raw_pages)
+        source = _normalise_metric_source(
+            metric_evidence.get(key),
+            current_raw=current_raw,
+            previous_raw=previous_raw,
+            unit=unit or "",
+            statement=statement_label,
+            pages=pages,
         )
         metrics.append(
             {
                 "key": key,
-                "label": label,
+                "label": "营业总收入（证券报表）" if key == "revenue" and result.get("statement_template") == "securities_group_parent_yuan_v1" else label,
                 "current_yuan": current_yuan,
                 "previous_yuan": previous_yuan,
                 "change_rate": _safe_change_rate(current_yuan, previous_yuan),
-                "statement": statement_label,
-                "pages": pages,
+                "change_rate_note": _change_rate_note(current_yuan, previous_yuan),
+                "statement": source["statement"],
+                "pages": source["pages"],
+                "source": source,
             }
         )
 
@@ -232,6 +331,7 @@ def build_on_demand_financial_snapshot(
         "schema_version": SNAPSHOT_SCHEMA_VERSION,
         "generated_at": generated.astimezone(timezone.utc).isoformat(),
         "status": "ready_for_human_review" if ready else "needs_review",
+        "extraction_note": str(result.get('extraction_note', '')),
         "status_label": (
             "自动检查完成，等待人工复核"
             if ready
@@ -248,6 +348,7 @@ def build_on_demand_financial_snapshot(
             )
         },
         "report": {
+            "statement_template": result.get('statement_template', 'general'),
             "report_year": int(result["report_year"]),
             "published_date": str(result["published_date"]),
             "title": str(result["title"]),
@@ -265,7 +366,8 @@ def build_on_demand_financial_snapshot(
             else "金额单位、三表勾稽或核心数值未全部通过，系统未输出标准化金额。"
         ),
         "metrics": metrics,
-        "ratios": {
+        "ratios": ({key: None for key in ('net_profit_margin', 'operating_cash_conversion', 'liabilities_to_assets')}
+                   if is_special_financial_template(result.get('statement_template')) else {
             "net_profit_margin": _safe_ratio(net_profit, revenue),
             "operating_cash_conversion": _safe_ratio(
                 operating_cash_flow,
@@ -275,11 +377,16 @@ def build_on_demand_financial_snapshot(
                 total_liabilities,
                 total_assets,
             ),
-        },
+        }),
         "limitations": [
+            *([str(result['extraction_note'])] if result.get('extraction_note') else []),
             "本结果由程序从最新完整年度报告自动提取，未经人工复核或审计。",
             "跨期增速使用同一份年报中的上年同期/上年末比较栏，可能包含追溯调整。",
+            "比较基期为零或负数时不展示百分比变化，保留两期金额供比较。",
+            "比例仅在分母为正且金额可用时计算；净利润不大于零时不展示现金利润比，避免负数相除被误读为现金转化良好。",
             "银行、保险等特殊报表版式或扫描版PDF可能无法通过自动勾稽。",
+            *( ["本报告使用银行双年度、带符号百万元模板；三表只核对指定汇总关系，容差为1百万元（报表舍入单位）。不计算普通公司比例，不等同于资本充足率、净息差或银行风险评估。"]
+               if result.get('statement_template') == BANK_TEMPLATE else []),
             "财务快照用于缩短资料整理时间，不构成估值结论或投资建议。",
         ],
     }
@@ -295,6 +402,14 @@ def _format_amount(value: float | None) -> str:
 def _format_percent(value: float | None) -> str:
     """Format a ratio while retaining an explicit unavailable state."""
     return "待核验" if value is None else f"{value:.1%}"
+
+
+def _format_raw_source_value(source: Mapping[str, object]) -> str:
+    """Show the report value before unit conversion."""
+    value = source.get("raw_current_value")
+    if value is None:
+        return "原值缺失"
+    return f"{float(value):,.2f} {str(source.get('original_unit', '')).strip()}".strip()
 
 
 def _format_pages(pages: Mapping[str, int] | None) -> str:
@@ -318,14 +433,31 @@ def build_financial_snapshot_report_html(
         if is_allowed_disclosure_url(source_url)
         else "官方链接未通过域名校验"
     )
+    def source_for_report(item: Mapping[str, object]) -> Mapping[str, object]:
+        raw_source = item.get("source")
+        if isinstance(raw_source, Mapping):
+            return raw_source
+        # A browser may still hold a v1.0 snapshot after deployment.  Keep it
+        # readable, but never pretend that the old snapshot retained an
+        # annual-report original value, accounting basis or excerpt.
+        return {
+            "raw_current_value": None,
+            "original_unit": "",
+            "accounting_basis": "旧快照未保存原始口径，需重新生成并人工复核",
+            "excerpt": "",
+        }
+
     metric_rows = "".join(
         "<tr>"
         f"<td>{escape(item['label'])}</td>"
+        f"<td>{escape(_format_raw_source_value(source_for_report(item)))}</td>"
         f"<td>{escape(_format_amount(item['current_yuan']))}</td>"
         f"<td>{escape(_format_amount(item['previous_yuan']))}</td>"
-        f"<td>{escape(_format_percent(item['change_rate']))}</td>"
-        f"<td>{escape(item['statement'])} 第"
+        f"<td>{escape(item.get('change_rate_note', '') or _format_percent(item['change_rate']))}</td>"
+        f"<td>{escape(str(source_for_report(item)['accounting_basis']))}<br>"
+        f"{escape(item['statement'])} 第"
         f"{escape(_format_pages(item['pages']))}页</td>"
+        f"<td>{escape(str(source_for_report(item)['excerpt']) or '旧快照未保存原文摘录')}</td>"
         "</tr>"
         for item in snapshot["metrics"]
     )
@@ -363,8 +495,9 @@ th{{background:#edf3f8}} small{{color:#5d6b7a}} a{{color:#075ea8}}
 {escape(str(report['published_date']))}｜{safe_source_link}</p>
 <p>{escape(snapshot['unit_note'])}</p>
 <h2>核心财务快照</h2>
-<table><thead><tr><th>指标</th><th>本期</th><th>上期比较栏</th>
-<th>变化</th><th>证据页</th></tr></thead><tbody>{metric_rows}</tbody></table>
+<table><thead><tr><th>指标</th><th>年报原值/原单位</th><th>本期换算值</th>
+<th>上期比较栏</th><th>变化</th><th>口径/证据页</th><th>对应原文摘录</th>
+</tr></thead><tbody>{metric_rows}</tbody></table>
 <h2>确定性计算</h2><ul>{ratio_items}</ul>
 <h2>使用边界</h2><ul>{limitation_items}</ul>
 <p><small>生成时间（UTC）：{escape(snapshot['generated_at'])}<br>

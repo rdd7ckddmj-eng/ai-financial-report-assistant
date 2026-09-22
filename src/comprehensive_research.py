@@ -20,6 +20,7 @@ from src.china_stock import (
     is_allowed_disclosure_url,
 )
 from src.financial_history import FinancialHistoryResult
+from src.public_financial_history import SOURCE_NAME, validate_public_financial_history
 from src.research_conclusion import (
     ResearchConclusion,
     build_research_conclusion,
@@ -88,6 +89,7 @@ class ComprehensiveResearchBrief(TypedDict):
     actions: list[ResearchAction]
     trace: list[ResearchTraceStep]
     limitations: list[str]
+    public_financial_history: dict | None
 
 
 def _as_iso_date(value: object) -> str | None:
@@ -700,6 +702,8 @@ def _build_actions(
                 ),
             }
         )
+    elif lane_by_key["financial_history"]["source"] == SOURCE_NAME:
+        actions.append({"priority": 2, "page": "financial_trend", "label": "查看多年公开财务与核验缺口", "reason": "已取得年度候选，可查看趋势并继续核对官方年报。"})
     elif lane_by_key["financial_history"]["status"] == "unavailable":
         actions.append(
             {
@@ -783,6 +787,7 @@ def build_comprehensive_research_brief(
     latest_annual_report: Mapping[str, object] | None = None,
     financial_history: FinancialHistoryResult | None = None,
     financial_snapshot: Mapping[str, object] | None = None,
+    public_financial_history: Mapping[str, object] | None = None,
     generated_on: date | None = None,
     data_errors: Sequence[str] = (),
 ) -> ComprehensiveResearchBrief:
@@ -810,6 +815,27 @@ def build_comprehensive_research_brief(
         _annual_report_lane(latest_annual_report),
         _financial_lane(financial_history, company, financial_snapshot),
     ]
+    public_history = None
+    public_error = None
+    if public_financial_history is not None:
+        try:
+            public_history = validate_public_financial_history(public_financial_history)
+            if public_history["company"]["canonical_code"] != company["canonical_code"]:
+                raise ValueError("公开财务候选不属于本次公司。")
+            if public_history["fetched_at"][:10] != run_date.isoformat():
+                raise ValueError("公开财务候选不是本次日期取得，需重新获取。")
+        except (ValueError, TypeError, KeyError) as error:
+            public_error = str(error)
+            public_history = None
+    if public_history is not None and lanes[-1]["status"] == "unavailable":
+        latest = public_history["points"][-1]
+        lanes[-1] = {
+            "key": "financial_history", "label": "多年公开财务（待核验）",
+            "status": "partial", "source": SOURCE_NAME,
+            "summary": f"已取得{len(public_history['points'])}个完整年度，最新为{latest['period_year']}年；尚需年报核验。",
+            "as_of_date": run_date.isoformat(), "source_url": None,
+            "limitation": public_history["limitation"],
+        }
     status_points = {"verified": 1.0, "partial": 0.5, "unavailable": 0.0}
     coverage_ratio = sum(status_points[lane["status"]] for lane in lanes) / len(lanes)
     if coverage_ratio >= 0.8:
@@ -830,6 +856,14 @@ def build_comprehensive_research_brief(
     )
     if financial_finding is not None:
         findings.append(financial_finding)
+    elif public_history is not None:
+        latest = public_history["points"][-1]
+        findings.append({
+            "category": "公开财务候选", "headline": f"{latest['period_year']}年公开财务（待核验）",
+            "statement": f"营业收入 {_format_snapshot_amount(latest['revenue'])}；归母净利润 {_format_snapshot_amount(latest['net_profit'])}；经营现金流 {_format_snapshot_amount(latest['operating_cash_flow'])}。",
+            "basis": SOURCE_NAME + "；合并报表候选；净利润为归母口径；非逐页核验。",
+            "status": "partial", "source_url": None,
+        })
 
     limitations = [
         "证据覆盖率衡量本次取得的数据范围，不代表公司质量或结论正确概率。",
@@ -838,6 +872,10 @@ def build_comprehensive_research_brief(
         "本简报不构成买入、卖出或持有建议。",
     ]
     limitations.extend(str(error).strip() for error in data_errors if str(error).strip())
+    if public_error:
+        limitations.append(public_error)
+    if public_history is not None:
+        limitations.extend([public_history["limitation"], *public_history["issues"]])
     if turnover_source:
         limitations.append(f"普通换手率来源：{turnover_source}；不等同于有效换手率。")
     if lanes[-1]["source"] == "最新完整年度报告自动提取候选":
@@ -854,6 +892,10 @@ def build_comprehensive_research_brief(
         financial_history=financial_history,
         financial_snapshot=financial_snapshot,
     )
+    if public_history is not None and lanes[-1]["source"] == SOURCE_NAME:
+        for pillar in conclusion["pillars"]:
+            if pillar["key"] == "financial":
+                pillar.update(summary=lanes[-1]["summary"], basis=SOURCE_NAME)
 
     return {
         "company": company,
@@ -871,4 +913,5 @@ def build_comprehensive_research_brief(
         "actions": _build_actions(lanes, market_activity),
         "trace": _build_trace(lanes),
         "limitations": limitations,
+        "public_financial_history": public_history,
     }

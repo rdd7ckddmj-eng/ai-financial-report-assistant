@@ -1,7 +1,32 @@
 from src.financial_statement_extractor import (
+    _extract_chinese_row_pair,
     extract_income_statement_figures,
     find_income_statement_figures,
 )
+
+
+def test_section_heading_cannot_borrow_next_accounts_amounts():
+    # Synthetic amounts; layout reproduced from a bank annual report.
+    lines = ['营业收入', '利息收入', '42', '350', '370',
+             '利息支出', '43', '(130)', '(160)']
+    assert _extract_chinese_row_pair(lines, ('营业收入',)) is None
+
+
+def test_missing_amount_does_not_borrow_another_metric():
+    assert _extract_chinese_row_pair(
+        ['资产总计', '流动负债合计', '100', '80'], ('资产总计',)) is None
+
+
+def test_comma_style_note_keeps_row_boundary():
+    assert _extract_chinese_row_pair(
+        ['营业收入','五、54','100','80'], ('营业收入',)) == (100,80)
+    assert _extract_chinese_row_pair(
+        ['营业收入','五、54','利息收入','100','80'], ('营业收入',)) is None
+
+
+def test_same_row_note_then_amounts_remain_supported():
+    assert _extract_chinese_row_pair(
+        ['营业收入', '七（61）', '100', '80'], ('营业收入',)) == (100, 80)
 
 
 INCOME_STATEMENT_TEXT = """
@@ -232,3 +257,22 @@ def test_extract_dual_income_statement_uses_consolidated_columns() -> None:
     assert figures["current_net_profit"] == 43_945_411
     assert figures["previous_net_profit"] == 38_537_237
     assert figures["unit"] == "人民币千元"
+
+
+def test_parent_profit_wrapped_sign_annotation_never_uses_consolidated_profit():
+    text='''合并利润表
+单位：元
+营业收入 1000 900
+五、净利润 90 80
+1.少数股东损益 -10 -5
+2.归属于母公司所有者的净利润（净亏损以
+“-”号填列）
+100
+85
+'''
+    figures=extract_income_statement_figures(1,text)
+    assert figures['current_net_profit']==100
+    assert figures['previous_net_profit']==85
+    assert _extract_chinese_row_pair(
+        ['归属于母公司所有者的净利润（净亏损以','利息收入','100','85'],
+        ('归属于母公司所有者的净利润',)) is None

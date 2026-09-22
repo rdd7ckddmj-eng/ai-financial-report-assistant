@@ -1,10 +1,22 @@
 # FANGZHENG AI Financial Research Lab
 
-A Chinese-first financial learning and research portfolio product with two
+**2026-09-21 本地开发更新（尚未部署核验）：** 非预置A股公司现在可以按需获取
+最多六个年度的公开财务候选，进入综合研究、财务趋势、异常方向检查与共同年度比较。
+结果附取数时间、来源字段、缺口及可下载报告，并可写入同公司的研究案件。
+公开财务页可进入同公司年报核验，年报页提供五项核心金额的两源对照与复核清单；
+金额相近不会自动成为已核验事实。
+公开候选和两源对照可保存到本机案件并读回；官方接口不可用时，可手工提交官方PDF、
+来源链接和披露日期建立候选快照，仍需人工复核。新增按指定代码抽查的覆盖审计命令。
+公开源接入不等于全市场逐页核验；原有六家公司年报基准、历史时点规则保持独立。
+使用方法、测试与限制见 [公开财务覆盖说明](docs/PUBLIC_FINANCIAL_COVERAGE.md)。
+新增一个银行双年度、带符号百万元报表模板，已用招商银行2025年年报验证；
+只生成待人审候选，停用普通公司比例，尚不代表银行全覆盖。
+
+A Chinese-first financial learning and research product with two
 connected modules: **《消失的现金》** teaches evidence-based financial
-reasoning through a sequential story-led case, while the **Listed Company
-Research Hub** connects public market data, official disclosures, annual-report
-evidence, and auditable Agent workflows.
+reasoning through a sequential story-led case, while **研究案件 (Research
+Case)** connects public market data, official disclosures, annual-report
+evidence, and auditable Agent workflows into one continuously updated case.
 
 The game uses nine distinct scene mentors, nine research capabilities and
 nine character keepsakes. Optional escape-room-style objects can be found in
@@ -23,8 +35,9 @@ six facts to profit, cash, both, or neither; turns the resulting gap into a
 falsifiable hypothesis; and packs three evidence requests before opening the
 office. Wrong moves return only the conflicting material and never erase work
 that the player has already established.
-Selecting the Research Hub reveals
-five task-based tool groups without crowding the top-level navigation.
+Selecting 研究案件 opens the same-company case workspace. Five task-based
+groups remain as specialist views, but they update one case rather than create
+separate, disconnected answers.
 Game checkpoints and honour progress are stored in the current browser's local
 storage; they are not keyed by alias or IP. The interface responds to phone and
 desktop widths and also offers a persistent manual layout override.
@@ -45,6 +58,47 @@ research workpaper. Both modules use the same evidence standards and
 point-in-time discipline. The product competes on learning transfer,
 transparent workflow, and auditability rather than commercial-database breadth
 or investment predictions.
+
+## Research Case operating model
+
+One company search creates or resumes one bounded, browser-persisted Research
+Case. The first screen always answers five questions from that canonical case:
+
+1. what is the most important issue to verify now;
+2. what evidence already exists;
+3. which evidence conflicts;
+4. what remains unknown; and
+5. what should be verified next.
+
+Comprehensive Research, five-field annual-report review, annual-report evidence
+Q&A, Evidence Delta, Historical Lens, and the other connected specialist views
+submit revision-checked CasePatches to the same case. Returning to the workspace
+therefore updates one workpaper instead of leaving the user with a collection of
+unrelated tool outputs. A reused current case rolls its effective date forward
+before accepting newly observed evidence. Empty contradictions mean only that
+no citable conflict is currently recorded; they never mean that all evidence is
+consistent.
+
+Formal workpaper export is gated by the case contract. The five research lanes
+must have started, the brief must contain at least one actual source-evidence ID
+and a next action, and no item may still be waiting for human review. An
+analysis artifact by itself can never unlock formal export. The export preserves
+source URL, publication date, available PDF pages, original value, unit,
+accounting basis, review status, compact artifacts, hypotheses, unknowns,
+contradictions, and the audit log. It distinguishes reviewed facts from
+inferences and unknowns and never embeds PDF bytes.
+
+Two connected specialist write-backs have deliberately narrow evidence
+boundaries. Annual-report evidence Q&A keeps Agent conclusions only as
+`analysis_output`; case evidence contains only the official short excerpts and
+PDF pages accepted by the deterministic Verifier. Comprehensive Research keeps
+its program-generated lane summaries as non-factual source records, not
+confirmed quotations. Evidence Delta keeps only
+official-domain-validated announcement references with title, publication date,
+category, attention and same-day-review status. Announcement attention is a
+reading priority, not a bullish/bearish or price-direction judgement. Neither
+workflow stores a source PDF, full extracted text, HTTP response, dataframe or
+other large object in the Research Case.
 
 ## Project objective
 
@@ -120,6 +174,9 @@ Build a web application that can:
 
 ## Product specifications
 
+- [Research Case v1](docs/RESEARCH_CASE_V1_SPEC.md) defines the canonical
+  five-answer brief, five specialist research lanes, browser persistence,
+  atomic CasePatch updates, readiness gate, and complete workpaper export.
 - [Product Scope and Positioning](docs/PRODUCT_SCOPE.md) separates broad
   on-demand A-share research from the narrower audited deep-dive catalogue and
   states the commercial-database boundary.
@@ -169,8 +226,8 @@ Build a web application that can:
   export, privacy boundary, and future account migration path.
 - [On-Demand Financial Snapshot](docs/ON_DEMAND_FINANCIAL_SNAPSHOT_SPEC.md)
   defines official report discovery, three-statement reconciliation, RMB unit
-  normalisation, page-linked export, human-review status, and free-server memory
-  boundary.
+  normalisation, five-field confirm/correct/reject review, page-linked export,
+  Research Case write-back, and the free-server memory boundary.
 
 ## Development principles
 
@@ -195,8 +252,9 @@ Read PDFs, clean text, identify relevant sections, and preserve page metadata.
 ### V3 — Evidence-grounded Q&A
 Add retrieval, answer questions from selected report passages, and display citations.
 
-### V4 — Portfolio product
-Build a Streamlit interface, tests, documentation, evaluation cases, and a demo.
+### V4 — Usable research product
+Build a Streamlit interface, tests, documentation, evaluation cases, and an
+auditable end-to-end research workflow.
 
 ## Quick start
 
@@ -228,11 +286,11 @@ secret environment settings. It must never be committed to the repository.
 ## Current working features
 
 - Present two clear top-level modules on the home page and preserve all
-  existing real-company tools inside the Company Research Terminal. The first
+  specialist company-research views inside 研究案件. The first
   playable case now runs as a nine-scene, fixed-screen investigation with
   device-local checkpoints, distinct interaction mechanics, hidden keepsakes,
   and a source-bound Historical Lens transfer challenge.
-- Present two explicit coverage layers in the Company Research Terminal:
+- Present two explicit coverage layers in 研究案件:
   on-demand identity,
   market, disclosure, and annual-report entry points for Shanghai, Shenzhen,
   and Beijing listed-company codes when public sources are available; plus a
@@ -250,6 +308,13 @@ secret environment settings. It must never be committed to the repository.
   click without re-entering stock codes. Market Radar checks at most three
   companies concurrently, reports measured scan time, and isolates failures by
   company without increasing the five-company limit.
+- Persist up to five bounded Research Cases under the separate browser key
+  `wfz.research_cases.v1`. Each case retains verified company identity, current
+  or historical scope, the canonical five-answer brief, five specialist lanes,
+  compact artifacts, evidence references, hypotheses and audit history. Store
+  revisions and command IDs prevent stale tabs or retries from silently
+  overwriting newer research. This case store is separate from game progress,
+  watchlists and legacy recent-company state.
 - Use a first-run performance path for the flagship workflow: six-digit stock
   codes and the verified demonstration list resolve without downloading the
   full A-share directory; Tencent daily history is attempted before the slower
@@ -277,15 +342,40 @@ secret environment settings. It must never be committed to the repository.
   non-scoring section in both exports; untrusted links and another company's
   context are excluded. The fingerprint identifies an evidence payload but is
   not presented as a digital signature or third-party certification.
+  An explicit completed run also emits a bounded Comprehensive Research
+  CasePatch, so the canonical case brief and its five research lanes update
+  together; passive navigation never writes research conclusions.
+- Put every on-demand annual-report snapshot through a five-field human-review
+  loop. Revenue, net profit, operating cash flow, total assets and total
+  liabilities each retain the extracted original value, original unit,
+  accounting basis, PDF page and short source excerpt. The user must explicitly
+  confirm, correct with a reason, or reject with a reason. Until all five
+  decisions are complete, that snapshot cannot be exported as a reviewed
+  single-period workpaper, promoted into case evidence, or used to advance case
+  readiness. A Research Case is not required to contain an annual-report
+  snapshot; formal complete-case export remains governed only by the canonical
+  derived `ready_to_export` gate.
+- Lock each Historical Lens case to an immutable `as_of_date` and effective
+  market date. Only disclosures published by the cut-off can enter its
+  evidence patch. Later 1/3/6-month outcomes remain a separate optional replay
+  and are never written back as evidence available at the historical date.
+- Export a formal complete-case JSON workpaper only after the derived
+  `ready_to_export` gate opens. The bounded export retains the canonical case,
+  evidence provenance, review decisions, hypotheses, unknowns, contradictions,
+  audit history, Responsible AI controls and a SHA-256 case fingerprint; it
+  contains no source PDF or other binary payload.
 - Use a responsive institutional research-terminal interface with a dark
-  navigation rail grouped by research task, a dedicated Research Workspace
-  that connects all tools into five user-facing collections, consistent
+  navigation rail grouped by research task, a dedicated 研究案件 workspace
+  that displays the five canonical answers and connects specialist views into
+  five user-facing collections, consistent
   page-introduction cards, a visible sidebar close control, and a persistent
   reopen control after collapse.
-- Provide a multi-page product structure: home, company research centre,
-  K-line and market evidence, Daily Limit-Up Board, Watchlist Market Radar,
-  Market Anomaly Agent, Historical Lens, annual-report evidence, Financial
-  Trend Lab, audited-company onboarding, and methodology/audit.
+- Keep specialist pages for company identity, K-line and market evidence,
+  Daily Limit-Up Board, Watchlist Market Radar, Market Anomaly Agent,
+  Historical Lens, annual-report evidence, Financial Trend Lab,
+  audited-company onboarding, and Responsible AI controls. They are views and
+  CasePatch producers inside the Research Case workflow, not independent
+  product destinations.
 - Build an audited-company candidate package for any selected ordinary A-share
   company: discover the latest three distinct complete annual reports, process
   only one bounded PDF at a time, reconcile three statements, retain five core
@@ -302,7 +392,9 @@ secret environment settings. It must never be committed to the repository.
   date and label same-day records for re-verification because the public feed
   does not expose a reliable publication time. The request is capped at 365
   days, accepts only validated official disclosure domains, groups changes into
-  five research questions, and exports a portable HTML brief.
+  five evidence groups, updates the same-company current Research Case with
+  compact references, and exports a portable HTML brief. Attention only ranks
+  what to read first; it never asserts market direction.
 - Maintain a Research Thesis Ledger for one selected company. Each record must
   state a falsifiable hypothesis, confirmation criteria, and invalidation
   criteria. Recent Evidence Delta items can be matched by topic, but only the
@@ -426,17 +518,21 @@ secret environment settings. It must never be committed to the repository.
   to avoid current adjustment-factor leakage, and audit disclosures excluded
   because they were published after the historical cut-off.
 - Validate company-directory fields, OHLC relationships, disclosure domains,
-  PDF signatures, and download size before showing or analysing data.
-- Present a branded portfolio interface for **WFZ Financial Intelligence**,
+  PDF signatures, and download size before showing or analysing data. Manual
+  PDFs are rejected above 32 MB before application parsing; validated official
+  on-demand reports are capped at 45 MB. PyMuPDF work is serialised per server
+  process and fails closed above 1,000 pages or 8 million extracted characters
+  rather than presenting a truncated evidence set.
+- Present a branded research interface for **WFZ Financial Intelligence**,
   with clear developer attribution to **王方正 · Durham University** and a
   consistent finance-and-technology visual system across research, upload,
   metrics, forms, alerts, and audit results.
-- Provide a Chinese-first interface for domestic recruitment demonstrations,
-  while preserving original annual-report wording for evidence verification.
+- Provide a Chinese-first interface for independent company research, while
+  preserving original annual-report wording for evidence verification.
 - Support **CNY (¥ 人民币)** as the default manual-analysis currency, alongside
   GBP, USD, EUR, and a generic other-currency option.
 - Include a downloadable Chinese user guide with operating steps, a
-  three-minute interview-demo script, safety boundaries, and troubleshooting.
+  three-minute product walkthrough, safety boundaries, and troubleshooting.
 - Run the full automated test suite during every Render build so a failing
   change cannot replace the live version.
 - Upload a public annual-report PDF and preview page-level text.
@@ -553,3 +649,16 @@ records the official CNINFO summary and consolidated-liability pages, and
 confirms that none of the four annual reports restates the preceding-year
 figures. Together with Guizhou Moutai and Wuliangye, it expands the audited
 baijiu peer-group candidate from two companies to three.
+
+
+### 批量财务覆盖验收
+
+在项目根目录运行 `python -m src.financial_coverage_batch --manifest plan.json --layer all --output new-receipt.json`。清单结构：`codes` 为公司代码数组；`reports` 为对象数组，每项含 `code`、`name`、`year`、本地PDF的 `path`、官方 `source_url`、`published_date`、`identity_confirmed`。请仅在核对文件公司/年度后填写身份确认；不等于财务字段人工确认。
+
+支持 `public`、`reports` 或 `all`；最多200个公司代码、40份32MiB以内PDF。不会下载年报、修改核验目录或部署。逐项回执写入同名 `.json.jsonl`，拒绝覆盖已有输出；存在失败/待复核项时退出1。解析通过仍须人工复核，公开源可用不是全市场已覆盖。实测范围和未支持版式见 [覆盖记录](docs/PUBLIC_FINANCIAL_COVERAGE.md)。
+
+年报单位缺失时，仅在唯一、明确且有界的财务报表总说明范围内引用单位，字段证据保留说明页码；整数缩放单位报表允许每条勾稽最多1个原始单位的显示舍入差异，并标注待人工复核。具体适用条件与12份真实样本结果见覆盖记录。
+
+证券、保险发行人目前仅新增明确识别与未支持提示，不能视为专用三表已覆盖；候选、人工复核底稿、研究案件和页面统一停算普通公司比例。北交所锦波生物2024真实年报已通过解析与两源金额对照，仍待人工复核。
+
+证券模板现已验证华泰2024“合并及母公司”四列报表：四列均勾稽、只取集团金额，收入保留营业总收入口径。其他证券版式仍须逐份验证；保险仍未支持。年报原披露与当前公开源重述值有差异时保留双值，详见覆盖记录。

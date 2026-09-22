@@ -15,6 +15,7 @@ from src.china_stock import (
     calculate_market_activity,
     calculate_market_metrics,
     classify_announcement,
+    download_official_pdf,
     fetch_announcements,
     fetch_market_history,
     infer_exchange,
@@ -653,6 +654,128 @@ def test_cninfo_pdf_builder_rejects_untrusted_or_incomplete_links() -> None:
         )
 
 
+def test_download_official_pdf_rejects_content_length_before_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed = {"read_called": False}
+
+    class FakeResponse:
+        headers = {"Content-Length": "9"}
+
+        def __enter__(self) -> "FakeResponse":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def read(self, size: int) -> bytes:
+            observed["read_called"] = True
+            return b"%PDF-data"
+
+    monkeypatch.setattr(
+        china_stock,
+        "urlopen",
+        lambda request, timeout: FakeResponse(),
+    )
+
+    with pytest.raises(DataSourceError, match="超过自动载入大小上限"):
+        download_official_pdf(
+            "https://static.cninfo.com.cn/finalpage/2025-03-15/1212345678.PDF",
+            max_bytes=8,
+        )
+
+    assert observed["read_called"] is False
+
+
+def test_download_official_pdf_rejects_unannounced_oversized_body(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: dict[str, int] = {}
+
+    class FakeResponse:
+        headers: dict[str, str] = {}
+
+        def __enter__(self) -> "FakeResponse":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def read(self, size: int) -> bytes:
+            observed["read_size"] = size
+            return b"%PDF-data"
+
+    monkeypatch.setattr(
+        china_stock,
+        "urlopen",
+        lambda request, timeout: FakeResponse(),
+    )
+
+    with pytest.raises(DataSourceError, match="超过自动载入大小上限"):
+        download_official_pdf(
+            "https://static.cninfo.com.cn/finalpage/2025-03-15/1212345678.PDF",
+            max_bytes=8,
+        )
+
+    assert observed["read_size"] == 9
+
+
+def test_download_official_pdf_accepts_exact_bounded_pdf(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResponse:
+        headers = {"Content-Length": "8"}
+
+        def __enter__(self) -> "FakeResponse":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def read(self, size: int) -> bytes:
+            assert size == 9
+            return b"%PDF1234"
+
+    monkeypatch.setattr(
+        china_stock,
+        "urlopen",
+        lambda request, timeout: FakeResponse(),
+    )
+
+    assert download_official_pdf(
+        "https://static.cninfo.com.cn/finalpage/2025-03-15/1212345678.PDF",
+        max_bytes=8,
+    ) == b"%PDF1234"
+
+
+def test_download_official_pdf_rejects_non_pdf_body(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResponse:
+        headers = {"Content-Length": "8"}
+
+        def __enter__(self) -> "FakeResponse":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def read(self, size: int) -> bytes:
+            return b"NOT-PDF!"
+
+    monkeypatch.setattr(
+        china_stock,
+        "urlopen",
+        lambda request, timeout: FakeResponse(),
+    )
+
+    with pytest.raises(DataSourceError, match="没有返回有效PDF"):
+        download_official_pdf(
+            "https://static.cninfo.com.cn/finalpage/2025-03-15/1212345678.PDF",
+            max_bytes=8,
+        )
+
+
 def test_select_latest_annual_report_excludes_summary() -> None:
     frame = pd.DataFrame(
         {
@@ -748,3 +871,14 @@ def test_select_latest_annual_report_uses_english_when_only_option() -> None:
 
     assert latest is not None
     assert latest["title"] == "贵州茅台2025年年度报告（英文版）"
+
+
+@pytest.mark.parametrize('code',[403,429,503])
+def test_announcement_http_failure_has_actionable_receipt(monkeypatch,code):
+    from urllib.error import HTTPError
+    from src.china_stock import DataSourceError, fetch_announcements
+    def fail():
+        raise HTTPError('https://www.cninfo.com.cn/new/data/szse_stock.json',code,'failure',{},None)
+    monkeypatch.setattr(china_stock,'_load_cninfo_stock_ids',fail)
+    with pytest.raises(DataSourceError,match=f'HTTP {code}'):
+        fetch_announcements('000651',date(2026,1,1),date(2026,9,21),category='年报')

@@ -1,0 +1,999 @@
+{
+  "source_url": "https://www.bse.cn/service/code_mapping.html",
+  "checked_at": "2026-09-21",
+  "scope": "官方新旧代码表的248条代码对应关系；不表示当前上市状态或名称。通过公开索引读取，官方网页直连403。",
+  "entries": [
+    {
+      "old_code": "872931",
+      "new_code": "920931"
+    },
+    {
+      "old_code": "837023",
+      "new_code": "920123"
+    },
+    {
+      "old_code": "835438",
+      "new_code": "920438"
+    },
+    {
+      "old_code": "873706",
+      "new_code": "920706"
+    },
+    {
+      "old_code": "870656",
+      "new_code": "920656"
+    },
+    {
+      "old_code": "831396",
+      "new_code": "920496"
+    },
+    {
+      "old_code": "837403",
+      "new_code": "920403"
+    },
+    {
+      "old_code": "873806",
+      "new_code": "920806"
+    },
+    {
+      "old_code": "873690",
+      "new_code": "920690"
+    },
+    {
+      "old_code": "871263",
+      "new_code": "920363"
+    },
+    {
+      "old_code": "836961",
+      "new_code": "920061"
+    },
+    {
+      "old_code": "833284",
+      "new_code": "920284"
+    },
+    {
+      "old_code": "831175",
+      "new_code": "920375"
+    },
+    {
+      "old_code": "836547",
+      "new_code": "920547"
+    },
+    {
+      "old_code": "873703",
+      "new_code": "920703"
+    },
+    {
+      "old_code": "835579",
+      "new_code": "920579"
+    },
+    {
+      "old_code": "873570",
+      "new_code": "920570"
+    },
+    {
+      "old_code": "832522",
+      "new_code": "920522"
+    },
+    {
+      "old_code": "873132",
+      "new_code": "920132"
+    },
+    {
+      "old_code": "873679",
+      "new_code": "920679"
+    },
+    {
+      "old_code": "873833",
+      "new_code": "920833"
+    },
+    {
+      "old_code": "833030",
+      "new_code": "920130"
+    },
+    {
+      "old_code": "839493",
+      "new_code": "920493"
+    },
+    {
+      "old_code": "873693",
+      "new_code": "920693"
+    },
+    {
+      "old_code": "873726",
+      "new_code": "920026"
+    },
+    {
+      "old_code": "832786",
+      "new_code": "920786"
+    },
+    {
+      "old_code": "832978",
+      "new_code": "920978"
+    },
+    {
+      "old_code": "873665",
+      "new_code": "920665"
+    },
+    {
+      "old_code": "832469",
+      "new_code": "920469"
+    },
+    {
+      "old_code": "836419",
+      "new_code": "920519"
+    },
+    {
+      "old_code": "831627",
+      "new_code": "920627"
+    },
+    {
+      "old_code": "870976",
+      "new_code": "920976"
+    },
+    {
+      "old_code": "872953",
+      "new_code": "920953"
+    },
+    {
+      "old_code": "837174",
+      "new_code": "920274"
+    },
+    {
+      "old_code": "836504",
+      "new_code": "920504"
+    },
+    {
+      "old_code": "837748",
+      "new_code": "920748"
+    },
+    {
+      "old_code": "834058",
+      "new_code": "920058"
+    },
+    {
+      "old_code": "870726",
+      "new_code": "920926"
+    },
+    {
+      "old_code": "832982",
+      "new_code": "920982"
+    },
+    {
+      "old_code": "838701",
+      "new_code": "920701"
+    },
+    {
+      "old_code": "833751",
+      "new_code": "920751"
+    },
+    {
+      "old_code": "873576",
+      "new_code": "920576"
+    },
+    {
+      "old_code": "837592",
+      "new_code": "920592"
+    },
+    {
+      "old_code": "836717",
+      "new_code": "920717"
+    },
+    {
+      "old_code": "832175",
+      "new_code": "920175"
+    },
+    {
+      "old_code": "836208",
+      "new_code": "920208"
+    },
+    {
+      "old_code": "832651",
+      "new_code": "920651"
+    },
+    {
+      "old_code": "833455",
+      "new_code": "920455"
+    },
+    {
+      "old_code": "836221",
+      "new_code": "920221"
+    },
+    {
+      "old_code": "830779",
+      "new_code": "920779"
+    },
+    {
+      "old_code": "430017",
+      "new_code": "920017"
+    },
+    {
+      "old_code": "839719",
+      "new_code": "920719"
+    },
+    {
+      "old_code": "832471",
+      "new_code": "920471"
+    },
+    {
+      "old_code": "837006",
+      "new_code": "920006"
+    },
+    {
+      "old_code": "838837",
+      "new_code": "920837"
+    },
+    {
+      "old_code": "871478",
+      "new_code": "920578"
+    },
+    {
+      "old_code": "836699",
+      "new_code": "920699"
+    },
+    {
+      "old_code": "833394",
+      "new_code": "920394"
+    },
+    {
+      "old_code": "871694",
+      "new_code": "920694"
+    },
+    {
+      "old_code": "830896",
+      "new_code": "920896"
+    },
+    {
+      "old_code": "831304",
+      "new_code": "920304"
+    },
+    {
+      "old_code": "873593",
+      "new_code": "920593"
+    },
+    {
+      "old_code": "872895",
+      "new_code": "920895"
+    },
+    {
+      "old_code": "834261",
+      "new_code": "920261"
+    },
+    {
+      "old_code": "839792",
+      "new_code": "920792"
+    },
+    {
+      "old_code": "830809",
+      "new_code": "920809"
+    },
+    {
+      "old_code": "430556",
+      "new_code": "920556"
+    },
+    {
+      "old_code": "837663",
+      "new_code": "920663"
+    },
+    {
+      "old_code": "833575",
+      "new_code": "920575"
+    },
+    {
+      "old_code": "835857",
+      "new_code": "920057"
+    },
+    {
+      "old_code": "872541",
+      "new_code": "920541"
+    },
+    {
+      "old_code": "830974",
+      "new_code": "920974"
+    },
+    {
+      "old_code": "836422",
+      "new_code": "920422"
+    },
+    {
+      "old_code": "834770",
+      "new_code": "920770"
+    },
+    {
+      "old_code": "430478",
+      "new_code": "920478"
+    },
+    {
+      "old_code": "831906",
+      "new_code": "920906"
+    },
+    {
+      "old_code": "839273",
+      "new_code": "920273"
+    },
+    {
+      "old_code": "832149",
+      "new_code": "920249"
+    },
+    {
+      "old_code": "834407",
+      "new_code": "920407"
+    },
+    {
+      "old_code": "873167",
+      "new_code": "920367"
+    },
+    {
+      "old_code": "832802",
+      "new_code": "920802"
+    },
+    {
+      "old_code": "832023",
+      "new_code": "920023"
+    },
+    {
+      "old_code": "430425",
+      "new_code": "920425"
+    },
+    {
+      "old_code": "873152",
+      "new_code": "920252"
+    },
+    {
+      "old_code": "839371",
+      "new_code": "920371"
+    },
+    {
+      "old_code": "834950",
+      "new_code": "920950"
+    },
+    {
+      "old_code": "872392",
+      "new_code": "920392"
+    },
+    {
+      "old_code": "838262",
+      "new_code": "920262"
+    },
+    {
+      "old_code": "831195",
+      "new_code": "920195"
+    },
+    {
+      "old_code": "831855",
+      "new_code": "920855"
+    },
+    {
+      "old_code": "872351",
+      "new_code": "920351"
+    },
+    {
+      "old_code": "838227",
+      "new_code": "920227"
+    },
+    {
+      "old_code": "873001",
+      "new_code": "920001"
+    },
+    {
+      "old_code": "833781",
+      "new_code": "920781"
+    },
+    {
+      "old_code": "836247",
+      "new_code": "920247"
+    },
+    {
+      "old_code": "872190",
+      "new_code": "920190"
+    },
+    {
+      "old_code": "430718",
+      "new_code": "920718"
+    },
+    {
+      "old_code": "831526",
+      "new_code": "920526"
+    },
+    {
+      "old_code": "873305",
+      "new_code": "920505"
+    },
+    {
+      "old_code": "834033",
+      "new_code": "920033"
+    },
+    {
+      "old_code": "830879",
+      "new_code": "920879"
+    },
+    {
+      "old_code": "836807",
+      "new_code": "920807"
+    },
+    {
+      "old_code": "838810",
+      "new_code": "920810"
+    },
+    {
+      "old_code": "870508",
+      "new_code": "920608"
+    },
+    {
+      "old_code": "833429",
+      "new_code": "920429"
+    },
+    {
+      "old_code": "833171",
+      "new_code": "920571"
+    },
+    {
+      "old_code": "836957",
+      "new_code": "920957"
+    },
+    {
+      "old_code": "833075",
+      "new_code": "920075"
+    },
+    {
+      "old_code": "834014",
+      "new_code": "920014"
+    },
+    {
+      "old_code": "836414",
+      "new_code": "920414"
+    },
+    {
+      "old_code": "870866",
+      "new_code": "920866"
+    },
+    {
+      "old_code": "833230",
+      "new_code": "920230"
+    },
+    {
+      "old_code": "836942",
+      "new_code": "920942"
+    },
+    {
+      "old_code": "430300",
+      "new_code": "920300"
+    },
+    {
+      "old_code": "831087",
+      "new_code": "920087"
+    },
+    {
+      "old_code": "832110",
+      "new_code": "920110"
+    },
+    {
+      "old_code": "831641",
+      "new_code": "920641"
+    },
+    {
+      "old_code": "870199",
+      "new_code": "920199"
+    },
+    {
+      "old_code": "872374",
+      "new_code": "920374"
+    },
+    {
+      "old_code": "832662",
+      "new_code": "920662"
+    },
+    {
+      "old_code": "835237",
+      "new_code": "920237"
+    },
+    {
+      "old_code": "871634",
+      "new_code": "920634"
+    },
+    {
+      "old_code": "872808",
+      "new_code": "920808"
+    },
+    {
+      "old_code": "870357",
+      "new_code": "920357"
+    },
+    {
+      "old_code": "873339",
+      "new_code": "920339"
+    },
+    {
+      "old_code": "833914",
+      "new_code": "920914"
+    },
+    {
+      "old_code": "832876",
+      "new_code": "920876"
+    },
+    {
+      "old_code": "871753",
+      "new_code": "920753"
+    },
+    {
+      "old_code": "430139",
+      "new_code": "920139"
+    },
+    {
+      "old_code": "873527",
+      "new_code": "920527"
+    },
+    {
+      "old_code": "835892",
+      "new_code": "920992"
+    },
+    {
+      "old_code": "430476",
+      "new_code": "920476"
+    },
+    {
+      "old_code": "837046",
+      "new_code": "920046"
+    },
+    {
+      "old_code": "430685",
+      "new_code": "920685"
+    },
+    {
+      "old_code": "838402",
+      "new_code": "920402"
+    },
+    {
+      "old_code": "838971",
+      "new_code": "920971"
+    },
+    {
+      "old_code": "873122",
+      "new_code": "920122"
+    },
+    {
+      "old_code": "835207",
+      "new_code": "920207"
+    },
+    {
+      "old_code": "839790",
+      "new_code": "920790"
+    },
+    {
+      "old_code": "836270",
+      "new_code": "920270"
+    },
+    {
+      "old_code": "836395",
+      "new_code": "920395"
+    },
+    {
+      "old_code": "831152",
+      "new_code": "920152"
+    },
+    {
+      "old_code": "831834",
+      "new_code": "920834"
+    },
+    {
+      "old_code": "835985",
+      "new_code": "920985"
+    },
+    {
+      "old_code": "836871",
+      "new_code": "920871"
+    },
+    {
+      "old_code": "839725",
+      "new_code": "920725"
+    },
+    {
+      "old_code": "834062",
+      "new_code": "920062"
+    },
+    {
+      "old_code": "834639",
+      "new_code": "920639"
+    },
+    {
+      "old_code": "837821",
+      "new_code": "920821"
+    },
+    {
+      "old_code": "838670",
+      "new_code": "920870"
+    },
+    {
+      "old_code": "833943",
+      "new_code": "920943"
+    },
+    {
+      "old_code": "831278",
+      "new_code": "920378"
+    },
+    {
+      "old_code": "430564",
+      "new_code": "920564"
+    },
+    {
+      "old_code": "832491",
+      "new_code": "920491"
+    },
+    {
+      "old_code": "870299",
+      "new_code": "920299"
+    },
+    {
+      "old_code": "873223",
+      "new_code": "920223"
+    },
+    {
+      "old_code": "838171",
+      "new_code": "920271"
+    },
+    {
+      "old_code": "831167",
+      "new_code": "920267"
+    },
+    {
+      "old_code": "833533",
+      "new_code": "920533"
+    },
+    {
+      "old_code": "871970",
+      "new_code": "920970"
+    },
+    {
+      "old_code": "833580",
+      "new_code": "920580"
+    },
+    {
+      "old_code": "873169",
+      "new_code": "920169"
+    },
+    {
+      "old_code": "831689",
+      "new_code": "920689"
+    },
+    {
+      "old_code": "832419",
+      "new_code": "920419"
+    },
+    {
+      "old_code": "835179",
+      "new_code": "920179"
+    },
+    {
+      "old_code": "871857",
+      "new_code": "920857"
+    },
+    {
+      "old_code": "833346",
+      "new_code": "920346"
+    },
+    {
+      "old_code": "870204",
+      "new_code": "920204"
+    },
+    {
+      "old_code": "871245",
+      "new_code": "920245"
+    },
+    {
+      "old_code": "836720",
+      "new_code": "920720"
+    },
+    {
+      "old_code": "871981",
+      "new_code": "920981"
+    },
+    {
+      "old_code": "833873",
+      "new_code": "920873"
+    },
+    {
+      "old_code": "831832",
+      "new_code": "920932"
+    },
+    {
+      "old_code": "839680",
+      "new_code": "920680"
+    },
+    {
+      "old_code": "833454",
+      "new_code": "920454"
+    },
+    {
+      "old_code": "870436",
+      "new_code": "920436"
+    },
+    {
+      "old_code": "836260",
+      "new_code": "920260"
+    },
+    {
+      "old_code": "832171",
+      "new_code": "920171"
+    },
+    {
+      "old_code": "832145",
+      "new_code": "920145"
+    },
+    {
+      "old_code": "837092",
+      "new_code": "920092"
+    },
+    {
+      "old_code": "832089",
+      "new_code": "920089"
+    },
+    {
+      "old_code": "831305",
+      "new_code": "920405"
+    },
+    {
+      "old_code": "838924",
+      "new_code": "920924"
+    },
+    {
+      "old_code": "836892",
+      "new_code": "920892"
+    },
+    {
+      "old_code": "872925",
+      "new_code": "920925"
+    },
+    {
+      "old_code": "836077",
+      "new_code": "920077"
+    },
+    {
+      "old_code": "835305",
+      "new_code": "920305"
+    },
+    {
+      "old_code": "835174",
+      "new_code": "920174"
+    },
+    {
+      "old_code": "831039",
+      "new_code": "920039"
+    },
+    {
+      "old_code": "871642",
+      "new_code": "920642"
+    },
+    {
+      "old_code": "832566",
+      "new_code": "920566"
+    },
+    {
+      "old_code": "430090",
+      "new_code": "920090"
+    },
+    {
+      "old_code": "871553",
+      "new_code": "920553"
+    },
+    {
+      "old_code": "839946",
+      "new_code": "920146"
+    },
+    {
+      "old_code": "832885",
+      "new_code": "920885"
+    },
+    {
+      "old_code": "834765",
+      "new_code": "920765"
+    },
+    {
+      "old_code": "831768",
+      "new_code": "920768"
+    },
+    {
+      "old_code": "837212",
+      "new_code": "920212"
+    },
+    {
+      "old_code": "833523",
+      "new_code": "920523"
+    },
+    {
+      "old_code": "831726",
+      "new_code": "920726"
+    },
+    {
+      "old_code": "832225",
+      "new_code": "920225"
+    },
+    {
+      "old_code": "830832",
+      "new_code": "920832"
+    },
+    {
+      "old_code": "834599",
+      "new_code": "920599"
+    },
+    {
+      "old_code": "832735",
+      "new_code": "920735"
+    },
+    {
+      "old_code": "836239",
+      "new_code": "920239"
+    },
+    {
+      "old_code": "833427",
+      "new_code": "920427"
+    },
+    {
+      "old_code": "838275",
+      "new_code": "920275"
+    },
+    {
+      "old_code": "836826",
+      "new_code": "920826"
+    },
+    {
+      "old_code": "833509",
+      "new_code": "920509"
+    },
+    {
+      "old_code": "837344",
+      "new_code": "920344"
+    },
+    {
+      "old_code": "836675",
+      "new_code": "920675"
+    },
+    {
+      "old_code": "430510",
+      "new_code": "920510"
+    },
+    {
+      "old_code": "831856",
+      "new_code": "920856"
+    },
+    {
+      "old_code": "832000",
+      "new_code": "920000"
+    },
+    {
+      "old_code": "835670",
+      "new_code": "920670"
+    },
+    {
+      "old_code": "838030",
+      "new_code": "920030"
+    },
+    {
+      "old_code": "430047",
+      "new_code": "920047"
+    },
+    {
+      "old_code": "871396",
+      "new_code": "920396"
+    },
+    {
+      "old_code": "830839",
+      "new_code": "920839"
+    },
+    {
+      "old_code": "830964",
+      "new_code": "920964"
+    },
+    {
+      "old_code": "831961",
+      "new_code": "920961"
+    },
+    {
+      "old_code": "830946",
+      "new_code": "920946"
+    },
+    {
+      "old_code": "833819",
+      "new_code": "920819"
+    },
+    {
+      "old_code": "830799",
+      "new_code": "920799"
+    },
+    {
+      "old_code": "839729",
+      "new_code": "920729"
+    },
+    {
+      "old_code": "834682",
+      "new_code": "920682"
+    },
+    {
+      "old_code": "835640",
+      "new_code": "920640"
+    },
+    {
+      "old_code": "835508",
+      "new_code": "920508"
+    },
+    {
+      "old_code": "430489",
+      "new_code": "920489"
+    },
+    {
+      "old_code": "834475",
+      "new_code": "920475"
+    },
+    {
+      "old_code": "831445",
+      "new_code": "920445"
+    },
+    {
+      "old_code": "836433",
+      "new_code": "920433"
+    },
+    {
+      "old_code": "430418",
+      "new_code": "920418"
+    },
+    {
+      "old_code": "834415",
+      "new_code": "920415"
+    },
+    {
+      "old_code": "831370",
+      "new_code": "920370"
+    },
+    {
+      "old_code": "835368",
+      "new_code": "920368"
+    },
+    {
+      "old_code": "832278",
+      "new_code": "920278"
+    },
+    {
+      "old_code": "833266",
+      "new_code": "920266"
+    },
+    {
+      "old_code": "836263",
+      "new_code": "920263"
+    },
+    {
+      "old_code": "837242",
+      "new_code": "920242"
+    },
+    {
+      "old_code": "430198",
+      "new_code": "920198"
+    },
+    {
+      "old_code": "835185",
+      "new_code": "920185"
+    },
+    {
+      "old_code": "835184",
+      "new_code": "920184"
+    },
+    {
+      "old_code": "839167",
+      "new_code": "920167"
+    },
+    {
+      "old_code": "838163",
+      "new_code": "920163"
+    },
+    {
+      "old_code": "836149",
+      "new_code": "920149"
+    },
+    {
+      "old_code": "834021",
+      "new_code": "920021"
+    },
+    {
+      "old_code": "831010",
+      "new_code": "920010"
+    }
+  ]
+}

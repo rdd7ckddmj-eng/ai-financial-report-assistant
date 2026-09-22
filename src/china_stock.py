@@ -15,10 +15,13 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from functools import lru_cache
 from typing import TypedDict
+from urllib.error import HTTPError
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 import pandas as pd
+
+from src.bse_code_migrations import current_bse_code
 
 
 class CompanyIdentity(TypedDict):
@@ -259,7 +262,7 @@ def resolve_company(
 
     code_match = CODE_PATTERN.search(clean_query)
     if code_match:
-        code = code_match.group(1)
+        code = current_bse_code(code_match.group(1))
         name = KNOWN_COMPANIES.get(code)
         if directory is not None and not directory.empty:
             prepared = prepare_company_directory(directory)
@@ -292,7 +295,7 @@ def resolve_company(
     results: list[CompanyIdentity] = []
     for row in candidates.head(max_results).itertuples(index=False):
         try:
-            results.append(build_company_identity(row.code, row.name))
+            results.append(build_company_identity(current_bse_code(row.code), row.name))
         except ValueError:
             continue
     return results
@@ -1537,6 +1540,13 @@ def fetch_announcements(
         raise DataSourceError(
             f"当前无法取得巨潮资讯公告：{error}"
         ) from error
+    except HTTPError as error:
+        message = (
+            f"巨潮资讯公告接口拒绝访问（HTTP {error.code}）；可改用手工上传公开年报，系统不会绕过访问限制。"
+            if error.code in {401, 403, 429}
+            else f"巨潮资讯公告接口本次返回 HTTP {error.code}；可稍后重试或手工上传公开年报。"
+        )
+        raise DataSourceError(message) from error
     except Exception as error:
         raise DataSourceError(
             "当前无法取得巨潮资讯公告，请稍后重试。"

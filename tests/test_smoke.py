@@ -113,11 +113,11 @@ render_home_page()
     assert "FINANCIAL RESEARCH LAB" in home_markup
     assert "别急着下结论" in home_markup
     assert "《消失的现金》" in home_markup
-    assert "上市公司研究中枢" in home_markup
+    assert "研究案件" in home_markup
     button_labels = [button.label for button in app_test.button]
     assert button_labels == [
         "进入第一案",
-        "进入研究中枢",
+        "进入研究案件",
     ]
 
 
@@ -2517,7 +2517,7 @@ render_research_workspace_page()
     assert "调查市场异动" in button_labels
     assert "生成最新年报财务快照" in button_labels
     assert "核验年报原文与证据" in button_labels
-    assert "查看方法与审计" in button_labels
+    assert "查看负责任 AI 与控制" in button_labels
 
 
 def test_research_collection_config_assigns_every_tool_once() -> None:
@@ -2584,7 +2584,7 @@ finally:
         item.value for item in research_page.markdown
     )
     assert "研究子任务" in research_markup
-    assert "返回研究中枢总览" in research_markup
+    assert "返回研究案件" in research_markup
     assert next(
         expander
         for expander in research_page.expander
@@ -2770,7 +2770,16 @@ render_financial_snapshot_page()
     )
     assert any(item.label == "营业收入" for item in app_test.metric)
     assert any(item.label == "资产负债率" for item in app_test.metric)
-    assert app_test.download_button[0].label == "下载财务快照核验底稿（HTML）"
+    assert not app_test.download_button
+    assert any(
+        item.label == "完成五项人工复核后才能导出底稿"
+        and item.disabled
+        for item in app_test.button
+    )
+    assert any(
+        "自动提取不是人工核验" in item.value
+        for item in app_test.markdown
+    )
     link_buttons = app_test.get("link_button")
     assert any(
         item.proto.label == "查看官方年报原文"

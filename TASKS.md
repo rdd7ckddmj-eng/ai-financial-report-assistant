@@ -1,18 +1,47 @@
 # Current task board
 
+## 2026-09-21 · A股公开财务覆盖（本地实现）
+- [x] 宁波银行2025真实样本检查，修复空白日期/非合计收入行导致银行漏识别；仍为不支持版式，保留银行比例停算策略，862项测试通过。
+- [ ] 宁波银行式现金流出正数模板、附注五表头及换行归母字段；不得直接复用负数流出计算。
+- [x] 平安银行2024/2025跨年复用与重叠期间五项对照；明确现金流标签别名，保留两期符号检查，859项测试通过。
+- [x] 平安银行2025真实浏览器上传至待人工复核验收；修复首次提交重绘与银行比例显示，错误年度清除旧结果/恢复正确年度验证，857项测试通过。
+- [x] 平安银行2025新增集团列/附注归母利润模板；归母利润来源独立指向第220页，两期三表与附注关系检查通过，855项测试通过。
+- [x] 平安银行2025年跨公司真实样本检查；跳过报表目录，缺少模板支持的归母利润行时明确说明并保持金额为空，839项测试通过。
+- [x] 银行报表标题空格/换行边界加固；缺失合并行不得借用银行自身报表，837项测试通过。
+- [x] 招商银行2025年真实PDF边界检查；修复分组标题跨科目借值，814项测试通过。
+- [x] 新增银行双年度带符号百万元模板；招商银行2025年五项金额、指定三表勾稽和公开对照通过，保留待人审状态。
+- [x] 招商银行2024/2025年真实报告跨年复用；新增表头单位与年度列顺序校验，832项测试通过。
+- [ ] 更多银行模板与银行专用监管指标核验；当前招商银行和平安银行各2024/2025真实样本通过，不能推定银行全覆盖。
+- [x] 统一公开数据、候选快照、人工复核底稿和案件写回的正分母比例规则；亏损时不展示现金利润比，完整811项测试通过。
+- [x] 年报候选快照对零/负基期不展示百分比变化，保留两期金额与原因说明；页面和HTML导出同步，完整804项测试通过。
+- [x] 两源对照保存/恢复、公开候选读回；修复浏览器写入成功但未回执的问题。
+- [x] 官方PDF手工输入候选快照，校验公司/年度/正文、来源元数据与资源上限。
+- [x] 覆盖抽查命令与18家真实接口样本；Python 3.12/3.14分别794项测试、5项JS存储测试通过。
+- [x] 泸州老窖2024年真实官方PDF的手工输入函数、三表提取与同年公开金额对照通过；修复跨页摘录和负债小计误匹配。
+- [x] 格力2025年真实PDF浏览器上传、字段提交、生成候选、错误年度拒绝/清除旧快照、恢复正确年度；正式底稿仍受人审门槛约束。
+- [ ] 更多行业真实报告模板、生产下载环境与线上表现；默认urllib下载在本机仍有证书错误。
+- [x] 按代码接入沪深北公司最多六个完整年度公开财务；校验公司、期间、币种与版本。
+- [x] 在趋势、异常方向、共同年度比较与综合研究中使用候选数据，保留缺失字段。
+- [x] 导出HTML/JSON/比较CSV，综合研究导出保留公开源及取数时间。
+- [x] 写入同公司当前研究案件的分析产物，不新增已确认事实，不进入历史时点案件。
+- [x] 增加数据、页面交互和案件写回测试，抽查真实公开接口。
+- [ ] 扩展官方年报逐页核验的公司、年度和现金流附注桥；目前仍为原有案例范围。
+- [ ] 对金融控股、行业特殊口径、上市不足六年等情形继续积累官方样本。
+- [ ] 线上版本核验与部署：本次没有执行，不能把本地完成视为已上线。
+
+- [x] 连接公开财务与官方年报快照，提供同公司同年五项金额对照及可下载复核清单；不自动确认数字。
+
 ## Now
-- [x] Reduce the public sidebar to two entries: 《消失的现金》 and Listed
-      Company Investigation Bureau; keep every prior tool as a hidden child
-      page reached from the bureau.
-- [x] Split the first case into independent teaching, practice, investigation,
-      evidence-chain, defence, migration, and honour pages while preserving
-      sequential unlocks and browser-local completion records.
+- [x] Reduce the public sidebar to two entries: 《消失的现金》 and 研究案件;
+      keep every specialist research view as a child of the same case workflow.
+- [x] Keep prologue and scenes 01–09 inside one fixed game screen while
+      preserving sequential unlocks and browser-local completion records.
 - [x] Reorganise the product home page around two connected primary modules:
-      Researcher Mission Bureau and Company Research Terminal.
-- [x] Add a first game-module hub that explains the six-stage learning loop and
-      clearly marks the first case as under development.
-- [x] Preserve all existing research tools under the Company Research Terminal
-      and reorganise the sidebar labels without removing functionality.
+      《消失的现金》 and 研究案件.
+- [x] Implement the complete nine-scene learning loop, including dual-clock
+      practice, evidence investigation, defence and Historical Lens transfer.
+- [x] Preserve all specialist research views under 研究案件 and reorganise the
+      sidebar labels without removing functionality.
 - [x] Verify desktop and mobile layouts, both module entry points, the
       collapsible sidebar recovery control, and browser-console health.
 - [x] Build the first playable slice of 《消失的现金》 with player naming,
@@ -236,8 +265,58 @@
 ## 2026-08-12 — Landing page and first-case presentation
 
 - [x] Restore a polished hidden default landing page at the root URL.
-- [x] Keep only 《消失的现金》 and 上市公司调查局 in the public sidebar.
+- [x] Keep only 《消失的现金》 and 研究案件 in the public sidebar.
 - [x] Route each landing-page card to its matching parent module.
 - [x] Add a distinct first-case intake scene with restrained challenge copy.
-- [x] Show all seven game stages with completed, current, and locked states.
-- [x] Keep the seven-stage navigator usable through horizontal scrolling on narrow screens.
+- [x] Show the complete game-stage navigator with completed, current, and locked states.
+- [x] Keep the game-stage navigator usable through horizontal scrolling on narrow screens.
+
+## 2026-08-30 — PDF stability boundary and unified research cases
+
+- [x] Reduce the Streamlit upload boundary from 200 MB to 32 MB.
+- [x] Give manual, official, onboarding, and snapshot PDF paths named limits.
+- [x] Reject encrypted, oversized, over-page, and over-text PDFs without partial evidence.
+- [x] Serialise PyMuPDF extraction per server process to avoid concurrent memory spikes.
+- [x] Add downloader, parser, configuration, and resource-policy regression tests.
+- [x] Replace cross-session raw-PDF caches with one bounded, text-only parsed
+      report artifact per browser session, bound to company and SHA-256 fingerprint.
+- [x] Add the browser-persisted `wfz.research_cases.v1` Store behind the five-question workspace.
+- [x] Define revision-checked, idempotent CasePatch and Store reducers with bounded payloads.
+- [x] Connect explicit Comprehensive Research and Historical Lens results to Research Case patches.
+- [x] Connect completed five-field annual-report review, verifier-approved annual-report
+      Q&A source excerpts, and official Evidence Delta references to the same case.
+- [ ] Convert the remaining specialist research views into bounded CasePatch producers.
+- [x] Add field-level annual-report confirmation, correction, and rejection for all five core metrics.
+- [x] Preserve original value, unit, accounting basis, PDF pages, excerpt, decision and correction reason.
+- [x] Add a gated complete-case workpaper export layer with evidence, contradictions, unknowns,
+      hypotheses, Responsible AI controls, audit history and a case fingerprint.
+- [x] Surface the formal complete-case download in the workspace only when `ready_to_export` is true.
+- [x] Synchronise README, product scope, Research Case, snapshot and Chinese user-guide terminology.
+
+
+## 2026-09-21 — Batch financial coverage
+
+- [x] Add Ningbo Bank signed-income/unsigned-cash template and verify 2024/2025 real reports.
+- [x] Add 248 explicit BSE old/current code mappings without rewriting historical identities.
+- [x] Add bounded manifest-driven batch auditing with per-item journals and visible failures.
+- [x] Check 60 companies using current codes and 12 official PDFs (10 ready, 2 blocked).
+- [x] Compare 50 candidate amounts to same-year public values; fix Gree note-reference revenue error.
+- [x] Support scoped, source-preserving statement-unit inheritance (BYD 2024).
+- [x] Define and test unit-aware rounding reconciliation (CATL 2024).
+- [ ] Expand real-report fixtures to securities, insurance and further market segments.
+- [ ] Verify new samples through browser and genuine human review; deployment remains separate.
+
+2026-09-21 follow-up: the same 12 official reports now all produce review candidates; 60 same-year public/PDF amount checks pass, previous ten reports retain both-period amounts. 924 tests pass; no new human confirmations or deployment.
+
+
+## 2026-09-21 — Financial sector boundaries and first BSE PDF
+
+- [x] Validate Jinbo 2024 using current BSE code; fix wrapped parent-profit sign annotation.
+- [x] Accept exact Chinese-numeral annual-report years while rejecting wrong years and summaries.
+- [x] Identify explicit securities/insurance issuers and retain unsupported status through review/export/case; keep generic ratios disabled.
+- [x] Rerun 15 PDFs: 13 candidates, 2 unsupported; all 65 comparable amounts agree within existing tolerances; 939 tests pass.
+- [x] Implement and validate Huatai 2024 consolidated/company four-column financial statements.
+- [ ] Implement separately evidenced insurance/group revenue and three-statement reconciliation.
+- [ ] Retrieve and verify further BSE samples; BTR official download remains HTTP403.
+
+2026-09-21证券模板后续：15份样本14份候选；70项对照69一致、1项收入差异由华泰2025年报重述说明支持。956 tests passed。后续补第二年度/第二家证券真实样本；2025报告目前仅作为重述证据，不计入完整解析覆盖。

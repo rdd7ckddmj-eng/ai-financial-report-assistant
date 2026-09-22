@@ -2,6 +2,8 @@
 
 import math
 import re
+from src.pdf_numeric_text import normalize_numeric_parentheses
+from src.statement_evidence_rules import integer_rounding_tolerance
 from collections.abc import Iterable
 from typing import TypedDict
 
@@ -92,7 +94,7 @@ CHINESE_CASH_FLOW_LABELS = {
 def _normalise_lines(page_text: str) -> list[str]:
     """Remove empty lines and normalise unusual PDF spacing."""
     lines: list[str] = []
-    for raw_line in page_text.splitlines():
+    for raw_line in normalize_numeric_parentheses(page_text).splitlines():
         line = " ".join(raw_line.replace("\xa0", " ").split())
         if not line or re.fullmatch(r"\d+\s*/\s*\d+", line):
             continue
@@ -315,6 +317,7 @@ def _cash_flow_rows_reconcile(
     extracted_rows: dict[str, tuple[float, float] | None],
     *,
     net_change_includes_exchange: bool,
+    tolerance: float = 0.5,
 ) -> bool:
     """Verify cash-flow sections and opening-to-ending cash for both years."""
     if any(values is None for values in extracted_rows.values()):
@@ -351,14 +354,14 @@ def _cash_flow_rows_reconcile(
             section_total,
             net_change[period_index],
             rel_tol=0.0,
-            abs_tol=0.5,
+            abs_tol=tolerance,
         ):
             return False
         if not math.isclose(
             ending_cash,
             ending[period_index],
             rel_tol=0.0,
-            abs_tol=0.5,
+            abs_tol=tolerance,
         ):
             return False
     return True
@@ -409,9 +412,12 @@ def extract_cash_flow_figures(
     else:
         return None
 
+    tolerance = (integer_rounding_tolerance(_extract_unit(lines), list(extracted_rows.values()), lines)
+                 if chinese_value_column_count is not None else 0.5)
     if not _cash_flow_rows_reconcile(
         extracted_rows,
         net_change_includes_exchange=net_change_includes_exchange,
+        tolerance=tolerance,
     ):
         return None
 
@@ -432,6 +438,7 @@ def extract_cash_flow_figures(
 
     current_weeks, previous_weeks = _extract_period_weeks(lines)
     return {
+        "rounding_note": ("整数缩放单位勾稽：允许最多1个原始单位差异，仍待人工复核。" if tolerance == 1 else ""),
         "current_operating_cash_flow": operating[0],
         "previous_operating_cash_flow": operating[1],
         "current_investing_cash_flow": investing[0],

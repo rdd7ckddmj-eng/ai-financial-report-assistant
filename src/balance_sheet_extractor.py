@@ -2,6 +2,8 @@
 
 import math
 import re
+from src.pdf_numeric_text import normalize_numeric_parentheses
+from src.statement_evidence_rules import integer_rounding_tolerance
 from collections.abc import Iterable
 from typing import TypedDict
 
@@ -59,7 +61,7 @@ CHINESE_TOTAL_EQUITY_LABELS = (
 def _normalise_lines(page_text: str) -> list[str]:
     """Remove empty lines and normalise unusual PDF spacing."""
     lines: list[str] = []
-    for raw_line in page_text.splitlines():
+    for raw_line in normalize_numeric_parentheses(page_text).splitlines():
         line = " ".join(raw_line.replace("\xa0", " ").split())
         if not line or re.fullmatch(r"\d+\s*/\s*\d+", line):
             continue
@@ -362,48 +364,50 @@ def _extract_chinese_balance_sheet_figures(
     )
     current_total_equity, previous_total_equity = reported_total_equity
 
+    tolerance = integer_rounding_tolerance(_extract_unit(lines), extracted_rows, lines)
     reconciliations = (
         math.isclose(
             current_assets_total + current_noncurrent_assets,
             current_total_assets,
             rel_tol=0.0,
-            abs_tol=0.5,
+            abs_tol=tolerance,
         ),
         math.isclose(
             previous_assets_total + previous_noncurrent_assets,
             previous_total_assets,
             rel_tol=0.0,
-            abs_tol=0.5,
+            abs_tol=tolerance,
         ),
         math.isclose(
             current_current_liabilities + current_noncurrent_liabilities,
             current_total_liabilities,
             rel_tol=0.0,
-            abs_tol=0.5,
+            abs_tol=tolerance,
         ),
         math.isclose(
             previous_current_liabilities + previous_noncurrent_liabilities,
             previous_total_liabilities,
             rel_tol=0.0,
-            abs_tol=0.5,
+            abs_tol=tolerance,
         ),
         math.isclose(
             current_total_assets - current_total_liabilities,
             current_total_equity,
             rel_tol=0.0,
-            abs_tol=0.5,
+            abs_tol=tolerance,
         ),
         math.isclose(
             previous_total_assets - previous_total_liabilities,
             previous_total_equity,
             rel_tol=0.0,
-            abs_tol=0.5,
+            abs_tol=tolerance,
         ),
     )
     if not all(reconciliations):
         return None
 
     return {
+        "rounding_note": ("整数缩放单位勾稽：允许最多1个原始单位差异，仍待人工复核。" if tolerance == 1 else ""),
         "current_assets_subtotal": current_assets_total,
         "previous_assets_subtotal": previous_assets_total,
         "current_assets_held_for_sale": 0.0,

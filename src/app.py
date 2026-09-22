@@ -5,8 +5,8 @@ import sys
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
+from hashlib import sha256
 from html import escape
-from io import BytesIO
 from pathlib import Path
 from time import perf_counter, time_ns
 from uuid import uuid4
@@ -141,6 +141,16 @@ from src.evidence_delta import (
     build_evidence_window,
 )
 from src.financial_statement_extractor import find_income_statement_figures
+from src.financial_snapshot_review import (
+    FinancialSnapshotReviewError,
+    build_exportable_review_workpaper,
+    build_financial_snapshot_review,
+    confirm_snapshot_metric,
+    correct_snapshot_metric,
+    reject_snapshot_metric,
+    serialise_review_workpaper,
+    validate_financial_snapshot_review,
+)
 from src.financial_ratios import (
     current_ratio,
     liabilities_to_assets_ratio,
@@ -163,6 +173,13 @@ from src.financial_anomaly_report import (
     build_financial_anomaly_report_html,
 )
 from src.financial_trend_lab import build_financial_trend_review
+from src.public_financial_history import (
+    AMOUNT_FIELDS, compare_public_financial_histories, fetch_public_financial_history,
+    render_public_financial_report, validate_public_financial_history,
+)
+from src.research_case_public_financial_bridge import build_public_financial_case_patch, build_public_reconciliation_case_patch
+from src.public_financial_reconciliation import build_public_financial_reconciliation
+from src.manual_financial_snapshot import build_manual_financial_snapshot
 from src.flagship_cases import load_moutai_flagship_events
 from src.historical_lens import (
     EvidenceRecord,
@@ -215,10 +232,17 @@ from src.market_radar import (
 )
 from src.on_demand_financial_snapshot import (
     OnDemandFinancialSnapshot,
-    build_financial_snapshot_report_html,
     build_on_demand_financial_snapshot,
 )
 from src.pdf_extractor import ExtractedPage, extract_pdf_pages
+from src.pdf_resource_policy import (
+    GENERAL_OFFICIAL_PDF_MAX_BYTES,
+    MANUAL_PDF_MAX_BYTES,
+    ONBOARDING_PDF_MAX_BYTES,
+    PDF_MAX_PAGES,
+    PDF_MAX_TEXT_CHARACTERS,
+    SNAPSHOT_PDF_MAX_BYTES,
+)
 from src.qa_benchmark import (
     BenchmarkCaseResult,
     BenchmarkSummary,
@@ -232,6 +256,35 @@ from src.report_retriever import (
 )
 from src.report_metric_tool import MetricToolResult
 from src.research_queue_report import build_research_queue_report_html
+from src.research_case import (
+    MAX_STORE_BYTES as RESEARCH_CASE_MAX_STORE_BYTES,
+    STORE_KEY as RESEARCH_CASE_STORE_KEY,
+    ResearchCaseCapacityError,
+    ResearchCaseConflictError,
+    ResearchCaseValidationError,
+    empty_research_case_store,
+    reduce_research_case_store,
+    validate_research_case_store,
+)
+from src.research_case_bridge import build_comprehensive_research_case_patch
+from src.research_case_annual_report_qa_bridge import (
+    build_annual_report_qa_case_patch,
+)
+from src.research_case_evidence_delta_bridge import (
+    build_evidence_delta_research_case_patch,
+)
+from src.research_case_financial_review_bridge import (
+    build_financial_review_research_case_patch,
+)
+from src.research_case_historical_bridge import (
+    build_historical_lens_case_patch,
+)
+from src.research_case_workpaper import (
+    ResearchCaseWorkpaperError,
+    build_research_case_workpaper,
+    render_research_case_workpaper_html,
+    serialise_research_case_workpaper,
+)
 from src.research_thesis_ledger import (
     build_thesis_ledger_report_html,
     matching_evidence_items,
@@ -252,6 +305,13 @@ DEFAULT_RESEARCH_LOOKBACK_DAYS = 420
 RADAR_RESEARCH_CONTEXT_KEY = "radar_research_context"
 COMPREHENSIVE_BRIEF_KEY = "comprehensive_research_brief"
 COMPREHENSIVE_ELAPSED_KEY = "comprehensive_research_elapsed_seconds"
+RESEARCH_CASE_STORE_SESSION_KEY = "_wfz_research_case_store"
+RESEARCH_CASE_PENDING_SESSION_KEY = "_wfz_research_case_pending_store"
+RESEARCH_CASE_PENDING_BASE_KEY = "_wfz_research_case_pending_base_revision"
+RESEARCH_CASE_STORAGE_STATUS_KEY = "_wfz_research_case_storage_status"
+RESEARCH_CASE_HYDRATED_KEY = "_wfz_research_case_hydrated"
+FINANCIAL_SNAPSHOT_REVIEW_SESSION_KEY = "_wfz_financial_snapshot_review"
+ANNUAL_REPORT_PARSED_SESSION_KEY = "_wfz_annual_report_parsed"
 
 
 _BROWSER_RESEARCH_STORAGE = st.components.v2.component(
@@ -578,6 +638,115 @@ _BROWSER_RESEARCH_STORAGE = st.components.v2.component(
       const known = cleanSnapshot(data.known_snapshot);
       if (JSON.stringify(snapshot) !== JSON.stringify(known)) {
         setStateValue("snapshot", snapshot);
+      }
+    }
+    """,
+)
+
+
+_RESEARCH_CASE_STORAGE = st.components.v2.component(
+    name="wfz_research_case_storage",
+    html='<span class="wfz-research-case-storage" aria-hidden="true"></span>',
+    css=".wfz-research-case-storage { display: none; }",
+    js="""
+    export default function({ data, setStateValue }) {
+      const storageKey = data.storage_key;
+      const maxBytes = Number(data.max_store_bytes) || 750000;
+      const byteLength = (value) => new TextEncoder().encode(value).length;
+      const publicSnapshot = (raw) => {
+        if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+        const result = { ...raw };
+        delete result._wfz_writer_id;
+        return result;
+      };
+      const cleanSnapshot = (raw) => {
+        const publicValue = publicSnapshot(raw);
+        if (
+          !publicValue || publicValue.schema_version !== "1.0" ||
+          !Number.isInteger(publicValue.store_revision) ||
+          publicValue.store_revision < 0 ||
+          !publicValue.cases || typeof publicValue.cases !== "object" ||
+          Array.isArray(publicValue.cases)
+        ) return null;
+        try {
+          const encoded = JSON.stringify(publicValue);
+          if (byteLength(encoded) > maxBytes) return null;
+          return JSON.parse(encoded);
+        } catch (_) {
+          return null;
+        }
+      };
+
+      const writerId = typeof data.writer_id === "string"
+        ? data.writer_id.slice(0, 80)
+        : "";
+      let snapshot = null;
+      let storedWriterId = "";
+      let storageStatus = "available";
+      let writeCompleted = false;
+      try {
+        const encoded = localStorage.getItem(storageKey);
+        if (encoded) {
+          if (byteLength(encoded) > maxBytes) {
+            storageStatus = "invalid";
+          } else {
+            const parsed = JSON.parse(encoded);
+            storedWriterId = typeof parsed?._wfz_writer_id === "string"
+              ? parsed._wfz_writer_id.slice(0, 80)
+              : "";
+            snapshot = cleanSnapshot(parsed);
+            if (!snapshot) storageStatus = "invalid";
+          }
+        }
+      } catch (_) {
+        storageStatus = "unavailable";
+      }
+
+      if (data.write_enabled === true && storageStatus !== "invalid") {
+        const known = cleanSnapshot(data.known_snapshot);
+        const knownRevision = Number(known?.store_revision) || 0;
+        const storedRevision = Number(snapshot?.store_revision) || 0;
+        const baseRevision = Number(data.base_revision) || 0;
+        const sameRevisionAndPayload = Boolean(
+          known && snapshot && knownRevision === storedRevision &&
+          JSON.stringify(known) === JSON.stringify(snapshot)
+        );
+        const ownsStoredRevision = Boolean(
+          known && (
+            !snapshot || storedRevision === baseRevision ||
+            (writerId && storedWriterId === writerId)
+          )
+        );
+        if (
+          storageStatus === "available" && ownsStoredRevision &&
+          (knownRevision > storedRevision || sameRevisionAndPayload || !snapshot)
+        ) {
+          try {
+            const encoded = JSON.stringify({
+              ...known,
+              ...(writerId ? { _wfz_writer_id: writerId } : {}),
+            });
+            if (byteLength(encoded) > maxBytes) {
+              storageStatus = "invalid";
+            } else {
+              localStorage.setItem(storageKey, encoded);
+              snapshot = known;
+              writeCompleted = true;
+            }
+          } catch (_) {
+            storageStatus = "unavailable";
+          }
+        }
+      }
+
+      const knownSnapshot = cleanSnapshot(data.known_snapshot);
+      if (
+        writeCompleted ||
+        JSON.stringify(snapshot) !== JSON.stringify(knownSnapshot) ||
+        storageStatus !== data.known_storage_status
+      ) {
+        setStateValue("snapshot", snapshot);
+        setStateValue("storage_status", storageStatus);
       }
     }
     """,
@@ -1454,18 +1623,68 @@ def explain_liabilities_to_assets_ratio(ratio: float) -> str:
     return f"总负债约占总资产的 {ratio:.1%}。"
 
 
-@st.cache_data(ttl=1800, max_entries=1, show_spinner=False)
-def read_uploaded_pdf(pdf_bytes: bytes) -> list[ExtractedPage]:
-    """Temporarily cache only the most recently extracted PDF."""
-    return extract_pdf_pages(pdf_bytes)
+def read_uploaded_pdf(
+    pdf_bytes: bytes,
+    max_bytes: int,
+) -> list[ExtractedPage]:
+    """Parse one bounded PDF without retaining a second global cache copy."""
+    return extract_pdf_pages(pdf_bytes, max_bytes=max_bytes)
 
 
-@st.cache_data(ttl=1800, max_entries=1, show_spinner=False)
 def build_search_chunks(
     pages: list[ExtractedPage],
 ) -> list[ReportChunk]:
-    """Temporarily cache chunks for only the most recent report."""
+    """Build request-local chunks only when the user asks a question."""
     return chunk_report_pages(pages)
+
+
+def _normalise_annual_report_parsed_artifact(
+    value: object,
+    *,
+    expected_canonical_code: str,
+) -> dict[str, object] | None:
+    """Validate one compact, text-only annual-report session artifact."""
+    if not isinstance(value, Mapping):
+        return None
+    canonical_code = value.get("canonical_code")
+    source_fingerprint = value.get("source_fingerprint_sha256")
+    source_key = value.get("source_key")
+    name = value.get("name")
+    raw_pages = value.get("pages")
+    if (
+        canonical_code != expected_canonical_code
+        or not isinstance(source_fingerprint, str)
+        or re.fullmatch(r"[0-9a-f]{64}", source_fingerprint) is None
+        or not isinstance(source_key, str)
+        or not source_key
+        or not isinstance(name, str)
+        or not name
+        or not isinstance(raw_pages, list)
+        or not raw_pages
+        or len(raw_pages) > PDF_MAX_PAGES
+    ):
+        return None
+
+    pages: list[ExtractedPage] = []
+    text_characters = 0
+    for expected_number, page in enumerate(raw_pages, start=1):
+        if not isinstance(page, Mapping):
+            return None
+        page_number = page.get("page_number")
+        page_text = page.get("text")
+        if page_number != expected_number or not isinstance(page_text, str):
+            return None
+        text_characters += len(page_text)
+        if text_characters > PDF_MAX_TEXT_CHARACTERS:
+            return None
+        pages.append({"page_number": page_number, "text": page_text})
+    return {
+        "canonical_code": canonical_code,
+        "source_fingerprint_sha256": source_fingerprint,
+        "source_key": source_key,
+        "name": name,
+        "pages": pages,
+    }
 
 
 def apply_product_theme() -> None:
@@ -5774,7 +5993,7 @@ def apply_cash_game_theme() -> None:
 
 
 def show_product_identity() -> None:
-    """Render the portfolio brand and developer attribution."""
+    """Render the product brand and developer attribution."""
     st.markdown(
         """
         <section class="wfz-hero">
@@ -5901,7 +6120,7 @@ def show_platform_modules() -> None:
             """
             <article class="wfz-module-card wfz-module-card--research">
                 <div class="wfz-module-number">MODULE 02 / RESEARCH WITH EVIDENCE</div>
-                <h2>上市公司研究中枢</h2>
+                <h2>研究案件</h2>
                 <p>
                     输入公司名称或股票代码，把公开行情、官方公告、年度报告
                     和历史时点集中到同一张研究桌。少翻页面，多验证结论。
@@ -5912,7 +6131,7 @@ def show_platform_modules() -> None:
             unsafe_allow_html=True,
         )
         if st.button(
-            "进入研究中枢",
+            "进入研究案件",
             width="stretch",
             key="home_to_research_workspace",
         ):
@@ -6066,9 +6285,9 @@ def show_home_research_scope() -> None:
 
 def show_chinese_user_guide() -> None:
     """Offer the companion Chinese guide inside the product."""
-    with st.expander("📘 中文使用说明书与国内求职演示指南"):
+    with st.expander("📘 中文使用说明书"):
         st.write(
-            "说明书包含产品功能、操作步骤、三分钟面试演示流程、"
+            "说明书包含产品功能、操作步骤、三分钟产品导览、"
             "安全边界和常见问题。"
         )
         try:
@@ -6130,6 +6349,196 @@ def load_company_announcements(
         end_date=date.fromisoformat(end_date_text),
         category=category,
     )
+
+
+@st.cache_data(ttl=3600, max_entries=12, show_spinner=False)
+def load_public_financial_history(code: str, name: str, observed_date: str) -> dict:
+    """Cache bounded current-vintage data; date key prevents midnight reuse."""
+    return fetch_public_financial_history(build_company_identity(code, name))
+
+
+def _remember_public_financial_history(history: Mapping) -> None:
+    history = validate_public_financial_history(history)
+    stored = dict(st.session_state.get("_wfz_public_financial_histories", {}))
+    code = history["company"]["canonical_code"]
+    stored.pop(code, None)
+    stored[code] = history
+    st.session_state["_wfz_public_financial_histories"] = dict(list(stored.items())[-5:])
+
+
+def _matching_public_financial_history(company: CompanyIdentity) -> dict | None:
+    raw = st.session_state.get("_wfz_public_financial_histories", {}).get(company["canonical_code"])
+    if raw is None:
+        return None
+    try:
+        result = validate_public_financial_history(raw)
+    except (ValueError, TypeError, KeyError):
+        return None
+    if result["company"]["canonical_code"] != company["canonical_code"] or result["fetched_at"][:10] != _utc_today().isoformat():
+        return None
+    return result
+
+
+def _write_public_financial_to_research_case(company: CompanyIdentity, history: Mapping) -> str:
+    if not _research_case_write_ready():
+        raise ValueError("本机案件仍在读取或保存，请稍后再写入。")
+    original = _research_case_store_snapshot()
+    working, case = _ensure_company_research_case(original, company)
+    patch = build_public_financial_case_patch(case, history, emitted_at=datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    updated = _reduce_research_case_command(working, "apply_patch", patch=patch)
+    _stage_research_case_store(updated, base_store_revision=int(original["store_revision"]))
+    return patch["artifact"]["artifact_id"]
+
+
+def _write_public_reconciliation_to_research_case(company, history, snapshot) -> str:
+    if not _research_case_write_ready():
+        raise ValueError("本机案件尚未读完或仍有更新在保存，请稍后再试。")
+    original = _research_case_store_snapshot()
+    working, case = _ensure_company_research_case(original, company)
+    patch = build_public_reconciliation_case_patch(case, history, snapshot,
+        emitted_at=datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    updated = _reduce_research_case_command(working, "apply_patch", patch=patch)
+    _stage_research_case_store(updated, base_store_revision=int(original["store_revision"]))
+    return patch["artifact"]["artifact_id"]
+
+
+def _render_public_financial_save_notice(company) -> None:
+    notice = st.session_state.get("_wfz_public_financial_save_notice")
+    if not isinstance(notice, Mapping) or notice.get("code") != company["canonical_code"]:
+        return
+    if RESEARCH_CASE_PENDING_SESSION_KEY in st.session_state:
+        st.info("正在等待浏览器确认保存，请暂勿关闭页面。")
+        return
+    stored = _research_case_store_snapshot()
+    present = any(a["artifact_id"] == notice.get("artifact_id")
+                  for case in stored["cases"].values() if case["company"]["canonical_code"] == notice["code"]
+                  for a in case["artifacts"])
+    if present and st.session_state.get(RESEARCH_CASE_STORAGE_STATUS_KEY) == "available":
+        st.success("浏览器已确认保存到本机研究案件；该记录仍是待核验分析。")
+    elif present:
+        st.warning("分析暂存于当前会话；浏览器本机存储不可用，关闭页面后可能丢失，请下载备份。")
+    else:
+        st.warning("未能确认这份记录已保存，可能存在标签页冲突；请检查案件后重试。")
+
+
+def _public_financial_column_config() -> dict:
+    return {"年度": st.column_config.NumberColumn(format="%d"),
+            **{label + "（亿元）": st.column_config.NumberColumn(format="%.4f") for _, label in AMOUNT_FIELDS.values()}}
+
+
+def _public_financial_display_rows(history: Mapping) -> list[dict]:
+    return [{
+        "年度": p["period_year"],
+        **{label + "（亿元）": p[key] / 100_000_000 if p[key] is not None else None for key, (_, label) in AMOUNT_FIELDS.items()},
+        "公告日期": p["published_date"], "源版本日期": p["updated_date"],
+        "资产勾稽": {"passed": "通过（非审计）", "failed": "不一致", "unavailable": "缺字段"}[p["balance_check"]],
+    } for p in history["points"]]
+
+
+def _render_public_financial_panel(company: CompanyIdentity, *, key_prefix: str) -> None:
+    """Offer the same bounded analysis to any valid SH/SZ/BJ company code."""
+    _render_public_financial_save_notice(company)
+    st.subheader("当前公司 · 多年公开财务分析")
+    st.caption("按需获取最多六个完整年度，人民币元换算为亿元展示；公开源候选与已核验案例分开展示。")
+    if st.button("获取或刷新当前公司年度财务", key=f"{key_prefix}_fetch", type="primary", width="stretch"):
+        st.session_state.pop("_wfz_public_financial_save_notice", None)
+        stored = dict(st.session_state.get("_wfz_public_financial_histories", {}))
+        stored.pop(company["canonical_code"], None)
+        st.session_state["_wfz_public_financial_histories"] = stored
+        try:
+            with st.spinner("正在获取年度财务并核对公司、期间和口径……"):
+                # Explicit refresh bypasses only this company's cached entry.
+                load_public_financial_history.clear(company["code"], company["name"], _utc_today().isoformat())
+                history = load_public_financial_history(company["code"], company["name"], _utc_today().isoformat())
+                _remember_public_financial_history(history)
+        except (DataSourceError, ValueError) as error:
+            st.error(str(error))
+            st.info("可进入年报与证据页面上传官方报告；本次不展示旧结果冒充刷新成功。")
+    history = _matching_public_financial_history(company)
+    if history is None:
+        st.info("点击上方按钮后开始取数；进入页面本身不发起网络请求。")
+        return
+    if st.button("用官方年报核对这些数字", key=f"{key_prefix}_verify", width="stretch"):
+        _store_selected_company(company)
+        _switch_page("financial_snapshot")
+    st.warning(history["limitation"])
+    st.caption(f"数据源记录公司：{history['source_rows'][-1]['SECURITY_NAME_ABBR']}｜机构类型：{history['points'][-1]['org_type']}｜取数：{history['fetched_at']}")
+    st.link_button("查看公开财务来源（非官方年报）", history["source_url"])
+    st.dataframe(pd.DataFrame(_public_financial_display_rows(history)), hide_index=True, width="stretch", column_config=_public_financial_column_config())
+    chart_rows = [{"年度": str(p["period_year"]), **{AMOUNT_FIELDS[key][1]: p[key] / 100_000_000 if p[key] is not None else None for key in ("revenue", "net_profit", "operating_cash_flow")}} for p in history["points"]]
+    for column, key in zip(st.columns(3), ("revenue", "net_profit", "operating_cash_flow"), strict=True):
+        with column:
+            label = AMOUNT_FIELDS[key][1]
+            st.caption(label + "（亿元；缺失值留空）")
+            st.line_chart(pd.DataFrame(chart_rows).set_index("年度")[[label]], width="stretch")
+    latest = history["points"][-1]
+    growth_rows = [{"指标": AMOUNT_FIELDS[key][1], "同比": _format_percent(latest[key + "_growth"]),
+                    "金额变化（元）": latest[key + "_change"]} for key in ("revenue", "net_profit", "operating_cash_flow")]
+    st.dataframe(pd.DataFrame(growth_rows), hide_index=True, width="stretch", column_config={"金额变化（元）": st.column_config.NumberColumn(format="%.2f")})
+    st.caption("同比仅比较相邻完整年度且基期大于零；负数或零基期保留金额变化，不输出误导性增长率。")
+    if latest["sector_metrics_percent"]:
+        st.subheader("金融机构专用指标（公开源披露值，单位%）")
+        st.dataframe(pd.DataFrame([{"指标": key, "披露值（%）": value} for key, value in latest["sector_metrics_percent"].items()]), hide_index=True, width="stretch")
+    for note in history["observations"]:
+        st.info(note)
+    for issue in history["issues"]:
+        st.warning(issue)
+    st.download_button("下载公开财务分析（待核验）", render_public_financial_report(history).encode("utf-8"),
+                       file_name=f"{company['code']}_public_financial.html", mime="text/html", key=f"{key_prefix}_html", width="stretch")
+    st.download_button("下载来源字段与计算 JSON", json.dumps(history, ensure_ascii=False, allow_nan=False, indent=2),
+                       file_name=f"{company['code']}_public_financial.json", mime="application/json", key=f"{key_prefix}_json", width="stretch")
+    if st.button("将公开财务分析加入研究案件", disabled=not _research_case_write_ready(), key=f"{key_prefix}_case", width="stretch"):
+        try:
+            artifact_id = _write_public_financial_to_research_case(company, history)
+        except (ValueError, KeyError, TypeError) as error:
+            st.error(f"写入案件失败：{error}")
+        else:
+            st.session_state["_wfz_public_financial_save_notice"] = {"code": company["canonical_code"], "artifact_id": artifact_id}
+            st.rerun()
+
+
+def _render_public_company_comparison() -> None:
+    st.caption("输入2至5个A股代码，以共同完整年度比较；非预置公司也可使用。")
+    with st.form("public_company_comparison"):
+        codes_text = st.text_input("比较公司代码（逗号或空格分隔）", value="")
+        requested = st.form_submit_button("获取公开数据并比较", width="stretch")
+    if requested:
+        st.session_state.pop("_wfz_public_comparison", None)
+        try:
+            codes = list(dict.fromkeys(re.split(r"[\s,，;；]+", codes_text.strip())))
+            if not 2 <= len(codes) <= 5:
+                raise ValueError("请输入2至5个不同的六位A股代码。")
+            companies = [build_company_identity(code) for code in codes]
+            histories = []
+            with st.spinner("正在逐家取数并核对共同年度……"):
+                for company in companies:
+                    history = load_public_financial_history(company["code"], company["name"], _utc_today().isoformat())
+                    histories.append(history)
+                    _remember_public_financial_history(history)
+            comparison = compare_public_financial_histories(histories)
+            st.session_state["_wfz_public_comparison"] = histories
+        except (ValueError, DataSourceError) as error:
+            st.error(str(error))
+    histories = st.session_state.get("_wfz_public_comparison")
+    if not histories:
+        return
+    if any(item["fetched_at"][:10] != _utc_today().isoformat() for item in histories):
+        st.info("比较结果来自先前日期，请重新取数。")
+        return
+    initial = compare_public_financial_histories(histories)
+    year = st.selectbox("共同财务年度", list(reversed(initial["common_years"])), key="public_comparison_year")
+    result = compare_public_financial_histories(histories, year)
+    rows = []
+    for item, history in zip(result["rows"], histories, strict=True):
+        name = history["source_rows"][-1]["SECURITY_NAME_ABBR"]
+        rows.append({"公司": name, "代码": item["company"]["canonical_code"], "机构类型": item["org_type"],
+                     **{label + "（亿元）": item[key] / 100_000_000 if item[key] is not None else None for key, (_, label) in AMOUNT_FIELDS.items()},
+                     "公告日": item["published_date"]})
+        st.link_button(f"{name} 公开源", history["source_url"])
+    st.warning(result["limitation"])
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+    st.download_button("下载共同年度比较 CSV（待核验）", pd.DataFrame(rows).map(lambda v: "\'" + v if isinstance(v, str) and v.lstrip().startswith(("=", "+", "-", "@")) else v).to_csv(index=False).encode("utf-8-sig"),
+                       file_name=f"public_company_comparison_{year}.csv", mime="text/csv", width="stretch")
 
 
 def _fetch_company_research_sources_concurrently(
@@ -6211,10 +6620,12 @@ def load_company_research_sources(
     )
 
 
-@st.cache_data(ttl=1800, max_entries=1, show_spinner=False)
 def load_official_annual_report(announcement_url: str) -> bytes:
-    """Temporarily cache only the latest validated official PDF."""
-    return download_official_pdf(announcement_url)
+    """Download one bounded official PDF without retaining the raw bytes."""
+    return download_official_pdf(
+        announcement_url,
+        max_bytes=GENERAL_OFFICIAL_PDF_MAX_BYTES,
+    )
 
 
 def show_compact_page_header(
@@ -6288,7 +6699,7 @@ def show_product_footer() -> None:
             <strong>FANGZHENG AI 金融研究实验室</strong> · 产品设计与研发：
             <strong>王方正 · Durham University</strong><br>
             通过剧情训练与真实公司研究培养有证据边界的金融判断；
-            用于学习、求职演示与作品集展示，不构成投资建议。
+            面向可追溯研究与金融证据思维训练，不构成投资建议。
         </div>
         """,
         unsafe_allow_html=True,
@@ -6359,11 +6770,33 @@ _RESEARCH_COLLECTIONS = (
         "tools": (
             ("核验上次研究后的新证据", "evidence_delta"),
             ("维护研究结论账本", "thesis_ledger"),
-            ("查看方法与审计", "methodology"),
+            ("查看负责任 AI 与控制", "methodology"),
             ("扩展已核验公司目录（高级）", "onboarding"),
         ),
     },
 )
+
+
+_RESEARCH_CASE_MODULE_PAGES = {
+    "company_research": "company",
+    "comprehensive_research": "comprehensive",
+    "market_activity": "market",
+    "financial_snapshot": "financial_snapshot",
+    "annual_report": "annual",
+    "financial_trend": "financial_trend",
+    "historical_lens": "historical",
+    "evidence_delta": "evidence_delta",
+    "research_thesis": "thesis_ledger",
+}
+
+
+_RESEARCH_CASE_QUESTION_LABELS = {
+    "recent_events": "最近发生了什么",
+    "market_change": "市场发生了什么变化",
+    "financial_quality": "财务质量如何",
+    "point_in_time": "当时能够知道什么",
+    "research_judgement": "当前研究判断是什么",
+}
 
 
 def _research_collection_for_page(page_name: str) -> int | None:
@@ -6421,7 +6854,7 @@ def _render_research_sidebar_navigation(
         st.markdown("**研究子任务**")
         st.page_link(
             page_registry["workspace"],
-            label="返回研究中枢总览",
+            label="返回研究案件",
             icon="🏛️",
             width="stretch",
         )
@@ -6697,6 +7130,287 @@ def _sync_browser_research_state() -> None:
         st.session_state.pop("_wfz_browser_research_command", None)
 
 
+def _validated_research_case_store(
+    value: object,
+) -> dict[str, object] | None:
+    """Return a valid v1 store without repairing or dropping case data."""
+    try:
+        validate_research_case_store(value)
+    except (
+        ResearchCaseCapacityError,
+        ResearchCaseValidationError,
+        TypeError,
+        ValueError,
+    ):
+        return None
+    return dict(value)  # type: ignore[arg-type]
+
+
+def _research_case_store_snapshot() -> dict[str, object]:
+    """Return the current bounded case store held by this Streamlit session."""
+    stored = _validated_research_case_store(
+        st.session_state.get(RESEARCH_CASE_STORE_SESSION_KEY)
+    )
+    if stored is not None:
+        return stored
+    fresh = empty_research_case_store()
+    st.session_state[RESEARCH_CASE_STORE_SESSION_KEY] = fresh
+    return fresh
+
+
+def _stage_research_case_store(
+    store: Mapping[str, object],
+    *,
+    base_store_revision: int,
+) -> None:
+    """Stage one validated snapshot for an explicit browser write."""
+    validate_research_case_store(store)
+    snapshot = dict(store)
+    st.session_state[RESEARCH_CASE_STORE_SESSION_KEY] = snapshot
+    st.session_state[RESEARCH_CASE_PENDING_SESSION_KEY] = snapshot
+    st.session_state[RESEARCH_CASE_PENDING_BASE_KEY] = base_store_revision
+
+
+def _reduce_research_case_command(
+    store: Mapping[str, object],
+    action: str,
+    **payload: object,
+) -> dict[str, object]:
+    """Build and apply one revision-checked local case-store command."""
+    emitted_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    command = {
+        "command_id": f"{action}:{uuid4().hex}",
+        "base_store_revision": int(store["store_revision"]),
+        "action": action,
+        "emitted_at": emitted_at,
+        **payload,
+    }
+    return reduce_research_case_store(store, command)
+
+
+def _utc_today() -> date:
+    """Return the calendar date used by UTC-stamped case mutations.
+
+    Case bridges validate dates against their UTC ``emitted_at`` timestamp.
+    Using the Mac/server local date here could otherwise reject a legitimate
+    run during the British-summer-time hour after local midnight.
+    """
+    return datetime.now(timezone.utc).date()
+
+
+def _roll_forward_current_research_case(
+    store: Mapping[str, object],
+    case: Mapping[str, object],
+) -> tuple[dict[str, object], Mapping[str, object]]:
+    """Advance a reused current case before adding newly observed evidence."""
+    if case.get("scope", {}).get("mode") != "current":
+        return dict(store), case
+    effective_date = str(
+        case.get("scope", {}).get("effective_market_date", "")
+    )
+    today = _utc_today().isoformat()
+    if not effective_date or effective_date >= today:
+        return dict(store), case
+    rolled = _reduce_research_case_command(
+        store,
+        "roll_forward",
+        case_id=case["case_id"],
+        effective_market_date=today,
+    )
+    rolled_case = rolled["cases"][case["case_id"]]
+    return rolled, rolled_case
+
+
+def _research_case_company_payload(
+    company: CompanyIdentity,
+) -> dict[str, str]:
+    """Keep case identity minimal and compatible with the pure contract."""
+    return {
+        "code": company["code"],
+        "canonical_code": company["canonical_code"],
+        "name": company["name"],
+        "exchange": company["exchange"],
+        "exchange_name": company["exchange_name"],
+    }
+
+
+def _active_research_case(
+    store: Mapping[str, object] | None = None,
+) -> Mapping[str, object] | None:
+    """Return the active, non-archived case when the reference is valid."""
+    snapshot = store or _research_case_store_snapshot()
+    case_id = snapshot.get("active_case_id")
+    cases = snapshot.get("cases")
+    if not isinstance(case_id, str) or not isinstance(cases, Mapping):
+        return None
+    case = cases.get(case_id)
+    if not isinstance(case, Mapping) or case.get("lifecycle") != "active":
+        return None
+    return case
+
+
+def _ensure_company_research_case(
+    store: Mapping[str, object],
+    company: CompanyIdentity,
+) -> tuple[dict[str, object], Mapping[str, object]]:
+    """Reuse or explicitly create one current case for the selected company."""
+    active = _active_research_case(store)
+    canonical_code = company["canonical_code"]
+    if (
+        active is not None
+        and active.get("company", {}).get("canonical_code") == canonical_code
+        and active.get("scope", {}).get("mode") == "current"
+    ):
+        return _roll_forward_current_research_case(store, active)
+
+    cases = store.get("cases")
+    if isinstance(cases, Mapping):
+        candidates = [
+            case
+            for case in cases.values()
+            if isinstance(case, Mapping)
+            and case.get("lifecycle") == "active"
+            and case.get("company", {}).get("canonical_code") == canonical_code
+            and case.get("scope", {}).get("mode") == "current"
+        ]
+        if candidates:
+            chosen = max(
+                candidates,
+                key=lambda item: str(item.get("updated_at", "")),
+            )
+            activated = _reduce_research_case_command(
+                store,
+                "activate",
+                case_id=chosen["case_id"],
+            )
+            activated_case = _active_research_case(activated) or chosen
+            return _roll_forward_current_research_case(
+                activated,
+                activated_case,
+            )
+
+    case_id = f"case:{company['canonical_code']}:{uuid4().hex[:12]}"
+    created = _reduce_research_case_command(
+        store,
+        "create",
+        case_id=case_id,
+        company=_research_case_company_payload(company),
+        mode="current",
+        as_of_date=None,
+        effective_market_date=_utc_today().isoformat(),
+    )
+    case = _active_research_case(created)
+    if case is None:  # Defensive: the reducer must activate a new case.
+        raise ResearchCaseValidationError("新研究案件没有被正确激活。")
+    return created, case
+
+
+def _sync_research_case_store() -> None:
+    """Synchronise the independent bounded case store on research pages only."""
+    current = _research_case_store_snapshot()
+    pending = _validated_research_case_store(
+        st.session_state.get(RESEARCH_CASE_PENDING_SESSION_KEY)
+    )
+    hydrated = bool(st.session_state.get(RESEARCH_CASE_HYDRATED_KEY, False))
+    known_snapshot = pending or current
+    writer_id = str(st.session_state.get("_wfz_research_case_writer_id", ""))
+    if len(writer_id) != 32:
+        writer_id = uuid4().hex
+        st.session_state["_wfz_research_case_writer_id"] = writer_id
+    known_status = str(
+        st.session_state.get(RESEARCH_CASE_STORAGE_STATUS_KEY, "pending")
+    )
+    base_revision = int(
+        st.session_state.get(
+            RESEARCH_CASE_PENDING_BASE_KEY,
+            current.get("store_revision", 0),
+        )
+    )
+    try:
+        result = _RESEARCH_CASE_STORAGE(
+            data={
+                "storage_key": RESEARCH_CASE_STORE_KEY,
+                "max_store_bytes": RESEARCH_CASE_MAX_STORE_BYTES,
+                "known_snapshot": known_snapshot,
+                "known_storage_status": known_status,
+                "write_enabled": hydrated and pending is not None,
+                "writer_id": writer_id,
+                "base_revision": base_revision,
+            },
+            default={
+                "snapshot": known_snapshot,
+                "storage_status": "pending",
+            },
+            key="wfz_research_case_storage",
+            on_snapshot_change=lambda: None,
+            on_storage_status_change=lambda: None,
+        )
+    except (ValueError, st.errors.StreamlitAPIException) as error:
+        if "is not registered" not in str(error):
+            raise
+        st.session_state[RESEARCH_CASE_HYDRATED_KEY] = True
+        st.session_state[RESEARCH_CASE_STORAGE_STATUS_KEY] = "unavailable"
+        return
+
+    raw_snapshot = getattr(result, "snapshot", None)
+    raw_status = getattr(result, "storage_status", None)
+    if isinstance(result, Mapping):
+        raw_snapshot = result.get("snapshot", raw_snapshot)
+        raw_status = result.get("storage_status", raw_status)
+    if raw_status in {"pending", "available", "unavailable", "invalid"}:
+        st.session_state[RESEARCH_CASE_STORAGE_STATUS_KEY] = raw_status
+
+    browser_snapshot = _validated_research_case_store(raw_snapshot)
+    if (
+        raw_status == "available"
+        and raw_snapshot is not None
+        and browser_snapshot is None
+    ):
+        # The browser component performs only a cheap structural pre-check.
+        # Python owns the canonical deep contract.  Fail closed when an
+        # apparently available localStorage value does not satisfy it: never
+        # replace the current in-memory case or enable writes over the invalid
+        # browser payload.
+        st.session_state[RESEARCH_CASE_STORAGE_STATUS_KEY] = "invalid"
+        st.session_state[RESEARCH_CASE_HYDRATED_KEY] = True
+        return
+    if not hydrated and raw_status in {"available", "unavailable", "invalid"}:
+        if browser_snapshot is not None:
+            st.session_state[RESEARCH_CASE_STORE_SESSION_KEY] = browser_snapshot
+        st.session_state[RESEARCH_CASE_HYDRATED_KEY] = True
+        return
+
+    if not hydrated:
+        return
+
+    if pending is not None:
+        if raw_status == "unavailable":
+            # Preserve the user's work for this live session while making the
+            # lack of durable browser storage explicit in the interface.
+            st.session_state[RESEARCH_CASE_STORE_SESSION_KEY] = pending
+            st.session_state.pop(RESEARCH_CASE_PENDING_SESSION_KEY, None)
+            st.session_state.pop(RESEARCH_CASE_PENDING_BASE_KEY, None)
+        elif browser_snapshot == pending:
+            st.session_state[RESEARCH_CASE_STORE_SESSION_KEY] = pending
+            st.session_state.pop(RESEARCH_CASE_PENDING_SESSION_KEY, None)
+            st.session_state.pop(RESEARCH_CASE_PENDING_BASE_KEY, None)
+        elif (
+            browser_snapshot is not None
+            and int(browser_snapshot["store_revision"])
+            >= int(pending["store_revision"])
+        ):
+            st.session_state[RESEARCH_CASE_STORE_SESSION_KEY] = browser_snapshot
+            st.session_state.pop(RESEARCH_CASE_PENDING_SESSION_KEY, None)
+            st.session_state.pop(RESEARCH_CASE_PENDING_BASE_KEY, None)
+            st.session_state["_wfz_research_case_conflict"] = (
+                "另一浏览器标签页更新了研究案件；已保留较新的版本。"
+            )
+    elif browser_snapshot is not None and int(
+        browser_snapshot["store_revision"]
+    ) > int(current["store_revision"]):
+        st.session_state[RESEARCH_CASE_STORE_SESSION_KEY] = browser_snapshot
+
+
 def _sync_cash_game_progress() -> None:
     """Restore, then continuously save, this device's game checkpoint."""
     session_schema_version = st.session_state.get(
@@ -6802,7 +7516,7 @@ def _sync_cash_game_progress() -> None:
             on_snapshot_change=lambda: None,
             on_storage_status_change=lambda: None,
         )
-    except ValueError as error:
+    except (ValueError, st.errors.StreamlitAPIException) as error:
         if "is not registered" not in str(error):
             raise
         # Streamlit's isolated page tester can reset the component registry.
@@ -6920,7 +7634,7 @@ def _sync_device_experience() -> None:
             key="wfz_device_experience_storage",
             on_state_change=lambda: None,
         )
-    except ValueError as error:
+    except (ValueError, st.errors.StreamlitAPIException) as error:
         if "is not registered" not in str(error):
             raise
         result = {"state": known_state}
@@ -7052,7 +7766,7 @@ def _sync_honour_archive_record(
             on_record_change=lambda: None,
             on_storage_status_change=lambda: None,
         )
-    except ValueError as error:
+    except (ValueError, st.errors.StreamlitAPIException) as error:
         # Streamlit's isolated page tester can clear the component registry
         # between runs. Production browser/storage failures still surface via
         # the component's explicit unavailable status.
@@ -7218,6 +7932,7 @@ def _render_company_search(
     navigate_on_success: bool,
     navigate_target: str = "company",
     auto_run_comprehensive: bool = False,
+    submit_disabled: bool = False,
 ) -> CompanyIdentity | None:
     """Resolve a company code/name with a live directory and safe fallback."""
     matches_key = f"{key_prefix}_company_matches"
@@ -7231,6 +7946,7 @@ def _render_company_search(
             "开始研究",
             type="primary",
             width="stretch",
+            disabled=submit_disabled,
         )
 
     if submitted:
@@ -7887,6 +8603,14 @@ def _run_comprehensive_research(
         ):
             financial_snapshot = stored_snapshot
 
+    public_history = _matching_public_financial_history(company)
+    if financial_history is None and financial_snapshot is None and public_history is None:
+        try:
+            public_history = load_public_financial_history(company["code"], company["name"], _utc_today().isoformat())
+            _remember_public_financial_history(public_history)
+        except (DataSourceError, ValueError) as error:
+            data_errors.append(f"公开财务证据链：{error}")
+
     return build_comprehensive_research_brief(
         company,
         market_metrics=market_metrics,
@@ -7898,6 +8622,7 @@ def _run_comprehensive_research(
         latest_annual_report=latest_annual_report,
         financial_history=financial_history,
         financial_snapshot=financial_snapshot,
+        public_financial_history=public_history,
         generated_on=end_date,
         data_errors=data_errors,
     )
@@ -7961,6 +8686,14 @@ def _show_comprehensive_research_brief(
         "unavailable": "暂不可用",
     }
     _show_research_conclusion_card(brief)
+    if brief.get("public_financial_history") is not None:
+        history = validate_public_financial_history(brief["public_financial_history"])
+        with st.expander("本次多年公开财务数据与来源（待核验）"):
+            st.warning(history["limitation"])
+            st.caption(f"取数时间：{history['fetched_at']}")
+            st.link_button("查看公开数据源", history["source_url"])
+            st.dataframe(pd.DataFrame(_public_financial_display_rows(history)), hide_index=True, width="stretch", column_config=_public_financial_column_config())
+
     st.markdown("### 详细证据与分析")
     st.markdown("#### 综合研究状态")
     summary_columns = st.columns(4)
@@ -8104,6 +8837,63 @@ def _show_comprehensive_research_brief(
             st.write(f"- {limitation}")
 
 
+def _write_comprehensive_brief_to_research_case(
+    company: CompanyIdentity,
+    brief: Mapping[str, object],
+) -> None:
+    """Append a compact validated summary after an explicit research run."""
+    if st.session_state.get(RESEARCH_CASE_STORAGE_STATUS_KEY) == "invalid":
+        st.session_state["_wfz_research_case_writeback_error"] = (
+            "本机案件档案无法安全读取，本次综合研究没有覆盖原档案。"
+        )
+        return
+    if RESEARCH_CASE_PENDING_SESSION_KEY in st.session_state:
+        st.session_state["_wfz_research_case_writeback_error"] = (
+            "上一项案件更新仍在保存，本次结果暂未写入；请返回案件工作台重试。"
+        )
+        return
+
+    original_store = _research_case_store_snapshot()
+    try:
+        working_store, case = _ensure_company_research_case(
+            original_store,
+            company,
+        )
+        emitted_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        patch = build_comprehensive_research_case_patch(
+            case,
+            brief,
+            patch_id=f"comprehensive:{company['canonical_code']}:{uuid4().hex}",
+            emitted_at=emitted_at,
+        )
+        updated_store = _reduce_research_case_command(
+            working_store,
+            "apply_patch",
+            patch=patch,
+        )
+        public_history = brief.get("public_financial_history")
+        if public_history is not None:
+            updated_case = updated_store["cases"][case["case_id"]]
+            public_patch = build_public_financial_case_patch(updated_case, public_history, emitted_at=emitted_at)
+            updated_store = _reduce_research_case_command(updated_store, "apply_patch", patch=public_patch)
+        _stage_research_case_store(
+            updated_store,
+            base_store_revision=int(original_store["store_revision"]),
+        )
+    except (
+        ValueError,
+        ResearchCaseCapacityError,
+        ResearchCaseConflictError,
+        ResearchCaseValidationError,
+    ) as error:
+        st.session_state["_wfz_research_case_writeback_error"] = str(error)
+        return
+    st.session_state["_wfz_research_case_writeback_notice"] = (
+        "综合研究已写入同一份研究案件；只保存紧凑摘要与有效引用，"
+        "没有保存PDF、图表或完整数据表。"
+    )
+
+
 def _execute_comprehensive_research(company: CompanyIdentity) -> None:
     """Run and store one brief before navigation or after manual refresh."""
     # Never show a previous company's brief while the new run is starting.
@@ -8125,11 +8915,13 @@ def _execute_comprehensive_research(company: CompanyIdentity) -> None:
         )
     st.session_state[COMPREHENSIVE_BRIEF_KEY] = brief_result
     st.session_state[COMPREHENSIVE_ELAPSED_KEY] = elapsed_seconds
+    _write_comprehensive_brief_to_research_case(company, brief_result)
 
 
 def render_comprehensive_research_page() -> None:
     """Render the one-click coordinator across existing research modules."""
     apply_product_theme()
+    _sync_research_case_store()
     show_compact_page_header(
         "旗舰 / 一键综合研究 · COMPREHENSIVE AGENT",
         "一键综合研究 Agent",
@@ -8144,6 +8936,7 @@ def render_comprehensive_research_page() -> None:
             key_prefix="comprehensive",
             navigate_on_success=False,
             auto_run_comprehensive=True,
+            submit_disabled=not _research_case_write_ready(),
         )
         company = _selected_company()
     if company is None:
@@ -8171,9 +8964,23 @@ def render_comprehensive_research_page() -> None:
         type="primary",
         width="stretch",
         key=f"run_comprehensive_{company['canonical_code']}",
+        disabled=not _research_case_write_ready(),
     )
     if manual_run_requested:
         _execute_comprehensive_research(company)
+
+    writeback_error = st.session_state.pop(
+        "_wfz_research_case_writeback_error",
+        None,
+    )
+    if isinstance(writeback_error, str) and writeback_error:
+        st.error(f"案件写入失败：{writeback_error}")
+    writeback_notice = st.session_state.pop(
+        "_wfz_research_case_writeback_notice",
+        None,
+    )
+    if isinstance(writeback_notice, str) and writeback_notice:
+        st.success(writeback_notice)
 
     brief = st.session_state.get(COMPREHENSIVE_BRIEF_KEY)
     if not isinstance(brief, dict) or brief.get("company", {}).get(
@@ -9332,7 +10139,7 @@ def _render_cash_investigation_node(player_name: str) -> None:
                 key=f"wfz_cash_office_search_{evidence_case['case_id']}",
                 on_command_change=lambda: None,
             )
-        except ValueError as error:
+        except (ValueError, st.errors.StreamlitAPIException) as error:
             if "is not registered" not in str(error):
                 raise
             return
@@ -10166,7 +10973,7 @@ def _render_cash_evidence_lab_node(player_name: str) -> None:
                 key=f"wfz_cash_evidence_lab_{task['case_id']}",
                 on_command_change=lambda: None,
             )
-        except ValueError as error:
+        except (ValueError, st.errors.StreamlitAPIException) as error:
             if "is not registered" not in str(error):
                 raise
             return
@@ -10676,7 +11483,7 @@ def _render_cash_mentor_council(player_name: str) -> None:
                 key="wfz_cash_mentor_council_case_01",
                 on_command_change=lambda: None,
             )
-        except ValueError as error:
+        except (ValueError, st.errors.StreamlitAPIException) as error:
             if "is not registered" not in str(error):
                 raise
             return
@@ -11370,7 +12177,7 @@ def _render_cash_defense_node(player_name: str) -> None:
                 key="wfz_cash_defense_committee_stage_8",
                 on_command_change=lambda: None,
             )
-        except ValueError as error:
+        except (ValueError, st.errors.StreamlitAPIException) as error:
             if "is not registered" not in str(error):
                 raise
             return
@@ -11551,7 +12358,7 @@ def _render_cash_game_control_overlay(player_name: str) -> None:
                 <section class="wfz-game-control-scene wfz-game-control-scene--reset">
                     <small>CASE CONTROL · CONFIRM RESTART</small>
                     <h2>选择重新开始的位置</h2>
-                    <p>两种选择都会清除本轮关卡、答案和生命记录；研究中枢数据不受影响。</p>
+                    <p>两种选择都会清除本轮关卡、答案和生命记录；研究案件数据不受影响。</p>
                 </section>
                 """
             )
@@ -12275,7 +13082,7 @@ def _render_cash_practice_node(player_name: str) -> None:
                 ),
                 on_command_change=lambda: None,
             )
-        except ValueError as error:
+        except (ValueError, st.errors.StreamlitAPIException) as error:
             if "is not registered" not in str(error):
                 raise
             # Streamlit's isolated tester can reset the v2 component registry.
@@ -12445,7 +13252,7 @@ def _render_cash_migration_node(player_name: str) -> None:
 
 
 def _render_cash_honour_node(player_name: str) -> None:
-    """Render the durable device-local record inside scene seven."""
+    """Render the durable device-local Honour Archive after Scene 09."""
     completed_in_session = (
         st.session_state.get("historical_game_mission_completed")
         == HISTORICAL_MISSION_ID
@@ -12582,28 +13389,481 @@ def render_research_terminal_page() -> None:
     show_product_footer()
 
 
-def render_research_workspace_page() -> None:
-    """Group all research tools by the job the user needs to complete."""
-    apply_product_theme()
-    show_compact_page_header(
-        "上市公司研究中枢 · LISTED COMPANY RESEARCH HUB",
-        "按研究任务进入子工作台",
-        "全部功能被组织成五个相互衔接的集合：先发现或选择标的，"
-        "再完成公司总览，随后根据问题进入市场、财务或证据核验。",
+def _research_case_write_ready() -> bool:
+    """Require a completed browser read before any durable case mutation."""
+    return bool(st.session_state.get(RESEARCH_CASE_HYDRATED_KEY, False)) and (
+        st.session_state.get(RESEARCH_CASE_STORAGE_STATUS_KEY) != "invalid"
+        and RESEARCH_CASE_PENDING_SESSION_KEY not in st.session_state
     )
 
-    company = _selected_company()
-    if company is None:
-        st.info(
-            "尚未选择研究公司。可以先输入公司名称或代码，也可以直接从"
-            "“发现研究对象”开始。"
+
+def _render_research_case_storage_notice() -> None:
+    """Expose persistence and stale-tab failures instead of hiding them."""
+    status = st.session_state.get(RESEARCH_CASE_STORAGE_STATUS_KEY, "pending")
+    if status == "pending":
+        st.info("正在读取这台设备保存的研究案件，请稍候片刻。")
+    elif status == "unavailable":
+        st.warning(
+            "当前浏览器无法使用本机存储。本次研究仍可继续，但关闭页面后"
+            "可能无法恢复；系统不会假装已经永久保存。"
         )
-        _render_company_search(
-            key_prefix="workspace",
-            navigate_on_success=False,
+    elif status == "invalid":
+        st.error(
+            "检测到无法安全读取的本机案件档案。为防止覆盖原数据，"
+            "当前已暂停写入；原始档案不会被自动删除。"
         )
+    conflict = st.session_state.pop("_wfz_research_case_conflict", None)
+    if isinstance(conflict, str) and conflict:
+        st.warning(conflict)
+
+
+def _research_case_display_label(case: Mapping[str, object]) -> str:
+    company = case.get("company", {})
+    scope = case.get("scope", {})
+    mode = (
+        f"历史 {scope.get('as_of_date', '')}"
+        if scope.get("mode") == "historical"
+        else "当前"
+    )
+    return (
+        f"{company.get('name', '待核验公司')}｜"
+        f"{company.get('canonical_code', '')}｜{mode}案件"
+    )
+
+
+def _activate_research_case_from_workspace(
+    store: Mapping[str, object],
+    case: Mapping[str, object],
+) -> None:
+    """Activate one case and hand its company identity to existing tools."""
+    updated = _reduce_research_case_command(
+        store,
+        "activate",
+        case_id=case["case_id"],
+    )
+    _stage_research_case_store(
+        updated,
+        base_store_revision=int(store["store_revision"]),
+    )
+    company_data = case["company"]
+    company = build_company_identity(
+        str(company_data["code"]),
+        str(company_data["name"]),
+    )
+    _store_selected_company(company)
+
+
+def _render_research_case_brief(case: Mapping[str, object]) -> None:
+    """Answer the user's five core questions before showing any tool menu."""
+    company = case["company"]
+    scope = case["scope"]
+    questions = case["questions"]
+    completed_questions = sum(
+        question.get("status") != "not_started"
+        for question in questions.values()
+    )
+    mode_label = "历史时点" if scope["mode"] == "historical" else "当前研究"
+    st.markdown(
+        '<div class="wfz-section-label">'
+        "当前研究案件 · ACTIVE RESEARCH CASE"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f"## {company['name']}｜{company['canonical_code']}"
+    )
+    summary_columns = st.columns(4)
+    summary_columns[0].metric("案件模式", mode_label)
+    summary_columns[1].metric("研究截止日期", scope["effective_market_date"])
+    summary_columns[2].metric("专题进度", f"{completed_questions} / 5")
+    summary_columns[3].metric("已收证据", len(case["evidence"]))
+    st.caption(
+        f"案件状态：{case['readiness']}｜最后更新：{case['updated_at']}｜"
+        "所有结论必须保留证据引用；空白不代表问题不存在。"
+    )
+
+    brief = case["case_brief"]
+    with st.container(border=True):
+        st.markdown("### 01｜当前最值得核验的问题是什么")
+        st.write(
+            brief["primary_question"]
+            or "尚未形成主问题。先运行综合研究，让系统把分散资料压缩成一项可核验的问题。"
+        )
+
+    left, right = st.columns(2)
+    with left.container(border=True):
+        st.markdown("### 02｜已经有什么证据")
+        evidence_summary = brief["evidence"]["summary"]
+        st.write(evidence_summary or "尚未写入可引用证据。")
+        st.caption(
+            f"引用 {len(brief['evidence']['evidence_ids'])} 条证据、"
+            f"{len(brief['evidence']['artifact_ids'])} 份研究产物。"
+        )
+    with right.container(border=True):
+        st.markdown("### 03｜哪些证据互相矛盾")
+        contradictions = brief["contradictions"]
+        if contradictions:
+            for item in contradictions:
+                st.write(f"- {item['summary']}")
+        else:
+            st.write(
+                "尚未形成经交叉核验的矛盾记录。这里为空不等于证据彼此一致。"
+            )
+
+    left, right = st.columns(2)
+    with left.container(border=True):
+        st.markdown("### 04｜还有什么未知")
+        unknowns = brief["unknowns"]
+        if unknowns:
+            for item in unknowns:
+                st.write(f"- {item['summary']}")
+        else:
+            st.write("尚未登记未知事项；需要先完成证据覆盖检查。")
+    with right.container(border=True):
+        st.markdown("### 05｜下一步应该验证什么")
+        next_action = brief["next_action"]
+        st.write(next_action["action"] or "先运行综合研究，建立第一条核验路径。")
+        if next_action["reason"]:
+            st.caption(next_action["reason"])
+        target = _RESEARCH_CASE_MODULE_PAGES.get(next_action["module"])
+        if target and st.button(
+            "进入下一项核验",
+            type="primary",
+            width="stretch",
+            key=f"case_next_action_{case['case_id']}_{target}",
+        ):
+            _switch_page(target)
+
+    with st.expander("查看五条专题研究泳道", expanded=False):
+        for key, label in _RESEARCH_CASE_QUESTION_LABELS.items():
+            question = questions[key]
+            st.markdown(f"**{label}｜{question['status']}**")
+            st.write(question["summary"] or "尚未开始。")
+            if question["next_action"]:
+                st.caption(f"下一步：{question['next_action']}")
+
+
+def _render_saved_public_financial_history(case: Mapping[str, object]) -> None:
+    artifacts = [a for a in case["artifacts"] if a["module"] == "financial_trend"
+                 and a["payload"].get("status") == "public_unverified"]
+    if not artifacts:
+        return
+    with st.expander(f"已保存的公开财务候选（{len(artifacts)}份）"):
+        st.caption("每份案件记录只保留最近两年紧凑数据。这里是当时保存的候选，不会自动当作今天的新结果；完整六年数据需在趋势页下载。")
+        for artifact in reversed(artifacts[-5:]):
+            payload = artifact["payload"]
+            st.markdown(f"**{artifact['title']}**")
+            st.caption(f"取数时间：{payload.get('fetched_at', '未记录')}")
+            points = payload.get("points")
+            try:
+                if not isinstance(points, list) or not 1 <= len(points) <= 2:
+                    raise ValueError("缺少紧凑年度数据")
+                rows = _public_financial_display_rows({"points": points})
+            except (ValueError, TypeError, KeyError):
+                st.warning("记录字段不完整，请重新获取；原档案没有被修改。")
+                continue
+            st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch", column_config=_public_financial_column_config())
+            st.download_button("下载此份已保存财务候选", json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False),
+                file_name=f"{case['company']['code']}_saved_public_financial.json", mime="application/json", key=f"saved_public_{artifact['artifact_id']}")
+        if len(artifacts) > 5:
+            st.caption("页面显示最近五份，其余保留在完整案件中。")
+
+
+def _render_saved_financial_comparisons(case: Mapping[str, object]) -> None:
+    """Read bounded historical analysis receipts without fetching new data."""
+    artifacts = [a for a in case["artifacts"] if a["module"] == "financial_snapshot"
+                 and a["payload"].get("schema") == "public-financial-reconciliation-artifact.v1"]
+    if not artifacts:
+        return
+    with st.expander(f"已保存的两源财务对照（{len(artifacts)}份）"):
+        st.caption("这里保留当时的对照记录，不代表当前最新数据或人工复核结论；完整案件导出也包含这些分析产物。")
+        labels = {"amount_close": "金额接近，口径待核验", "amount_difference": "金额差异待追查", "not_comparable": "数据不足"}
+        for artifact in reversed(artifacts[-5:]):
+            payload = artifact["payload"]
+            st.markdown(f"**{artifact['title']}**")
+            st.caption(f"保存时间：{artifact['generated_at']}｜公开源取数：{payload.get('public_fetched_at', '未记录')}")
+            rows = payload.get("rows", [])
+            if not isinstance(rows, list) or len(rows) != 5 or any(not isinstance(row, Mapping) for row in rows):
+                st.warning("旧对照记录结构不完整，请重新生成；原档案未修改。")
+                continue
+            st.dataframe(pd.DataFrame([{"指标": row.get("label"),
+                "公开值（元）": row.get("public_yuan"), "年报候选（元）": row.get("annual_candidate_yuan"),
+                "差额（元）": row.get("difference_yuan"), "记录状态": labels.get(row.get("status"), "状态待核对")}
+                for row in rows]), hide_index=True, width="stretch")
+            st.download_button("下载此份已保存对照", json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False),
+                file_name=f"{case['company']['code']}_saved_comparison.json", mime="application/json", key=f"saved_compare_{artifact['artifact_id']}")
+        if len(artifacts) > 5:
+            st.caption("页面显示最近五份；较早记录仍保留在完整案件导出中。")
+        if case["scope"]["mode"] == "current" and st.button("回到年报核验继续", key=f"saved_comparison_continue_{case['case_id']}", width="stretch"):
+            _store_selected_company(build_company_identity(case["company"]["code"], case["company"]["name"]))
+            _switch_page("financial_snapshot")
+
+
+def _research_case_export_gaps(case: Mapping[str, object]) -> list[str]:
+    """Explain the deterministic formal-export gate in user language."""
+    gaps: list[str] = []
+    if not case.get("artifacts"):
+        gaps.append("至少需要一份经过校验的研究产物")
+
+    questions = case.get("questions", {})
+    if isinstance(questions, Mapping):
+        missing_lanes = [
+            label
+            for key, label in _RESEARCH_CASE_QUESTION_LABELS.items()
+            if not isinstance(questions.get(key), Mapping)
+            or questions[key].get("status") == "not_started"
+        ]
+        if missing_lanes:
+            gaps.append("尚未启动的专题：" + "、".join(missing_lanes))
+        review_lanes = [
+            label
+            for key, label in _RESEARCH_CASE_QUESTION_LABELS.items()
+            if isinstance(questions.get(key), Mapping)
+            and questions[key].get("status") == "needs_human_review"
+        ]
+        if review_lanes:
+            gaps.append("仍待人工复核的专题：" + "、".join(review_lanes))
+        incomplete_blocked_lanes = [
+            label
+            for key, label in _RESEARCH_CASE_QUESTION_LABELS.items()
+            if isinstance(questions.get(key), Mapping)
+            and questions[key].get("status") == "blocked"
+            and (
+                not str(questions[key].get("summary", "")).strip()
+                or not str(questions[key].get("next_action", "")).strip()
+            )
+        ]
+        if incomplete_blocked_lanes:
+            gaps.append(
+                "阻塞专题尚未说明证据缺口与下一步："
+                + "、".join(incomplete_blocked_lanes)
+            )
+        lane_statuses = [
+            questions[key].get("status")
+            for key in _RESEARCH_CASE_QUESTION_LABELS
+            if isinstance(questions.get(key), Mapping)
+        ]
+        if lane_statuses and all(status == "blocked" for status in lane_statuses):
+            gaps.append("五个专题不能全部阻塞；至少需要推进一项专题研究")
+
+    brief = case.get("case_brief", {})
+    if isinstance(brief, Mapping):
+        if not str(brief.get("primary_question", "")).strip():
+            gaps.append("尚未形成当前最值得核验的问题")
+        evidence = brief.get("evidence", {})
+        if not isinstance(evidence, Mapping) or not str(
+            evidence.get("summary", "")
+        ).strip():
+            gaps.append("尚未形成带引用的证据摘要")
+        case_evidence_ids = {
+            item.get("evidence_id")
+            for item in case.get("evidence", [])
+            if isinstance(item, Mapping)
+            and isinstance(item.get("evidence_id"), str)
+        }
+        brief_evidence_ids = (
+            evidence.get("evidence_ids", [])
+            if isinstance(evidence, Mapping)
+            else []
+        )
+        if not isinstance(brief_evidence_ids, list) or not any(
+            isinstance(evidence_id, str)
+            and evidence_id in case_evidence_ids
+            for evidence_id in brief_evidence_ids
+        ):
+            gaps.append("至少需要一条通过案件契约校验且可追溯来源的证据引用")
+        next_action = brief.get("next_action", {})
+        if not isinstance(next_action, Mapping) or not str(
+            next_action.get("action", "")
+        ).strip():
+            gaps.append("尚未登记下一步核验行动")
+
+    if any(
+        item.get("review_status") == "pending"
+        for collection in ("artifacts", "evidence", "hypotheses")
+        for item in case.get(collection, [])
+        if isinstance(item, Mapping)
+    ):
+        gaps.append("仍有产物、证据或研究假设等待人工复核")
+    return gaps
+
+
+def _render_research_case_export(case: Mapping[str, object]) -> None:
+    """Offer a formal, bounded workpaper only after the canonical gate opens."""
+    with st.container(border=True):
+        st.markdown("### 完整研究工作底稿")
+        st.write(
+            "这里导出的不是另一份摘要，而是当前研究案件的完整快照："
+            "五问、证据、矛盾、未知、假设、页码、复核状态、分析产物和"
+            "审计日志会保留在同一份底稿中。"
+        )
+        if case.get("readiness") != "ready_to_export":
+            st.button(
+                "案件完整后开放正式底稿导出",
+                disabled=True,
+                width="stretch",
+                key=f"case_export_locked_{case['case_id']}",
+            )
+            gaps = _research_case_export_gaps(case)
+            if gaps:
+                st.caption("当前还需要：" + "；".join(gaps) + "。")
+            st.info(
+                "系统不会把未完成案件包装成正式底稿。你仍可继续使用"
+                "下方专项工具补证。"
+            )
+            return
+
+        try:
+            workpaper = build_research_case_workpaper(case)
+            workpaper_json = serialise_research_case_workpaper(workpaper)
+            workpaper_html = render_research_case_workpaper_html(workpaper)
+        except (ResearchCaseWorkpaperError, ResearchCaseValidationError) as error:
+            st.error(f"正式底稿生成失败：{error}")
+            return
+
+        company = case["company"]
+        file_stem = (
+            f"WFZ_{company['code']}_{case['scope']['effective_market_date']}_"
+            f"研究案件_r{case['revision']}"
+        )
+        st.success(
+            "案件已通过完整性门槛。下载内容保留来源与人工复核状态，"
+            "不嵌入源PDF，也不把AI摘要自动视为事实。"
+        )
+        json_column, html_column = st.columns(2)
+        json_column.download_button(
+            "下载完整底稿（JSON）",
+            data=workpaper_json,
+            file_name=f"{file_stem}.json",
+            mime="application/json",
+            width="stretch",
+            key=f"case_export_json_{case['case_id']}_{case['revision']}",
+        )
+        html_column.download_button(
+            "下载可阅读底稿（HTML）",
+            data=workpaper_html,
+            file_name=f"{file_stem}.html",
+            mime="text/html",
+            width="stretch",
+            key=f"case_export_html_{case['case_id']}_{case['revision']}",
+        )
+
+
+def render_research_workspace_page() -> None:
+    """Make one research case the front door to all specialist tools."""
+    apply_product_theme()
+    _sync_research_case_store()
+    show_compact_page_header(
+        "研究案件工作台 · RESEARCH CASE WORKSPACE",
+        "一个公司，一份持续更新的证据底稿",
+        "输入公司后，先回答最值得核验的问题、已有证据、证据矛盾、"
+        "未知事项和下一步行动；专项工具只负责向同一案件补充证据。",
+    )
+    _render_research_case_storage_notice()
+
+    store = _research_case_store_snapshot()
+    cases = store["cases"]
+    active_case = _active_research_case(store)
+    active_company = _selected_company()
+
+    if cases:
+        case_options = {
+            _research_case_display_label(case): case
+            for case in cases.values()
+            if case["lifecycle"] == "active"
+        }
+        if case_options:
+            selected_label = st.selectbox(
+                "切换本机研究案件",
+                options=list(case_options),
+                index=(
+                    list(case_options.values()).index(active_case)
+                    if active_case in case_options.values()
+                    else 0
+                ),
+                key="workspace_case_switcher",
+            )
+            selected_case = case_options[selected_label]
+            if (
+                active_case is not None
+                and selected_case["case_id"] != active_case["case_id"]
+                and st.button(
+                    "切换到所选案件",
+                    width="stretch",
+                    disabled=not _research_case_write_ready(),
+                    key="workspace_activate_case",
+                )
+            ):
+                try:
+                    _activate_research_case_from_workspace(store, selected_case)
+                except (
+                    ResearchCaseCapacityError,
+                    ResearchCaseConflictError,
+                    ResearchCaseValidationError,
+                ) as error:
+                    st.error(f"案件切换失败：{error}")
+                else:
+                    st.rerun()
+
+    if active_case is not None:
+        _render_research_case_brief(active_case)
+        _render_saved_public_financial_history(active_case)
+        _render_saved_financial_comparisons(active_case)
+        _render_research_case_export(active_case)
+        case_company = active_case["company"]
+        if (
+            active_company is None
+            or active_company["canonical_code"]
+            != case_company["canonical_code"]
+        ):
+            _store_selected_company(
+                build_company_identity(
+                    str(case_company["code"]),
+                    str(case_company["name"]),
+                )
+            )
     else:
-        _show_company_banner(company)
+        st.info(
+            "尚未建立研究案件。先输入公司名称或股票代码；创建后，"
+            "后续综合研究与专项核验会回到同一份案件。"
+        )
+
+    searched_company = _render_company_search(
+        key_prefix="workspace",
+        navigate_on_success=False,
+    )
+    if searched_company is not None:
+        active_current_code = (
+            active_case.get("company", {}).get("canonical_code")
+            if active_case is not None
+            and active_case.get("scope", {}).get("mode") == "current"
+            else None
+        )
+        if active_current_code != searched_company["canonical_code"]:
+            if st.button(
+                f"为 {searched_company['name']} 建立研究案件",
+                type="primary",
+                width="stretch",
+                disabled=not _research_case_write_ready(),
+                key=f"workspace_create_case_{searched_company['canonical_code']}",
+            ):
+                try:
+                    updated, _ = _ensure_company_research_case(
+                        store,
+                        searched_company,
+                    )
+                    _stage_research_case_store(
+                        updated,
+                        base_store_revision=int(store["store_revision"]),
+                    )
+                except (
+                    ResearchCaseCapacityError,
+                    ResearchCaseConflictError,
+                    ResearchCaseValidationError,
+                ) as error:
+                    st.error(f"案件创建失败：{error}")
+                else:
+                    st.rerun()
 
     historical_mission_pending = (
         st.session_state.get("historical_game_mission_id")
@@ -12613,42 +13873,36 @@ def render_research_workspace_page() -> None:
     )
     if historical_mission_pending:
         st.info(
-            "开放调查仍在进行：请在下方研究集合中寻找一项能够冻结过去"
+            "开放调查仍在进行：请在专项工具中寻找一项能够冻结过去"
             "信息截止线、并区分证据公开日与行情交易日的工具。"
             "系统不会替你标出入口。"
         )
 
-    st.markdown(
-        '<div class="wfz-section-label">'
-        "五个研究集合 · FIVE CONNECTED COLLECTIONS"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-    st.write(
-        "推荐主线：**选择标的 → 综合研究 → 发现问题 → 专项核验 → "
-        "形成可复核底稿**。每个专项页面都服务于这条主线，而不是独立存在。"
-    )
-
-    for row_start in range(0, len(_RESEARCH_COLLECTIONS), 2):
-        workspace_columns = st.columns(2)
-        for offset, collection in enumerate(
-            _RESEARCH_COLLECTIONS[row_start : row_start + 2]
-        ):
-            with workspace_columns[offset].container(border=True):
-                st.markdown(f"### {collection['title']}")
-                st.write(collection["description"])
-                st.caption(f"建议顺序：{collection['flow']}。")
-                for label, target in collection["tools"]:
-                    if st.button(
-                        label,
-                        width="stretch",
-                        key=f"workspace_to_{target}",
-                    ):
-                        _switch_page(target)
+    with st.expander("打开全部专项研究工具", expanded=active_case is None):
+        st.write(
+            "推荐主线：**选择标的 → 综合研究 → 发现问题 → 专项核验 → "
+            "形成可复核底稿**。工具不是相互独立的产品。"
+        )
+        for row_start in range(0, len(_RESEARCH_COLLECTIONS), 2):
+            workspace_columns = st.columns(2)
+            for offset, collection in enumerate(
+                _RESEARCH_COLLECTIONS[row_start : row_start + 2]
+            ):
+                with workspace_columns[offset].container(border=True):
+                    st.markdown(f"### {collection['title']}")
+                    st.write(collection["description"])
+                    st.caption(f"建议顺序：{collection['flow']}。")
+                    for label, target in collection["tools"]:
+                        if st.button(
+                            label,
+                            width="stretch",
+                            key=f"workspace_to_{target}",
+                        ):
+                            _switch_page(target)
 
     st.warning(
-        "各集合用于组织研究流程，不代表评分、选股结果或买卖建议。"
-        "如果证据不足，专项页面会保留缺口并建议下一项核验任务。"
+        "研究案件组织证据与核验步骤，不生成选股评分，不预测股价，"
+        "也不构成买卖建议。"
     )
     show_product_footer()
 
@@ -12666,6 +13920,35 @@ def _evidence_checkpoint_for(
         ):
             return checkpoint
     return None
+
+
+def _research_case_evidence_checkpoint_for(
+    company: CompanyIdentity,
+) -> str | None:
+    """Return the checkpoint from the current case selected by writeback."""
+    store = _research_case_store_snapshot()
+    cases = store.get("cases", {})
+    if not isinstance(cases, Mapping):
+        return None
+    candidates = [
+        case
+        for case in cases.values()
+        if isinstance(case, Mapping)
+        and case.get("lifecycle") == "active"
+        and case.get("scope", {}).get("mode") == "current"
+        and case.get("company", {}).get("canonical_code")
+        == company["canonical_code"]
+    ]
+    if not candidates:
+        return None
+    chosen = max(candidates, key=lambda item: str(item.get("updated_at", "")))
+    tracking = chosen.get("tracking", {})
+    checked_at = (
+        tracking.get("evidence_checked_at")
+        if isinstance(tracking, Mapping)
+        else None
+    )
+    return checked_at if isinstance(checked_at, str) else None
 
 
 def _show_evidence_delta_review(review: EvidenceDeltaReview) -> None:
@@ -12747,15 +14030,93 @@ def _show_evidence_delta_review(review: EvidenceDeltaReview) -> None:
     )
 
 
+def _write_evidence_delta_to_research_case(
+    company: CompanyIdentity,
+    review: Mapping[str, object],
+) -> None:
+    """Write one verified official-announcement window into the same case."""
+    if not _research_case_write_ready():
+        st.session_state["_wfz_evidence_delta_case_writeback_error"] = (
+            "本机案件档案尚未完成读取或上一项更新仍在保存；"
+            "为防止覆盖进度，本次公告结果没有写入案件。"
+        )
+        return
+
+    original_store = _research_case_store_snapshot()
+    try:
+        working_store, case = _ensure_company_research_case(
+            original_store,
+            company,
+        )
+        emitted_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        patch = build_evidence_delta_research_case_patch(
+            case,
+            review,
+            emitted_at=emitted_at,
+        )
+        has_written_evidence = bool(patch.get("evidence"))
+        already_applied = patch["patch_id"] in case["applied_patch_ids"]
+        updated_store = _reduce_research_case_command(
+            working_store,
+            "apply_patch",
+            patch=patch,
+        )
+        if updated_store != original_store:
+            _stage_research_case_store(
+                updated_store,
+                base_store_revision=int(original_store["store_revision"]),
+            )
+    except (
+        KeyError,
+        TypeError,
+        ValueError,
+        ResearchCaseCapacityError,
+        ResearchCaseConflictError,
+        ResearchCaseValidationError,
+    ) as error:
+        st.session_state["_wfz_evidence_delta_case_writeback_error"] = str(
+            error
+        )
+        return
+
+    if already_applied:
+        message = "这次公告窗口已经存在于同一份研究案件，没有重复写入。"
+    elif has_written_evidence:
+        message = (
+            "官方公告增量已写入同一份研究案件；标题分类只安排阅读优先级，"
+            "不会被当成利好、利空或价格判断。"
+        )
+    else:
+        message = (
+            "本次空窗口已作为待核验状态写入研究案件；"
+            "系统没有把“未取得公告”伪装成“期间没有事项”。"
+        )
+    st.session_state["_wfz_evidence_delta_case_writeback_notice"] = message
+
+
 def render_evidence_delta_page() -> None:
     """Compare official disclosures with a device-local research checkpoint."""
     apply_product_theme()
+    _sync_research_case_store()
     show_compact_page_header(
         "03 / 证据增量 · EVIDENCE DELTA",
         "证据增量 Agent",
         "再次研究同一家公司时，只核验上次检查后出现的官方披露，并把"
         "变化归入财务、经营、资本运作和治理风险等研究问题。",
     )
+    _render_research_case_storage_notice()
+    case_error = st.session_state.pop(
+        "_wfz_evidence_delta_case_writeback_error",
+        None,
+    )
+    if isinstance(case_error, str) and case_error:
+        st.error(f"写入研究案件失败：{case_error}")
+    case_notice = st.session_state.pop(
+        "_wfz_evidence_delta_case_writeback_notice",
+        None,
+    )
+    if isinstance(case_notice, str) and case_notice:
+        st.success(case_notice)
     company = _selected_company()
     if company is None:
         st.warning("请先选择要持续跟踪的上市公司。")
@@ -12769,26 +14130,53 @@ def render_evidence_delta_page() -> None:
 
     _show_company_banner(company)
     checkpoint = _evidence_checkpoint_for(company)
-    checked_at = (
+    browser_checked_at = (
         checkpoint.get("evidence_checked_at")
         if checkpoint is not None
         else None
     )
+    case_checked_at = _research_case_evidence_checkpoint_for(company)
+    has_case_for_company = any(
+        isinstance(case, Mapping)
+        and case.get("lifecycle") == "active"
+        and case.get("scope", {}).get("mode") == "current"
+        and case.get("company", {}).get("canonical_code")
+        == company["canonical_code"]
+        for case in _research_case_store_snapshot().get("cases", {}).values()
+    )
+    if has_case_for_company:
+        checked_at = case_checked_at
+        checkpoint_source = "研究案件"
+    elif _research_case_write_ready():
+        # A newly created case must establish its own auditable baseline.
+        # A legacy browser-only checkpoint cannot silently become case data.
+        checked_at = None
+        checkpoint_source = "新研究案件"
+    else:
+        checked_at = browser_checked_at
+        checkpoint_source = "当前浏览器"
+    today = _utc_today()
     window = build_evidence_window(
         checked_at,
-        as_of_date=date.today(),
+        as_of_date=today,
     )
     if checked_at:
-        st.success(f"本机上次证据核验时间：{checked_at}")
+        st.success(f"{checkpoint_source}上次证据核验时间：{checked_at}")
         st.caption(
             "为了避免漏掉上次核验当天晚些时候发布的公告，本次会重新包含"
             "该日期，并把这些记录标为“同日待复核”。"
         )
     else:
         st.info(
-            "当前浏览器还没有这家公司的证据基准。首次运行会核验最近30天，"
-            "成功后可保存为下次比较起点。"
+            f"{checkpoint_source}还没有这家公司的证据基准。"
+            "首次运行会核验最近30天，"
+            "成功写入案件后会自动成为下次比较起点。"
         )
+        if browser_checked_at and _research_case_write_ready():
+            st.caption(
+                "检测到旧版浏览器检查点，但它没有案件审计记录。"
+                "为避免静默跳过公告，新研究案件会重新建立最近30天基准。"
+            )
 
     notice = st.session_state.pop("_wfz_evidence_checkpoint_notice", None)
     if isinstance(notice, str):
@@ -12813,7 +14201,7 @@ def render_evidence_delta_page() -> None:
                     company,
                     announcements.to_dict("records"),
                     window=window,
-                    generated_on=date.today(),
+                    generated_on=today,
                 )
                 del announcements
                 gc.collect()
@@ -12822,12 +14210,32 @@ def render_evidence_delta_page() -> None:
             st.info("系统不会用新闻摘要、历史缓存或AI猜测填补这次失败。")
         else:
             st.session_state[result_key] = review
+            _write_evidence_delta_to_research_case(company, review)
+
+            case_error = st.session_state.pop(
+                "_wfz_evidence_delta_case_writeback_error",
+                None,
+            )
+            if isinstance(case_error, str) and case_error:
+                st.error(f"写入研究案件失败：{case_error}")
+            case_notice = st.session_state.pop(
+                "_wfz_evidence_delta_case_writeback_notice",
+                None,
+            )
+            if isinstance(case_notice, str) and case_notice:
+                st.success(case_notice)
 
     review = st.session_state.get(result_key)
     if isinstance(review, dict):
         _show_evidence_delta_review(review)  # type: ignore[arg-type]
         if st.button(
-            "保存本次成功核验为下次基准",
+            "返回研究案件查看本次更新",
+            width="stretch",
+            key=f"evidence_delta_return_to_case_{company['canonical_code']}",
+        ):
+            _switch_page("workspace")
+        if st.button(
+            "另存当前浏览器兼容基准",
             width="stretch",
             key=f"save_evidence_delta_{company['canonical_code']}",
         ):
@@ -12836,7 +14244,8 @@ def render_evidence_delta_page() -> None:
                 company,
             )
             st.session_state["_wfz_evidence_checkpoint_notice"] = (
-                "已请求把本次成功核验时间保存到当前浏览器；页面刷新后生效。"
+                "已请求把本次核验时间另存到当前浏览器的兼容档案；"
+                "研究案件自己的检查点已由案件流程独立维护。"
             )
             st.rerun()
 
@@ -13206,8 +14615,8 @@ def render_company_research_page() -> None:
     """Render company overview, market metrics, and official dynamics."""
     apply_product_theme()
     show_compact_page_header(
-        "01 / 公司研究中心 · COMPANY RESEARCH",
-        "公司研究中心",
+        "01 / 公司证据工作台 · COMPANY EVIDENCE",
+        "公司证据工作台",
         "一个页面查看上市公司身份、市场概览、官方动态和最新年报入口。",
     )
     company = _selected_company()
@@ -13432,7 +14841,7 @@ def render_market_page() -> None:
     )
     company = _selected_company()
     if company is None:
-        st.warning("请先在上市公司研究中枢选择一家中国上市公司。")
+        st.warning("请先在研究案件中选择一家中国上市公司。")
         _render_company_search(
             key_prefix="market",
             navigate_on_success=False,
@@ -13701,7 +15110,7 @@ def render_volume_turnover_page() -> None:
     )
     company = _selected_company()
     if company is None:
-        st.warning("请先在上市公司研究中枢选择一家中国上市公司。")
+        st.warning("请先在研究案件中选择一家中国上市公司。")
         _render_company_search(
             key_prefix="volume_turnover",
             navigate_on_success=False,
@@ -14096,7 +15505,7 @@ def render_limit_up_board_page() -> None:
                 f"涨停统计：{row['limit_statistics'] or '数据不足'}。"
             )
             if st.button(
-                "进入该公司研究中心",
+                "进入该公司专项研究",
                 width="stretch",
                 key=(
                     f"limit_up_to_company_{snapshot['trade_date']}_"
@@ -14575,7 +15984,7 @@ def render_market_anomaly_page() -> None:
     )
     company = _selected_company()
     if company is None:
-        st.warning("请先在上市公司研究中枢选择一家中国上市公司。")
+        st.warning("请先在研究案件中选择一家中国上市公司。")
         _render_company_search(
             key_prefix="anomaly",
             navigate_on_success=False,
@@ -14998,16 +16407,94 @@ def _show_verified_financial_history(
     )
 
 
+def _write_historical_snapshot_to_research_case(
+    company: CompanyIdentity,
+    snapshot: Mapping[str, object],
+    evidence_result: Mapping[str, object] | None,
+) -> None:
+    """Write one explicitly locked Historical Lens snapshot to its case."""
+    if not _research_case_write_ready():
+        st.session_state["_wfz_historical_case_writeback_error"] = (
+            "本机案件档案尚未完成读取或上一项更新仍在保存；"
+            "为防止覆盖进度，本次没有写入。"
+        )
+        return
+
+    try:
+        requested_raw = snapshot["requested_date"]
+        requested = (
+            requested_raw
+            if isinstance(requested_raw, date)
+            else date.fromisoformat(str(requested_raw))
+        )
+        original_store = _research_case_store_snapshot()
+        working_store, case = _ensure_company_research_case(
+            original_store,
+            company,
+        )
+        emitted_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        patch = build_historical_lens_case_patch(
+            case,
+            snapshot,
+            evidence_result,
+            patch_id=(
+                f"historical:{company['canonical_code']}:"
+                f"{requested.isoformat()}:{uuid4().hex}"
+            ),
+            emitted_at=emitted_at,
+        )
+        already_applied = patch["patch_id"] in case["applied_patch_ids"]
+        updated_store = _reduce_research_case_command(
+            working_store,
+            "apply_patch",
+            patch=patch,
+        )
+        if updated_store != original_store:
+            _stage_research_case_store(
+                updated_store,
+                base_store_revision=int(original_store["store_revision"]),
+            )
+    except (
+        KeyError,
+        TypeError,
+        ValueError,
+        ResearchCaseCapacityError,
+        ResearchCaseConflictError,
+        ResearchCaseValidationError,
+    ) as error:
+        st.session_state["_wfz_historical_case_writeback_error"] = str(error)
+        return
+
+    official_count = len(
+        evidence_result.get("accepted", [])
+        if isinstance(evidence_result, Mapping)
+        else []
+    )
+    if already_applied:
+        notice = (
+            f"{requested.isoformat()} 的相同历史快照已经存在，"
+            "本次没有重复增加摘要、审计记录或案件版本。"
+        )
+    else:
+        notice = (
+            f"已把 {requested.isoformat()} 的历史快照写回这家公司的同一份研究案件；"
+            f"本轮上游保留 {official_count} 条截止日前证据。"
+            "后来1、3、6个月表现没有写入案件。"
+        )
+    st.session_state["_wfz_historical_case_writeback_notice"] = notice
+
+
 def render_historical_lens_page() -> None:
     """Render a point-in-time research view without look-ahead information."""
     apply_product_theme()
+    _sync_research_case_store()
     show_compact_page_header(
         "07 / 历史回看 · HISTORICAL LENS",
         "Historical Lens｜回到当时再研究",
         "冻结历史信息截止线，先查看当时已经公开的证据，"
         "再单独揭示后来1、3、6个月的市场表现。",
     )
-    today = date.today()
+    today = _utc_today()
     deep_link = parse_historical_deep_link(
         st.query_params,
         today=today,
@@ -15183,12 +16670,15 @@ def render_historical_lens_page() -> None:
             "交易日；证据仍按真实公开日期过滤。"
         ),
     )
-    st.button(
+    historical_snapshot_locked = st.button(
         "锁定这个时点并生成研究快照",
         type="primary",
         width="stretch",
         key=f"{date_input_key}_submit",
+        disabled=not _research_case_write_ready(),
     )
+    if not _research_case_write_ready():
+        st.caption("正在读取本机研究案件；读取完成后才允许锁定并保存时点。")
     st.caption(
         f"当前镜头日期：{selected_date.isoformat()}｜可调查范围："
         f"{timeline_min.isoformat()} — {timeline_max.isoformat()}"
@@ -15302,6 +16792,7 @@ def render_historical_lens_page() -> None:
     st.subheader("当时已经公开的官方证据")
     announcement_start = selected_date - timedelta(days=550)
     announcement_end = min(today, selected_date + timedelta(days=180))
+    evidence_result = None
     try:
         announcements = load_company_announcements(
             company["code"],
@@ -15394,6 +16885,31 @@ def render_historical_lens_page() -> None:
                 "报告期早于截止日并不代表当时已经知道；"
                 "系统以公开发布日期作为准入条件。"
             )
+
+    if historical_snapshot_locked:
+        _write_historical_snapshot_to_research_case(
+            company,
+            snapshot,
+            evidence_result,
+        )
+    historical_writeback_error = st.session_state.pop(
+        "_wfz_historical_case_writeback_error",
+        None,
+    )
+    if isinstance(historical_writeback_error, str):
+        st.error(historical_writeback_error)
+    historical_writeback_notice = st.session_state.pop(
+        "_wfz_historical_case_writeback_notice",
+        None,
+    )
+    if isinstance(historical_writeback_notice, str):
+        st.success(historical_writeback_notice)
+        if st.button(
+            "返回研究案件，查看五项结论更新",
+            width="stretch",
+            key=f"historical_return_to_case_{selected_date.isoformat()}",
+        ):
+            _switch_page("workspace")
 
     if historical_mission_active:
         mission_event = next(
@@ -15642,10 +17158,30 @@ def render_methodology_page() -> None:
     """Explain source priority, calculation boundaries, and known limits."""
     apply_product_theme()
     show_compact_page_header(
-        "12 / 方法与审计 · METHODOLOGY",
-        "方法、证据与产品边界",
-        "公开说明系统如何获取资料、计算指标、使用AI以及处理不确定性。",
+        "12 / 负责任 AI 与控制 · RESPONSIBLE AI & CONTROLS",
+        "负责任 AI、方法与控制",
+        "公开说明数字由谁计算、证据如何追溯、历史信息怎样隔离，"
+        "以及自动流程在什么情况下必须停止并交给人工复核。",
     )
+    with st.container(border=True):
+        st.subheader("五项不可绕过的控制")
+        st.markdown(
+            "- **数字控制**：财务数字、比率和市场指标由 Python 计算；"
+            "AI 不得编造、补零或重新计算关键数字。\n"
+            "- **来源控制**：年报数字保留原值、单位、会计口径、官方链接"
+            "和 PDF 页码；缺少来源时不升级为已核验证据。\n"
+            "- **时间控制**：Historical Lens 只接收截止日当时已经公开的"
+            "证据，后来行情与当时判断分开计算。\n"
+            "- **失败控制**：数据源、PDF 或校验失败会明确显示；系统不拿"
+            "旧样例、新闻摘要或 AI 猜测填补。\n"
+            "- **人工控制**：自动提取只生成候选。用户必须确认、修改或"
+            "驳回关键字段，才能进入可导出的研究底稿。"
+        )
+        st.caption(
+            "当前 PDF 资源边界：手工上传 32 MB；经官方来源校验的按需报告"
+            " 45 MB；单进程一次只解析一份，超过 1,000 页或 800 万字符"
+            "时整份停止。"
+        )
     with st.container(border=True):
         st.subheader("数据来源优先级")
         st.markdown(
@@ -15695,6 +17231,7 @@ def render_methodology_page() -> None:
 def render_financial_trend_page() -> None:
     """Render audited cross-year trends for supported A-share cases."""
     apply_product_theme()
+    _sync_research_case_store()
     show_compact_page_header(
         "09 / 财务趋势实验室 · FINANCIAL TREND LAB",
         "财务趋势实验室",
@@ -15723,35 +17260,19 @@ def render_financial_trend_page() -> None:
         )
 
     _show_company_banner(company)
+    with st.expander("搜索其他A股公司"):
+        searched = _render_company_search(key_prefix="financial_trend_search", navigate_on_success=False)
+        if searched and searched["code"] != company["code"]:
+            st.rerun()
     if company["code"] not in case_by_code:
         covered_names = "、".join(
             case["company_name"] for case in verified_cases
         )
         st.info(
             f"独立的多年年报页码基准目前覆盖{covered_names}。"
-            "这是因为每个年度都需要逐页核验，并处理后来发生的追溯调整；"
-            "其他公司不会用未经核验的网络数字填补。"
+            "当前公司可在下方使用多年公开源分析；不会把公开源候选升级为已核验数据。"
         )
-        fallback_options = {
-            f"{case['company_name']}｜{case['canonical_code']}": case
-            for case in verified_cases
-        }
-        fallback_label = st.selectbox(
-            "选择已核验公司",
-            options=list(fallback_options),
-            key="verified_financial_fallback_selector",
-        )
-        if st.button(
-            "载入选择的已核验公司",
-            type="primary",
-            width="stretch",
-        ):
-            _store_selected_company(
-                _company_identity_from_financial_case(
-                    fallback_options[fallback_label]
-                )
-            )
-            st.rerun()
+        _render_public_financial_panel(company, key_prefix="public_trend")
         show_product_footer()
         return
 
@@ -15874,18 +17395,31 @@ def render_financial_trend_page() -> None:
     st.warning(review["limitation"])
 
     _show_verified_financial_history(company, date.today())
+    with st.expander("补充查询当前公开财务版本（与已核验基准分开）"):
+        _render_public_financial_panel(company, key_prefix="public_trend")
     show_product_footer()
 
 
 def render_financial_anomaly_explanation_page() -> None:
     """Explain one verified financial divergence through a cash-flow bridge."""
     apply_product_theme()
+    _sync_research_case_store()
     show_compact_page_header(
         "11 / 财务异常解释 · FINANCIAL EXPLANATION AGENT",
         "财务异常解释 Agent",
         "从“指标为什么不同向”出发，用已核验年报逐项勾稽；"
         "已证实的算术桥接与待核查的业务原因分开展示。",
     )
+    current_company = _selected_company()
+    if current_company is not None:
+        _show_company_banner(current_company)
+        _render_public_financial_panel(current_company, key_prefix="public_anomaly")
+        st.divider()
+    else:
+        st.info("先选择任意A股公司可进行公开财务方向检查；下方保留已核验的现金流桥案例。")
+        if _render_company_search(key_prefix="financial_anomaly_search", navigate_on_success=False):
+            st.rerun()
+    st.subheader("已核验现金流桥 · 参考案例")
 
     try:
         reviews = []
@@ -16058,6 +17592,11 @@ def render_cross_company_comparison_page() -> None:
         "在共同财务年度下比较已核验的规模、增长、盈利、经营现金和"
         "负债结构，同时保留每家公司的官方年报页码。",
     )
+    mode = st.radio("比较数据范围", ["已核验案例", "任意A股公开数据（待核验）"], horizontal=True)
+    if mode == "任意A股公开数据（待核验）":
+        _render_public_company_comparison()
+        show_product_footer()
+        return
 
     try:
         catalog_audit = audit_financial_history_catalog()
@@ -16579,9 +18118,12 @@ def _process_onboarding_report(
     try:
         pdf_bytes = download_official_pdf(
             report["url"],
-            max_bytes=32 * 1024 * 1024,
+            max_bytes=ONBOARDING_PDF_MAX_BYTES,
         )
-        extracted_pages = extract_pdf_pages(pdf_bytes)
+        extracted_pages = extract_pdf_pages(
+            pdf_bytes,
+            max_bytes=ONBOARDING_PDF_MAX_BYTES,
+        )
         return build_candidate_report_result(
             company,
             report,
@@ -17089,9 +18631,394 @@ def _format_snapshot_pages(pages: object) -> str:
     return str(start) if start == end else f"{start}–{end}"
 
 
+def _snapshot_metric_source(metric: Mapping[str, object]) -> Mapping[str, object]:
+    """Return explicit provenance, including a safe legacy fallback."""
+    raw_source = metric.get("source")
+    if isinstance(raw_source, Mapping):
+        return raw_source
+    return {
+        "raw_current_value": None,
+        "raw_previous_value": None,
+        "original_unit": "",
+        "accounting_basis": "旧快照未保存原始口径，需重新生成",
+        "comparison_basis": "旧快照未保存比较口径",
+        "statement": str(metric.get("statement", "")),
+        "pages": metric.get("pages"),
+        "excerpt": "",
+        "excerpt_status": "unavailable_legacy",
+    }
+
+
+def _format_snapshot_original_value(value: object, unit: object) -> str:
+    if value is None:
+        return "原值未保存"
+    return f"{float(value):,.2f} {str(unit).strip()}".strip()
+
+
+def _financial_snapshot_review_for(
+    snapshot: Mapping[str, object],
+) -> dict[str, object]:
+    """Reuse only the review that belongs to this exact source PDF."""
+    stored = st.session_state.get(FINANCIAL_SNAPSHOT_REVIEW_SESSION_KEY)
+    if isinstance(stored, Mapping):
+        try:
+            validate_financial_snapshot_review(stored)
+        except FinancialSnapshotReviewError:
+            stored = None
+        else:
+            same_source = stored.get("source_fingerprint_sha256") == snapshot.get(
+                "source_fingerprint_sha256"
+            )
+            stored_company = stored.get("company")
+            snapshot_company = snapshot.get("company")
+            same_company = (
+                isinstance(stored_company, Mapping)
+                and isinstance(snapshot_company, Mapping)
+                and stored_company.get("canonical_code")
+                == snapshot_company.get("canonical_code")
+            )
+            if same_source and same_company:
+                return dict(stored)
+
+    review = build_financial_snapshot_review(snapshot)
+    st.session_state[FINANCIAL_SNAPSHOT_REVIEW_SESSION_KEY] = review
+    return review
+
+
+def _render_public_financial_reconciliation(snapshot: Mapping[str, object]) -> None:
+    """Offer source comparison without changing any human review decisions."""
+    company = snapshot["company"]
+    _render_public_financial_save_notice(company)
+    with st.expander("对照公开源与年报数字 · 查找需要复核的差异", expanded=False):
+        history = _matching_public_financial_history(company)
+        if history is None:
+            st.caption("当前没有同公司的当日公开财务数据；点击后取数，已有年报快照不会重新下载。")
+            if st.button("获取公开财务并对照此年报", key="snapshot_public_compare_fetch", width="stretch"):
+                try:
+                    history = load_public_financial_history(company["code"], company["name"], _utc_today().isoformat())
+                    _remember_public_financial_history(history)
+                except (DataSourceError, ValueError) as error:
+                    st.error(str(error))
+            if history is None:
+                return
+        try:
+            result = build_public_financial_reconciliation(history, snapshot)
+        except (ValueError, TypeError, KeyError) as error:
+            st.warning(f"暂不能对照：{error}")
+            return
+        st.caption(f"只对照 {result['report_year']} 年本期列｜公开源更新：{result['public_updated_date']}｜年报公告：{result['annual_published_date']}")
+        st.warning(result["limitation"])
+        labels = {"amount_close": "金额接近，口径待核验", "amount_difference": "金额有差异，需追查", "not_comparable": "数据不足，暂不可比"}
+        st.dataframe(pd.DataFrame([{
+            "指标": row["label"], "公开源（元）": row["public_yuan"],
+            "年报提取候选（元）": row["annual_candidate_yuan"],
+            "年报候选减公开值（元）": row["difference_yuan"], "状态": labels[row["status"]],
+            "PDF页码": _format_snapshot_pages(row["pages"]),
+        } for row in result["rows"]]), hide_index=True, width="stretch")
+        st.caption(result["tolerance_rule"])
+        st.link_button("公开源", result["public_source_url"])
+        st.link_button("官方年报", result["annual_source_url"])
+        for row in result["rows"]:
+            st.markdown(f"**{row['label']}：复核重点**")
+            st.write("；".join(row["verification_tasks"]))
+        st.info("请在下方逐项确认、修改或驳回年报数字。对照结果不会替你作出复核决定，也不会覆盖公开数据。")
+        if st.button("将两源对照保存到研究案件", key="snapshot_comparison_save", width="stretch", disabled=not _research_case_write_ready()):
+            try:
+                artifact_id = _write_public_reconciliation_to_research_case(company, history, snapshot)
+            except (ValueError, KeyError, TypeError) as error:
+                st.error(f"保存对照失败：{error}")
+            else:
+                st.session_state["_wfz_public_financial_save_notice"] = {"code": company["canonical_code"], "artifact_id": artifact_id}
+                st.rerun()
+
+        st.download_button("下载两源金额对照与复核清单（JSON）", json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False),
+            file_name=f"{company['code']}_{result['report_year']}_source_comparison.json", mime="application/json", key="snapshot_public_compare_download")
+
+
+def _render_financial_snapshot_review(
+    snapshot: Mapping[str, object],
+) -> dict[str, object]:
+    """Require an explicit decision on every extracted core number."""
+    review = _financial_snapshot_review_for(snapshot)
+    status_labels = {
+        "pending": "待复核",
+        "confirmed": "已确认原值",
+        "corrected": "已人工修改",
+        "rejected": "已驳回",
+    }
+    choice_to_action = {
+        "确认原值": "confirm",
+        "修改数值": "correct",
+        "驳回该项": "reject",
+    }
+    decision_to_choice = {
+        "confirmed": "确认原值",
+        "corrected": "修改数值",
+        "rejected": "驳回该项",
+    }
+
+    st.subheader("年报数字人工复核闭环")
+    st.write(
+        "自动提取不是人工核验。请逐项查看原值、原单位、合并口径、"
+        "PDF页码和原文摘录，再明确确认、修改或驳回。"
+    )
+    decided_count = sum(
+        metric["decision"] != "pending" for metric in review["metrics"]
+    )
+    st.progress(decided_count / len(review["metrics"]))
+    st.caption(f"已完成 {decided_count} / {len(review['metrics'])} 项复核。")
+
+    for metric in review["metrics"]:
+        source = metric["source"]
+        metric_key = str(metric["key"])
+        control_prefix = f"snapshot_review_{review['review_id']}_{metric_key}"
+        with st.container(border=True):
+            heading_columns = st.columns([4, 1])
+            heading_columns[0].markdown(f"#### {metric['label']}")
+            heading_columns[1].caption(status_labels[str(metric["decision"])])
+            value_columns = st.columns(3)
+            value_columns[0].metric(
+                "年报原值 / 原单位",
+                _format_snapshot_original_value(
+                    source.get("raw_current_value"),
+                    source.get("original_unit"),
+                ),
+            )
+            value_columns[1].metric(
+                "程序换算值",
+                _format_snapshot_amount(metric["original_value_yuan"]),
+            )
+            value_columns[2].metric(
+                "证据页码",
+                _format_snapshot_pages(source.get("pages")),
+            )
+            st.caption(
+                f"{source.get('accounting_basis', '口径待核验')}｜"
+                f"{source.get('statement', '')}｜"
+                f"比较口径：{source.get('comparison_basis', '待核验')}"
+            )
+            excerpt = str(source.get("excerpt", "")).strip()
+            if excerpt:
+                st.markdown("**对应原文短摘录**")
+                st.write(excerpt)
+            else:
+                st.warning(
+                    "这是一份旧快照，未保存对应原文摘录。请查看官方年报"
+                    "页码，或重新生成快照后再复核；系统不会伪造摘录。"
+                )
+
+            existing_choice = decision_to_choice.get(str(metric["decision"]))
+            choice = st.radio(
+                "本项人工决策",
+                options=list(choice_to_action),
+                index=(
+                    list(choice_to_action).index(existing_choice)
+                    if existing_choice in choice_to_action
+                    else None
+                ),
+                horizontal=True,
+                key=f"{control_prefix}_choice",
+            )
+            corrected_value = None
+            reason = ""
+            if choice == "修改数值":
+                proposed = metric.get("corrected_value_yuan")
+                if proposed is None:
+                    proposed = metric.get("original_value_yuan") or 0.0
+                corrected_value = st.number_input(
+                    "人工修改值（人民币元）",
+                    value=float(proposed),
+                    step=1.0,
+                    format="%.2f",
+                    key=f"{control_prefix}_corrected_value",
+                )
+                reason = st.text_area(
+                    "修改理由（必填，建议写明核对页码与口径）",
+                    value=str(metric.get("reason", "")),
+                    max_chars=240,
+                    key=f"{control_prefix}_correction_reason",
+                )
+            elif choice == "驳回该项":
+                reason = st.text_area(
+                    "驳回理由（必填）",
+                    value=str(metric.get("reason", "")),
+                    max_chars=240,
+                    key=f"{control_prefix}_rejection_reason",
+                )
+
+            if st.button(
+                "保存本项复核决定",
+                width="stretch",
+                key=f"{control_prefix}_save",
+            ):
+                if choice is None:
+                    st.warning("请先选择确认、修改或驳回。")
+                else:
+                    try:
+                        action = choice_to_action[choice]
+                        if action == "confirm":
+                            updated = confirm_snapshot_metric(review, metric_key)
+                        elif action == "correct":
+                            updated = correct_snapshot_metric(
+                                review,
+                                metric_key,
+                                float(corrected_value),
+                                reason,
+                            )
+                        else:
+                            updated = reject_snapshot_metric(
+                                review,
+                                metric_key,
+                                reason,
+                            )
+                    except FinancialSnapshotReviewError as error:
+                        st.error(str(error))
+                    else:
+                        st.session_state[
+                            FINANCIAL_SNAPSHOT_REVIEW_SESSION_KEY
+                        ] = updated
+                        st.rerun()
+    return review
+
+
+def _financial_review_is_in_research_case(
+    company: CompanyIdentity,
+    review_id: object,
+) -> bool:
+    """Detect the deterministic review artifact and prevent duplicate writes."""
+    if not isinstance(review_id, str) or not review_id:
+        return False
+    store = _research_case_store_snapshot()
+    cases = store.get("cases", {})
+    if not isinstance(cases, Mapping):
+        return False
+    for case in cases.values():
+        if not isinstance(case, Mapping):
+            continue
+        if case.get("lifecycle") != "active":
+            continue
+        if case.get("scope", {}).get("mode") != "current":
+            continue
+        if (
+            case.get("company", {}).get("canonical_code")
+            != company["canonical_code"]
+        ):
+            continue
+        for artifact in case.get("artifacts", []):
+            if not isinstance(artifact, Mapping):
+                continue
+            payload = artifact.get("payload", {})
+            review = payload.get("review", {}) if isinstance(payload, Mapping) else {}
+            if (
+                artifact.get("module") == "financial_snapshot"
+                and isinstance(review, Mapping)
+                and review.get("review_id") == review_id
+            ):
+                return True
+    return False
+
+
+def _write_financial_review_to_research_case(
+    company: CompanyIdentity,
+    workpaper: Mapping[str, object],
+) -> None:
+    """Write only a completed five-metric human review into the current case."""
+    if not _research_case_write_ready():
+        st.session_state["_wfz_financial_case_writeback_error"] = (
+            "本机案件档案尚未完成读取或上一项更新仍在保存；"
+            "为防止覆盖进度，本次没有写入。"
+        )
+        return
+
+    original_store = _research_case_store_snapshot()
+    try:
+        working_store, case = _ensure_company_research_case(
+            original_store,
+            company,
+        )
+        emitted_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        patch = build_financial_review_research_case_patch(
+            case,
+            workpaper,
+            patch_id=(
+                f"financial-review:{company['canonical_code']}:"
+                f"{uuid4().hex}"
+            ),
+            emitted_at=emitted_at,
+        )
+        updated_store = _reduce_research_case_command(
+            working_store,
+            "apply_patch",
+            patch=patch,
+        )
+        _stage_research_case_store(
+            updated_store,
+            base_store_revision=int(original_store["store_revision"]),
+        )
+    except (
+        KeyError,
+        TypeError,
+        ValueError,
+        FinancialSnapshotReviewError,
+        ResearchCaseCapacityError,
+        ResearchCaseConflictError,
+        ResearchCaseValidationError,
+    ) as error:
+        st.session_state["_wfz_financial_case_writeback_error"] = str(error)
+        return
+
+    st.session_state["_wfz_financial_case_writeback_notice"] = (
+        "年报五项人工复核结果已写入这家公司的同一份研究案件。"
+        "已确认或更正的数字成为可追溯证据；被驳回的数字仍是未知项，"
+        "不会进入有效比率或结论。"
+    )
+
+
+def _render_manual_snapshot_input(company) -> None:
+    """Provide a bounded explicit fallback when the official index is unavailable."""
+    code = company["canonical_code"]
+    with st.expander("官方接口不可用？手工上传公开年报继续核验"):
+        st.caption("上传中文完整年报（最多32 MB），填写对应官方原文链接和公告日期。不会自动认定文件与链接一致；请勿上传个人或机密资料。")
+        with st.form(f"manual_snapshot_form_{code}"):
+            uploaded = st.file_uploader("公开完整年度报告PDF", type=["pdf"], key=f"manual_snapshot_file_{code}")
+            year = st.number_input("报告财务年度", min_value=1990, max_value=_utc_today().year - 1, value=_utc_today().year - 1, step=1, key=f"manual_snapshot_year_{code}")
+            source = st.text_input("对应的官方原文链接", placeholder="https://static.cninfo.com.cn/.../report.PDF", key=f"manual_snapshot_url_{code}")
+            published = st.date_input("真实公告日期", value=None, max_value=_utc_today(), key=f"manual_snapshot_date_{code}")
+            confirmed = st.checkbox(f"我已核对：上传文件、官方链接及年度都属于 {company['name']}（{code}）", key=f"manual_snapshot_confirm_{code}")
+            submitted = st.form_submit_button("用上传年报生成候选快照", width="stretch")
+        if not submitted:
+            return
+        st.session_state.pop("on_demand_financial_snapshot", None)
+        st.session_state.pop(FINANCIAL_SNAPSHOT_REVIEW_SESSION_KEY, None)
+        pdf_bytes = None
+        try:
+            if uploaded is None:
+                raise ValueError("请先选择完整年度报告PDF。")
+            view = uploaded.getbuffer()
+            try:
+                if view.nbytes > MANUAL_PDF_MAX_BYTES:
+                    raise ValueError("手工上传PDF超过32 MB上限。")
+            finally:
+                view.release()
+            pdf_bytes = uploaded.getvalue()
+            with st.spinner("正在校验报告身份、年度及三张报表……"):
+                snapshot = build_manual_financial_snapshot(company, pdf_bytes, report_year=int(year),
+                    source_url=source, published_date=published, identity_confirmed=confirmed)
+            st.session_state["on_demand_financial_snapshot"] = snapshot
+            st.success("已生成手工年报候选；请继续查看两源对照并逐项人工复核。")
+        except (ValueError, TypeError, KeyError) as error:
+            st.error(str(error))
+        except MemoryError:
+            st.error("报告解析超过当前内存范围，已停止；请查看官方原文。")
+        finally:
+            pdf_bytes = None
+            gc.collect()
+
+
 def render_financial_snapshot_page() -> None:
     """Generate one temporary, page-linked snapshot for an A-share company."""
     apply_product_theme()
+    _sync_research_case_store()
     show_compact_page_header(
         "财务 / 按需快照 · ON-DEMAND FINANCIAL SNAPSHOT",
         "全市场按需财务快照 Agent",
@@ -17099,6 +19026,25 @@ def render_financial_snapshot_page() -> None:
         "完成三表勾稽、金额单位校验和核心指标计算；只保留小型结果，"
         "不预先囤积全市场PDF。",
     )
+    _render_research_case_storage_notice()
+    case_write_error = st.session_state.pop(
+        "_wfz_financial_case_writeback_error",
+        None,
+    )
+    if isinstance(case_write_error, str) and case_write_error:
+        st.error(f"写入研究案件失败：{case_write_error}")
+    case_write_notice = st.session_state.pop(
+        "_wfz_financial_case_writeback_notice",
+        None,
+    )
+    if isinstance(case_write_notice, str) and case_write_notice:
+        st.success(case_write_notice)
+        if st.button(
+            "返回研究案件查看更新",
+            width="stretch",
+            key="financial_review_return_to_case",
+        ):
+            _switch_page("workspace")
     company = _selected_company()
     if company is None:
         st.warning("请先输入要生成财务快照的A股公司名称或6位代码。")
@@ -17106,6 +19052,10 @@ def render_financial_snapshot_page() -> None:
             key_prefix="financial_snapshot",
             navigate_on_success=False,
         )
+        if company is not None:
+            # Remove the search form before creating upload widgets. Otherwise
+            # its disappearance on the next submit changes their layout IDs.
+            st.rerun()
     if company is None:
         show_product_footer()
         return
@@ -17130,6 +19080,7 @@ def render_financial_snapshot_page() -> None:
 
     if generate_requested:
         st.session_state.pop("on_demand_financial_snapshot", None)
+        st.session_state.pop(FINANCIAL_SNAPSHOT_REVIEW_SESSION_KEY, None)
         pdf_bytes: bytes | None = None
         extracted_pages: list[ExtractedPage] | None = None
         try:
@@ -17163,9 +19114,12 @@ def render_financial_snapshot_page() -> None:
                 # source files before parsing them.
                 pdf_bytes = download_official_pdf(
                     report["url"],
-                    max_bytes=45 * 1024 * 1024,
+                    max_bytes=SNAPSHOT_PDF_MAX_BYTES,
                 )
-                extracted_pages = extract_pdf_pages(pdf_bytes)
+                extracted_pages = extract_pdf_pages(
+                    pdf_bytes,
+                    max_bytes=SNAPSHOT_PDF_MAX_BYTES,
+                )
                 candidate_result = build_candidate_report_result(
                     company,
                     report,
@@ -17194,6 +19148,8 @@ def render_financial_snapshot_page() -> None:
             extracted_pages = None
             pdf_bytes = None
             gc.collect()
+
+    _render_manual_snapshot_input(company)
 
     stored_snapshot = st.session_state.get("on_demand_financial_snapshot")
     snapshot: OnDemandFinancialSnapshot | None = None
@@ -17235,6 +19191,8 @@ def render_financial_snapshot_page() -> None:
             width="stretch",
         )
         st.caption(snapshot["unit_note"])
+        if snapshot.get('extraction_note'):
+            st.warning(snapshot['extraction_note'])
 
     st.subheader("三张报表自动勾稽")
     statement_labels = {
@@ -17273,33 +19231,32 @@ def render_financial_snapshot_page() -> None:
         "变化率使用最新年报内的比较栏计算；利润表和现金流量表是同比，"
         "资产负债表是较上年末。比较栏可能包含追溯调整。"
     )
+    for metric in snapshot["metrics"]:
+        if metric.get("change_rate_note"):
+            st.caption(f"{metric['label']}：{metric['change_rate_note']}")
     st.subheader("确定性比例")
+    from src.financial_sector_policy import is_special_financial_template
+    bank_template = is_special_financial_template(snapshot['report'].get('statement_template'))
+    if bank_template:
+        st.info("金融机构报表使用专用处理规则；下列普通公司比例不适用，已停算。未通过自动检查的金额不会展示；行业监管指标需要另行核验。")
     ratio_columns = st.columns(3)
-    ratio_columns[0].metric(
-        "净利率（同一提取口径）",
-        _format_snapshot_ratio(snapshot["ratios"]["net_profit_margin"]),
-    )
-    ratio_columns[1].metric(
-        "经营现金流 / 净利润",
-        _format_snapshot_ratio(
-            snapshot["ratios"]["operating_cash_conversion"]
-        ),
-    )
-    ratio_columns[2].metric(
-        "资产负债率",
-        _format_snapshot_ratio(snapshot["ratios"]["liabilities_to_assets"]),
-    )
-    st.caption(
-        "公式：净利率 = 净利润 ÷ 营业收入；现金利润比 = 经营活动现金流量"
-        "净额 ÷ 净利润；资产负债率 = 负债总额 ÷ 资产总额。"
-    )
-    st.caption(
-        "如果分母为0、数值缺失或三表未全部通过，系统显示“待核验”，"
-        "不会用0代替缺失值。"
-    )
+    for column, label, key in zip(ratio_columns,
+        ("净利率（同一提取口径）", "经营现金流 / 净利润", "资产负债率"),
+        ("net_profit_margin", "operating_cash_conversion", "liabilities_to_assets")):
+        column.metric(label, "不适用" if bank_template else _format_snapshot_ratio(snapshot["ratios"][key]))
+    if not bank_template:
+        st.caption(
+            "公式：净利率 = 净利润 ÷ 营业收入；现金利润比 = 经营活动现金流量"
+            "净额 ÷ 净利润；资产负债率 = 负债总额 ÷ 资产总额。"
+        )
+        st.caption(
+            "比例仅在分母为正且金额可用时计算；净利润为零或亏损时不展示现金利润比。"
+            "数值缺失或三表未全部通过时也不计算，不会用0代替缺失值。"
+        )
 
     with st.expander("查看证据页码、文件指纹与使用边界"):
         for metric in snapshot["metrics"]:
+            source = _snapshot_metric_source(metric)
             st.write(
                 f"- {metric['label']}：本期 "
                 f"{_format_snapshot_amount(metric['current_yuan'])}｜比较栏 "
@@ -17307,36 +19264,185 @@ def render_financial_snapshot_page() -> None:
                 f"{metric['statement']} PDF第"
                 f"{_format_snapshot_pages(metric['pages'])}页"
             )
+            st.caption(
+                "年报原值："
+                f"{_format_snapshot_original_value(source.get('raw_current_value'), source.get('original_unit'))}｜"
+                f"{source.get('accounting_basis', '口径待核验')}"
+            )
         st.code(snapshot["source_fingerprint_sha256"], language=None)
         for limitation in snapshot["limitations"]:
             st.write(f"- {limitation}")
 
-    report_html = build_financial_snapshot_report_html(snapshot)
-    st.download_button(
-        "下载财务快照核验底稿（HTML）",
-        data=report_html,
-        file_name=(
-            f"{company['code']}_{company['name']}_财务快照_"
-            f"{report['report_year']}.html"
-        ),
-        mime="text/html",
-        width="stretch",
-    )
-    st.warning(
-        "自动提取候选，未经人工复核。请打开官方年报核对页码、合并口径"
-        "和单位后再使用；本页不构成投资建议。"
+    _render_public_financial_reconciliation(snapshot)
+    review = _render_financial_snapshot_review(snapshot)
+    if review["status"] == "pending_human_review":
+        st.button(
+            "完成五项人工复核后才能导出底稿",
+            disabled=True,
+            width="stretch",
+            key=f"snapshot_review_export_locked_{review['review_id']}",
+        )
+        st.warning(
+            "自动提取候选尚未完成逐项人工复核，因此当前没有可导出的"
+            "核验底稿。"
+        )
+    else:
+        try:
+            review_workpaper = build_exportable_review_workpaper(review)
+            review_json = serialise_review_workpaper(review_workpaper)
+        except FinancialSnapshotReviewError as error:
+            st.error(str(error))
+        else:
+            st.success(
+                "五项核心数字均已作出人工决定。被驳回的项目仍保持缺失，"
+                "不会被当作有效数值计算。"
+            )
+            st.download_button(
+                "下载人工复核财务底稿（JSON）",
+                data=review_json,
+                file_name=(
+                    f"{company['code']}_{company['name']}_年报人工复核底稿_"
+                    f"{report['report_year']}.json"
+                ),
+                mime="application/json",
+                width="stretch",
+                key=f"snapshot_review_export_{review['review_id']}",
+            )
+            review_already_written = _financial_review_is_in_research_case(
+                company,
+                review_workpaper.get("review_id"),
+            )
+            if review_already_written:
+                st.success("这次人工复核已经写入当前公司的研究案件。")
+                if st.button(
+                    "返回研究案件查看更新",
+                    width="stretch",
+                    key=f"snapshot_review_open_case_{review['review_id']}",
+                ):
+                    _switch_page("workspace")
+            else:
+                if st.button(
+                    "确认复核完成并写入研究案件",
+                    type="primary",
+                    width="stretch",
+                    disabled=not _research_case_write_ready(),
+                    key=f"snapshot_review_write_case_{review['review_id']}",
+                ):
+                    _write_financial_review_to_research_case(
+                        company,
+                        review_workpaper,
+                    )
+                    st.rerun()
+                if not _research_case_write_ready():
+                    st.caption(
+                        "正在读取或保存本机案件档案。为避免覆盖其他标签页的"
+                        "进度，写入按钮会在同步完成后开放。"
+                    )
+    st.caption(
+        "复核流程只保存结构化数字、短摘录、页码和PDF指纹；"
+        "不保存源PDF，也不构成投资建议。"
     )
     show_product_footer()
+
+
+def _write_annual_qa_to_research_case(
+    company: CompanyIdentity,
+    *,
+    report_name: str,
+    source_url: str,
+    source_fingerprint_sha256: str,
+    report_published_date: str,
+    question: str,
+    final_run: Mapping[str, object],
+    audit_record: Mapping[str, object],
+) -> None:
+    """Write one verifier-approved page-cited Q&A run into the same case."""
+    if not _research_case_write_ready():
+        st.session_state["_wfz_annual_qa_case_writeback_error"] = (
+            "本机案件档案尚未完成读取或上一项更新仍在保存；"
+            "为防止覆盖进度，本次问答没有写入案件。"
+        )
+        return
+
+    original_store = _research_case_store_snapshot()
+    try:
+        working_store, case = _ensure_company_research_case(
+            original_store,
+            company,
+        )
+        patch = build_annual_report_qa_case_patch(
+            case,
+            report_name=report_name,
+            source_url=source_url,
+            source_fingerprint_sha256=source_fingerprint_sha256,
+            report_published_date=report_published_date,
+            question=question,
+            final_run=final_run,
+            audit_record=audit_record,
+            emitted_at=datetime.now(timezone.utc).isoformat(
+                timespec="seconds"
+            ),
+        )
+        already_applied = patch["patch_id"] in case["applied_patch_ids"]
+        updated_store = _reduce_research_case_command(
+            working_store,
+            "apply_patch",
+            patch=patch,
+        )
+        if updated_store != original_store:
+            _stage_research_case_store(
+                updated_store,
+                base_store_revision=int(original_store["store_revision"]),
+            )
+    except (
+        KeyError,
+        TypeError,
+        ValueError,
+        ResearchCaseCapacityError,
+        ResearchCaseConflictError,
+        ResearchCaseValidationError,
+    ) as error:
+        st.session_state["_wfz_annual_qa_case_writeback_error"] = str(error)
+        return
+
+    st.session_state["_wfz_annual_qa_case_writeback_notice"] = (
+        "这次年报问答已经存在于同一份研究案件，没有重复写入。"
+        if already_applied
+        else (
+            "年报问答的官方原文短摘录、精确页码与文件指纹已写入同一份"
+            "研究案件；AI生成结论只作为分析输出，不会冒充已确认事实。"
+        )
+    )
 
 
 def render_annual_report_page() -> None:
     """Render the existing PDF evidence workflow as a dedicated subpage."""
     apply_product_theme()
+    _sync_research_case_store()
     show_compact_page_header(
         "08 / 年报与证据 · ANNUAL REPORT",
         "年报与证据分析",
         "上传公开年度报告，按页提取文字、计算财务指标并生成可追溯答案。",
     )
+    _render_research_case_storage_notice()
+    annual_case_error = st.session_state.pop(
+        "_wfz_annual_qa_case_writeback_error",
+        None,
+    )
+    if isinstance(annual_case_error, str) and annual_case_error:
+        st.error(f"写入研究案件失败：{annual_case_error}")
+    annual_case_notice = st.session_state.pop(
+        "_wfz_annual_qa_case_writeback_notice",
+        None,
+    )
+    if isinstance(annual_case_notice, str) and annual_case_notice:
+        st.success(annual_case_notice)
+        if st.button(
+            "返回研究案件查看本次更新",
+            width="stretch",
+            key="annual_qa_return_to_case",
+        ):
+            _switch_page("workspace")
     company = _selected_company()
     if company is not None:
         _show_company_banner(company)
@@ -17350,7 +19456,6 @@ def render_annual_report_page() -> None:
             _switch_page("financial_trend")
     show_chinese_user_guide()
 
-    automatic_report_bytes: bytes | None = None
     if company is not None:
         end_date = date.today()
         start_date = end_date - timedelta(days=550)
@@ -17390,27 +19495,20 @@ def render_annual_report_page() -> None:
                 )
 
             if auto_load_requested:
-                try:
-                    with st.spinner("正在从官方披露地址临时载入年报……"):
-                        automatic_report_bytes = load_official_annual_report(
-                            str(latest_report["url"])
-                        )
-                except (DataSourceError, ValueError) as error:
-                    st.error(str(error))
-                    st.info("请打开官方原文下载PDF，再使用下方上传入口。")
-                else:
-                    report_title = str(latest_report["title"]).replace(
-                        "/",
-                        "_",
-                    )
-                    st.session_state["automatic_annual_report"] = {
-                        "company_code": company["code"],
-                        "name": f"{company['code']}_{report_title}.pdf",
-                        "url": str(latest_report["url"]),
-                    }
-                    st.success(
-                        "官方年报已临时载入，正在进入原有证据分析流程。"
-                    )
+                report_title = str(latest_report["title"]).replace(
+                    "/",
+                    "_",
+                )
+                st.session_state["automatic_annual_report"] = {
+                    "company_code": company["code"],
+                    "name": f"{company['code']}_{report_title}.pdf",
+                    "url": str(latest_report["url"]),
+                    "published_date": latest_report["date"].isoformat(),
+                }
+                st.success(
+                    "已选择官方年报。系统会先复用本次会话已有的解析结果；"
+                    "只有首次分析才会下载原文。"
+                )
         else:
             st.info(
                 "当前没有找到可自动载入的完整年度报告，"
@@ -17433,8 +19531,69 @@ def render_annual_report_page() -> None:
     uploaded_report = st.file_uploader(
         "上传年度报告 PDF",
         type=["pdf"],
-        help="请使用公开年度报告，不要上传个人或机密财务资料。",
+        help=(
+            "请使用公开年度报告，不要上传个人或机密财务资料；"
+            "手工上传文件上限为 32 MB。"
+        ),
     )
+    report_max_bytes = MANUAL_PDF_MAX_BYTES
+    report_name: str | None = None
+    report_source_key: str | None = None
+    report_source_url: str | None = None
+    report_published_date: str | None = None
+    report_fingerprint_sha256: str | None = None
+    report_company_confirmed = False
+    report_bytes: bytes | None = None
+    manual_report_size: int | None = None
+    extracted_pages: list[ExtractedPage] | None = None
+
+    if uploaded_report is not None:
+        report_name = str(uploaded_report.name)
+        upload_view = uploaded_report.getbuffer()
+        try:
+            manual_report_size = upload_view.nbytes
+            report_fingerprint_sha256 = sha256(upload_view).hexdigest()
+            report_source_key = f"upload:{report_fingerprint_sha256}"
+        finally:
+            upload_view.release()
+        st.caption(
+            "手工上传仍可完成本页分析；如需把问答证据写入研究案件，"
+            "还需要公开原文链接和真实公告日期。"
+        )
+        manual_source_url = st.text_input(
+            "该报告的公开原文链接（写入案件时必填）",
+            placeholder="https://static.cninfo.com.cn/.../report.PDF",
+            key=(
+                "manual_annual_report_source_url_"
+                f"{report_fingerprint_sha256[:12]}"
+            ),
+        )
+        manual_published_date = st.date_input(
+            "该报告的公告日期（写入案件时必填）",
+            value=None,
+            key=(
+                "manual_annual_report_published_date_"
+                f"{report_fingerprint_sha256[:12]}"
+            ),
+        )
+        if manual_source_url.strip():
+            report_source_url = manual_source_url.strip()
+        if isinstance(manual_published_date, date):
+            report_published_date = manual_published_date.isoformat()
+        if company is not None:
+            report_company_confirmed = st.checkbox(
+                f"我已核对：这份报告属于 {company['name']} "
+                f"（{company['canonical_code']}）",
+                value=False,
+                key=(
+                    "manual_annual_report_company_confirmed_"
+                    f"{company['canonical_code']}_"
+                    f"{report_fingerprint_sha256[:12]}"
+                ),
+                help=(
+                    "只影响是否写入研究案件；不勾选仍可在本页临时分析。"
+                ),
+            )
 
     automatic_report = st.session_state.get("automatic_annual_report")
     if (
@@ -17443,31 +19602,111 @@ def render_annual_report_page() -> None:
         and isinstance(automatic_report, dict)
         and automatic_report.get("company_code") == company["code"]
     ):
+        report_name = str(automatic_report["name"])
+        report_source_key = f"official:{automatic_report['url']}"
+        report_source_url = str(automatic_report["url"])
+        raw_published_date = automatic_report.get("published_date")
+        if isinstance(raw_published_date, str):
+            report_published_date = raw_published_date
+        report_company_confirmed = True
+        report_max_bytes = GENERAL_OFFICIAL_PDF_MAX_BYTES
+        st.caption(
+            "当前使用服务器临时载入的官方年报；"
+            "你也可以上传PDF来替换本次分析对象。"
+        )
+
+    expected_report_canonical_code = (
+        company["canonical_code"] if company is not None else "UNASSIGNED"
+    )
+    cached_artifact = _normalise_annual_report_parsed_artifact(
+        st.session_state.get(ANNUAL_REPORT_PARSED_SESSION_KEY),
+        expected_canonical_code=expected_report_canonical_code,
+    )
+    if (
+        cached_artifact is not None
+        and cached_artifact["source_key"] == report_source_key
+        and cached_artifact["name"] == report_name
+    ):
+        extracted_pages = cached_artifact["pages"]  # type: ignore[assignment]
+        report_fingerprint_sha256 = str(
+            cached_artifact["source_fingerprint_sha256"]
+        )
+
+    if (
+        manual_report_size is not None
+        and manual_report_size > MANUAL_PDF_MAX_BYTES
+    ):
+        st.error(
+            "该 PDF 超过手工上传的 32 MB 上限。请使用官方链接查看原文，"
+            "或上传体积更小的公开年报。"
+        )
+        show_product_footer()
+        return
+
+    if uploaded_report is not None and extracted_pages is None:
+        report_bytes = uploaded_report.getvalue()
+
+    if (
+        report_source_key is not None
+        and extracted_pages is None
+        and report_bytes is None
+        and isinstance(automatic_report, dict)
+        and report_source_key.startswith("official:")
+    ):
         try:
-            if automatic_report_bytes is None:
-                automatic_report_bytes = load_official_annual_report(
+            with st.spinner("正在从官方披露地址临时载入年报……"):
+                report_bytes = load_official_annual_report(
                     str(automatic_report["url"])
                 )
         except (DataSourceError, ValueError) as error:
             st.error(str(error))
-        else:
-            in_memory_report = BytesIO(automatic_report_bytes)
-            in_memory_report.name = str(automatic_report["name"])
-            uploaded_report = in_memory_report
-            st.caption(
-                "当前使用服务器临时载入的官方年报；"
-                "你也可以上传PDF来替换本次分析对象。"
-            )
+            st.info("请打开官方原文下载PDF，再使用下方上传入口。")
 
-    if uploaded_report is not None:
-        try:
-            with st.spinner("正在读取年度报告……"):
-                extracted_pages = read_uploaded_pdf(uploaded_report.getvalue())
-        except ValueError as error:
-            st.error(str(error))
-        else:
+    if report_name is not None and report_source_key is not None:
+        if report_bytes is not None and len(report_bytes) > report_max_bytes:
+            st.error(
+                "该 PDF 超过当前流程允许的大小上限。手工上传最多 32 MB；"
+                "官方自动载入最多 45 MB。请使用官方链接查看原文，或上传"
+                "体积更小的公开年报。"
+            )
+            report_bytes = None
+            gc.collect()
+            show_product_footer()
+            return
+
+        if extracted_pages is None and report_bytes is not None:
+            report_fingerprint_sha256 = sha256(report_bytes).hexdigest()
+            try:
+                with st.spinner("正在读取年度报告……"):
+                    extracted_pages = read_uploaded_pdf(
+                        report_bytes,
+                        report_max_bytes,
+                    )
+            except ValueError as error:
+                st.error(str(error))
+            except MemoryError:
+                st.error(
+                    "该报告解析所需内存超过当前服务器的安全范围，"
+                    "系统已停止本次任务，并且没有展示不完整证据。"
+                )
+            else:
+                st.session_state[ANNUAL_REPORT_PARSED_SESSION_KEY] = {
+                    "canonical_code": expected_report_canonical_code,
+                    "source_fingerprint_sha256": report_fingerprint_sha256,
+                    "source_key": report_source_key,
+                    "name": report_name,
+                    "pages": extracted_pages,
+                }
+            finally:
+                # The session keeps one bounded, text-only artifact.  Never
+                # keep source PDF bytes or duplicate retrieval chunks across
+                # Streamlit reruns on the small free-server instance.
+                report_bytes = None
+                gc.collect()
+
+        if extracted_pages is not None:
             st.success(
-                f"{uploaded_report.name} 读取成功，共 "
+                f"{report_name} 读取成功，共 "
                 f"{len(extracted_pages)} 页。"
             )
             extracted_figures = find_income_statement_figures(
@@ -17538,7 +19777,7 @@ def render_annual_report_page() -> None:
                     "该页可能是扫描图片。"
                 )
             st.caption(
-                f"证据来源：{uploaded_report.name}，"
+                f"证据来源：{report_name}，"
                 f"PDF 第 {selected_page_number} 页。"
             )
 
@@ -17636,7 +19875,7 @@ def render_annual_report_page() -> None:
                             )
 
                     audit_record = build_agent_audit_record(
-                        report_name=uploaded_report.name,
+                        report_name=report_name,
                         initial_route=route_decision,
                         escalation=escalation_decision,
                         initial_run=initial_run,
@@ -17664,6 +19903,84 @@ def render_annual_report_page() -> None:
                         mime="application/json",
                         width="stretch",
                     )
+
+                    verification_status = (
+                        verification_result.get("status")
+                        if isinstance(verification_result, Mapping)
+                        else None
+                    )
+                    answer_supported = (
+                        answer_result.get("is_supported") is True
+                        if isinstance(answer_result, Mapping)
+                        else False
+                    )
+                    case_write_reason: str | None = None
+                    if company is None:
+                        case_write_reason = (
+                            "尚未选择公司，因此本次回答只在本页展示，"
+                            "不会写入任何研究案件。"
+                        )
+                    elif not report_company_confirmed:
+                        case_write_reason = (
+                            "尚未确认手工报告属于当前公司，因此本次回答"
+                            "不会写入研究案件。"
+                        )
+                    elif not report_source_url or not report_published_date:
+                        case_write_reason = (
+                            "缺少可核验的官方原文链接或公告日期，因此本次回答"
+                            "不会写入研究案件。"
+                        )
+                    elif report_fingerprint_sha256 is None:
+                        case_write_reason = (
+                            "缺少本次PDF的真实SHA-256文件指纹，因此本次回答"
+                            "不会写入研究案件。"
+                        )
+                    elif (
+                        not evidence_results
+                        or not answer_supported
+                        or verification_status
+                        not in {"approved", "approved_with_caveats"}
+                    ):
+                        case_write_reason = (
+                            "Verifier没有完成可写入案件的证据核验；"
+                            "系统不会把证据不足的回答保存成研究事实。"
+                        )
+                    else:
+                        _write_annual_qa_to_research_case(
+                            company,
+                            report_name=report_name,
+                            source_url=report_source_url,
+                            source_fingerprint_sha256=(
+                                report_fingerprint_sha256
+                            ),
+                            report_published_date=report_published_date,
+                            question=evidence_query.strip(),
+                            final_run=final_run,
+                            audit_record=audit_record,
+                        )
+                        annual_case_error = st.session_state.pop(
+                            "_wfz_annual_qa_case_writeback_error",
+                            None,
+                        )
+                        if (
+                            isinstance(annual_case_error, str)
+                            and annual_case_error
+                        ):
+                            st.error(
+                                "写入研究案件失败："
+                                f"{annual_case_error}"
+                            )
+                        annual_case_notice = st.session_state.pop(
+                            "_wfz_annual_qa_case_writeback_notice",
+                            None,
+                        )
+                        if (
+                            isinstance(annual_case_notice, str)
+                            and annual_case_notice
+                        ):
+                            st.success(annual_case_notice)
+                    if case_write_reason is not None:
+                        st.caption(case_write_reason)
 
                     if not evidence_results:
                         st.warning(
@@ -17747,7 +20064,7 @@ def render_annual_report_page() -> None:
                                     )
                                     st.caption(
                                         f"匹配词：{matched_terms}。证据来源："
-                                        f"{uploaded_report.name}，PDF 第 "
+                                        f"{report_name}，PDF 第 "
                                         f"{result['page_number']} 页。"
                                     )
 
@@ -17757,7 +20074,7 @@ def render_annual_report_page() -> None:
                 "来源页码、升级、质疑和安全拒答；它不是模型自报的"
                 "置信度。"
             )
-            if uploaded_report.name == "tesco_annual_report_2026.pdf":
+            if report_name == "tesco_annual_report_2026.pdf":
                 if st.button(
                     "运行 10 个案例的质量基准",
                     width="stretch",
@@ -17767,7 +20084,7 @@ def render_annual_report_page() -> None:
                             run_uploaded_qa_benchmark(extracted_pages)
                         )
                     st.session_state["tesco_qa_benchmark"] = {
-                        "report_name": uploaded_report.name,
+                        "report_name": report_name,
                         "results": benchmark_results,
                         "summary": benchmark_summary,
                     }
@@ -17778,7 +20095,7 @@ def render_annual_report_page() -> None:
                 if (
                     stored_benchmark is not None
                     and stored_benchmark["report_name"]
-                    == uploaded_report.name
+                    == report_name
                 ):
                     show_qa_benchmark_results(
                         results=stored_benchmark["results"],
@@ -18472,13 +20789,13 @@ def main() -> None:
     )
     research_terminal_page = st.Page(
         render_research_terminal_page,
-        title="公司研究终端",
+        title="研究入口",
         icon="🔎",
         visibility="hidden",
     )
     workspace_page = st.Page(
         render_research_workspace_page,
-        title="上市公司研究中枢",
+        title="研究案件",
         icon="🏛️",
     )
     comprehensive_page = st.Page(
@@ -18489,7 +20806,7 @@ def main() -> None:
     )
     company_page = st.Page(
         render_company_research_page,
-        title="公司研究中心",
+        title="公司证据工作台",
         icon="🏢",
         visibility="hidden",
     )
@@ -18579,7 +20896,7 @@ def main() -> None:
     )
     methodology_page = st.Page(
         render_methodology_page,
-        title="方法与审计",
+        title="负责任 AI 与控制",
         icon="🧭",
         visibility="hidden",
     )

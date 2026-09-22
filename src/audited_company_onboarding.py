@@ -18,13 +18,21 @@ from io import StringIO
 from typing import TypedDict
 
 from src.balance_sheet_extractor import find_balance_sheet_figures
+from src.statement_evidence_rules import inherit_statement_units
+from src.financial_sector_policy import unsupported_issuer_template
+from src.securities_statement_extractor import SECURITIES_TEMPLATE, extract_securities_statements
+from src.bank_statement_extractor import BANK_TEMPLATE, extract_bank_statements
 from src.cash_flow_extractor import find_cash_flow_figures
 from src.china_stock import build_cninfo_pdf_url, is_allowed_disclosure_url
-from src.financial_statement_extractor import find_income_statement_figures
+from src.financial_statement_extractor import (
+    _chinese_label_matches,
+    find_income_statement_figures,
+)
 
 
-ONBOARDING_SCHEMA_VERSION = "1.0"
+ONBOARDING_SCHEMA_VERSION = "1.1"
 DEFAULT_REPORT_LIMIT = 3
+MAX_METRIC_EXCERPT_CHARS = 480
 ANNUAL_REPORT_EXCLUSIONS = re.compile(
     r"半年度报告|摘要|取消|问询|回复",
 )
@@ -90,6 +98,7 @@ class CandidateReportResult(TypedDict):
     unit_check: dict[str, object]
     statement_pages: dict[str, dict[str, int] | None]
     values: dict[str, float | None]
+    metric_evidence: dict[str, dict[str, object]]
 
 
 def _as_iso_date(value: object) -> str | None:
@@ -195,6 +204,172 @@ def _page_range(
     }
 
 
+_METRIC_EVIDENCE_DEFINITIONS = (
+    (
+        "revenue",
+        "current_revenue",
+        "previous_revenue",
+        "income_statement",
+        "利润表",
+        ("其中：营业收入", "营业收入", "营业总收入", "Revenue"),
+    ),
+    (
+        "net_profit",
+        "current_net_profit",
+        "previous_net_profit",
+        "income_statement",
+        "利润表",
+        ("归属于母公司股东的净利润", "归属于母公司所有者的净利润",
+         "净利润", "Profit/(loss) for the year"),
+    ),
+    (
+        "operating_cash_flow",
+        "current_operating_cash_flow",
+        "previous_operating_cash_flow",
+        "cash_flow_statement",
+        "现金流量表",
+        ("经营活动产生的现金流量净额", "经营活动现金流量净额"),
+    ),
+    (
+        "total_assets",
+        "current_total_assets",
+        "previous_total_assets",
+        "balance_sheet",
+        "资产负债表",
+        ("资产总计", "总资产", "Total assets"),
+    ),
+    (
+        "total_liabilities",
+        "current_total_liabilities",
+        "previous_total_liabilities",
+        "balance_sheet",
+        "资产负债表",
+        ("负债合计", "总负债", "Total liabilities"),
+    ),
+)
+
+
+def _compact_metric_excerpt(
+    page_text: str,
+    labels: tuple[str, ...],
+) -> tuple[str, str]:
+    """Retain a short source window, never a whole statement or PDF page."""
+    lines = [
+        " ".join(line.replace("\xa0", " ").split())
+        for line in page_text.splitlines()
+        if line.strip()
+    ]
+    # Prefer the specific metric label over an earlier aggregate (for example,
+    # parent-attributable profit over consolidated profit). PDF labels may wrap.
+    start = None
+    for label in labels:
+        for index in range(len(lines)):
+            for length in range(1, 4):
+                combined = "".join(lines[index:index + length])
+                # Exact row matching keeps 负债合计 distinct from 流动负债合计.
+                if _chinese_label_matches(combined.casefold(), label.casefold()):
+                    start = index
+                    break
+            if start is not None:
+                break
+        if start is not None:
+            break
+    if start is None:
+        return "", "not_found"
+    excerpt = " ｜ ".join(lines[start : start + 7])
+    if len(excerpt) > MAX_METRIC_EXCERPT_CHARS:
+        excerpt = excerpt[: MAX_METRIC_EXCERPT_CHARS - 1].rstrip() + "…"
+    return excerpt, "captured"
+
+
+def _statement_accounting_basis(page_text: str) -> str:
+    """Describe the visible statement scope without inferring hidden policy."""
+    compact = re.sub(r"\s+", "", page_text).casefold()
+    if "合并及公司" in compact:
+        return "合并口径（页面同时列示公司口径）"
+    if "合并" in compact or "group" in compact:
+        return "合并口径"
+    return "报表口径待人工确认"
+
+
+def _build_metric_evidence(
+    *,
+    figures_by_statement: Mapping[str, Mapping[str, object] | None],
+    page_text_by_number: Mapping[int, str],
+    statement_template: str = 'general',
+) -> dict[str, dict[str, object]]:
+    """Build compact evidence records for the five review-critical values."""
+    evidence: dict[str, dict[str, object]] = {}
+    for (
+        metric_key,
+        current_key,
+        previous_key,
+        statement_key,
+        statement_label,
+        labels,
+    ) in _METRIC_EVIDENCE_DEFINITIONS:
+        figures = figures_by_statement.get(statement_key)
+        if statement_template == BANK_TEMPLATE:
+            labels = {
+                'revenue': ('营业收入合计',),
+                'net_profit': ('本行股东的净利润',),
+                'total_assets': ('资产合计', '资产总计'),
+                'total_liabilities': ('负债合计',),
+                'operating_cash_flow': ('经营活动产生的现金流量净额',),
+            }[metric_key]
+        # A bank's attributable profit can be explicitly disclosed in its EPS
+        # note. Keep that metric's source distinct from the income statement.
+        source_override = (figures or {}).get('metric_sources', {}).get(metric_key)
+        if source_override:
+            labels = tuple(source_override['labels'])
+            statement_label = str(source_override['statement'])
+        pages = _page_range(source_override or figures)
+        page_text = (
+            "\n".join(
+                page_text_by_number.get(number, "")
+                for number in range(int(pages["start"]), int(pages["end"]) + 1)
+            )
+            if pages is not None
+            else ""
+        )
+        # A continuation page can also start the parent-only statement below
+        # the consolidated table. Do not borrow its more convenient row labels.
+        parent_heading = re.search(
+            r"(?:母\s*公\s*司|银\s*行)\s*(?:利\s*润\s*表|资\s*产\s*负\s*债\s*表|现\s*金\s*流\s*量\s*表)",
+            page_text,
+        )
+        if parent_heading and "合并" in re.sub(r"\s+", "", page_text[:parent_heading.start()]) and not re.sub(r"\s+", "", page_text[:parent_heading.start()]).endswith("合并及"):
+            page_text = page_text[:parent_heading.start()]
+        excerpt, excerpt_status = _compact_metric_excerpt(page_text, labels)
+        notes = " ".join(str((figures or {}).get(key, "")) for key in ("unit_source_note", "rounding_note")).strip()
+        if notes:
+            excerpt = notes + " 原金额摘录：" + excerpt
+        evidence[metric_key] = {
+            "raw_current_value": (
+                float(figures[current_key])
+                if figures is not None and figures.get(current_key) is not None
+                else None
+            ),
+            "raw_previous_value": (
+                float(figures[previous_key])
+                if figures is not None and figures.get(previous_key) is not None
+                else None
+            ),
+            "original_unit": (
+                str(figures.get("unit", "")).strip()
+                if figures is not None
+                else ""
+            ),
+            "accounting_basis": "合并营业总收入（证券报表，本集团列）" if statement_template == SECURITIES_TEMPLATE and metric_key == "revenue" else _statement_accounting_basis(page_text),
+            "comparison_basis": "本期与年报比较栏原值；可能包含追溯调整",
+            "statement": statement_label,
+            "pages": pages,
+            "excerpt": excerpt,
+            "excerpt_status": excerpt_status,
+        }
+    return evidence
+
+
 def build_candidate_report_result(
     company: Mapping[str, object],
     report: Mapping[str, object],
@@ -230,6 +405,22 @@ def build_candidate_report_result(
     income = find_income_statement_figures(page_list)
     balance = find_balance_sheet_figures(page_list)
     cash_flow = find_cash_flow_figures(page_list)
+    bank = extract_bank_statements(page_list, report_year)
+    statement_template = 'general'
+    if bank is not None:
+        statement_template = BANK_TEMPLATE
+        income, balance, cash_flow = bank['income'], bank['balance'], bank['cash']
+    unsupported = unsupported_issuer_template(company, page_list)
+    if unsupported:
+        statement_template = unsupported
+        income = balance = cash_flow = None
+    securities = extract_securities_statements(page_list, report_year) if unsupported == 'securities_unsupported_v1' else None
+    if securities:
+        statement_template = SECURITIES_TEMPLATE
+        income, balance, cash_flow = securities['income'], securities['balance'], securities['cash']
+        unsupported = None
+    if bank is None and not unsupported:
+        inherit_statement_units(page_list, [income, balance, cash_flow])
     statement_checks = {
         "income_statement_reconciled": income is not None,
         "balance_sheet_reconciled": balance is not None,
@@ -244,9 +435,22 @@ def build_candidate_report_result(
     all_units_present = len(units) == 3 and all(units)
     units_consistent = all_units_present and len(set(units)) == 1
     ready = all(statement_checks.values()) and units_consistent
+    figures_by_statement = {
+        "income_statement": income,
+        "balance_sheet": balance,
+        "cash_flow_statement": cash_flow,
+    }
+    metric_evidence = _build_metric_evidence(
+        figures_by_statement=figures_by_statement,
+        page_text_by_number=dict(page_list),
+        statement_template=statement_template,
+    )
 
     return {
         "report_year": report_year,
+        "statement_template": statement_template,
+        "extraction_note": ('证券/保险公司专用三表模板尚未通过验证；不回退普通公司模板，不输出标准化金额或普通公司比例。'
+                            if unsupported else bank.get('failure_reason', '') if bank is not None else ''),
         "published_date": str(report["published_date"]),
         "title": title,
         "source_url": source_url,
@@ -320,6 +524,7 @@ def build_candidate_report_result(
                 else None
             ),
         },
+        "metric_evidence": metric_evidence,
     }
 
 

@@ -3,7 +3,7 @@ gatherUsageStats = false
 
 [server]
 headless = true
-maxUploadSize = 200
+maxUploadSize = 32
 enableStaticServing = true
 
 [theme]
