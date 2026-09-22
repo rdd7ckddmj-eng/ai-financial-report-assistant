@@ -15,6 +15,10 @@ def unsupported_issuer_template(company, pages):
     if len(name) < 3 or name == '待核验公司':
         return None
     front = re.sub(r'\s+', '', '\n'.join(text for _, text in pages[:10]))
+    # Verified stock abbreviation differs from the legal issuer name.
+    if (str(company.get('code', '')) == '601601' and name == '中国太保'
+        and re.search(r'中国太平洋保险[（(]集团[）)]股份有限公司', front)):
+        return 'insurance_unsupported_v1'
     # Bind the issuer's supplied name to its legal name. Mentioning a broker or
     # insurance product in another company's report must not classify it.
     if '证券' in name and re.search(re.escape(name)+r'(?:股份)?有限公司', front):

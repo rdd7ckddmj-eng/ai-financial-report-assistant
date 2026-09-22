@@ -1,12 +1,12 @@
 {
-  "release_id": "20260922-insurance-coverage-2",
-  "source_digest_sha256": "847587e79e79f6adc52385e02da995c287752754ee074f34001b64074b5d8fa5",
-  "prior_commit": "5df82c58372d97254f385717094923580c02729e",
-  "verified_python_tests": 975,
+  "release_id": "20260922-insurance-crossyear-3",
+  "source_digest_sha256": "78b76641c3f55e2223aeb1071d3d3df31acd49e7bca4b60656900a55f076f934",
+  "prior_commit": "1b78786117f8dd05549bd302af5a9d582a1b1283",
+  "verified_python_tests": 984,
   "coverage": {
-    "real_reports_tested": 15,
-    "candidate_reports": 15,
+    "real_reports_tested": 16,
+    "candidate_reports": 16,
     "human_verified_new": 0
   },
-  "note": "Ping An 2024 insurance template validated; other insurers remain unsupported. All candidates require human review."
+  "note": "Ping An 2023/2024 templates validated, including restated opening balance column. CPIC issuer identified but extraction remains unsupported; human review required."
 }

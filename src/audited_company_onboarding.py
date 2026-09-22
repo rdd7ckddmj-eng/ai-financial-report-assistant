@@ -362,7 +362,7 @@ def _build_metric_evidence(
                 else ""
             ),
             "accounting_basis": "合并营业总收入（证券报表，本集团列）" if statement_template == SECURITIES_TEMPLATE and metric_key == "revenue" else "保险集团合并营业收入（非保费收入）" if statement_template == INSURANCE_TEMPLATE and metric_key == "revenue" else _statement_accounting_basis(page_text),
-            "comparison_basis": "本期与年报比较栏原值；可能包含追溯调整",
+            "comparison_basis": (source_override or {}).get("comparison_basis", "本期与年报比较栏原值；可能包含追溯调整"),
             "statement": statement_label,
             "pages": pages,
             "excerpt": excerpt,
