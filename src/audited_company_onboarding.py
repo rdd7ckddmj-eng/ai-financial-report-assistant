@@ -19,6 +19,7 @@ from typing import TypedDict
 
 from src.balance_sheet_extractor import find_balance_sheet_figures
 from src.statement_evidence_rules import inherit_statement_units
+from src.insurance_statement_extractor import INSURANCE_TEMPLATE, extract_insurance_statements
 from src.financial_sector_policy import unsupported_issuer_template
 from src.securities_statement_extractor import SECURITIES_TEMPLATE, extract_securities_statements
 from src.bank_statement_extractor import BANK_TEMPLATE, extract_bank_statements
@@ -360,7 +361,7 @@ def _build_metric_evidence(
                 if figures is not None
                 else ""
             ),
-            "accounting_basis": "合并营业总收入（证券报表，本集团列）" if statement_template == SECURITIES_TEMPLATE and metric_key == "revenue" else _statement_accounting_basis(page_text),
+            "accounting_basis": "合并营业总收入（证券报表，本集团列）" if statement_template == SECURITIES_TEMPLATE and metric_key == "revenue" else "保险集团合并营业收入（非保费收入）" if statement_template == INSURANCE_TEMPLATE and metric_key == "revenue" else _statement_accounting_basis(page_text),
             "comparison_basis": "本期与年报比较栏原值；可能包含追溯调整",
             "statement": statement_label,
             "pages": pages,
@@ -418,6 +419,15 @@ def build_candidate_report_result(
     if securities:
         statement_template = SECURITIES_TEMPLATE
         income, balance, cash_flow = securities['income'], securities['balance'], securities['cash']
+        unsupported = None
+    # Start with the verified issuer/layout; other insurers remain unsupported.
+    insurance = extract_insurance_statements(page_list, report_year) if (
+        unsupported == 'insurance_unsupported_v1' and company.get('code') == '601318'
+        and company.get('name') == '中国平安'
+    ) else None
+    if insurance:
+        statement_template = INSURANCE_TEMPLATE
+        income, balance, cash_flow = insurance['income'], insurance['balance'], insurance['cash']
         unsupported = None
     if bank is None and not unsupported:
         inherit_statement_units(page_list, [income, balance, cash_flow])

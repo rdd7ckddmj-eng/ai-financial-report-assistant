@@ -1,12 +1,12 @@
 {
-  "release_id": "20260922-financial-coverage-1",
-  "source_digest_sha256": "d05aacb1523babd564a2fe0e3d03986dbb30841e20d3a6e6e373dc3d9e4e03fb",
-  "prior_commit": "4c7fb218a64808d04ecfd08dcfdbe972ac3face0",
-  "verified_python_tests": 956,
+  "release_id": "20260922-insurance-coverage-2",
+  "source_digest_sha256": "847587e79e79f6adc52385e02da995c287752754ee074f34001b64074b5d8fa5",
+  "prior_commit": "5df82c58372d97254f385717094923580c02729e",
+  "verified_python_tests": 975,
   "coverage": {
     "real_reports_tested": 15,
-    "candidate_reports": 14,
+    "candidate_reports": 15,
     "human_verified_new": 0
   },
-  "note": "Automatic extraction remains subject to human review. Insurance template is not yet supported."
+  "note": "Ping An 2024 insurance template validated; other insurers remain unsupported. All candidates require human review."
 }
