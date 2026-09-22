@@ -3236,6 +3236,17 @@ def test_comprehensive_runner_keeps_independent_sources_auditable(
     """Cover the five-lane runner while avoiding live public requests."""
     from src import app
 
+    # Keep both public-provider availability and prior UI state deterministic.
+    # Otherwise a reachable provider changes this missing-evidence scenario.
+    monkeypatch.setattr(app.st, "session_state", {})
+    public_requests = []
+
+    def unavailable_public_history(*args):
+        public_requests.append(args)
+        raise app.DataSourceError("测试公开财务源不可用")
+
+    monkeypatch.setattr(app, "load_public_financial_history", unavailable_public_history)
+
     company = {
         "code": "600519",
         "name": "贵州茅台",
@@ -3296,6 +3307,8 @@ def test_comprehensive_runner_keeps_independent_sources_auditable(
     assert brief["coverage_ratio"] == 0.8
     assert brief["verified_lane_count"] == 4
     assert brief["unavailable_lane_count"] == 1
+    assert len(public_requests) == 1
+    assert public_requests[0][:2] == ("600519", "贵州茅台")
     assert any(
         finding["category"] == "交易活跃度"
         for finding in brief["findings"]
@@ -3322,6 +3335,7 @@ def test_comprehensive_runner_keeps_independent_sources_auditable(
 
     assert brief_with_snapshot["coverage_ratio"] == 0.9
     assert brief_with_snapshot["partial_lane_count"] == 1
+    assert len(public_requests) == 1  # Reuse the snapshot without another request.
     assert any(
         lane["key"] == "financial_history"
         and lane["label"] == "单期财务快照（待复核）"
