@@ -355,3 +355,15 @@
 - [x] Compare 50 new current amounts: 49 close, Huichuan assets differ by RMB390,000; preserve both values, cause unverified.
 - [ ] Obtain usable PICC 2025 numerical source without substituting vendor/manual amounts.
 - [ ] Further investigate Huichuan vendor/official asset difference and remaining untested issuer/year layouts.
+
+## 2026-09-24 — General profit reconciliation and seven-report expansion
+
+- [x] Add two-period tax-to-net and parent/minority-profit arithmetic checks with Decimal, original units, page evidence and explicit rounding limits.
+- [x] Bind checked parent profit to displayed output; reject reversed/missing/extra period columns, damaged numeric cells, duplicate rows and borrowed parent-table evidence.
+- [x] Validate four Shanghai 2025 reports plus Linton/Jinbo 2025 and BTR 2024; 42 complete PDFs now yield 41 candidates and one unsupported PICC 2025.
+- [x] Preserve all prior 35 reports' status and both-period amounts; retain financial-sector-specific rules.
+- [x] Carry arithmetic details into snapshot, HTML, UI and batch receipts; label legacy generic snapshots as requiring regeneration.
+- [x] Explain Huichuan RMB390,000 difference using official 2026Q1 before/after figures, without replacing the original annual value.
+- [x] Compare 35 added current amounts: 33 close, two Shenhua balance differences retained and matched to later interim restatement columns.
+- [ ] Expand complete-report coverage beyond these explicitly tested issuer/year layouts; PICC 2025 still needs a usable numeric source.
+- [ ] Extend ordinary-income component reconciliation beyond the two checked subtotal relationships.

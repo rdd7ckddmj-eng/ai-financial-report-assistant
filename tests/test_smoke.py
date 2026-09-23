@@ -2765,8 +2765,8 @@ render_financial_snapshot_page()
 
     assert not app_test.exception
     assert any(
-        item.value == "自动检查完成，等待人工复核"
-        for item in app_test.success
+        item.value == "旧版候选快照；利润表金额关系需重新生成核对。"
+        for item in app_test.info
     )
     assert any(item.label == "营业收入" for item in app_test.metric)
     assert any(item.label == "资产负债率" for item in app_test.metric)

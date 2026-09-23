@@ -39,7 +39,7 @@ def test_chinese_year_still_checks_exact_year_and_full_report(monkeypatch,title,
  from src.manual_financial_snapshot import build_manual_financial_snapshot
  p=pages();p[0]['text']=f'贵州茅台600519\n{title}'
  # The remaining synthetic headers must not supply a competing year title.
- for page in p[1:]:page['text']=page['text'].replace('2025年度','本年度')
+ for page in p[1:]:page['text']=page['text'].replace('2025年度','本年发生额').replace('2024年度','上年发生额')
  monkeypatch.setattr('src.manual_financial_snapshot.extract_pdf_pages',lambda *a,**kw:p)
  if accepted:assert build_manual_financial_snapshot(COMPANY,b'%PDF-test',**arguments())['status']=='ready_for_human_review'
  else:

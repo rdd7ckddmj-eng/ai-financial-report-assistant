@@ -18145,6 +18145,25 @@ def _process_onboarding_report(
         gc.collect()
 
 
+def _show_income_reconciliation(result) -> None:
+    """Show the checked profit relationships with source-unit differences."""
+    from src.on_demand_financial_snapshot import income_reconciliation_rows
+    detail = result.get('income_reconciliation')
+    if not detail:
+        template = result.get('statement_template', result.get('report', {}).get('statement_template', 'general'))
+        if template == 'general':
+            st.caption('此快照未保存利润表金额关系复核明细；重新生成后可查看。')
+        return
+    with st.expander('查看利润表金额关系与差额', expanded=detail['status'] != 'passed'):
+        st.write(detail['note'])
+        st.caption(' '.join(str(detail.get(key, '')) for key in ('tax_presentation', 'rounding_note')))
+        pages = detail.get('pages')
+        st.caption(f"差额按报表原单位展示：{detail.get('unit') or '待核验'}｜PDF第{_format_snapshot_pages(pages)}页")
+        rows = income_reconciliation_rows(result)
+        if rows:
+            st.dataframe(rows, hide_index=True, width='stretch')
+
+
 def _show_onboarding_report_result(
     result: CandidateReportResult,
 ) -> None:
@@ -18160,11 +18179,14 @@ def _show_onboarding_report_result(
         check_labels.items(),
         strict=True,
     ):
-        if result["statement_checks"][key]:
+        if key == 'income_statement_reconciled' and result.get('statement_template', 'general') == 'general' and not result.get('income_reconciliation'):
+            column.info(f'{label}：旧快照，需重算')
+        elif result["statement_checks"][key]:
             column.success(f"{label}：通过")
         else:
             column.warning(f"{label}：待复核")
 
+    _show_income_reconciliation(result)
     unit_check = result["unit_check"]
     if unit_check["passed"]:
         units = unit_check.get("units", [])
@@ -19181,7 +19203,10 @@ def render_financial_snapshot_page() -> None:
         show_product_footer()
         return
 
-    if snapshot["status"] == "ready_for_human_review":
+    legacy_income_check = snapshot['report'].get('statement_template', 'general') == 'general' and not snapshot.get('income_reconciliation')
+    if legacy_income_check:
+        st.info('旧版候选快照；利润表金额关系需重新生成核对。')
+    elif snapshot["status"] == "ready_for_human_review":
         st.success(snapshot["status_label"])
     else:
         st.warning(snapshot["status_label"])
@@ -19215,8 +19240,9 @@ def render_financial_snapshot_page() -> None:
         statement_labels.items(),
     ):
         passed = snapshot["statement_checks"].get(key, False)
-        column.metric(label, "通过" if passed else "待人工检查")
+        column.metric(label, '旧快照，需重算' if legacy_income_check and key == 'income_statement_reconciled' else "通过" if passed else "待人工检查")
 
+    _show_income_reconciliation(snapshot)
     st.subheader("核心财务快照")
     metric_columns = st.columns(3)
     for index, metric in enumerate(snapshot["metrics"]):

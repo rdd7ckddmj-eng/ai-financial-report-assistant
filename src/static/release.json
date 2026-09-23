@@ -1,12 +1,13 @@
 {
-  "release_id": "20260923-expanded-6",
-  "source_digest_sha256": "b7b46d1470a630dc06b32ba086d0df461e48eeb610aac07be51286ce641e4db8",
-  "prior_commit": "08216dd898a25438b73add44b092b0bd4a969fdb",
-  "verified_python_tests": 1298,
+  "release_id": "20260924-reconciliation-7",
+  "source_digest_sha256": "ddd3809e0fd7368d869eb7d71bbb63c8df0680032d05667094feace8dac933e3",
+  "prior_commit": "a2a35e6d492715a6967b15d53866eddda0d4f3f7",
+  "verified_python_tests": 1415,
   "coverage": {
-    "real_reports_tested": 35,
-    "candidate_reports": 34,
+    "real_reports_tested": 42,
+    "candidate_reports": 41,
+    "companies": 30,
     "human_verified_new": 0
   },
-  "note": "CMS 2024/2025 and eight 2025 ordinary/BSE issuer reports validated. PICC 2025 remains unsupported. 49/50 new amounts match public data; Huichuan assets retain RMB390000 difference. Navigation startup and empty-storage rerun races fixed. Candidates only."
+  "note": "Seven additional Shanghai/BSE reports validated. Two-period general income subtotal checks and period-column guards added; old snapshots explicitly require regeneration. PICC 2025 remains unsupported. 33/35 added amounts close; Shenhua balance differences and prior Huichuan difference match subsequent official restated columns. Original report values preserved. Candidates only."
 }

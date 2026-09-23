@@ -67,6 +67,7 @@ class OnDemandFinancialSnapshot(TypedDict):
     report: dict[str, object]
     source_fingerprint_sha256: str
     statement_checks: dict[str, bool]
+    income_reconciliation: dict[str, object] | None
     unit: str | None
     unit_note: str
     metrics: list[SnapshotMetric]
@@ -251,6 +252,9 @@ def build_on_demand_financial_snapshot(
         else []
     )
     statement_checks = dict(result.get("statement_checks", {}))
+    income_detail = result.get('income_reconciliation')
+    if income_detail is not None and income_detail.get('status') != 'passed':
+        statement_checks['income_statement_reconciled'] = False
     unit = units[0] if len(units) == 3 and len(set(units)) == 1 else None
     multiplier: float | None = None
     automatic_checks_pass = (
@@ -258,6 +262,7 @@ def build_on_demand_financial_snapshot(
         and unit_check.get("passed") is True
         and all(statement_checks.values())
         and len(statement_checks) == 3
+        and (income_detail is None or income_detail.get('status') == 'passed')
     )
     if automatic_checks_pass and unit:
         try:
@@ -362,6 +367,7 @@ def build_on_demand_financial_snapshot(
             result["evidence_fingerprint_sha256"]
         ),
         "statement_checks": statement_checks,
+        "income_reconciliation": result.get('income_reconciliation'),
         "unit": unit if multiplier is not None else None,
         "unit_note": (
             f"三张报表原始单位均为“{unit}”，页面数值已统一换算为人民币元。"
@@ -384,6 +390,8 @@ def build_on_demand_financial_snapshot(
         "limitations": [
             *([str(result['extraction_note'])] if result.get('extraction_note') else []),
             "本结果由程序从最新完整年度报告自动提取，未经人工复核或审计。",
+            *([str(result['income_reconciliation']['note'])]
+              if result.get('income_reconciliation') and not result.get('extraction_note') else []),
             "跨期增速使用同一份年报中的上年同期/上年末比较栏，可能包含追溯调整。",
             "比较基期为零或负数时不展示百分比变化，保留两期金额供比较。",
             "比例仅在分母为正且金额可用时计算；净利润不大于零时不展示现金利润比，避免负数相除被误读为现金转化良好。",
@@ -422,6 +430,23 @@ def _format_pages(pages: Mapping[str, int] | None) -> str:
     start = int(pages["start"])
     end = int(pages["end"])
     return str(start) if start == end else f"{start}–{end}"
+
+
+def income_reconciliation_rows(result: Mapping[str, object]) -> list[dict[str, str]]:
+    """Display only the two checked relationships; never infer missing totals."""
+    detail = result.get('income_reconciliation')
+    if not isinstance(detail, Mapping):
+        return []
+    rows = []
+    for check in detail.get('checks', []):
+        periods = []
+        for period in ('current', 'previous'):
+            values = check.get(period) or {}
+            difference = values.get('difference')
+            periods.append(str(difference) if difference is not None else '证据不足')
+        rows.append({'核对关系': str(check['label']), '本期差额': periods[0],
+                     '比较期差额': periods[1], '检查结果': '通过' if check['passed'] else '待复核'})
+    return rows
 
 
 def build_financial_snapshot_report_html(
@@ -476,6 +501,23 @@ def build_financial_snapshot_report_html(
     limitation_items = "".join(
         f"<li>{escape(item)}</li>" for item in snapshot["limitations"]
     )
+    income_detail = snapshot.get('income_reconciliation')
+    income_html = ''
+    display_status = snapshot['status_label']
+    if income_detail:
+        check_rows = income_reconciliation_rows(snapshot)
+        income_html = (
+            '<h2>利润表金额关系复核</h2><p>' + escape(str(income_detail['note'])) + '</p>'
+            + '<p>' + escape(' '.join(str(income_detail.get(key, '')) for key in ('tax_presentation', 'rounding_note'))) + '</p>'
+            + '<p>差额按报表原单位展示：' + escape(str(income_detail.get('unit') or '待核验'))
+            + '｜PDF第' + escape(_format_pages(income_detail.get('pages'))) + '页</p>'
+            + '<table><thead><tr><th>核对关系</th><th>本期差额</th><th>比较期差额</th><th>检查结果</th></tr></thead><tbody>'
+            + ''.join('<tr>' + ''.join('<td>' + escape(value) + '</td>' for value in row.values()) + '</tr>' for row in check_rows)
+            + '</tbody></table>'
+        )
+    elif report.get('statement_template', 'general') == 'general':
+        income_html = '<p>此快照未保存利润表金额关系复核明细；重新生成后可查看。</p>'
+        display_status = '旧版候选快照；利润表金额关系需重新生成核对。'
     return f"""<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -490,7 +532,7 @@ th{{background:#edf3f8}} small{{color:#5d6b7a}} a{{color:#075ea8}}
 </style></head><body>
 <p><small>FANGZHENG AI · 全市场按需财务快照 Agent</small></p>
 <h1>{escape(company['name'])}｜{escape(company['canonical_code'])}</h1>
-<p class="notice"><strong>{escape(snapshot['status_label'])}</strong><br>
+<p class="notice"><strong>{escape(display_status)}</strong><br>
 自动提取候选，未经人工复核，不构成投资建议。</p>
 <h2>来源报告</h2>
 <p>{escape(str(report['title']))}<br>
@@ -502,6 +544,7 @@ th{{background:#edf3f8}} small{{color:#5d6b7a}} a{{color:#075ea8}}
 <th>上期比较栏</th><th>变化</th><th>口径/证据页</th><th>对应原文摘录</th>
 </tr></thead><tbody>{metric_rows}</tbody></table>
 <h2>确定性计算</h2><ul>{ratio_items}</ul>
+{income_html}
 <h2>使用边界</h2><ul>{limitation_items}</ul>
 <p><small>生成时间（UTC）：{escape(snapshot['generated_at'])}<br>
 证据文件 SHA-256：{escape(snapshot['source_fingerprint_sha256'])}</small></p>

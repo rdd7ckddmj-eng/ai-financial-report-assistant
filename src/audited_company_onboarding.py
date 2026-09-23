@@ -19,6 +19,7 @@ from typing import TypedDict
 
 from src.balance_sheet_extractor import find_balance_sheet_figures
 from src.statement_evidence_rules import inherit_statement_units
+from src.general_income_reconciliation import check_general_income_reconciliation
 from src.insurance_statement_extractor import INSURANCE_TEMPLATE, extract_insurance_statements
 from src.chinalife_statement_extractor import CHINALIFE_TEMPLATE, extract_chinalife_statements, matches_chinalife_issuer
 from src.insurance_group_statement_extractor import TEMPLATES as INSURANCE_GROUP_TEMPLATES, extract_insurance_group_statements
@@ -100,6 +101,7 @@ class CandidateReportResult(TypedDict):
     page_count: int
     status: str
     statement_checks: dict[str, bool]
+    income_reconciliation: dict[str, object] | None
     unit_check: dict[str, object]
     statement_pages: dict[str, dict[str, int] | None]
     values: dict[str, float | None]
@@ -384,8 +386,8 @@ def build_candidate_report_result(
 ) -> CandidateReportResult:
     """Extract five core metrics and preserve report/page provenance.
 
-    The statement extractors already reject unreconciled statement layouts.
-    This layer adds a cross-statement unit check and retains only the compact
+    This layer verifies general-company profit totals as well as the
+    extractors' layout checks, adds a cross-statement unit check, and retains only the compact
     evidence needed for review, rather than keeping the entire PDF in memory.
     """
     required_identity = {"code", "name", "exchange", "canonical_code"}
@@ -460,8 +462,14 @@ def build_candidate_report_result(
         unsupported = None
     if bank is None and not unsupported:
         inherit_statement_units(page_list, [income, balance, cash_flow])
+    income_reconciliation = (
+        check_general_income_reconciliation(page_list, income, report_year=report_year)
+        if statement_template == 'general' else None
+    )
     statement_checks = {
-        "income_statement_reconciled": income is not None,
+        "income_statement_reconciled": income is not None and (
+            income_reconciliation is None or income_reconciliation['status'] == 'passed'
+        ),
         "balance_sheet_reconciled": balance is not None,
         "cash_flow_statement_reconciled": cash_flow is not None,
     }
@@ -489,7 +497,8 @@ def build_candidate_report_result(
         "report_year": report_year,
         "statement_template": statement_template,
         "extraction_note": ('证券/保险公司专用三表模板尚未通过验证；不回退普通公司模板，不输出标准化金额或普通公司比例。'
-                            if unsupported else bank.get('failure_reason', '') if bank is not None else ''),
+                            if unsupported else bank.get('failure_reason', '') if bank is not None
+                            else income_reconciliation['note'] if income_reconciliation and income_reconciliation['status'] != 'passed' else ''),
         "published_date": str(report["published_date"]),
         "title": title,
         "source_url": source_url,
@@ -497,6 +506,7 @@ def build_candidate_report_result(
         "page_count": len(page_list),
         "status": "ready_for_human_review" if ready else "needs_review",
         "statement_checks": statement_checks,
+        "income_reconciliation": income_reconciliation,
         "unit_check": {
             "passed": units_consistent,
             "units": units,

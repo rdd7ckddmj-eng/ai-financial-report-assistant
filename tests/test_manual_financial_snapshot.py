@@ -21,7 +21,10 @@ def arguments():
 def pages():
     return [dict(page_number=i+1,text=text) for i,text in enumerate([
         '合成测试文档，非实际财务数据\n贵州茅台 600519\n2025年年度报告',
-        CHINESE_INCOME_STATEMENT_TEXT,CHINESE_BALANCE_SHEET_TEXT,CHINESE_CASH_FLOW_TEXT])]
+        CHINESE_INCOME_STATEMENT_TEXT.replace('贵州茅台酒股份有限公司2025年度合并利润表', '合并利润表').replace('五、净利润',
+            '四、利润总额 92,330,000,000.00 97,240,000,000.00\n'
+            '减：所得税费用 10,000,000,000.00 11,000,000,000.00\n五、净利润'),
+        CHINESE_BALANCE_SHEET_TEXT,CHINESE_CASH_FLOW_TEXT])]
 
 
 def test_manual_fallback_reuses_extractors_and_keeps_human_gate(monkeypatch):
@@ -53,9 +56,13 @@ def test_note_number_does_not_replace_revenue_with_total_revenue(monkeypatch):
 五、55
 100
 50
+利润总额 120 110
+减：所得税费用 20 20
+净利润 100 90
 归属于母公司股东的净利润
 100
 90
+少数股东损益 0 0
 '''
     monkeypatch.setattr('src.manual_financial_snapshot.extract_pdf_pages',lambda data,**kw:sample)
     result=build_manual_financial_snapshot(COMPANY,b'%PDF-test',**arguments())

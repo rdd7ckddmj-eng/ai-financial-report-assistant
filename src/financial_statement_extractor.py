@@ -174,7 +174,7 @@ def _chinese_label_span(
         if _chinese_label_matches(combined, label):
             # A sign annotation can wrap after the label. Consume only this
             # exact annotation, never another account or an arbitrary parenthesis.
-            annotation = re.search(r'[（(](?:净亏损|亏损总额|亏损|损失)以', combined)
+            annotation = re.search(r'[（(](?:净(?:亏损)?|亏损总额|亏损|损失)(?:以)?', combined)
             if annotation and not re.search(r'[）)]', combined[annotation.start():]):
                 for extra in range(end_index + 1, min(end_index + 3, len(lines))):
                     tail = combined[annotation.start():] + ''.join(

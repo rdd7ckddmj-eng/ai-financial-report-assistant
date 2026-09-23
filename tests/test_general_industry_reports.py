@@ -49,6 +49,23 @@ def test_parent_revenue_must_not_override_consolidated_revenue_on_shared_page():
     assert find_income_statement_figures([(10,p1),(11,p2.replace('归属于母公司股东的净利润 110 90',''))]) is None
 
 
+@pytest.mark.parametrize('tail,accepted', [('以“-”号填列）', True), ('其他说明）', False), ('以“-”号填列', False)])
+def test_jinbo_annotation_can_wrap_before_the_word_yi(tail, accepted):
+    text = ('合并利润表\n单位：元\n营业收入 1000 800\n'
+            '2.归属于母公司所有者的净利润（净亏损\n' + tail + '\n110\n90')
+    found = find_income_statement_figures([(91, text)])
+    assert (found is not None) == accepted
+    if accepted:
+        assert (found['current_net_profit'], found['previous_net_profit']) == (110, 90)
+
+
+def test_haier_loss_annotation_can_wrap_after_first_character():
+    text = ('合并利润表\n单位：元\n营业收入 1000 800\n'
+            '归属于母公司股东的净利润（净\n亏损以“-”号填列）\n110\n90')
+    found = find_income_statement_figures([(123, text)])
+    assert found is not None and found['current_net_profit'] == 110
+
+
 @pytest.mark.parametrize('note',['(五)45','（五）45','(五)59(1)'])
 def test_supported_note_references_do_not_shift_amounts(note):
     assert _extract_chinese_row_pair(['营业收入',note,'100','80'],('营业收入',))==(100,80)

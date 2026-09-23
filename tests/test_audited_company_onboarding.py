@@ -174,7 +174,11 @@ def test_candidate_report_requires_three_statements_and_matching_units(
         build_company_identity("000333", "美的集团"),
         _report(2025),
         b"%PDF-test",
-        [{"page_number": 1, "text": "年度报告"}],
+        [{"page_number": 101, "text": (
+            '合并利润表\n单位：人民币万元\n项目 2025年度 2024年度\n营业收入 100 90\n'
+            '利润总额 12 11\n减：所得税费用 2 2\n净利润 10 9\n'
+            '归属于母公司股东的净利润 10 9\n少数股东损益 0 0\n'
+        )}, {"page_number": 102, "text": '合成测试续页'}],
     )
 
     assert result["status"] == "ready_for_human_review"
