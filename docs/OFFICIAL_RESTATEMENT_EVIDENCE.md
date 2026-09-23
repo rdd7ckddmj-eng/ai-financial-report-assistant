@@ -1,6 +1,6 @@
 # 已登记官方重述解释线索
 
-`src/official_restatement_evidence.py` 读取本地 `data/reference/official_restatement_evidence.json`。当前只有五个指标记录，不联网查找公告，不表示全市场自动识别重述，也不增加人工财务确认数。
+`src/official_restatement_evidence.py` 读取本地 `data/reference/official_restatement_evidence.json`。当前只有六个指标记录（五项资产负债、一项营业收入），不联网查找公告，不表示全市场自动识别重述，也不增加人工财务确认数。
 
 | 公司及原年报 | 指标 | 原金额（元） | 后续重述金额（元） | 后续官方证据 |
 |---|---|---:|---:|---|
@@ -9,6 +9,8 @@
 | 中国神华 601088.SH，2025 | 总负债 | 146,310,000,000 | 300,203,000,000 | 2026半年报第6、77页金额；第7页原因 |
 | 中国石油 601857.SH，2025 | 总资产 | 2,828,017,000,000 | 2,863,458,000,000 | 2026半年报第6页调整前后、第51页比较栏；第6、86页原因 |
 | 中国石油 601857.SH，2025 | 总负债 | 1,028,469,000,000 | 1,032,684,000,000 | 原年报第108页原值、2026半年报第52页后值；第86页被并方上年末负债差额 |
+
+| 中信证券 600030.SH，2024 | 营业收入 | 63,789,215,688.23 | 58,119,003,450.22 | 2025年报第19页调整前后、第182页比较栏；第230页原因 |
 
 页码均为PDF物理页。神华原单位为人民币百万元，汇川为人民币元。JSON保留原始单位、原数、调整前后数、元金额、差额、报告标题、公告日、全文页数、官方PDF地址和完整SHA-256；原文依据见[汇川说明](HUICHUAN_ASSET_RESTATEMENT.md)与[神华说明](SHENHUA_BALANCE_RESTATEMENT.md)。
 
@@ -48,3 +50,5 @@ match_official_restatement_evidence(
 测试文件为`tests/test_official_restatement_evidence.py`，覆盖三个已登记指标、六维错配、微小金额差异、单位换算、非法来源、缺失原文元数据、损坏登记、重复记录、返回值隔离，以及已保存记录的金额/身份/来源一致性和禁止重新读表/联网。UI、JSON和研究案件接入由调用模块另行验证。
 
 中国石油新增两项由 `tests/test_petrochina_restatement_evidence.py` 验证真实原文、登记字段、两源差异保留及错误金额不匹配；详细原件见 [储气库合并重述](PETROCHINA_BALANCE_RESTATEMENT.md)。
+
+中信证券收入重述由 `tests/test_citic_restatement_evidence.py` 验证真实原文前后列、三项收入调整、精确匹配和差异状态保留；详细原件见 [中信2024收入重述](CITIC_REVENUE_RESTATEMENT.md)。支持指标键限于 `total_assets`、`total_liabilities`、`revenue`，不自动推断其他指标。
