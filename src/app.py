@@ -19144,7 +19144,7 @@ def _show_annual_report_coverage(company=None):
     except ValueError:
         st.caption('完整年报测试范围暂时无法读取；本次报告仍须独立检查。')
         return company
-    with st.expander('查看已测试的年报范围'):
+    with st.expander('查看已测试的年报范围', key='annual_report_coverage_panel', on_change='rerun'):
         st.write(f"已测试 {summary['companies']} 家公司、{summary['report_versions']} 份完整年报原件；"
                  f"{summary['candidates']} 份通过自动检查，{summary['needs_review']} 份仍有缺口。")
         st.caption('能搜索到股票，不代表其年报已通过测试；自动检查通过也不代表完成人工复核。'

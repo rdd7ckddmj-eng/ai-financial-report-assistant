@@ -1,7 +1,7 @@
 {
-  "release_id": "20260924-coverage-10.3",
-  "source_digest_sha256": "f23d0d8d27f141e052930092b255bb0d3b74aff7c1cecebb025648db8034bad3",
-  "prior_commit": "6f6e37fe004dd729da75001c159f11ff6740b529",
+  "release_id": "20260924-coverage-10.4",
+  "source_digest_sha256": "626abca0a2e05414124b46bb7cc5d8eddd6b0665c63b82e39cac76e3fbbb3003",
+  "prior_commit": "ebded540d7ca584d05727045c503b257d29ae259",
   "verified_python_tests": 1998,
   "coverage": {
     "real_reports_tested": 60,
@@ -10,5 +10,5 @@
     "candidate_companies": 44,
     "human_verified_new": 0
   },
-  "note": "Exact-source annual report catalogue; 60 full PDF versions across 45 companies and 59 issuer/year pairs, 57 candidates and 3 gaps. All 60 complete report receipts unchanged after bounded native PDF cache cleanup; upload checks avoid a full-file writable copy. Prior deployed 10.1 encountered confirmed 512 MB instance OOM; Periodic PDF cache cleanup lowers the reproduced native memory high-water mark; final copy accurately describes session-held candidate results. Local macOS memory reduction is not a Render RSS guarantee. 40 new current amounts: 39 close and one CITIC revenue difference explained by precise official restatement evidence; original values and difference status retained. PICC 2025, old CMOC image version and CSCEC 2025 remain needs-review. Not full-market coverage or human financial approval."
+  "note": "Exact-source annual report catalogue; 60 full PDF versions across 45 companies and 59 issuer/year pairs, 57 candidates and 3 gaps. All 60 complete report receipts unchanged after bounded native PDF cache cleanup; upload checks avoid a full-file writable copy. Prior deployed 10.1 encountered confirmed 512 MB instance OOM; Periodic PDF cache cleanup lowers the reproduced native memory high-water mark; Final UI preserves the coverage panel state across rerenders; financial parsing code is unchanged from 10.3, which passed six sequential live uploads. Local macOS memory reduction is not a Render RSS guarantee. 40 new current amounts: 39 close and one CITIC revenue difference explained by precise official restatement evidence; original values and difference status retained. PICC 2025, old CMOC image version and CSCEC 2025 remain needs-review. Not full-market coverage or human financial approval."
 }
