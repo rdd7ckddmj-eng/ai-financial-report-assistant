@@ -902,6 +902,7 @@ def classify_announcement(title: str) -> tuple[str, str]:
 
 
 CMOC_2025_REPORT_URL = 'https://www.hkexnews.hk/listedco/listconews/sehk/2026/0401/2026040101683_c.pdf'
+PICC_2025_REPORT_URL = 'https://www.hkexnews.hk/listedco/listconews/sehk/2026/0326/2026032601780_c.pdf'
 
 VERIFIED_ISSUER_REPORT_URLS = frozenset({
     # Individual complete reports verified against the issuer's IR pages.
@@ -914,6 +915,7 @@ VERIFIED_ISSUER_REPORT_URLS = frozenset({
     "https://www.e-chinalife.com/upload/resources/file/2025/03/26/2024%E5%B9%B4%E5%B9%B4%E5%BA%A6%E6%8A%A5%E5%91%8A.pdf",
     "https://www.e-chinalife.com/upload/resources/file/2026/03/25/2025%E5%B9%B4%E5%B9%B4%E5%BA%A6%E6%8A%A5%E5%91%8A.pdf",
     CMOC_2025_REPORT_URL,
+    PICC_2025_REPORT_URL,
 })
 
 

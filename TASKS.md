@@ -411,4 +411,17 @@
 - [x] Release the parse gate even if document close or native cache cleanup fails; reject cleanup-only failures and preserve original parse exceptions.
 - [x] Replace the upload's writable buffer size check with public size metadata plus actual bytes-length verification, avoiding a full-file copy while preserving the 32 MiB limit.
 - [x] Run 1,998 local tests and all 60 complete originals; full per-report receipts remain identical. Six large-report parses retain raw-text/geometry fingerprints and financial results, with local fresh-process peak RSS about 269 MiB versus 519 MiB previously.
-- [ ] Complete deployed sequential-upload acceptance for this memory fix; local memory observations are not Render memory measurements or concurrency guarantees.
+- [x] Complete deployed sequential-upload acceptance for this memory fix: six uploads on 10.3 and final UI-only 10.4 smoke. Local memory observations are not Render memory measurements or concurrency guarantees; final receipts remain in the task outputs.
+
+
+## 2026-09-24 — Batch 11: source alternatives and visible calculation evidence
+
+- [x] Add PICC 2025 HKEX-hosted A-share CAS original, with identical identity/basis gates across automatic and manual candidate entries; preserve old outline failure and reject H-share IFRS.
+- [x] Add Yili, Haitian, Muyuan, NARI and PowerChina 2025 candidates; preserve Sinopec/Unicom failures and exclude oversized China Railway original.
+- [x] Show two-period operating components and the three additional deterministic relationships for four evidenced ordinary-report layouts, with explicit limits for incomplete/unsupported layouts.
+- [x] Fix PowerChina operating revenue misselection; never substitute total revenue when an explicit operating-revenue row is unreadable.
+- [x] Preserve raw cash-flow layout spans through candidate, snapshot, batch, UI and HTML; reject malformed extra cells, duplicate labels, unknown-account borrowing and parent boundaries.
+- [x] Accept only equivalent RMB unit spellings while preserving every original unit and blocking currency/scale mismatches.
+- [x] Run 68 full original PDFs: 63 candidates, five gaps, 52 issuers, 49 candidate issuers, 66 issuer/year pairs; prior 60 statuses, statement checks and two-period amounts unchanged. Thirty added current amounts match the public source; no new human financial confirmations.
+- [ ] Complete batch 11 deployment and actual browser acceptance; use the task's final release receipt to close this pre-deployment checkpoint.
+- [ ] Extend beyond these exact report versions; the old PICC/CMOC originals, CSCEC image tables, Sinopec layout and Unicom text corruption remain gaps. Do not assume OCR or full-market support.

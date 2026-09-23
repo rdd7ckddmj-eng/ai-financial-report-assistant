@@ -22,6 +22,7 @@ from src.audited_company_onboarding import (
     rmb_unit_multiplier,
 )
 from src.china_stock import is_allowed_disclosure_url
+from src.statement_evidence_rules import consistent_statement_unit
 
 
 SNAPSHOT_SCHEMA_VERSION = "1.1"
@@ -256,7 +257,7 @@ def build_on_demand_financial_snapshot(
     income_detail = result.get('income_reconciliation')
     if income_detail is not None and income_detail.get('status') != 'passed':
         statement_checks['income_statement_reconciled'] = False
-    unit = units[0] if len(units) == 3 and len(set(units)) == 1 else None
+    unit = consistent_statement_unit(units)
     multiplier: float | None = None
     automatic_checks_pass = (
         result.get("status") == "ready_for_human_review"
@@ -365,6 +366,8 @@ def build_on_demand_financial_snapshot(
             "page_count": int(result["page_count"]),
             **({'text_adjustments': deepcopy(result['pdf_text_adjustments'])}
                if result.get('pdf_text_adjustments') else {}),
+            **({'cash_flow_layout_recoveries': deepcopy(result['cash_flow_layout_recoveries'])}
+               if result.get('cash_flow_layout_recoveries') else {}),
         },
         "source_fingerprint_sha256": str(
             result["evidence_fingerprint_sha256"]
@@ -374,7 +377,7 @@ def build_on_demand_financial_snapshot(
         "statement_reconciliation": deepcopy(result.get('statement_reconciliation')),
         "unit": unit if multiplier is not None else None,
         "unit_note": (
-            f"三张报表原始单位均为“{unit}”，页面数值已统一换算为人民币元。"
+            f"三张报表金额单位核对一致，按“{unit}”统一换算为人民币元；原文单位见各项证据。"
             if ready
             else "金额单位、三表勾稽或核心数值未全部通过，系统未输出标准化金额。"
         ),
@@ -439,7 +442,7 @@ def _format_pages(pages: Mapping[str, int] | None) -> str:
 
 
 def income_reconciliation_rows(result: Mapping[str, object]) -> list[dict[str, str]]:
-    """Display only the two checked relationships; never infer missing totals."""
+    """Display the saved checked relationships; never infer missing totals."""
     detail = result.get('income_reconciliation')
     if not isinstance(detail, Mapping):
         return []
@@ -452,6 +455,33 @@ def income_reconciliation_rows(result: Mapping[str, object]) -> list[dict[str, s
             periods.append(str(difference) if difference is not None else '证据不足')
         rows.append({'核对关系': str(check['label']), '本期差额': periods[0],
                      '比较期差额': periods[1], '检查结果': '通过' if check['passed'] else '待复核'})
+    return rows
+
+
+def operating_reconciliation_rows(result: Mapping[str, object]) -> list[dict[str, str]]:
+    """Expose original two-period components only after a complete parse."""
+    detail = result.get('income_reconciliation')
+    operating = detail.get('operating_reconciliation') if isinstance(detail, Mapping) else None
+    if not isinstance(operating, Mapping) or operating.get('status') not in ('passed', 'mismatch'):
+        return []
+    evidence = operating.get('evidence')
+    if not isinstance(evidence, Mapping):
+        return []
+    rows = []
+    for key, item in evidence.items():
+        if not isinstance(item, Mapping):
+            return []
+        values = item.get('values')
+        coefficient = item.get('coefficient')
+        if (not isinstance(values, list) or len(values) != 2
+                or type(coefficient) is not int or coefficient not in (-1, 0, 1)):
+            return []
+        operation = {-1: '减去原值', 1: '加上原值', 0: '已含在上级科目'}[coefficient]
+        if key in ('operating_profit', 'profit_before_tax'):
+            operation = '核对小计'
+        rows.append({'原文科目': str(item.get('label', key)), '计算方式': operation,
+                     '本期原值': str(values[0]), '比较期原值': str(values[1]),
+                     'PDF页码': _format_pages(item.get('pages'))})
     return rows
 
 
@@ -521,6 +551,13 @@ def build_financial_snapshot_report_html(
             + ''.join('<tr>' + ''.join('<td>' + escape(value) + '</td>' for value in row.values()) + '</tr>' for row in check_rows)
             + '</tbody></table>'
         )
+        components = operating_reconciliation_rows(snapshot)
+        if components:
+            income_html += ('<h3>营业收入至税前利润的原文分项</h3>'
+                '<p>按上方报表原单位展示。减项保留原文正负号；利息等明细已含在上级科目，不重复加总。</p>'
+                '<table><thead><tr><th>原文科目</th><th>计算方式</th><th>本期原值</th><th>比较期原值</th><th>PDF页码</th></tr></thead><tbody>'
+                + ''.join('<tr>' + ''.join('<td>' + escape(value) + '</td>' for value in row.values()) + '</tr>' for row in components)
+                + '</tbody></table>')
     elif report.get('statement_template', 'general') == 'general':
         income_html = '<p>此快照未保存利润表金额关系复核明细；重新生成后可查看。</p>'
         display_status = '旧版候选快照；利润表金额关系需重新生成核对。'
@@ -545,6 +582,19 @@ def build_financial_snapshot_report_html(
                 + '<p>原始文字：</p><pre>' + escape(str(item.get('original_span', ''))[:1000]) + '</pre>'
                 + '<p>程序读取：</p><pre>' + escape(str(item.get('replacement_span', ''))[:1000]) + '</pre>'
                 + '<p>' + escape(str(item.get('reason', ''))[:1000]) + '</p>')
+    recoveries = report.get('cash_flow_layout_recoveries', [])
+    if isinstance(recoveries, list) and recoveries:
+        derivation_html += ('<h2>现金流换行与附注读取依据</h2><p>'
+            '按完整科目、附注列和两期金额识别换行；保留原始文字与页码，没有改写原PDF或补入缺失金额。</p>')
+        for item in recoveries[:8]:
+            if not isinstance(item, Mapping) or not isinstance(item.get('source_spans'), list):
+                continue
+            derivation_html += '<h3>' + escape(str(item.get('label', ''))) + '</h3>'
+            for span in item.get('source_spans', []):
+                if not isinstance(span, Mapping):
+                    continue
+                derivation_html += ('<p>PDF第' + escape(str(span.get('page_number', ''))) + '页</p><pre>'
+                    + escape(str(span.get('original_text', ''))[:2000]) + '</pre>')
     return f"""<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -557,7 +607,7 @@ table{{border-collapse:collapse;width:100%;margin:20px 0}}
 th,td{{border:1px solid #d9e1ea;padding:10px;text-align:left}}
 th{{background:#edf3f8}} small{{color:#5d6b7a}} a{{color:#075ea8}}
 </style></head><body>
-<p><small>FANGZHENG AI · 全市场按需财务快照 Agent</small></p>
+<p><small>FANGZHENG AI · A股按需财务快照 Agent</small></p>
 <h1>{escape(company['name'])}｜{escape(company['canonical_code'])}</h1>
 <p class="notice"><strong>{escape(display_status)}</strong><br>
 自动提取候选，未经人工复核，不构成投资建议。</p>

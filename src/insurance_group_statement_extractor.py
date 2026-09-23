@@ -1,4 +1,4 @@
-"""Verified PICC 2024 and CPIC/NCI 2024–2025 issuer-specific layouts.
+"""Verified PICC/CPIC/NCI 2024–2025 issuer-specific layouts.
 
 These profiles do not imply all insurance reports are supported. We validate
 both years (and NCI's parent columns) before returning consolidated candidates.
@@ -13,7 +13,7 @@ TEMPLATES = {
     '601336': 'insurance_nci_four_column_v1',
 }
 TOTAL_REVENUE_TEMPLATES = frozenset(TEMPLATES[c] for c in ('601319', '601601'))
-VERIFIED_YEARS = {'601319': frozenset({2024}),
+VERIFIED_YEARS = {'601319': frozenset({2024, 2025}),
                   '601601': frozenset({2024, 2025}),
                   '601336': frozenset({2024, 2025})}
 TITLES = dict(balance='资产负债表', income='利润表', cash='现金流量表')
@@ -65,6 +65,24 @@ PROFILES = {
 def _profile(code, year):
     """Keep changed row labels and note numbers scoped to an observed year."""
     profile = deepcopy(PROFILES[code])
+    if year == 2025 and code == '601319':
+        # Only labels observed in the HKEX-hosted A-share CAS original change.
+        # The issuer's outline-numbered original still fails the same complete
+        # two-year, unit, row and reconciliation checks below.
+        replacements = {
+            '公允价值变动损益': '公允价值变动收益',
+            '汇兑收益': '汇兑损益',
+            '转回提取保费准备金': '提取/(转回)保费准备金',
+            '信用减值(转回)/损失': '信用减值损失/(转回)',
+            profile['delta']: '五、现金及现金等价物净增加额',
+        }
+        for field in ('revenue_parts', 'expense_parts'):
+            profile[field] = [replacements.get(x, x) for x in profile[field]]
+        profile['notes'] = {replacements.get(k, k): v for k, v in profile['notes'].items()}
+        profile['parent_profit'] = '归属于母公司股东的净利润'
+        profile['minority_profit'] = '少数股东损益'
+        profile['financing'] = '筹资活动产生的现金流量净额'
+        profile['delta'] = replacements[profile['delta']]
     if year == 2025 and code == '601601':
         replacements = {'公允价值变动收益/(损失)': '公允价值变动收益',
                         '汇兑(损失)/收益': '汇兑损失',
@@ -136,7 +154,7 @@ def _window(pages, section, year, code):
                         else ('货币资金', '交易性金融负债' if nci else '衍生金融负债')),
             'income': (profile['revenue'], '五、净利润'),
             'cash': ('一、经营活动产生的现金流量',
-                     '三、筹资活动产生/(使用)的现金流量' if code == '601319'
+                     '三、筹资活动产生/(使用)的现金流量' if code == '601319' and year == 2024
                      else '三、筹资活动产生的现金流量'),
         }
         if not tail or tail[0] != first_rows[section][offset]:
@@ -266,6 +284,8 @@ def _extract(pages, year, code):
 
 
 def extract_insurance_group_statements(pages, year, code):
+    # Low-level statement parsing only. The candidate builder separately
+    # requires full report/issuer/CAS identity for every PICC 2025 source URL.
     # Only the sampled year is enabled until another year's layout is tested.
     if year not in VERIFIED_YEARS.get(code, ()):
         return None
@@ -273,3 +293,32 @@ def extract_insurance_group_statements(pages, year, code):
         return _extract(pages,year,code)
     except (ValueError, IndexError, ArithmeticError):
         return None
+
+
+def is_picc_2025_annual_report_identity(company, pages, year):
+    """Bind the individual HKEX A-share original to PICC, year and CAS basis.
+
+    The H-share annual report is IFRS and must not substitute for this original.
+    The additional HKEX wrapper is not itself the complete-report title.
+    """
+    if year != 2025 or str(company.get('code')) != '601319' or company.get('name') != '中国人保':
+        return False
+    front = _compact('\n'.join(text for number, text in pages if 1 <= number <= 10))
+    heading = _compact('\n'.join(text for number, text in pages if 1 <= number <= 2))
+    if any(label in heading for label in ('年度报告摘要', '年报摘要', '年度报告英文', '年报英文')):
+        return False
+    if not ('中国人民保险集团股份有限公司' in front
+            and re.search(r'(?:2025|二零二五)年(?:年度报告|年报|年報)', front)
+            and re.search(r'A股股票(?:代码|代碼)[：:]?601319(?!\d)', front)):
+        return False
+    # Require the observed, explicit accounting-policy statement rather than
+    # inferring CAS from exchange, language or the presence of a few CAS totals.
+    for _, text in pages:
+        compact = _compact(text)
+        if ('财务报表附注(续)' in compact and '2025年度' in compact
+                and '二、财务报表的编制基础' in compact
+                and '本财务报表按照财政部颁布的企业会计准则' in compact
+                and '本集团编制的财务报表符合企业会计准则的要求' in compact
+                and '国际财务报告' not in compact and '國際財務報告' not in compact):
+            return True
+    return False

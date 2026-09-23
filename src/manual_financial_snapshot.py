@@ -3,13 +3,14 @@ from datetime import date, datetime, timezone
 import re
 
 from src.audited_company_onboarding import build_candidate_report_result
-from src.china_stock import build_company_identity, is_allowed_disclosure_url, CMOC_2025_REPORT_URL
+from src.china_stock import build_company_identity, is_allowed_disclosure_url, CMOC_2025_REPORT_URL, PICC_2025_REPORT_URL
 from src.on_demand_financial_snapshot import build_on_demand_financial_snapshot
 from src.pdf_extractor import extract_pdf_pages
 from src.pdf_resource_policy import MANUAL_PDF_MAX_BYTES
 from src.securities_statement_extractor import is_cms_annual_report_identity
 from src.cmoc_statement_extractor import is_cmoc_annual_report_identity
 from src.citic_securities_statement_extractor import is_citic_annual_report_identity
+from src.insurance_group_statement_extractor import is_picc_2025_annual_report_identity
 
 
 def build_manual_financial_snapshot(company, pdf_bytes, *, report_year, source_url,
@@ -54,7 +55,13 @@ def build_manual_financial_snapshot(company, pdf_bytes, *, report_year, source_u
             [(p['page_number'], p['text']) for p in pages], report_year)
         if not citic_identity:
             raise ValueError('中信证券报告前二十页的年度、法定名称与A股上市信息未全部通过校验。')
-    specific_identity = cms_identity or cmoc_identity or citic_identity
+    picc_identity = False
+    if source_url.strip() == PICC_2025_REPORT_URL:
+        picc_identity = is_picc_2025_annual_report_identity(company,
+            [(p['page_number'], p['text']) for p in pages], report_year)
+        if not picc_identity:
+            raise ValueError('该港交所原件仅支持中国人保2025年A股完整年报；公司、年度、A股代码及中国企业会计准则必须一致。')
+    specific_identity = cms_identity or cmoc_identity or citic_identity or picc_identity
     front = re.sub(r'\s+', '', '\n'.join(p['text'] for p in pages[:10]))
     heading = re.sub(r'\s+', '', '\n'.join(p['text'] for p in pages[:2]))
     if '年度报告摘要' in heading or '年度报告英文' in heading:

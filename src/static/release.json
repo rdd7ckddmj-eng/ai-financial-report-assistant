@@ -1,14 +1,15 @@
 {
-  "release_id": "20260924-coverage-10.4",
-  "source_digest_sha256": "626abca0a2e05414124b46bb7cc5d8eddd6b0665c63b82e39cac76e3fbbb3003",
-  "prior_commit": "ebded540d7ca584d05727045c503b257d29ae259",
-  "verified_python_tests": 1998,
+  "release_id": "20260924-coverage-11.1",
+  "source_digest_sha256": "d188dd0752e09a1fb5dbc4d0e53bc7baec3e98093ad557dd45d2aeffd1c00698",
+  "prior_commit": "5ae8380c69a90be8f610ef5458229fbb2f538f52",
+  "verified_python_tests": 2346,
   "coverage": {
-    "real_reports_tested": 60,
-    "candidate_reports": 57,
-    "companies": 45,
-    "candidate_companies": 44,
+    "real_reports_tested": 68,
+    "candidate_reports": 63,
+    "companies": 52,
+    "candidate_companies": 49,
+    "issuer_year_pairs": 66,
     "human_verified_new": 0
   },
-  "note": "Exact-source annual report catalogue; 60 full PDF versions across 45 companies and 59 issuer/year pairs, 57 candidates and 3 gaps. All 60 complete report receipts unchanged after bounded native PDF cache cleanup; upload checks avoid a full-file writable copy. Prior deployed 10.1 encountered confirmed 512 MB instance OOM; Periodic PDF cache cleanup lowers the reproduced native memory high-water mark; Final UI preserves the coverage panel state across rerenders; financial parsing code is unchanged from 10.3, which passed six sequential live uploads. Local macOS memory reduction is not a Render RSS guarantee. 40 new current amounts: 39 close and one CITIC revenue difference explained by precise official restatement evidence; original values and difference status retained. PICC 2025, old CMOC image version and CSCEC 2025 remain needs-review. Not full-market coverage or human financial approval."
+  "note": "PICC 2025 exact HKEX A-share CAS original and five additional issuers; original failures preserved. Four ordinary reports have explicit two-period operating components and visible arithmetic. Cash layout evidence retains exact page spans. Explicit operating revenue may not fall back to total revenue. Equivalent RMB spelling preserves raw units; incompatible currency and scale blocked. Prior 60 full report statuses, statement checks and both-period amounts unchanged; 30 new current amounts match an independent public source. 68 PDF versions are 66 issuer/year pairs, not full-market coverage or human financial approval."
 }

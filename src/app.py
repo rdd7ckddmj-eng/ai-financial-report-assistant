@@ -18154,6 +18154,23 @@ def _process_onboarding_report(
 def _show_pdf_text_adjustments(result) -> None:
     """Keep original/derived signs visible wherever a candidate is reviewed."""
     report = result.get('report', result)
+    recoveries = result.get('cash_flow_layout_recoveries', report.get('cash_flow_layout_recoveries', []))
+    if isinstance(recoveries, list) and recoveries:
+        with st.expander(f'查看现金流换行与附注读取依据（{len(recoveries)}处）'):
+            st.write('按完整科目、附注列和两期金额识别换行；保留原始文字与页码，没有改写原PDF或补入缺失金额。')
+            for item in recoveries[:8]:
+                if not isinstance(item, Mapping) or not isinstance(item.get('source_spans'), list):
+                    continue
+                st.write(str(item.get('label', '')))
+                for span in item.get('source_spans', []):
+                    if not isinstance(span, Mapping):
+                        continue
+                    page = span.get('page_number')
+                    st.caption(f'PDF第{page}页原始文字')
+                    st.code(str(span.get('original_text', ''))[:2000], language='text')
+                    url = str(report.get('source_url', ''))
+                    if type(page) is int and page > 0 and is_allowed_disclosure_url(url):
+                        st.link_button(f'查看现金流原件第{page}页', url.split('#', 1)[0] + f'#page={page}')
     adjustments = result.get('pdf_text_adjustments', report.get('text_adjustments', []))
     if not isinstance(adjustments, list) or not adjustments:
         return
@@ -18177,7 +18194,7 @@ def _show_pdf_text_adjustments(result) -> None:
 
 def _show_income_reconciliation(result) -> None:
     """Show the checked profit relationships with source-unit differences."""
-    from src.on_demand_financial_snapshot import income_reconciliation_rows
+    from src.on_demand_financial_snapshot import income_reconciliation_rows, operating_reconciliation_rows
     _show_pdf_text_adjustments(result)
     statements = result.get('statement_reconciliation')
     if isinstance(statements, Mapping):
@@ -18203,6 +18220,11 @@ def _show_income_reconciliation(result) -> None:
         rows = income_reconciliation_rows(result)
         if rows:
             st.dataframe(rows, hide_index=True, width='stretch')
+        components = operating_reconciliation_rows(result)
+        if components:
+            st.write('营业收入至税前利润的原文分项')
+            st.caption('按上方报表原单位展示。减项保留原文正负号；利息等明细已含在上级科目，不重复加总。')
+            st.dataframe(components, hide_index=True, width='stretch')
 
 
 def _show_onboarding_report_result(

@@ -29,7 +29,7 @@ def test_real_two_year_values_and_page_sources(name,code,issuer):
         assert result[section]['unit'] == '人民币百万元'
 
 
-@pytest.mark.parametrize('name,code,issuer,year', [(*c, 2024) for c in CASES] + [(*c, 2025) for c in CASES[1:]])
+@pytest.mark.parametrize('name,code,issuer,year', [(*c, 2024) for c in CASES] + [(*c, 2025) for c in CASES])
 @pytest.mark.parametrize('change',['year','unit','gap','missing','parent','current_amount','prior_amount','extra_column','duplicate_row','duplicate_table','missing_footer','sign','note','bad_commas'])
 def test_corrupt_statements_are_rejected(name,code,issuer,year,change):
     pages = fixture(name,year)['pages']
@@ -42,7 +42,7 @@ def test_corrupt_statements_are_rejected(name,code,issuer,year,change):
         pages = [(n,t.replace(old,new)) for n,t in pages]
     first = {'picc':'621,972\n553,097','cpic':'404,089\n323,945','nci':'132,555\n71,547\n129,609\n70,995'}[name]
     if year == 2025:
-        first = {'cpic':'435,156\n404,089','nci':'157,745\n132,555\n153,132\n129,609'}[name]
+        first = {'picc':'669,044\n621,972','cpic':'435,156\n404,089','nci':'157,745\n132,555\n153,132\n129,609'}[name]
     if change == 'year': replace(f'{year-1}年',f'{year-2}年')
     if change == 'unit': replace('人民币百万元','人民币万元')
     if change == 'gap': pages[1] = (pages[1][0]+1,pages[1][1])
@@ -56,7 +56,7 @@ def test_corrupt_statements_are_rejected(name,code,issuer,year,change):
     if change == 'missing_footer': replace('后附财务报表附注为本财务报表的组成部分','')
     if change == 'sign':
         value = {'picc':'551,328','cpic':'(348,378)','nci':'(104,338)'}[name]
-        if year == 2025: value = {'cpic':'(368,982)','nci':'(120,544)'}[name]
+        if year == 2025: value = {'picc':'594,107','cpic':'(368,982)','nci':'(120,544)'}[name]
         replace(value,'('+value+')' if name == 'picc' else value.strip('()'))
     if change == 'note': replace(first,'99\n'+first)
     if change == 'bad_commas': replace(first, first.replace(',', ',,', 1))
@@ -151,6 +151,7 @@ def test_chinalife_image_cover_cannot_trigger_general_company_ratios():
 
 
 @pytest.mark.parametrize('name,code,expected', [
+    ('picc','601319',[(669044,621972,131),(46646,42869,132),(2027683,1766384,128),(1607494,1399158,129),(118689,87990,137)]),
     ('cpic','601601',[(435156,404089,160),(53505,44960,161),(3144767,2834907,158),(2810543,2516426,159),(195523,154404,163)]),
     ('nci','601336',[(157745,132555,122),(36284,26229,123),(1899484,1692297,120),(1787906,1596028,121),(110916,96290,128)]),
 ])
@@ -162,10 +163,10 @@ def test_real_2025_values_preserve_both_years_and_physical_pages(name,code,expec
         assert result[section]['metric_sources'][key]['page_number'] == page
     # No blanket enabling of the next year or other insurers.
     assert extract_insurance_group_statements(fixture(name,2025)['pages'],2026,code) is None
-    assert extract_insurance_group_statements(fixture(name,2025)['pages'],2025,'601319') is None
+    assert extract_insurance_group_statements(fixture(name,2025)['pages'],2025,'601601' if code == '601319' else '601319') is None
 
 
-@pytest.mark.parametrize('name,code,year', [('picc','601319',2024),('cpic','601601',2024),('nci','601336',2024),('cpic','601601',2025),('nci','601336',2025)])
+@pytest.mark.parametrize('name,code,year', [('picc','601319',2024),('cpic','601601',2024),('nci','601336',2024),('picc','601319',2025),('cpic','601601',2025),('nci','601336',2025)])
 @pytest.mark.parametrize('change',['extra_year','restated_header','decimal_cell','malformed_cell','na_cell','slash_decimal'])
 def test_extra_header_and_malformed_cells_cannot_hide_as_labels(name,code,year,change):
     from src.insurance_group_statement_extractor import _lines, _profile
@@ -174,7 +175,7 @@ def test_extra_header_and_malformed_cells_cannot_hide_as_labels(name,code,year,c
     first = {
         ('picc',2024):'621,972\n553,097',('cpic',2024):'404,089\n323,945',
         ('nci',2024):'132,555\n71,547\n129,609\n70,995',
-        ('cpic',2025):'435,156\n404,089',('nci',2025):'157,745\n132,555\n153,132\n129,609',
+        ('picc',2025):'669,044\n621,972',('cpic',2025):'435,156\n404,089',('nci',2025):'157,745\n132,555\n153,132\n129,609',
     }[name,year]
     if change in ('extra_year','restated_header'):
         old = '\n'+profile['revenue']+'\n'+first
@@ -202,14 +203,15 @@ def test_nci_2025_group_parent_and_pdf_order_are_explicit(change):
     assert extract_insurance_group_statements(pages,2025,'601336') is None
 
 
-@pytest.mark.parametrize('name,code,issuer', CASES[1:])
+@pytest.mark.parametrize('name,code,issuer', CASES)
 def test_2025_candidate_keeps_insurance_review_and_page_evidence(name,code,issuer):
     from src.audited_company_onboarding import build_candidate_report_result
     from src.china_stock import build_company_identity
     from src.on_demand_financial_snapshot import build_on_demand_financial_snapshot
     from src.financial_snapshot_review import build_financial_snapshot_review
     f = fixture(name,2025)
-    pages = [dict(page_number=1,text=LEGAL[code])]+[dict(page_number=n,text=t) for n,t in f['pages']]
+    identity_pages = f.get('identity_pages', [(1, LEGAL[code])])
+    pages = [dict(page_number=n,text=t) for n,t in sorted(identity_pages + f['pages'], key=lambda p: p[0])]
     result = build_candidate_report_result(build_company_identity(code,issuer),
         dict(report_year=2025,title='2025年年度报告',published_date='2026-03-27',url=f['source_url']),
         b'%PDF-synthetic-integration',pages)
@@ -222,11 +224,10 @@ def test_2025_candidate_keeps_insurance_review_and_page_evidence(name,code,issue
 
 
 def test_picc_2025_real_pdf_without_numeric_text_stays_unsupported():
-    from src.insurance_group_statement_extractor import VERIFIED_YEARS, _extract
+    from src.insurance_group_statement_extractor import _extract
     f = json.loads((Path(__file__).parent/'fixtures/picc_insurance_2025_numeric_text_missing.json').read_text())
-    assert 2025 not in VERIFIED_YEARS['601319']
     assert extract_insurance_group_statements(f['pages'],2025,'601319') is None
-    # Even if the explicit year gate were removed, the actual text layer
-    # cannot meet the statement year/amount requirements.
+    # Enabling the verified text version must not allow the outline-numbered
+    # original to bypass statement year/amount requirements.
     with pytest.raises(ValueError):
         _extract(f['pages'],2025,'601319')

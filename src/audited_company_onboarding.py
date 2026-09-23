@@ -30,13 +30,17 @@ from src.citic_securities_statement_extractor import (
 )
 from src.insurance_statement_extractor import INSURANCE_TEMPLATE, extract_insurance_statements
 from src.chinalife_statement_extractor import CHINALIFE_TEMPLATE, extract_chinalife_statements, matches_chinalife_issuer
-from src.insurance_group_statement_extractor import TEMPLATES as INSURANCE_GROUP_TEMPLATES, extract_insurance_group_statements
+from src.insurance_group_statement_extractor import (
+    TEMPLATES as INSURANCE_GROUP_TEMPLATES, extract_insurance_group_statements,
+    is_picc_2025_annual_report_identity,
+)
 from src.financial_sector_policy import matches_known_insurer, SECURITIES_REVENUE_TEMPLATES
 from src.financial_sector_policy import unsupported_issuer_template
 from src.securities_statement_extractor import (SECURITIES_TEMPLATE, extract_securities_statements,
     CMS_SECURITIES_TEMPLATE, extract_cms_securities_statements, is_cms_annual_report_identity)
 from src.bank_statement_extractor import BANK_TEMPLATE, extract_bank_statements
 from src.cash_flow_extractor import find_cash_flow_figures
+from src.statement_evidence_rules import consistent_statement_unit
 from src.china_stock import build_cninfo_pdf_url, is_allowed_disclosure_url, CMOC_2025_REPORT_URL
 from src.financial_statement_extractor import (
     _chinese_label_matches,
@@ -111,6 +115,7 @@ class CandidateReportResult(TypedDict):
     statement_checks: dict[str, bool]
     income_reconciliation: dict[str, object] | None
     pdf_text_adjustments: list[dict[str, object]]
+    cash_flow_layout_recoveries: list[dict[str, object]]
     statement_reconciliation: dict[str, object] | None
     unit_check: dict[str, object]
     statement_pages: dict[str, dict[str, int] | None]
@@ -479,6 +484,8 @@ def build_candidate_report_result(
         unsupported = None
     group_insurance = extract_insurance_group_statements(page_list, report_year, company['code']) if (
         unsupported == 'insurance_unsupported_v1' and matches_known_insurer(company, page_list)
+        and (str(company.get('code')) != '601319' or report_year != 2025
+             or is_picc_2025_annual_report_identity(company, page_list, report_year))
     ) else None
     if group_insurance:
         statement_template = INSURANCE_GROUP_TEMPLATES[company['code']]
@@ -544,8 +551,7 @@ def build_candidate_report_result(
         if figures is not None
     ]
     units = [str(figures.get("unit", "")).strip() for figures in statements]
-    all_units_present = len(units) == 3 and all(units)
-    units_consistent = all_units_present and len(set(units)) == 1
+    units_consistent = consistent_statement_unit(units) is not None
     ready = all(statement_checks.values()) and units_consistent
     figures_by_statement = {
         "income_statement": income,
@@ -573,6 +579,7 @@ def build_candidate_report_result(
         "statement_checks": statement_checks,
         "income_reconciliation": income_reconciliation,
         "pdf_text_adjustments": text_adjustments,
+        "cash_flow_layout_recoveries": (cash_flow or {}).get('layout_recoveries', []),
         "statement_reconciliation": (detailed_profile or {}).get('statement_reconciliation'),
         "unit_check": {
             "passed": units_consistent,

@@ -1,5 +1,6 @@
 """Deterministic extraction of key figures from an income-statement page."""
 
+import math
 import re
 from src.pdf_numeric_text import normalize_numeric_parentheses
 from src.statement_evidence_rules import extract_statement_unit, bound_consolidated_statement
@@ -322,6 +323,116 @@ def _extract_unit(lines: list[str]) -> str:
     return extract_statement_unit(lines)
 
 
+def _has_revenue_note_header(lines: list[str], row_index: int) -> bool:
+    """Recover a glued note only under an explicit, ordered two-year header."""
+    if _chinese_income_statement_column_count(lines) != 2:
+        return False
+    start = next((i for i, line in enumerate(lines[:row_index])
+                  if _compact_chinese_text(line).startswith('项目')), None)
+    if start is None:
+        return False
+    header = ''
+    for line in lines[start:row_index]:
+        compact = _compact_chinese_text(line)
+        if re.match(r'^(?:[一二三四五六七八九十]+[、.．])?(?:其中：)?营业(?:总)?收入', compact):
+            break
+        header += compact
+    match = re.fullmatch(r'项目附注(\d{4})年度?(\d{4})年度?', header)
+    unit = _extract_unit(lines).removeprefix('人民币')
+    return bool(match and int(match[1]) == int(match[2]) + 1
+                and unit in {'元', '千元', '万元', '百万元'})
+
+
+def _strict_noted_revenue_pair(lines: list[str], row_index: int, label_end: int):
+    """Read exactly two cells following an exact Chinese-parenthesised note.
+
+    Numeric references are not invented. This new path neither skips another
+    account nor selects the last two cells from a damaged three-cell row.
+    """
+    if not _has_revenue_note_header(lines, row_index) or label_end + 1 >= len(lines):
+        return None
+    chinese = '一二三四五六七八九十百'
+    note_line = lines[label_end + 1]
+    note_end = label_end + 1
+    if re.fullmatch(rf'[{chinese}]+[1-9]\d{{0,2}}', note_line):
+        # Wanhua and China Nuclear print the note as 七61. This is only a
+        # standalone note under the same explicit note/two-year header; do
+        # not split glued digits into an assumed note plus an amount.
+        first = ''
+    else:
+        note_pattern = rf'^(?:附注)?[{chinese}]+、?(?:\([{chinese}]+\)|（[{chinese}]+）)'
+        note = re.match(note_pattern, note_line)
+        # Existing Jinbo original wraps 五(三十四) across two lines. Only an
+        # unfinished Chinese note may join; no amount/account can bridge the gap.
+        while (note is None and note_end < min(label_end + 3, len(lines) - 1)
+                and re.fullmatch(rf'(?:附注)?[{chinese}]+、?[（(][{chinese}]*', note_line)):
+            note_end += 1
+            note_line += lines[note_end]
+            note = re.match(note_pattern, note_line)
+        if note is None:
+            return None
+        first = note_line[note.end():].strip()
+    amount = r'(?:\d{1,3}(?:[,，]\d{3})+|\d+)(?:\.\d+)?'
+    cell = re.compile(rf'^(?:[-−－—–]|[-−－]?{amount}|\({amount}\)|（{amount}）)$')
+    values = []
+    pending = ([first] if first else []) + lines[note_end + 1:note_end + 7]
+    for line in pending:
+        tokens = line.split()
+        if tokens and all(len(token) <= 64 and cell.fullmatch(token) for token in tokens):
+            values.extend(_parse_financial_value(token) for token in tokens)
+            if len(values) > 2:
+                return None
+            continue
+        compact = _compact_chinese_text(line)
+        if (re.match(r'^[+\-−－—–(（.,\d]', compact) and re.search(r'\d', compact)
+                and not re.search(r'[\u4e00-\u9fff]', compact)) or re.fullmatch(
+                r'(?:不适用|无数据|N/?A|NAN|NULL|NONE)', compact, re.IGNORECASE):
+            return None
+        # Any other account/annotation ends this row. If either value is
+        # missing the next account cannot supply it, even if it would balance.
+        break
+    if len(values) != 2 or not all(math.isfinite(value) and abs(value) <= 1e24 for value in values):
+        return None
+    return values[0], values[1]
+
+
+def _extract_chinese_revenue_pair(lines: list[str], *, value_column_count: int):
+    """An explicit operating-revenue row must never fall back to total income."""
+    preferred = CHINESE_REVENUE_LABELS[:2]
+    starts = []; cursor = 0; visible_operating_row = False
+    while cursor < len(lines):
+        # The broad presence guard deliberately sees malformed suffixes too:
+        # inability to read an existing row cannot authorize a different metric.
+        combined = ''
+        for end in range(cursor, min(cursor + 3, len(lines))):
+            combined += _compact_chinese_text(lines[end])
+            without_number = re.sub(r'^(?:\d+[.．、]|[一二三四五六七八九十]+[、.．])', '', combined, count=1)
+            if any(without_number.startswith(label) for label in preferred):
+                visible_operating_row = True
+                break
+        match = next(((label, end) for label in preferred
+            if (end := _chinese_label_span(lines, cursor, label)) is not None), None)
+        if match is not None:
+            starts.append((cursor, match[1]))
+            cursor = match[1] + 1
+        else:
+            cursor += 1
+    if visible_operating_row:
+        if len(starts) != 1:
+            return None
+        row_index, label_end = starts[0]
+        following = lines[label_end + 1] if label_end + 1 < len(lines) else ''
+        # Restrict the new path to the exact family it supports, including
+        # malformed members of that family which must not enter old fallback.
+        if re.match(r'^(?:附注)?[一二三四五六七八九十百]+(?:、[（(]|[（(][一二三四五六七八九十百]|\d)', following):
+            return _strict_noted_revenue_pair(lines, row_index, label_end)
+        return _extract_chinese_row_pair(lines, preferred, value_column_count=value_column_count)
+    # Preserve the existing total-only legacy layout. Its separate semantic
+    # policy is not widened by recovering one explicit operating-revenue row.
+    return _extract_chinese_row_pair(lines, CHINESE_REVENUE_LABELS[2:],
+                                     value_column_count=value_column_count)
+
+
 def extract_income_statement_figures(
     page_number: int,
     page_text: str,
@@ -330,6 +441,15 @@ def extract_income_statement_figures(
     # The result's Chinese profit field is attributable to the parent. A
     # consolidated total is not a substitute when that row is on the next page.
     lines = _normalise_lines(bound_consolidated_statement(page_text, "利润表"))
+    if _chinese_income_statement_column_count(lines) is not None:
+        # Some originals number the separate parent table as “（四）母公司
+        # 利润表”. Keep the duplicate-revenue guard inside the group scope.
+        enumeration = r'(?:\d+[、.．]|[一二三四五六七八九十]+[、.．]|\([一二三四五六七八九十]+\)|（[一二三四五六七八九十]+）)?'
+        parent = next((i for i, line in enumerate(lines) if re.fullmatch(
+            enumeration + r'(?:母公司|公司)利润表(?:[（(]续[）)])?',
+            _compact_chinese_text(line))), None)
+        if parent is not None:
+            lines = lines[:parent]
 
     if "Group income statement" in lines:
         revenue_totals = _extract_six_column_totals(lines, "Revenue")
@@ -345,9 +465,8 @@ def extract_income_statement_figures(
             lines
         )
     ) is not None:
-        revenue_totals = _extract_chinese_row_pair(
+        revenue_totals = _extract_chinese_revenue_pair(
             lines,
-            CHINESE_REVENUE_LABELS,
             value_column_count=chinese_value_column_count,
         )
         profit_totals = _extract_chinese_row_pair(

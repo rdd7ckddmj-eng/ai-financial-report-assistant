@@ -1,7 +1,7 @@
 {
   "schema": "complete-annual-report-test-catalog.v1",
   "scope": "exact_complete_pdf_versions",
-  "tested_at": "2026-09-23T18:39:47.266370+00:00",
+  "tested_at": "2026-09-23T19:54:55.303680+00:00",
   "human_verification": "not_performed",
   "reports": [
     {
@@ -1083,7 +1083,151 @@
       },
       "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
       "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "002714.SZ",
+      "company_name": "牧原股份",
+      "report_year": 2025,
+      "published_date": "2026-03-28",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-28/1225042507.PDF",
+      "source_sha256": "aa44a1f4244a6efbc6e54e7dbd4307235d39117bb4ff4d9590f386b02b0d9a04",
+      "page_count": 253,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600028.SH",
+      "company_name": "中国石化",
+      "report_year": 2025,
+      "published_date": "2026-03-23",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-23/1225024063.PDF",
+      "source_sha256": "4b425d76e97f8c151d986a7f1e83ae2d4b22d43f89b950c352240a5aaffea329",
+      "page_count": 239,
+      "status": "needs_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": false,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "缺少完整利润表证据，未判定金额是否一致。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600050.SH",
+      "company_name": "中国联通",
+      "report_year": 2025,
+      "published_date": "2026-03-20",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-20/1225078768.PDF",
+      "source_sha256": "f13c0ee26f35fa8d3486c0464f372dd6189c6f591e36dc38c3110c89d4638c4b",
+      "page_count": 213,
+      "status": "needs_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": false,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "缺少完整利润表证据，未判定金额是否一致。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600406.SH",
+      "company_name": "国电南瑞",
+      "report_year": 2025,
+      "published_date": "2026-04-30",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-30/1225257886.PDF",
+      "source_sha256": "263607df17b8f71f891ff2e046120f123f146039a9097b93aa9b2527d79fa25c",
+      "page_count": 306,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600887.SH",
+      "company_name": "伊利股份",
+      "report_year": 2025,
+      "published_date": "2026-04-30",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-30/1225259562.PDF",
+      "source_sha256": "d17b8c541c42f65d092317093eb0cfbb5aeed4f44eafa2d2f6182041cdcdbaac",
+      "page_count": 259,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601669.SH",
+      "company_name": "中国电建",
+      "report_year": 2025,
+      "published_date": "2026-04-24",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-24/1225174689.PDF",
+      "source_sha256": "b91e2e8ad4605d00c9e3d56eca9217f52e6ce89afdade7d4184e7d45e095aeea",
+      "page_count": 273,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "603288.SH",
+      "company_name": "海天味业",
+      "report_year": 2025,
+      "published_date": "2026-03-27",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-27/1225038237.PDF",
+      "source_sha256": "2c7fba45257decc8edc4a0d8462c51accf146593f8c6097b26ed5ad52cf4115e",
+      "page_count": 215,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601319.SH",
+      "company_name": "中国人保",
+      "report_year": 2025,
+      "published_date": "2026-03-26",
+      "source_url": "https://www.hkexnews.hk/listedco/listconews/sehk/2026/0326/2026032601780_c.pdf",
+      "source_sha256": "14b6f797f59096e47935c6d2e6b4f68def9db298c0edcc04f2176d23c91a278a",
+      "page_count": 279,
+      "status": "ready_for_human_review",
+      "statement_template": "insurance_picc_million_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
     }
   ],
-  "receipt_sha256": "4363c8b0a933d2ae3708823b815b32e72c35a5cc2f2c4199718cf9d165fa696b"
+  "receipt_sha256": "dceb8451b048da515ca7a52edd57dfe28ac192613b9696f8235d7300fa0e3bd4"
 }

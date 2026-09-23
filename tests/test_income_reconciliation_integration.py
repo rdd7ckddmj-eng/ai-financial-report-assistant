@@ -82,7 +82,8 @@ def test_review_page_renders_real_checks_and_rounding_explanation():
     app.session_state['receipt'] = result
     app.run()
     assert not app.exception
-    assert len(app.dataframe) == 1
+    assert len(app.dataframe) == 2
+    assert '本期原值' in app.dataframe[1].value.columns
     assert any(result['income_reconciliation']['rounding_note'] in text.value for text in app.caption)
 
 

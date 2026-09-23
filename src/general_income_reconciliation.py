@@ -12,7 +12,7 @@ from src.statement_evidence_rules import extract_statement_unit
 _AMOUNT = r'(?:\d{1,3}(?:[,，]\d{3})+|\d+)(?:\.\d+)?'
 _NUMBER = re.compile(rf'^(?:[-—–]|[-−－]?{_AMOUNT}|\({_AMOUNT}\)|（{_AMOUNT}）)$')
 _CN = '一二三四五六七八九十百'
-_NOTE = re.compile(rf'^(?:附注)?(?:[{_CN}]+(?:[、.．]\d{{1,3}}|\([{_CN}A-Za-z0-9]+\))|\([{_CN}]+\)\d{{1,3}})(?:[,，、])?$')
+_NOTE = re.compile(rf'^(?:附注)?(?:[{_CN}]+(?:[、.．]\d{{1,3}}|\([{_CN}A-Za-z0-9]+\)|、\([{_CN}]+\))|\([{_CN}]+\)\d{{1,3}})(?:[,，、])?$')
 _COMPACT_NOTE = re.compile(rf'^[{_CN}]+[1-9]\d{{0,2}}$')
 _ANNOTATION = re.compile(r'^\((?:(?:净亏损|亏损总额|亏损|损失)以[“"‘]?[-—–][”"’]?号填列|净亏损|亏损总额|亏损)\)')
 _ALIASES = {
@@ -292,6 +292,24 @@ def check_general_income_reconciliation(pages, income, *, report_year=None):
             result.update(note='必需的税前利润、所得税、合并净利润、归母利润或少数股东行存在缺失/歧义，不能宣称勾稽通过。')
         else:
             result.update(status='passed',passed=True,note='两期税前至税后利润关系、利润归属关系和输出归母行通过金额检查；这不是全利润表审计，收入与成本全部分项尚未逐项勾稽。')
+        # An additional bounded layout can extend, but never silently replace,
+        # the existing tax/attribution evidence. Unknown layouts keep that
+        # original scope; complete contradictory evidence blocks a candidate.
+        from src.general_operating_reconciliation import check_direct_operating_reconciliation
+        operating = check_direct_operating_reconciliation(
+            lines, numbers, columns, income, tolerance=tolerance)
+        result['operating_reconciliation'] = operating
+        if operating['status'] in ('passed', 'mismatch'):
+            result['checks'].extend(operating['checks'])
+            result['evidence'].update(operating['evidence'])
+            if operating['status'] == 'mismatch':
+                result.update(status='mismatch', passed=False,
+                    note='利润表经营分项或输出营业收入存在不一致，请核对原文。' + operating['note'])
+            elif result['status'] == 'passed':
+                result['note'] = ('两期经营分项至税前利润、税前至税后利润、利润归属关系以及输出收入/归母行通过检查；'
+                    '子项未重复加总，仍不代表完整财务审计。')
+        else:
+            result['note'] += ' ' + operating['note']
     except (ValueError,InvalidOperation,IndexError,TypeError) as exc:
         result.update(status='missing_evidence',passed=False,note='利润表证据不足：'+str(exc)+'。未判定金额是否一致。')
     return result

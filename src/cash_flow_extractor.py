@@ -5,7 +5,7 @@ import re
 from src.pdf_numeric_text import normalize_numeric_parentheses
 from src.statement_evidence_rules import integer_rounding_tolerance, extract_statement_unit, bound_consolidated_statement
 from collections.abc import Iterable
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 
 class CashFlowFigures(TypedDict):
@@ -31,6 +31,7 @@ class CashFlowFigures(TypedDict):
     page_number: int
     end_page_number: int
     statement_format: str
+    layout_recoveries: NotRequired[list[dict]]
 
 
 FINANCIAL_VALUE_PATTERN = re.compile(
@@ -210,17 +211,154 @@ def _is_financial_values_line(line: str) -> bool:
     )
 
 
+def _has_recovery_header(lines: list[str]) -> bool:
+    """Require an explicit note column and ordered two-year columns."""
+    # These layout recoveries do not apply to combined group/company tables.
+    if _chinese_cash_flow_column_count(lines) != 2:
+        return False
+    start = next((i for i, line in enumerate(lines)
+                  if _compact_chinese_text(line).startswith("项目")), None)
+    if start is None:
+        return False
+    header = ""
+    for line in lines[start:start + 6]:
+        compact = _compact_chinese_text(line)
+        if "经营活动" in compact:
+            break
+        header += compact
+    match = re.fullmatch(r"项目附注(\d{4})年度?(\d{4})年度?", header)
+    return bool(match and int(match[1]) == int(match[2]) + 1)
+
+
+def _strict_recovery_values(line: str) -> list[float] | None:
+    """New recovery paths require complete, bounded financial cells."""
+    amount = r"(?:\d{1,3}(?:[,，]\d{3})+|\d+)(?:\.\d+)?"
+    cell = re.compile(rf"^(?:[-−－—–]|[-−－]?{amount}|\({amount}\)|（{amount}）)$")
+    tokens = line.split()
+    if not tokens or any(len(t) > 64 or not cell.fullmatch(t) for t in tokens):
+        return None
+    values = [_parse_financial_value(t) for t in tokens]
+    return values if all(math.isfinite(v) and abs(v) <= 1e24 for v in values) else None
+
+
+def _joined_note_values(line: str) -> list[float] | None:
+    """Read a Chinese note followed by amounts without inserting digits."""
+    note = re.match(r"^(?:附注)?[一二三四五六七八九十百]+、"
+                    r"[（(][一二三四五六七八九十百]+[）)]", line)
+    if note is None:
+        return None
+    tail = line[note.end():].strip()
+    if not tail:
+        return []
+    return _strict_recovery_values(tail)
+
+
+def _invalid_numeric_boundary(line: str) -> bool:
+    """Do not treat corrupted or unavailable amounts as a new text row."""
+    compact = _compact_chinese_text(line)
+    return bool(re.fullmatch(r"(?:无数据|不适用|N/?A|NAN|NULL|NONE|[+-]?INF(?:INITY)?)",
+                            compact, re.IGNORECASE)
+                or (re.match(r"^[+\-−－—–(（.,\d]", compact)
+                    and re.search(r"\d", compact)
+                    and not re.search(r"[\u4e00-\u9fff]", compact)))
+
+
+def _standalone_note(line: str) -> bool:
+    compact = _compact_chinese_text(line)
+    # Called only under an explicit note + two-period column header. Existing
+    # originals also print 七79 and 七、79（4）; these are whole note cells,
+    # not permission to skip arbitrary Chinese text before the amounts.
+    return bool(re.fullmatch(r"(?:附注)?(?:[一二三四五六七八九十百]+、?[1-9]\d{0,2}"
+        r"(?:[（(][A-Za-z0-9]{1,8}[）)])*"
+        r"|[一二三四五六七八九十百]+(?:[（(][A-Za-z0-9]+[）)])+)", compact))
+
+
+def _interleaved_label_pair(lines, row_index, label):
+    """Accept only exact label-prefix, two amounts, then exact label-tail."""
+    prefix = _compact_chinese_text(lines[row_index])
+    target = _compact_chinese_text(label)
+    if len(prefix) < 6 or prefix == target or not target.startswith(prefix):
+        return None
+    values = []
+    for end in range(row_index + 1, min(row_index + 5, len(lines))):
+        line = lines[end]
+        if _is_financial_values_line(line):
+            cells = _strict_recovery_values(line)
+            if cells is None:
+                return None
+            values.extend(cells)
+            if len(values) > 2:
+                return None
+            continue
+        # No unrelated account, missing suffix, reversed label, or extra cell
+        # may be skipped in order to reach a convenient pair of amounts.
+        if len(values) != 2 or prefix + _compact_chinese_text(line) != target:
+            return None
+        if end + 1 < len(lines) and (_is_financial_values_line(lines[end + 1])
+                                     or _invalid_numeric_boundary(lines[end + 1])):
+            return None
+        return (values[0], values[1]), end
+    return None
+
+
+def _recovery_original_spans(recoveries, source_pages):
+    """Attach exact original text and physical pages; reject ambiguous spans."""
+    records = []
+    for page, text in source_pages:
+        offset = 0
+        for raw in text.splitlines(keepends=True):
+            normalized = _normalise_lines(raw)
+            if normalized:
+                records.append((normalized[0], page, offset, offset + len(raw)))
+            offset += len(raw)
+    by_page = dict(source_pages)
+    for recovery in recoveries:
+        wanted = recovery.pop("normalized_lines")
+        matches = [i for i in range(len(records) - len(wanted) + 1)
+                   if [r[0] for r in records[i:i + len(wanted)]] == wanted]
+        if len(matches) != 1:
+            return False
+        selected = records[matches[0]:matches[0] + len(wanted)]
+        parts = []
+        for page in dict.fromkeys(r[1] for r in selected):
+            rows = [r for r in selected if r[1] == page]
+            parts.append({"page_number": page,
+                          "original_text": by_page[page][rows[0][2]:rows[-1][3]]})
+        recovery["source_spans"] = parts
+    return True
+
+
 def _extract_chinese_row_pair(
     lines: list[str],
     labels: tuple[str, ...],
     *,
     value_column_count: int = 2,
+    recoveries: list | None = None,
 ) -> tuple[float, float] | None:
     """Return current and prior-year values from a common A-share row."""
+    recovery_header = _has_recovery_header(lines)
+    if recovery_header:
+        starts = set()
+        for index, line in enumerate(lines):
+            compact = _compact_chinese_text(line)
+            if any(_chinese_label_span(lines, index, label) is not None
+                   or (len(compact) >= 6 and _compact_chinese_text(label).startswith(compact))
+                   for label in labels):
+                starts.add(index)
+        if len(starts) != 1:
+            return None
     for label in labels:
         for row_index in range(len(lines)):
             label_end = _chinese_label_span(lines, row_index, label)
             if label_end is None:
+                if recovery_header:
+                    recovered = _interleaved_label_pair(lines, row_index, label)
+                    if recovered is not None:
+                        pair, end = recovered
+                        if recoveries is not None:
+                            recoveries.append(dict(kind="amounts_inside_wrapped_label", label=label,
+                                normalized_lines=lines[row_index:end + 1]))
+                        return pair
                 continue
 
             same_line_values: list[float] = []
@@ -233,14 +371,44 @@ def _extract_chinese_row_pair(
                 return same_line_values[-2], same_line_values[-1]
 
             following_values: list[float] = []
-            for following_line in lines[label_end + 1 : label_end + 7]:
+            note_recovery = False
+            last = label_end
+            for last, following_line in enumerate(lines[label_end + 1 : label_end + 7], label_end + 1):
                 if _is_financial_values_line(following_line):
+                    if note_recovery and _strict_recovery_values(following_line) is None:
+                        return None
                     following_values.extend(
                         _financial_values_in_line(following_line)
                     )
                     continue
+                if recovery_header and not following_values:
+                    noted = _joined_note_values(following_line)
+                    if noted is not None:
+                        following_values.extend(noted)
+                        note_recovery = True
+                        continue
+                if recovery_header and _invalid_numeric_boundary(following_line):
+                    return None
                 if following_values:
                     break
+                if note_recovery:
+                    break
+                if recovery_header:
+                    if _standalone_note(following_line):
+                        continue
+                    # A real two-column table must not borrow an amount from
+                    # a later account after this row's evidence is missing.
+                    break
+            if note_recovery:
+                # A newly recognised note must leave exactly two cells. Never
+                # select the last two from an ambiguous three-cell row.
+                if len(following_values) != 2:
+                    return None
+                if recoveries is not None:
+                    end = last if _is_financial_values_line(lines[last]) else last - 1
+                    recoveries.append(dict(kind="chinese_note_adjacent_to_amount", label=label,
+                        normalized_lines=lines[row_index:end + 1]))
+                return following_values[0], following_values[1]
             if value_column_count == 4 and len(following_values) >= 4:
                 current, previous, _, _ = following_values[-4:]
                 return current, previous
@@ -262,6 +430,18 @@ def _chinese_cash_flow_column_count(lines: list[str]) -> int | None:
 def _extract_unit(lines: list[str]) -> str:
     """Read a declared unit, rejecting conflicting currency/scale headers."""
     return extract_statement_unit(lines)
+
+
+def _bounded_cash_flow_text(page_text: str) -> str:
+    text = bound_consolidated_statement(page_text, "现金流量表")
+    # Some issuers number the independent parent table as “（六）母公司…”.
+    # Stop before that title as well; a repeated cash total there is not a
+    # second group row and may never repair missing consolidated evidence.
+    parent = re.search(r"(?m)^[ \t]*(?:(?:[（(][一二三四五六七八九十百0-9]+[）)]"
+                       r"|[一二三四五六七八九十百0-9]+[、.．])[ \t]*)?"
+                       r"(?:母\s*公\s*司|公\s*司)\s*现金流量表"
+                       r"\s*(?:[（(]续[）)])?[ \t]*$", text)
+    return text[:parent.start()] if parent else text
 
 
 def _extract_row_pair(
@@ -360,16 +540,20 @@ def _cash_flow_rows_reconcile(
 def extract_cash_flow_figures(
     page_number: int,
     page_text: str,
+    *,
+    source_pages: list[tuple[int, str]] | None = None,
 ) -> CashFlowFigures | None:
     """Extract cash-flow totals only when both cash reconciliations pass."""
-    lines = _normalise_lines(bound_consolidated_statement(page_text, "现金流量表"))
+    lines = _normalise_lines(_bounded_cash_flow_text(page_text))
     chinese_value_column_count = _chinese_cash_flow_column_count(lines)
+    recoveries = []
     if chinese_value_column_count is not None:
         extracted_rows = {
             name: _extract_chinese_row_pair(
                 lines,
                 labels,
                 value_column_count=chinese_value_column_count,
+                recoveries=recoveries,
             )
             for name, labels in CHINESE_CASH_FLOW_LABELS.items()
         }
@@ -426,8 +610,10 @@ def extract_cash_flow_figures(
     assert exchange is not None
     assert ending is not None
 
+    if recoveries and not _recovery_original_spans(recoveries, source_pages or [(page_number, page_text)]):
+        return None
     current_weeks, previous_weeks = _extract_period_weeks(lines)
-    return {
+    figures = {
         "rounding_note": ("整数缩放单位勾稽：允许最多1个原始单位差异，仍待人工复核。" if tolerance == 1 else ""),
         "current_operating_cash_flow": operating[0],
         "previous_operating_cash_flow": operating[1],
@@ -450,6 +636,9 @@ def extract_cash_flow_figures(
         "end_page_number": page_number,
         "statement_format": statement_format,
     }
+    if recoveries:
+        figures["layout_recoveries"] = recoveries
+    return figures
 
 
 def find_cash_flow_figures(
@@ -476,6 +665,7 @@ def find_cash_flow_figures(
             figures = extract_cash_flow_figures(
                 page_number=page_number,
                 page_text="\n".join(text for _, text in window),
+                source_pages=window,
             )
             if figures is not None:
                 figures["end_page_number"] = window[-1][0]

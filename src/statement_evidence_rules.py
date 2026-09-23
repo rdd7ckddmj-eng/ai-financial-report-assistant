@@ -2,6 +2,16 @@
 import re
 
 
+def consistent_statement_unit(units):
+    """Recognise RMB spelling aliases without changing the recorded originals."""
+    if len(units) != 3 or not all(isinstance(unit, str) and unit for unit in units):
+        return None
+    canonical = [unit.removeprefix('人民币') for unit in units]
+    if len(set(canonical)) == 1 and canonical[0] in {'元', '千元', '万元', '百万元', '亿元'}:
+        return units[0]
+    return None
+
+
 def _standalone_header_units(lines):
     """Inspect every title/continuation header in the bounded table window."""
     compact = [re.sub(r'\s+', '', x) for x in lines if x.strip()]
