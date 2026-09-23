@@ -7,6 +7,7 @@ from src.china_stock import build_company_identity, is_allowed_disclosure_url
 from src.on_demand_financial_snapshot import build_on_demand_financial_snapshot
 from src.pdf_extractor import extract_pdf_pages
 from src.pdf_resource_policy import MANUAL_PDF_MAX_BYTES
+from src.securities_statement_extractor import is_cms_annual_report_identity
 
 
 def build_manual_financial_snapshot(company, pdf_bytes, *, report_year, source_url,
@@ -32,6 +33,12 @@ def build_manual_financial_snapshot(company, pdf_bytes, *, report_year, source_u
     if len(pdf_bytes) > MANUAL_PDF_MAX_BYTES:
         raise ValueError('手工年报不能超过32 MB。')
     pages = extract_pdf_pages(pdf_bytes, max_bytes=MANUAL_PDF_MAX_BYTES)
+    cms_identity = False
+    if str(company.get('code')) == '600999':
+        cms_identity = is_cms_annual_report_identity(company,
+            [(p['page_number'], p['text']) for p in pages], report_year)
+        if not cms_identity:
+            raise ValueError('招商证券报告前十六页的年度、公司法定名称与A股代码未全部通过校验。')
     front = re.sub(r'\s+', '', '\n'.join(p['text'] for p in pages[:10]))
     heading = re.sub(r'\s+', '', '\n'.join(p['text'] for p in pages[:2]))
     if '年度报告摘要' in heading or '年度报告英文' in heading:
@@ -40,12 +47,12 @@ def build_manual_financial_snapshot(company, pdf_bytes, *, report_year, source_u
     chinese_title = re.search(rf'{chinese_year}年(?:年报|年度报告)', front)
     if '年报摘要' in heading or '年报英文' in heading:
         raise ValueError('请上传中文完整年度报告，摘要或英文版本不能替代完整年报。')
-    if not re.search(rf'{report_year}年?年度报告', front) and not chinese_title:
+    if not cms_identity and not re.search(rf'{report_year}年?年度报告', front) and not chinese_title:
         raise ValueError('前十页未识别到所选年度的完整年报标题，不能仅凭文件名确定年度。')
     code_found = re.search(rf'(?<!\d){re.escape(str(company["code"]))}(?!\d)', front)
     name = str(company.get('name', '')).strip()
     name_found = len(name) >= 3 and name != '待核验公司' and name in front
-    if not code_found and not name_found:
+    if not cms_identity and not code_found and not name_found:
         raise ValueError('前十页未找到当前公司代码或名称，请检查是否选错公司或报告。')
     report = dict(report_year=report_year, published_date=published.isoformat(),
                   title=f'{name}{report_year}年年度报告（手工上传候选）',url=source_url.strip())

@@ -3,7 +3,7 @@
 import math
 import re
 from src.pdf_numeric_text import normalize_numeric_parentheses
-from src.statement_evidence_rules import integer_rounding_tolerance
+from src.statement_evidence_rules import integer_rounding_tolerance, extract_statement_unit, bound_consolidated_statement
 from collections.abc import Iterable
 from typing import TypedDict
 
@@ -65,6 +65,7 @@ CHINESE_CASH_FLOW_LABELS = {
         "筹资活动现金流量净额",
     ),
     "net_change": (
+        "五、现金及现金等价物净增加(减少)额",
         "五、现金及现金等价物净增加/(减少)额",
         "五、现金及现金等价物净增加/（减少）额",
         "五、现金及现金等价物净(减少)/增加额",
@@ -79,6 +80,7 @@ CHINESE_CASH_FLOW_LABELS = {
         "期初现金及现金等价物余额",
     ),
     "exchange": (
+        "四、汇率变动对现金及现金等价物的影响额",
         "四、汇率变动对现金及现金等价物的影响",
         "汇率变动对现金及现金等价物的影响",
     ),
@@ -256,22 +258,8 @@ def _chinese_cash_flow_column_count(lines: list[str]) -> int | None:
 
 
 def _extract_unit(lines: list[str]) -> str:
-    """Read a supported English or Chinese statement unit."""
-    english_unit = next(
-        (line for line in lines if UNIT_PATTERN.fullmatch(line)),
-        "",
-    )
-    if english_unit:
-        return english_unit
-
-    for line in lines:
-        compact_line = _compact_chinese_text(line)
-        match = CHINESE_UNIT_PATTERN.search(compact_line)
-        if match is None:
-            continue
-        unit = match.group(1)
-        return f"人民币{unit}" if "人民币" in compact_line else unit
-    return ""
+    """Read a declared unit, rejecting conflicting currency/scale headers."""
+    return extract_statement_unit(lines)
 
 
 def _extract_row_pair(
@@ -372,7 +360,7 @@ def extract_cash_flow_figures(
     page_text: str,
 ) -> CashFlowFigures | None:
     """Extract cash-flow totals only when both cash reconciliations pass."""
-    lines = _normalise_lines(page_text)
+    lines = _normalise_lines(bound_consolidated_statement(page_text, "现金流量表"))
     chinese_value_column_count = _chinese_cash_flow_column_count(lines)
     if chinese_value_column_count is not None:
         extracted_rows = {
@@ -481,7 +469,7 @@ def find_cash_flow_figures(
 
         for window_size in range(2, 5):
             window = page_list[page_index : page_index + window_size]
-            if len(window) < window_size:
+            if len(window) < window_size or [p for p, _ in window] != list(range(page_number, page_number + window_size)):
                 break
             figures = extract_cash_flow_figures(
                 page_number=page_number,

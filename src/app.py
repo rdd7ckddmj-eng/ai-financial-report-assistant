@@ -740,9 +740,18 @@ _RESEARCH_CASE_STORAGE = st.components.v2.component(
       }
 
       const knownSnapshot = cleanSnapshot(data.known_snapshot);
+      // Python represents a never-saved store with its canonical empty value.
+      // After the first status acknowledgement, null localStorage means that
+      // same state. Re-emitting null on every render can overtake a page switch.
+      const sameEmptyStore = snapshot === null && knownSnapshot &&
+        knownSnapshot.store_revision === 0 &&
+        knownSnapshot.active_case_id === null &&
+        Object.keys(knownSnapshot.cases).length === 0 &&
+        Array.isArray(knownSnapshot.applied_command_ids) &&
+        knownSnapshot.applied_command_ids.length === 0;
       if (
         writeCompleted ||
-        JSON.stringify(snapshot) !== JSON.stringify(knownSnapshot) ||
+        (!sameEmptyStore && JSON.stringify(snapshot) !== JSON.stringify(knownSnapshot)) ||
         storageStatus !== data.known_storage_status
       ) {
         setStateValue("snapshot", snapshot);
@@ -20772,10 +20781,6 @@ def main() -> None:
         layout="wide",
         initial_sidebar_state="auto",
     )
-    _sync_browser_research_state()
-    _sync_cash_game_progress()
-    _sync_device_experience()
-
     home_page = st.Page(
         render_home_page,
         title="首页",
@@ -20949,6 +20954,13 @@ def main() -> None:
             methodology_page,
         ]
     )
+    # Resolve the requested page before browser components can request a rerun.
+    # Otherwise an early hydration callback carries the entrypoint's hash and
+    # Streamlit falls back to the home page, losing a direct research URL.
+    _sync_browser_research_state()
+    _sync_cash_game_progress()
+    _sync_device_experience()
+
     _render_research_sidebar_navigation(
         navigation,
         st.session_state["_wfz_page_registry"],

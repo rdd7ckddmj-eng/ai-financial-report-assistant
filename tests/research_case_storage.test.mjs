@@ -61,3 +61,32 @@ test('quota failure reports unavailable without claiming pending data was saved'
   assert.deepEqual(result.events.snapshot, snapshot(1));
   assert.equal(result.writes, 0);
 });
+
+const emptyStore = {
+  schema_version: '1.0', store_revision: 0, active_case_id: null,
+  cases: {}, applied_command_ids: [],
+};
+test('absent browser store first reports hydration without creating storage', () => {
+  const result = run(null, {known_snapshot: emptyStore, known_storage_status: 'pending', write_enabled: false});
+  assert.deepEqual(result.events, {snapshot: null, storage_status: 'available'});
+  assert.equal(result.writes, 0);
+});
+test('acknowledged absence does not emit a second identical empty-store callback', () => {
+  const result = run(null, {known_snapshot: emptyStore, write_enabled: false});
+  assert.deepEqual(result.events, {});
+  assert.equal(result.writes, 0);
+});
+test('missing persisted store is still reported when memory has a later revision', () => {
+  const result = run(null, {known_snapshot: {...emptyStore, store_revision: 2}, write_enabled: false});
+  assert.deepEqual(result.events, {snapshot: null, storage_status: 'available'});
+  assert.equal(result.writes, 0);
+});
+test('missing persisted store is not equated with nonempty memory', () => {
+  const result = run(null, {known_snapshot: {...emptyStore, cases: {synthetic: {case_id: 'synthetic'}}}, write_enabled: false});
+  assert.deepEqual(result.events, {snapshot: null, storage_status: 'available'});
+});
+test('empty-store equivalence does not hide invalid browser payloads', () => {
+  const result = run({schema_version: 'invalid'}, {known_snapshot: emptyStore, write_enabled: false});
+  assert.deepEqual(result.events, {snapshot: null, storage_status: 'invalid'});
+  assert.equal(result.writes, 0);
+});

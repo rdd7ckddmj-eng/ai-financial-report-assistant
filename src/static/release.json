@@ -1,12 +1,12 @@
 {
-  "release_id": "20260923-crosssector-5",
-  "source_digest_sha256": "8127e1752fd4c037589397c844fecd8358168875c4d1c16e963c3b2f2d5d06c7",
-  "prior_commit": "ea1616daf740c728ed9e554482301c578f138da0",
-  "verified_python_tests": 1207,
+  "release_id": "20260923-expanded-6",
+  "source_digest_sha256": "b7b46d1470a630dc06b32ba086d0df461e48eeb610aac07be51286ce641e4db8",
+  "prior_commit": "08216dd898a25438b73add44b092b0bd4a969fdb",
+  "verified_python_tests": 1298,
   "coverage": {
-    "real_reports_tested": 25,
-    "candidate_reports": 24,
+    "real_reports_tested": 35,
+    "candidate_reports": 34,
     "human_verified_new": 0
   },
-  "note": "Verified Huatai/CPIC/NCI 2025 and China Life 2024/2025; PICC 2025 numeric text unavailable remains needs review. All results remain candidates; no all-market or human-verification claim."
+  "note": "CMS 2024/2025 and eight 2025 ordinary/BSE issuer reports validated. PICC 2025 remains unsupported. 49/50 new amounts match public data; Huichuan assets retain RMB390000 difference. Navigation startup and empty-storage rerun races fixed. Candidates only."
 }

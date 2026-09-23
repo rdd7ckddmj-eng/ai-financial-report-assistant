@@ -3,7 +3,8 @@ from decimal import Decimal
 import json
 from pathlib import Path
 import pytest
-from src.securities_statement_extractor import extract_securities_statements, SECURITIES_TEMPLATE
+from src.securities_statement_extractor import (extract_securities_statements, SECURITIES_TEMPLATE,
+    extract_cms_securities_statements, is_cms_annual_report_identity, CMS_SECURITIES_TEMPLATE)
 
 
 def fixtures():
@@ -169,3 +170,93 @@ def test_real_2025_snapshot_carries_row_pages_restatement_and_financial_sector_p
  assert s['metrics'][0]['label']=='营业总收入（证券报表）'
  assert '经重述' in s['metrics'][0]['source']['comparison_basis']
  assert all(value is None for value in s['ratios'].values())
+
+
+def cms_pages(year=2025):
+ data=json.loads((Path(__file__).parent/'fixtures'/f'cms_securities_{year}_statements.json').read_text())
+ return [(n,t) for n,t in data['pages']]
+
+
+@pytest.mark.parametrize('year,expected',[
+ (2024,dict(revenue=(20891398043.11,19821213073.58),net_profit=(10385872410.71,8763959184.96),
+   operating_cash_flow=(54726248578.68,27103725895.06),total_assets=(721160331448.06,695852990280.62),
+   total_liabilities=(590908098061.63,573816058013.50))),
+ (2025,dict(revenue=(24971732131.98,20891398043.11),net_profit=(12349522678.95,10385872410.71),
+   operating_cash_flow=(-31368505124.65,54726248578.68),total_assets=(753477089745.40,721160331448.06),
+   total_liabilities=(615430259457.18,590908098061.63))),
+])
+def test_cms_two_real_reports_reconcile_consolidated_and_parent_statements(year,expected):
+ p=cms_pages(year)
+ assert is_cms_annual_report_identity(dict(code='600999',name='招商证券'),p,year)
+ result=extract_cms_securities_statements(p,year)
+ assert result is not None
+ sections=dict(revenue='income',net_profit='income',operating_cash_flow='cash',total_assets='balance',total_liabilities='balance')
+ start=158 if year==2025 else 160
+ pages=dict(revenue=start+4,net_profit=start+5,operating_cash_flow=start+7,total_assets=start,total_liabilities=start+1)
+ for key,values in expected.items():
+  statement=result[sections[key]]
+  assert (statement['current_'+key],statement['previous_'+key])==values
+  source=statement['metric_sources'][key]
+  assert source['page_number']==source['end_page_number']==pages[key]
+  assert '合并' in source['accounting_basis']
+  assert '比较栏原值' in source['comparison_basis']
+
+
+@pytest.mark.parametrize('page,old,new',[
+ # Each of consolidated/current, consolidated/prior, parent/current, parent/prior.
+ (162,'24,971,732,131.98','24,971,732,132.98'),
+ (162,'20,891,398,043.11','20,891,398,044.11'),
+ (164,'22,705,780,395.97','22,705,780,396.97'),
+ (164,'18,136,626,068.18','18,136,626,069.18'),
+ (158,'753,477,089,745.40','753,477,089,746.40'),
+ (158,'721,160,331,448.06','721,160,331,449.06'),
+ (160,'679,237,592,819.40','679,237,592,820.40'),
+ (160,'620,676,526,964.34','620,676,526,965.34'),
+ (165,'-31,368,505,124.65','31,368,505,124.65'),
+ (165,'54,726,248,578.68','54,726,248,579.68'),
+ (166,'-1,286,009,712.87','1,286,009,712.87'),
+ (166,'40,661,718,973.28','40,661,718,974.28'),
+ (163,'-31,431,171.06','31,431,171.06'), # minority loss must remain negative
+ (164,'248,350,681.53','-248,350,681.53'),
+ (166,'61,688,832,898.01','-61,688,832,898.01'), # cash outflows are positive deductions
+])
+def test_cms_rejects_changed_amounts_in_each_statement_and_scope(page,old,new):
+ p=cms_pages()
+ assert any(n==page and old in t for n,t in p)
+ p=[(n,t.replace(old,new,1) if n==page else t) for n,t in p]
+ assert extract_cms_securities_statements(p,2025) is None
+
+
+@pytest.mark.parametrize('change',[
+ 'company_code','company_name','wrong_year','unvalidated_year','wrong_legal_field','incidental_name_only',
+ 'wrong_stock_field','identity_after_page16','wrong_unit','wrong_statement_issuer','reversed_columns',
+ 'extra_amount_column','unknown_note','unsupported_restatement','missing_parent','missing_continuation',
+ 'duplicate_statement','unknown_label_qualifier','malformed_number',
+])
+def test_cms_requires_bound_identity_and_exact_separate_statement_layout(change):
+ p=cms_pages();company=dict(code='600999',name='招商证券');year=2025
+ if change=='company_code':company['code']='600030'
+ if change=='company_name':company['name']='中信证券'
+ if change=='wrong_year':year=2024
+ if change=='unvalidated_year':year=2026
+ if change=='wrong_legal_field':p=[(n,t.replace('公司的中文名称','控股子公司的中文名称')) for n,t in p]
+ if change=='incidental_name_only':p=[(n,t.replace('公司的中文名称\n招商证券股份有限公司\n公司的中文简称\n招商证券','合作公司：招商证券股份有限公司')) for n,t in p]
+ if change=='wrong_stock_field':p=[(n,t.replace('600999','600998')) for n,t in p]
+ if change=='identity_after_page16':p=[(n+16 if n<=16 else n,t) for n,t in p]
+ if change=='missing_parent':p=[(n,t) for n,t in p if n!=164]
+ if change=='missing_continuation':p=[(n,t) for n,t in p if n!=159]
+ if change=='duplicate_statement':p.append(next((300,t) for n,t in p if n==165))
+ for i,(n,t) in enumerate(p):
+  if n!=162:continue
+  if change=='wrong_unit':t=t.replace('单位：人民币元','单位：人民币千元')
+  if change=='wrong_statement_issuer':t=t.replace('编制单位：招商证券股份有限公司','编制单位：中信证券股份有限公司')
+  if change=='reversed_columns':t=t.replace('本年发生额\n上年发生额','上年发生额\n本年发生额')
+  if change=='extra_amount_column':t=t.replace('24,971,732,131.98','1.00\n24,971,732,131.98')
+  if change=='unknown_note':t=t.replace('九、42','其他、42')
+  if change=='unsupported_restatement':t=t.replace('上年发生额','上年发生额\n（经重述）')
+  if change=='unknown_label_qualifier':t=t.replace('营业总收入','营业总收入（其他口径）',1)
+  if change=='malformed_number':t=t.replace('24,971,732,131.98','249,71,732,131.98')
+  p[i]=(n,t)
+ if change in ('company_code','company_name','wrong_year','unvalidated_year','wrong_legal_field','incidental_name_only','wrong_stock_field','identity_after_page16'):
+  assert not is_cms_annual_report_identity(company,p,year)
+ else:assert extract_cms_securities_statements(p,year) is None

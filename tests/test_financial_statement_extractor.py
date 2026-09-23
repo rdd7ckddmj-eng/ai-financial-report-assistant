@@ -175,7 +175,7 @@ def test_extract_chinese_a_share_vertical_rows_preserves_loss_sign() -> None:
     营业收入
     120,000.50
     110,000.25
-    净利润
+    归属于母公司股东的净利润
     （1,200.50）
     800.25
     """

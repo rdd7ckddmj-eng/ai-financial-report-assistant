@@ -2,6 +2,7 @@
 
 import re
 from src.pdf_numeric_text import normalize_numeric_parentheses
+from src.statement_evidence_rules import extract_statement_unit, bound_consolidated_statement
 from collections.abc import Iterable
 from typing import TypedDict
 
@@ -31,7 +32,8 @@ CHINESE_UNIT_PATTERN = re.compile(
 CHINESE_NOTE_REFERENCE_PATTERN = re.compile(
     r"^(?:附注)?(?:[一二三四五六七八九十百0-9]+"
     r"(?:[（(][A-Za-z0-9]+[）)])+(?:[,，、])?"
-    r"|[一二三四五六七八九十百]+、[0-9]+)$"
+    r"|[一二三四五六七八九十百]+、[0-9]+"
+    r"|(?:\([一二三四五六七八九十百]+\)|（[一二三四五六七八九十百]+）)[0-9]+(?:\([A-Za-z0-9]+\)|（[A-Za-z0-9]+）)*)$"
 )
 CHINESE_REVENUE_LABELS = (
     "其中：营业收入",
@@ -42,8 +44,6 @@ CHINESE_REVENUE_LABELS = (
 CHINESE_NET_PROFIT_LABELS = (
     "归属于母公司股东的净利润",
     "归属于母公司所有者的净利润",
-    "五、净利润",
-    "净利润",
 )
 
 
@@ -318,22 +318,8 @@ def _chinese_income_statement_column_count(lines: list[str]) -> int | None:
 
 
 def _extract_unit(lines: list[str]) -> str:
-    """Read a supported English or Chinese statement unit."""
-    english_unit = next(
-        (line for line in lines if UNIT_PATTERN.fullmatch(line)),
-        "",
-    )
-    if english_unit:
-        return english_unit
-
-    for line in lines:
-        compact_line = _compact_chinese_text(line)
-        match = CHINESE_UNIT_PATTERN.search(compact_line)
-        if match is None:
-            continue
-        unit = match.group(1)
-        return f"人民币{unit}" if "人民币" in compact_line else unit
-    return ""
+    """Read a declared unit, rejecting conflicting currency/scale headers."""
+    return extract_statement_unit(lines)
 
 
 def extract_income_statement_figures(
@@ -341,7 +327,9 @@ def extract_income_statement_figures(
     page_text: str,
 ) -> IncomeStatementFigures | None:
     """Extract revenue and profit totals without guessing missing values."""
-    lines = _normalise_lines(page_text)
+    # The result's Chinese profit field is attributable to the parent. A
+    # consolidated total is not a substitute when that row is on the next page.
+    lines = _normalise_lines(bound_consolidated_statement(page_text, "利润表"))
 
     if "Group income statement" in lines:
         revenue_totals = _extract_six_column_totals(lines, "Revenue")
@@ -410,7 +398,7 @@ def find_income_statement_figures(
 
         for window_size in range(2, 4):
             window = page_list[page_index : page_index + window_size]
-            if len(window) < window_size:
+            if len(window) < window_size or [p for p, _ in window] != list(range(page_number, page_number + window_size)):
                 break
             figures = extract_income_statement_figures(
                 page_number=page_number,

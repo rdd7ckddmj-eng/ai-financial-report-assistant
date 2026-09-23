@@ -343,3 +343,15 @@
 - [x] Check 25 new current-year public/PDF amounts and preserve all prior 19 reports' current/prior values.
 - [ ] Obtain usable official PICC 2025 numeric text and validate its year profile before enabling.
 - [ ] Expand beyond the verified securities issuer and BSE sample; untested reports remain unclaimed.
+
+## 2026-09-23 — Wider issuer coverage and navigation reliability
+
+- [x] Add CMS Securities 2024/2025 with strict legal-name/code/year evidence and all consolidated/parent statement checks.
+- [x] Validate eight additional 2025 ordinary-company/BSE reports, including BTR as a second BSE issuer.
+- [x] Require explicit parent-attributable profit; prevent parent-table borrowing and nonconsecutive-page joins.
+- [x] Validate standalone unit declarations across continuation headers; reject conflicting units without re-inheriting them.
+- [x] Fix reproduced navigation registration and empty-case-storage acknowledgement races; verify saved-state restoration.
+- [x] Run 35 complete PDFs: 34 candidates, PICC 2025 still needs review; previous 25 reports unchanged.
+- [x] Compare 50 new current amounts: 49 close, Huichuan assets differ by RMB390,000; preserve both values, cause unverified.
+- [ ] Obtain usable PICC 2025 numerical source without substituting vendor/manual amounts.
+- [ ] Further investigate Huichuan vendor/official asset difference and remaining untested issuer/year layouts.

@@ -3,7 +3,7 @@
 import math
 import re
 from src.pdf_numeric_text import normalize_numeric_parentheses
-from src.statement_evidence_rules import integer_rounding_tolerance
+from src.statement_evidence_rules import integer_rounding_tolerance, extract_statement_unit, bound_consolidated_statement
 from collections.abc import Iterable
 from typing import TypedDict
 
@@ -223,22 +223,8 @@ def _chinese_balance_sheet_column_count(lines: list[str]) -> int | None:
 
 
 def _extract_unit(lines: list[str]) -> str:
-    """Read a supported English or Chinese statement unit."""
-    english_unit = next(
-        (line for line in lines if UNIT_PATTERN.fullmatch(line)),
-        "",
-    )
-    if english_unit:
-        return english_unit
-
-    for line in lines:
-        compact_line = _compact_chinese_text(line)
-        match = CHINESE_UNIT_PATTERN.search(compact_line)
-        if match is None:
-            continue
-        unit = match.group(1)
-        return f"人民币{unit}" if "人民币" in compact_line else unit
-    return ""
+    """Read a declared unit, rejecting conflicting currency/scale headers."""
+    return extract_statement_unit(lines)
 
 
 def _extract_last_pair_between(
@@ -444,7 +430,7 @@ def extract_balance_sheet_figures(
     page_text: str,
 ) -> BalanceSheetFigures | None:
     """Extract current resources and liabilities only when totals reconcile."""
-    lines = _normalise_lines(page_text)
+    lines = _normalise_lines(bound_consolidated_statement(page_text, "资产负债表"))
     chinese_value_column_count = _chinese_balance_sheet_column_count(lines)
     if chinese_value_column_count is not None:
         return _extract_chinese_balance_sheet_figures(
@@ -600,7 +586,7 @@ def find_balance_sheet_figures(
 
         for window_size in range(2, 6):
             window = page_list[page_index : page_index + window_size]
-            if len(window) < window_size:
+            if len(window) < window_size or [p for p, _ in window] != list(range(page_number, page_number + window_size)):
                 break
             figures = extract_balance_sheet_figures(
                 page_number=page_number,

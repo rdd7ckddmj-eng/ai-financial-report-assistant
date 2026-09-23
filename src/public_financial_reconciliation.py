@@ -14,6 +14,7 @@ from src.china_stock import build_company_identity, is_allowed_disclosure_url
 from src.financial_snapshot_review import CORE_METRIC_KEYS
 from src.public_financial_history import AMOUNT_FIELDS, validate_public_financial_history
 from src.insurance_group_statement_extractor import TOTAL_REVENUE_TEMPLATES
+from src.financial_sector_policy import SECURITIES_REVENUE_TEMPLATES
 
 LIMITATION = (
     "这是公开源与官方PDF自动提取候选的金额对照，不是人工核验。"
@@ -74,7 +75,7 @@ def build_public_financial_reconciliation(history, snapshot):
         metric = next(m for m in metrics if m['key'] == key)
         source = metric.get('source')
         source = source if isinstance(source, Mapping) else {}
-        public_key = ('total_operating_revenue' if key == 'revenue' and report.get('statement_template') in TOTAL_REVENUE_TEMPLATES | {'securities_group_parent_yuan_v1'} else key)
+        public_key = ('total_operating_revenue' if key == 'revenue' and report.get('statement_template') in TOTAL_REVENUE_TEMPLATES | SECURITIES_REVENUE_TEMPLATES else key)
         public = _number(point[public_key])
         candidate = _number(metric.get('current_yuan'))
         raw = _number(source.get('raw_current_value'))

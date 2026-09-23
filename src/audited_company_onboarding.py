@@ -22,9 +22,10 @@ from src.statement_evidence_rules import inherit_statement_units
 from src.insurance_statement_extractor import INSURANCE_TEMPLATE, extract_insurance_statements
 from src.chinalife_statement_extractor import CHINALIFE_TEMPLATE, extract_chinalife_statements, matches_chinalife_issuer
 from src.insurance_group_statement_extractor import TEMPLATES as INSURANCE_GROUP_TEMPLATES, extract_insurance_group_statements
-from src.financial_sector_policy import matches_known_insurer
+from src.financial_sector_policy import matches_known_insurer, SECURITIES_REVENUE_TEMPLATES
 from src.financial_sector_policy import unsupported_issuer_template
-from src.securities_statement_extractor import SECURITIES_TEMPLATE, extract_securities_statements
+from src.securities_statement_extractor import (SECURITIES_TEMPLATE, extract_securities_statements,
+    CMS_SECURITIES_TEMPLATE, extract_cms_securities_statements, is_cms_annual_report_identity)
 from src.bank_statement_extractor import BANK_TEMPLATE, extract_bank_statements
 from src.cash_flow_extractor import find_cash_flow_figures
 from src.china_stock import build_cninfo_pdf_url, is_allowed_disclosure_url
@@ -364,7 +365,7 @@ def _build_metric_evidence(
                 if figures is not None
                 else ""
             ),
-            "accounting_basis": (source_override or {}).get("accounting_basis") or ("合并营业总收入（证券报表，本集团列）" if statement_template == SECURITIES_TEMPLATE and metric_key == "revenue" else "保险集团合并营业收入（非保费收入）" if statement_template == INSURANCE_TEMPLATE and metric_key == "revenue" else _statement_accounting_basis(page_text)),
+            "accounting_basis": (source_override or {}).get("accounting_basis") or ("合并营业总收入（证券报表）" if statement_template in SECURITIES_REVENUE_TEMPLATES and metric_key == "revenue" else "保险集团合并营业收入（非保费收入）" if statement_template == INSURANCE_TEMPLATE and metric_key == "revenue" else _statement_accounting_basis(page_text)),
             "comparison_comparable": (source_override or {}).get("comparison_comparable", True),
             "comparison_basis": (source_override or {}).get("comparison_basis", "本期与年报比较栏原值；可能包含追溯调整"),
             "statement": statement_label,
@@ -419,10 +420,19 @@ def build_candidate_report_result(
     if unsupported:
         statement_template = unsupported
         income = balance = cash_flow = None
-    securities = extract_securities_statements(page_list, report_year) if unsupported == 'securities_unsupported_v1' else None
+    securities = extract_securities_statements(page_list, report_year) if (
+        unsupported == 'securities_unsupported_v1' and company.get('code') == '601688'
+        and company.get('name') == '华泰证券') else None
     if securities:
         statement_template = SECURITIES_TEMPLATE
         income, balance, cash_flow = securities['income'], securities['balance'], securities['cash']
+        unsupported = None
+    cms = extract_cms_securities_statements(page_list, report_year) if (
+        unsupported == 'securities_unsupported_v1'
+        and is_cms_annual_report_identity(company, page_list, report_year)) else None
+    if cms:
+        statement_template = CMS_SECURITIES_TEMPLATE
+        income, balance, cash_flow = cms['income'], cms['balance'], cms['cash']
         unsupported = None
     # Enable only verified issuer/layout pairs; all others fail closed.
     insurance = extract_insurance_statements(page_list, report_year) if (
