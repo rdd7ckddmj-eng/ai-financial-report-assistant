@@ -19226,7 +19226,7 @@ def render_financial_snapshot_page() -> None:
         )
         st.caption(
             "只有点击按钮后才访问公开数据源。PDF不会写入项目仓库或"
-            "服务器数据库；本页完成解析后只在当前会话保留结构化结果。"
+            "服务器数据库；候选结果保留在当前会话，仍须逐项人工复核。"
         )
         generate_requested = st.button(
             "生成最新年报财务快照",
