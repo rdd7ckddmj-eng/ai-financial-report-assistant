@@ -1,0 +1,1089 @@
+{
+  "schema": "complete-annual-report-test-catalog.v1",
+  "scope": "exact_complete_pdf_versions",
+  "tested_at": "2026-09-23T17:57:43.120962+00:00",
+  "human_verification": "not_performed",
+  "reports": [
+    {
+      "canonical_code": "000651.SZ",
+      "company_name": "格力电器",
+      "report_year": 2025,
+      "published_date": "2026-04-29",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-29/1225250396.PDF",
+      "source_sha256": "7cc972f2d199e2ec3797cc5da479e8268afa59b77875770de3bcd3648242fb8c",
+      "page_count": 219,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "000568.SZ",
+      "company_name": "泸州老窖",
+      "report_year": 2024,
+      "published_date": "2025-04-28",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-04-28/1223350383.pdf",
+      "source_sha256": "4c8ab78fac56032945e2ad789fddbc5b6e254251f497eb20c04b73016a03b4de",
+      "page_count": 195,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600036.SH",
+      "company_name": "招商银行",
+      "report_year": 2024,
+      "published_date": "2025-03-26",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-03-26/1222895154.PDF",
+      "source_sha256": "44a8759c94e1ba92f1d96897ca3778592d9a7eb33b53420c19268f0b140d81c3",
+      "page_count": 362,
+      "status": "ready_for_human_review",
+      "statement_template": "bank_signed_million_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600036.SH",
+      "company_name": "招商银行",
+      "report_year": 2025,
+      "published_date": "2026-03-28",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-28/1225047590.PDF",
+      "source_sha256": "abe612a273468072b176dd51ea460c1e1596f8ca729cbc6db3fa28ba9a57ea79",
+      "page_count": 350,
+      "status": "ready_for_human_review",
+      "statement_template": "bank_signed_million_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "000001.SZ",
+      "company_name": "平安银行",
+      "report_year": 2024,
+      "published_date": "2025-03-15",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-03-15/1222806505.PDF",
+      "source_sha256": "77d98b2636f31c0a546728637d99da85d00c4d1783e1372b090a753ad46e14f1",
+      "page_count": 296,
+      "status": "ready_for_human_review",
+      "statement_template": "bank_signed_million_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "000001.SZ",
+      "company_name": "平安银行",
+      "report_year": 2025,
+      "published_date": "2026-03-21",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-21/1225022887.PDF",
+      "source_sha256": "2273565ecbe1b32536631fd4a019a4f4a990f4c793cfd5b70eae90d44d3ff16c",
+      "page_count": 288,
+      "status": "ready_for_human_review",
+      "statement_template": "bank_signed_million_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "002142.SZ",
+      "company_name": "宁波银行",
+      "report_year": 2025,
+      "published_date": "2026-04-25",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-25/1225189419.PDF",
+      "source_sha256": "6610078eb1d109465781dbd47d3256d4abbbe2f4ff1f8017e1724b3fadb35558",
+      "page_count": 237,
+      "status": "ready_for_human_review",
+      "statement_template": "bank_signed_million_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "002142.SZ",
+      "company_name": "宁波银行",
+      "report_year": 2024,
+      "published_date": "2025-04-10",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-04-10/1223045151.PDF",
+      "source_sha256": "4534164c8bbb0f99ab16582589dc43b9d46bfd3e2337ab9690401c8b5c4ea2c8",
+      "page_count": 243,
+      "status": "ready_for_human_review",
+      "statement_template": "bank_signed_million_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "000333.SZ",
+      "company_name": "美的集团",
+      "report_year": 2025,
+      "published_date": "2026-03-31",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-31/1225065145.PDF",
+      "source_sha256": "16f95f70527db59dcf2736f276a9479cf7ee917e5f71e4f6cbbe83acbad9f4b6",
+      "page_count": 276,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "300750.SZ",
+      "company_name": "宁德时代",
+      "report_year": 2024,
+      "published_date": "2025-03-15",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-03-15/1222806982.PDF",
+      "source_sha256": "b4f1713d7b821eb076c102711d177fe942ccc2bc8dd171ae5d7a95799a65b0ad",
+      "page_count": 229,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "002594.SZ",
+      "company_name": "比亚迪",
+      "report_year": 2024,
+      "published_date": "2025-03-25",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-03-25/1222881496.PDF",
+      "source_sha256": "e9c2d7fdd088e151ccb6c8ad3d95587b2b014b10f2c9731508d23ce07fde4de3",
+      "page_count": 290,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "000858.SZ",
+      "company_name": "五粮液",
+      "report_year": 2025,
+      "published_date": "2026-04-30",
+      "source_url": "https://disc.static.szse.cn/disc/disk03/finalpage/2026-04-30/7b179575-3e07-4607-8d7e-d1bb9c4c8786.PDF",
+      "source_sha256": "09133e1f44b3bb4b2cebe211529ad68f5b04b6be10b43870f2a78c947d5910a4",
+      "page_count": 141,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601318.SH",
+      "company_name": "中国平安",
+      "report_year": 2024,
+      "published_date": "2025-03-20",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-03-20/1222847447.PDF",
+      "source_sha256": "6ffff1cade59c64c8178494c083cac8a4011ef5ae2fed32f85dd488a64a809b2",
+      "page_count": 346,
+      "status": "ready_for_human_review",
+      "statement_template": "insurance_signed_million_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601688.SH",
+      "company_name": "华泰证券",
+      "report_year": 2024,
+      "published_date": "2025-03-29",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-03-29/1222949445.PDF",
+      "source_sha256": "3f8ce2ba02cf2d32ef425e0380582bb8eefa44ffdeb99c8368b3c507901bbdf2",
+      "page_count": 364,
+      "status": "ready_for_human_review",
+      "statement_template": "securities_group_parent_yuan_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "920982.BJ",
+      "company_name": "锦波生物",
+      "report_year": 2024,
+      "published_date": "2025-04-21",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-04-21/1223198317.PDF",
+      "source_sha256": "d0d2f9054ce34dcaece21c622c359e5083ca231965f200ca2a592113327aab81",
+      "page_count": 171,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601318.SH",
+      "company_name": "中国平安",
+      "report_year": 2023,
+      "published_date": "2024-03-22",
+      "source_url": "https://www.pingan.com/app_upload/images/info/upload/e1fd26bb-177b-485f-9778-cd6fabcc6476.pdf",
+      "source_sha256": "f55538814200d77a61492ba216e45508f487064207bca6a4d90c7b55add43823",
+      "page_count": 334,
+      "status": "ready_for_human_review",
+      "statement_template": "insurance_signed_million_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601319.SH",
+      "company_name": "中国人保",
+      "report_year": 2024,
+      "published_date": "2025-03-28",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-03-28/1222927515.PDF",
+      "source_sha256": "7ede132c8af8d5215b24ecf7b0375374649555e55d058b2eebed02f2e9aac978",
+      "page_count": 299,
+      "status": "ready_for_human_review",
+      "statement_template": "insurance_picc_million_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601601.SH",
+      "company_name": "中国太保",
+      "report_year": 2024,
+      "published_date": "2025-03-27",
+      "source_url": "https://www.cpic.com.cn/upload/resources/file/2025/04/09/86079.pdf",
+      "source_sha256": "3b6117c82942349be225d531b342cbbaf36255d02a2556525e697164a42e6b66",
+      "page_count": 302,
+      "status": "ready_for_human_review",
+      "statement_template": "insurance_cpic_million_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601336.SH",
+      "company_name": "新华保险",
+      "report_year": 2024,
+      "published_date": "2025-03-28",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-03-28/1222924627.PDF",
+      "source_sha256": "ee3e08b983b1b4b75dee14dcc67b935f4ad4efb58e6685b100bec2e09efe0c7d",
+      "page_count": 292,
+      "status": "ready_for_human_review",
+      "statement_template": "insurance_nci_four_column_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601601.SH",
+      "company_name": "中国太保",
+      "report_year": 2025,
+      "published_date": "2026-03-27",
+      "source_url": "https://www.cpic.com.cn/upload/resources/file/2026/03/26/93802.pdf",
+      "source_sha256": "3787b6a6ec1bf480be2092e7bae156bd0f1d1b7f9f28bd9226d038951c788dee",
+      "page_count": 310,
+      "status": "ready_for_human_review",
+      "statement_template": "insurance_cpic_million_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601336.SH",
+      "company_name": "新华保险",
+      "report_year": 2025,
+      "published_date": "2026-03-27",
+      "source_url": "https://static-cdn.newchinalife.com/ncl/pdf/20260327/d5c70560-e595-4188-a006-643ad4766e0d.pdf",
+      "source_sha256": "4a5d6ee54dc0a351acac6d9d3ce1d0eee6d4a388c4c36c1668a35d5ffd35c528",
+      "page_count": 295,
+      "status": "ready_for_human_review",
+      "statement_template": "insurance_nci_four_column_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601688.SH",
+      "company_name": "华泰证券",
+      "report_year": 2025,
+      "published_date": "2026-03-31",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-31/1225050753.PDF",
+      "source_sha256": "21cc964443b83a0ceff0333600e53abe8d948e987ec2604de992443258cd3d34",
+      "page_count": 384,
+      "status": "ready_for_human_review",
+      "statement_template": "securities_group_parent_yuan_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601628.SH",
+      "company_name": "中国人寿",
+      "report_year": 2024,
+      "published_date": "2025-03-27",
+      "source_url": "https://www.e-chinalife.com/upload/resources/file/2025/03/26/2024%E5%B9%B4%E5%B9%B4%E5%BA%A6%E6%8A%A5%E5%91%8A.pdf",
+      "source_sha256": "3cc6db9bbd9c3c754548b6be288bcebae7187e5264eba59025237f5aa8c667e0",
+      "page_count": 256,
+      "status": "ready_for_human_review",
+      "statement_template": "insurance_chinalife_million_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601628.SH",
+      "company_name": "中国人寿",
+      "report_year": 2025,
+      "published_date": "2026-03-26",
+      "source_url": "https://www.e-chinalife.com/upload/resources/file/2026/03/25/2025%E5%B9%B4%E5%B9%B4%E5%BA%A6%E6%8A%A5%E5%91%8A.pdf",
+      "source_sha256": "575a833fd7b83ad3568483273645236eddb751a92ab89f7e1c09105d92cedb27",
+      "page_count": 228,
+      "status": "ready_for_human_review",
+      "statement_template": "insurance_chinalife_million_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601319.SH",
+      "company_name": "中国人保",
+      "report_year": 2025,
+      "published_date": "2026-03-26",
+      "source_url": "https://www.picc.com.cn/jttzzgx/dqbg/202603/P020260326740062299792.pdf",
+      "source_sha256": "c8e5ed5435197ff0c056ee9ad6aa630b6e7a655a47ba61e18d352e89745791fe",
+      "page_count": 278,
+      "status": "needs_review",
+      "statement_template": "insurance_unsupported_v1",
+      "statement_checks": {
+        "income_statement_reconciled": false,
+        "balance_sheet_reconciled": false,
+        "cash_flow_statement_reconciled": false
+      },
+      "reason": "证券/保险公司专用三表模板尚未通过验证；不回退普通公司模板，不输出标准化金额或普通公司比例。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "000725.SZ",
+      "company_name": "京东方A",
+      "report_year": 2025,
+      "published_date": "2026-04-01",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-01/1225068510.PDF",
+      "source_sha256": "34ba47131763d6992d0997e714fa2e741e38abbfbcb7b6f537cfe2fdb97b1a80",
+      "page_count": 227,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "002475.SZ",
+      "company_name": "立讯精密",
+      "report_year": 2025,
+      "published_date": "2026-04-15",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-15/1225104908.PDF",
+      "source_sha256": "957556c331a237cc3235b63659e884c7e1e877b6460f06d5039159f1598e4e46",
+      "page_count": 309,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "002415.SZ",
+      "company_name": "海康威视",
+      "report_year": 2025,
+      "published_date": "2026-04-18",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-18/1225123062.PDF",
+      "source_sha256": "a805779efb81bea8158e119ad7c733c4669b8d492dc03c7613199970bfa4b8b2",
+      "page_count": 263,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "300760.SZ",
+      "company_name": "迈瑞医疗",
+      "report_year": 2025,
+      "published_date": "2026-03-31",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-31/1225059012.PDF",
+      "source_sha256": "b740bc7c4c8839639cf1f86ad0ebac0405924c9b2b595958509e6d8659ba41c3",
+      "page_count": 376,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "300274.SZ",
+      "company_name": "阳光电源",
+      "report_year": 2025,
+      "published_date": "2026-04-01",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-01/1225066678.PDF",
+      "source_sha256": "81e61708dfe569a1c6ec947934824750998c9deca8bc8fd62acfd8eac8e87d7a",
+      "page_count": 230,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "002230.SZ",
+      "company_name": "科大讯飞",
+      "report_year": 2025,
+      "published_date": "2026-04-29",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-29/1225233581.PDF",
+      "source_sha256": "8504042c6e77ea787ad43a88e0b3a35b9a57992fd6cf3be51a59fde2fe498ade",
+      "page_count": 301,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "300124.SZ",
+      "company_name": "汇川技术",
+      "report_year": 2025,
+      "published_date": "2026-04-28",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-28/1225208488.PDF",
+      "source_sha256": "622e4c655a31d41eca5e18fde18be214aeddef7d8a29a51d429efa1f322f8f01",
+      "page_count": 233,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "920185.BJ",
+      "company_name": "贝特瑞",
+      "report_year": 2025,
+      "published_date": "2026-04-24",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-24/1225197178.PDF",
+      "source_sha256": "d8177be2ce4e6e6c829056d2ae892383146486acfefa19f364a93f5244c0897b",
+      "page_count": 207,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600999.SH",
+      "company_name": "招商证券",
+      "report_year": 2024,
+      "published_date": "2025-03-28",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-03-28/1222929494.PDF",
+      "source_sha256": "7dff0a5caed00b447ef13b371b62b9ebcf8d188e04eeb288c44fadfd855cc062",
+      "page_count": 282,
+      "status": "ready_for_human_review",
+      "statement_template": "securities_cms_separate_yuan_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600999.SH",
+      "company_name": "招商证券",
+      "report_year": 2025,
+      "published_date": "2026-03-28",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-28/1225047540.PDF",
+      "source_sha256": "39236d94eb481bd4b808d805007baa671468fc7aeeea7ca905fe9172477cf7e9",
+      "page_count": 281,
+      "status": "ready_for_human_review",
+      "statement_template": "securities_cms_separate_yuan_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600519.SH",
+      "company_name": "贵州茅台",
+      "report_year": 2025,
+      "published_date": "2026-04-17",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-17/1225114741.PDF",
+      "source_sha256": "474905deeaf0f875fc0a1b097a626c0c7852c427faadc5d7fc7816cbf45ea288",
+      "page_count": 143,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601088.SH",
+      "company_name": "中国神华",
+      "report_year": 2025,
+      "published_date": "2026-03-31",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-31/1225064293.PDF",
+      "source_sha256": "7068df1231922b8a2fcfd0336d9ae6550dabf7c7edc152d680089df8cc126bd2",
+      "page_count": 310,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600690.SH",
+      "company_name": "海尔智家",
+      "report_year": 2025,
+      "published_date": "2026-03-27",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-27/1225038336.PDF",
+      "source_sha256": "14186f9f9b47f687c527ba14825664f3b09e51759d581636cddcc248f26e3660",
+      "page_count": 245,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601766.SH",
+      "company_name": "中国中车",
+      "report_year": 2025,
+      "published_date": "2026-03-28",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-28/1225047457.PDF",
+      "source_sha256": "52254f29206ef598b0ab52a5f359cc87c2cf8e5a48ff87057015267bda99bf3d",
+      "page_count": 232,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "920368.BJ",
+      "company_name": "连城数控",
+      "report_year": 2025,
+      "published_date": "2026-04-24",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-24/1225195537.PDF",
+      "source_sha256": "978780f103b0dd447dbbb9a3ae6676fa4575dc8b4f69217192abfaeb7cd21aed",
+      "page_count": 207,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "920982.BJ",
+      "company_name": "锦波生物",
+      "report_year": 2025,
+      "published_date": "2026-04-29",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-29/1225267792.PDF",
+      "source_sha256": "ee0581ce33133eb610e068636d8917f6f664f11819678ef435e774d8eea30888",
+      "page_count": 182,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "920185.BJ",
+      "company_name": "贝特瑞",
+      "report_year": 2024,
+      "published_date": "2025-04-15",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-04-15/1223104318.PDF",
+      "source_sha256": "1c529027fa436e10de4460dd0ecab11efdf76b55273bdd7735384d883de548e1",
+      "page_count": 226,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601919.SH",
+      "company_name": "中远海控",
+      "report_year": 2025,
+      "published_date": "2026-03-20",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-20/1225019947.PDF",
+      "source_sha256": "17346da3f52093c9d376caa891a02e10969bae51a1e7109cb2a82678d556c4a2",
+      "page_count": 233,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600941.SH",
+      "company_name": "中国移动",
+      "report_year": 2025,
+      "published_date": "2026-03-27",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-27/1225036280.PDF",
+      "source_sha256": "8bde14d742b4869c344cc525ed892ec928d2eadf57757945c7e5a0e5bc3c7684",
+      "page_count": 214,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601012.SH",
+      "company_name": "隆基绿能",
+      "report_year": 2025,
+      "published_date": "2026-04-29",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-29/1225251647.PDF",
+      "source_sha256": "10233740d54740b89dfd772eecac5f04d8fef639489acd3b18b1a35e81bce2c1",
+      "page_count": 314,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600031.SH",
+      "company_name": "三一重工",
+      "report_year": 2025,
+      "published_date": "2026-03-31",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-31/1225061378.PDF",
+      "source_sha256": "d3f470600ec7d03ff9eb6257a74d1a07486406e02beb55b1f2bab5aaabb173e5",
+      "page_count": 250,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "603993.SH",
+      "company_name": "洛阳钼业",
+      "report_year": 2025,
+      "published_date": "2026-04-02",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-02/1225072765.PDF",
+      "source_sha256": "3384b52c31e87bc7081941a9d3ca776aaa6579ff33e7528c3c5326172952ac6d",
+      "page_count": 227,
+      "status": "needs_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": false,
+        "balance_sheet_reconciled": false,
+        "cash_flow_statement_reconciled": false
+      },
+      "reason": "缺少完整利润表证据，未判定金额是否一致。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "000002.SZ",
+      "company_name": "万科A",
+      "report_year": 2025,
+      "published_date": "2026-04-01",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-01/1225067794.PDF",
+      "source_sha256": "b2befc9da2a9e09c798702c351e6af65a4b148e32baa07737b941edc2caf1eba",
+      "page_count": 298,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601857.SH",
+      "company_name": "中国石油",
+      "report_year": 2025,
+      "published_date": "2026-03-30",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-30/1225049376.PDF",
+      "source_sha256": "840b15aa4dc38745a6b86a3656063e6a73081ce87407acb0ca93554f4e836e65",
+      "page_count": 273,
+      "status": "ready_for_human_review",
+      "statement_template": "petrochina_signed_fourcols_million_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600900.SH",
+      "company_name": "长江电力",
+      "report_year": 2025,
+      "published_date": "2026-04-30",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-30/1225262036.PDF",
+      "source_sha256": "aa0cdb92e3aad81b1e6454594a64cacbcfeb9013b10dd31f47a93a94e7a70f91",
+      "page_count": 259,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601857.SH",
+      "company_name": "中国石油",
+      "report_year": 2024,
+      "published_date": "2025-03-31",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-03-31/1222962164.PDF",
+      "source_sha256": "15a2de01653ceefa46fdd18a02a127f434f06db02da9efb0b62c3a12a35a9bba",
+      "page_count": 280,
+      "status": "ready_for_human_review",
+      "statement_template": "petrochina_signed_fourcols_million_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600009.SH",
+      "company_name": "上海机场",
+      "report_year": 2025,
+      "published_date": "2026-04-30",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-30/1225264362.PDF",
+      "source_sha256": "3f833967d515c5d967341ecc114aaf6d36133a36811b0c97c218bbbdac34365b",
+      "page_count": 187,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600104.SH",
+      "company_name": "上汽集团",
+      "report_year": 2025,
+      "published_date": "2026-04-02",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-02/1225071780.PDF",
+      "source_sha256": "aca3b701a1d6c2d59c8063801c579c0b1a589fd7d183e13146e4790cce3d0874",
+      "page_count": 205,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600276.SH",
+      "company_name": "恒瑞医药",
+      "report_year": 2025,
+      "published_date": "2026-03-26",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-26/1225032585.PDF",
+      "source_sha256": "fae80e2d132f5b6f2bfbb8bcdfd40e1267edb91d689389d63c8e291b0856ace6",
+      "page_count": 236,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600309.SH",
+      "company_name": "万华化学",
+      "report_year": 2025,
+      "published_date": "2026-04-21",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-21/1225130793.PDF",
+      "source_sha256": "766717cc1a3b74221d4a20892b28152b3180ef5c63d683623e8a903eebddac95",
+      "page_count": 229,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601668.SH",
+      "company_name": "中国建筑",
+      "report_year": 2025,
+      "published_date": "2026-04-18",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-18/1225123321.PDF",
+      "source_sha256": "be7c5a9a87af23f0f08405942c4159aac7be9dbb72c6979da56b81e69f588815",
+      "page_count": 370,
+      "status": "needs_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": false,
+        "balance_sheet_reconciled": false,
+        "cash_flow_statement_reconciled": false
+      },
+      "reason": "缺少完整利润表证据，未判定金额是否一致。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "601985.SH",
+      "company_name": "中国核电",
+      "report_year": 2025,
+      "published_date": "2026-04-30",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-30/1225257680.PDF",
+      "source_sha256": "6dba7dd3b9e5b70ebecb9784c0b380558fde04d3c5b380decb4493b82bb4067f",
+      "page_count": 323,
+      "status": "ready_for_human_review",
+      "statement_template": "general",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600030.SH",
+      "company_name": "中信证券",
+      "report_year": 2024,
+      "published_date": "2025-03-27",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-03-27/1222912838.PDF",
+      "source_sha256": "27ee61ad5296d8f200861692af538a7db034aadf770ba0ae67f736d4e693d50d",
+      "page_count": 393,
+      "status": "ready_for_human_review",
+      "statement_template": "securities_citic_separate_yuan_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "600030.SH",
+      "company_name": "中信证券",
+      "report_year": 2025,
+      "published_date": "2026-03-27",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-27/1225036081.PDF",
+      "source_sha256": "438f2a53dcf4bf0569b6783b51674aae25076d23d53198b08cf7b539e14003c2",
+      "page_count": 389,
+      "status": "ready_for_human_review",
+      "statement_template": "securities_citic_separate_yuan_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    },
+    {
+      "canonical_code": "603993.SH",
+      "company_name": "洛阳钼业",
+      "report_year": 2025,
+      "published_date": "2026-04-01",
+      "source_url": "https://www.hkexnews.hk/listedco/listconews/sehk/2026/0401/2026040101683_c.pdf",
+      "source_sha256": "1322c588c8096444f7f36cfe54d61b8506c73d60fc02079beb46c3c7ac8b40be",
+      "page_count": 254,
+      "status": "ready_for_human_review",
+      "statement_template": "cmoc_2025_cas_traditional_yuan_v1",
+      "statement_checks": {
+        "income_statement_reconciled": true,
+        "balance_sheet_reconciled": true,
+        "cash_flow_statement_reconciled": true
+      },
+      "reason": "该原件通过本次自动检查，财务金额仍需逐项人工复核。",
+      "human_verification": "not_performed"
+    }
+  ],
+  "receipt_sha256": "27fceb2ed318bf4a17fb72a5a61156a865aa70b2230b80ac0e369bbd8d4d0ffc"
+}

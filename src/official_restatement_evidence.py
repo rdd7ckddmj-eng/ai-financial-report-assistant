@@ -124,8 +124,8 @@ def validate_official_restatement_registry(data):
         period_end = _date(entry.get('period_end'))
         if period_end != date(year, 12, 31):
             raise ValueError('重述比较时点与原年报年度不一致。')
-        if entry.get('metric_key') not in ('total_assets', 'total_liabilities'):
-            raise ValueError('当前登记只支持已查证的资产与负债指标。')
+        if entry.get('metric_key') not in ('total_assets', 'total_liabilities', 'revenue'):
+            raise ValueError('当前登记只支持已查证的资产、负债与营业收入指标。')
         if (entry.get('status') != EVIDENCE_STATUS or entry.get('effect') != 'explanation_only'
                 or entry.get('human_verification') != 'not_performed'):
             raise ValueError('重述线索不能转换为金额一致或人工确认。')
@@ -175,7 +175,7 @@ def match_official_restatement_evidence(company_code, report_year, annual_finger
     """
     if (not _canonical(company_code) or type(report_year) is not int
             or not isinstance(annual_fingerprint, str) or not _SHA.fullmatch(annual_fingerprint)
-            or metric_key not in ('total_assets', 'total_liabilities')):
+            or metric_key not in ('total_assets', 'total_liabilities', 'revenue')):
         return None
     try:
         annual_amount, public_amount = _amount(annual_yuan), _amount(public_yuan)

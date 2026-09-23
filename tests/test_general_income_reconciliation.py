@@ -257,3 +257,19 @@ def test_english_table_is_outside_this_checker_scope():
 def test_invalid_exposed_attributable_profit_cannot_pass(value):
     income = figures(); income['current_net_profit'] = value
     assert check(TABLE, income)['status'] == 'missing_evidence'
+
+
+@pytest.mark.parametrize('reference', ['七76', '七 76', '七\n76'])
+def test_compact_chinese_chapter_note_requires_note_header_and_two_complete_amounts(reference):
+    table = TABLE.replace('减：所得税费用\n', '减：所得税费用\n'+reference+'\n')
+    result = check(table)
+    assert result['status'] == 'passed'
+    assert result['evidence']['income_tax']['values'] == ['20.01', '18.02']
+    assert check(table.replace('项目 附注', '项目'))['status'] == 'missing_evidence'
+    assert check(table.replace('20.01\n18.02', '20.01'))['status'] == 'missing_evidence'
+
+
+@pytest.mark.parametrize('reference', ['七0', '七0076', '七1000', '七76.5', '七76元', '未知76', '七76 1.00'])
+def test_ambiguous_compact_notes_cannot_supply_or_consume_a_money_cell(reference):
+    table = TABLE.replace('减：所得税费用\n', '减：所得税费用\n'+reference+'\n')
+    assert check(table)['status'] == 'missing_evidence'

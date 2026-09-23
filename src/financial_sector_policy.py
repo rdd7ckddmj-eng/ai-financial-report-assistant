@@ -19,7 +19,7 @@ def matches_known_insurer(company, pages):
 SECURITIES_REVENUE_TEMPLATES = frozenset({'securities_group_parent_yuan_v1', 'securities_cms_separate_yuan_v1'})
 
 SPECIAL_FINANCIAL_TEMPLATES = frozenset(TEMPLATES.values()) | SECURITIES_REVENUE_TEMPLATES | frozenset({
-    'insurance_chinalife_million_v1', 'insurance_signed_million_v1', 'securities_group_parent_yuan_v1', 'bank_signed_million_v1', 'insurance_unsupported_v1', 'securities_unsupported_v1',
+    'insurance_chinalife_million_v1', 'insurance_signed_million_v1', 'securities_group_parent_yuan_v1', 'securities_citic_separate_yuan_v1', 'bank_signed_million_v1', 'insurance_unsupported_v1', 'securities_unsupported_v1',
 })
 
 
@@ -31,7 +31,7 @@ def unsupported_issuer_template(company, pages):
     name = re.sub(r'\s+', '', str(company.get('name', '')))
     # Known broker codes must never fall back to ordinary-company ratios, even
     # when their image cover delays the machine-readable legal-name fields.
-    if str(company.get('code', '')) in {'601688', '600999'}:
+    if str(company.get('code', '')) in {'601688', '600999', '600030'}:
         return 'securities_unsupported_v1'
     if len(name) < 3 or name == '待核验公司':
         return None

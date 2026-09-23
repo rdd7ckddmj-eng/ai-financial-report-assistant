@@ -529,7 +529,7 @@ def build_financial_snapshot_report_html(
         extra_checks = [check for section in ('balance', 'cash') for check in statement_detail.get(section, [])]
         check_rows = income_reconciliation_rows({'income_reconciliation': {'checks': extra_checks}})
         if check_rows:
-            income_html += ('<h2>资产负债与现金流金额关系</h2><p>按原报表单位展示；合并及公司两期列分别核对。仍需人工核验。</p>'
+            income_html += ('<h2>资产负债与现金流金额关系</h2><p>按原报表单位逐项展示两期差额；核对范围见各条关系和利润表说明。仍需人工核验。</p>'
                 + '<table><thead><tr><th>核对关系</th><th>本期差额</th><th>比较期差额</th><th>检查结果</th></tr></thead><tbody>'
                 + ''.join('<tr>' + ''.join('<td>' + escape(value) + '</td>' for value in row.values()) + '</tr>' for row in check_rows)
                 + '</tbody></table>')

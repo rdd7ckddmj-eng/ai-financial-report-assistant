@@ -1,0 +1,1819 @@
+{
+  "annual_snapshot": {
+    "schema_version": "1.1",
+    "generated_at": "2026-09-23T17:55:29.581508+00:00",
+    "status": "ready_for_human_review",
+    "extraction_note": "",
+    "status_label": "自动检查完成，等待人工复核",
+    "company": {
+      "code": "600030",
+      "name": "中信证券",
+      "exchange": "SH",
+      "exchange_name": "上海证券交易所",
+      "canonical_code": "600030.SH"
+    },
+    "report": {
+      "statement_template": "securities_citic_separate_yuan_v1",
+      "report_year": 2024,
+      "published_date": "2025-03-27",
+      "title": "中信证券2024年年度报告（手工上传候选）",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-03-27/1222912838.PDF",
+      "page_count": 393
+    },
+    "source_fingerprint_sha256": "27ee61ad5296d8f200861692af538a7db034aadf770ba0ae67f736d4e693d50d",
+    "statement_checks": {
+      "income_statement_reconciled": true,
+      "balance_sheet_reconciled": true,
+      "cash_flow_statement_reconciled": true
+    },
+    "income_reconciliation": {
+      "status": "passed",
+      "passed": true,
+      "unit": "人民币元",
+      "header_years": [
+        2024,
+        2023
+      ],
+      "pages": {
+        "start": 169,
+        "end": 172
+      },
+      "checks": [
+        {
+          "key": "group_income_revenue",
+          "label": "合并：营业收入等于八项组成合计",
+          "current": {
+            "left": "63789215688.23",
+            "right": "63789215688.23",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "60067992766.11",
+            "right": "60067992766.11",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_interest",
+          "label": "合并：利息收入减利息支出等于利息净收入",
+          "current": {
+            "left": "1083779609.81",
+            "right": "1083779609.81",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "4029090716.02",
+            "right": "4029090716.02",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_cost",
+          "label": "合并：营业支出等于明确列示的费用合计（转回保留负号）",
+          "current": {
+            "left": "35282999519.50",
+            "right": "35282999519.50",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "33954316840.16",
+            "right": "33954316840.16",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_operating",
+          "label": "合并：营业收入减营业支出等于营业利润",
+          "current": {
+            "left": "28506216168.73",
+            "right": "28506216168.73",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "26113675925.95",
+            "right": "26113675925.95",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_pretax",
+          "label": "合并：营业利润加营业外收入减营业外支出等于利润总额",
+          "current": {
+            "left": "28418475259.56",
+            "right": "28418475259.56",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "26185453049.24",
+            "right": "26185453049.24",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_tax",
+          "label": "合并：利润总额减所得税费用等于净利润",
+          "current": {
+            "left": "22589456799.93",
+            "right": "22589456799.93",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "20539345229.01",
+            "right": "20539345229.01",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_continuity",
+          "label": "合并：净利润等于原表经营持续性分类合计",
+          "current": {
+            "left": "22589456799.93",
+            "right": "22589456799.93",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "20539345229.01",
+            "right": "20539345229.01",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_attribution",
+          "label": "合并：归母净利润加少数股东损益等于合并净利润",
+          "current": {
+            "left": "22589456799.93",
+            "right": "22589456799.93",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "20539345229.01",
+            "right": "20539345229.01",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_oci_attribution",
+          "label": "合并：其他综合收益归属合计",
+          "current": {
+            "left": "1308280.39",
+            "right": "1308280.39",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "916785510.98",
+            "right": "916785510.98",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_total_attribution",
+          "label": "合并：综合收益归属合计",
+          "current": {
+            "left": "22590765080.32",
+            "right": "22590765080.32",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "21456130739.99",
+            "right": "21456130739.99",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_parent_total",
+          "label": "合并：归母净利润加归母其他综合收益等于归母综合收益",
+          "current": {
+            "left": "21702862352.45",
+            "right": "21702862352.45",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "20620739395.88",
+            "right": "20620739395.88",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_minority_total",
+          "label": "合并：少数损益加少数其他综合收益等于少数综合收益",
+          "current": {
+            "left": "887902727.87",
+            "right": "887902727.87",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "835391344.11",
+            "right": "835391344.11",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_oci_split",
+          "label": "合并：可重分类与不可重分类的其他综合收益合计",
+          "current": {
+            "left": "-834240.57",
+            "right": "-834240.57",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "900191983.04",
+            "right": "900191983.04",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_oci_nonrecycle",
+          "label": "合并：不可重分类其他综合收益组成合计",
+          "current": {
+            "left": "555526834.13",
+            "right": "555526834.13",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "67057547.16",
+            "right": "67057547.16",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_oci_recycle",
+          "label": "合并：可重分类其他综合收益组成合计",
+          "current": {
+            "left": "-556361074.70",
+            "right": "-556361074.70",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "833134435.88",
+            "right": "833134435.88",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_comprehensive",
+          "label": "合并：净利润加其他综合收益等于综合收益总额",
+          "current": {
+            "left": "22590765080.32",
+            "right": "22590765080.32",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "21456130739.99",
+            "right": "21456130739.99",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_revenue",
+          "label": "母公司：营业收入等于八项组成合计",
+          "current": {
+            "left": "32192395303.15",
+            "right": "32192395303.15",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "33072382352.93",
+            "right": "33072382352.93",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_interest",
+          "label": "母公司：利息收入减利息支出等于利息净收入",
+          "current": {
+            "left": "1343448785.94",
+            "right": "1343448785.94",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "3158280713.61",
+            "right": "3158280713.61",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_cost",
+          "label": "母公司：营业支出等于明确列示的费用合计（转回保留负号）",
+          "current": {
+            "left": "15569927065.84",
+            "right": "15569927065.84",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "16399653771.95",
+            "right": "16399653771.95",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_operating",
+          "label": "母公司：营业收入减营业支出等于营业利润",
+          "current": {
+            "left": "16622468237.31",
+            "right": "16622468237.31",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "16672728580.98",
+            "right": "16672728580.98",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_pretax",
+          "label": "母公司：营业利润加营业外收入减营业外支出等于利润总额",
+          "current": {
+            "left": "16410717676.22",
+            "right": "16410717676.22",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "16757894478.69",
+            "right": "16757894478.69",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_tax",
+          "label": "母公司：利润总额减所得税费用等于净利润",
+          "current": {
+            "left": "13567707375.15",
+            "right": "13567707375.15",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "13364353450.72",
+            "right": "13364353450.72",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_continuity",
+          "label": "母公司：净利润等于原表经营持续性分类合计",
+          "current": {
+            "left": "13567707375.15",
+            "right": "13567707375.15",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "13364353450.72",
+            "right": "13364353450.72",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_oci_split",
+          "label": "母公司：可重分类与不可重分类的其他综合收益合计",
+          "current": {
+            "left": "42528206.33",
+            "right": "42528206.33",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "703911836.30",
+            "right": "703911836.30",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_oci_nonrecycle",
+          "label": "母公司：不可重分类其他综合收益组成合计",
+          "current": {
+            "left": "500042323.14",
+            "right": "500042323.14",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "94125717.95",
+            "right": "94125717.95",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_oci_recycle",
+          "label": "母公司：可重分类其他综合收益组成合计",
+          "current": {
+            "left": "-457514116.81",
+            "right": "-457514116.81",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "609786118.35",
+            "right": "609786118.35",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_comprehensive",
+          "label": "母公司：净利润加其他综合收益等于综合收益总额",
+          "current": {
+            "left": "13610235581.48",
+            "right": "13610235581.48",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "14068265287.02",
+            "right": "14068265287.02",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        }
+      ],
+      "note": "中信证券中国准则专项：合并及母公司两期分别检验收入、正数费用、利润归属和其他综合收益；不验证每股收益分母。",
+      "rounding_note": "所有关系使用Decimal；每列允许差额不超过人民币0.01元。",
+      "tax_presentation": "费用为正数，利润总额减所得税费用；明确减值转回保留负号。",
+      "comparison_basis": "保留本年度报告本期与比较列原值；本表列头未标注重述。"
+    },
+    "statement_reconciliation": {
+      "income": [
+        {
+          "key": "group_income_revenue",
+          "label": "合并：营业收入等于八项组成合计",
+          "current": {
+            "left": "63789215688.23",
+            "right": "63789215688.23",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "60067992766.11",
+            "right": "60067992766.11",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_interest",
+          "label": "合并：利息收入减利息支出等于利息净收入",
+          "current": {
+            "left": "1083779609.81",
+            "right": "1083779609.81",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "4029090716.02",
+            "right": "4029090716.02",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_cost",
+          "label": "合并：营业支出等于明确列示的费用合计（转回保留负号）",
+          "current": {
+            "left": "35282999519.50",
+            "right": "35282999519.50",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "33954316840.16",
+            "right": "33954316840.16",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_operating",
+          "label": "合并：营业收入减营业支出等于营业利润",
+          "current": {
+            "left": "28506216168.73",
+            "right": "28506216168.73",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "26113675925.95",
+            "right": "26113675925.95",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_pretax",
+          "label": "合并：营业利润加营业外收入减营业外支出等于利润总额",
+          "current": {
+            "left": "28418475259.56",
+            "right": "28418475259.56",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "26185453049.24",
+            "right": "26185453049.24",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_tax",
+          "label": "合并：利润总额减所得税费用等于净利润",
+          "current": {
+            "left": "22589456799.93",
+            "right": "22589456799.93",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "20539345229.01",
+            "right": "20539345229.01",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_continuity",
+          "label": "合并：净利润等于原表经营持续性分类合计",
+          "current": {
+            "left": "22589456799.93",
+            "right": "22589456799.93",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "20539345229.01",
+            "right": "20539345229.01",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_attribution",
+          "label": "合并：归母净利润加少数股东损益等于合并净利润",
+          "current": {
+            "left": "22589456799.93",
+            "right": "22589456799.93",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "20539345229.01",
+            "right": "20539345229.01",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_oci_attribution",
+          "label": "合并：其他综合收益归属合计",
+          "current": {
+            "left": "1308280.39",
+            "right": "1308280.39",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "916785510.98",
+            "right": "916785510.98",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_total_attribution",
+          "label": "合并：综合收益归属合计",
+          "current": {
+            "left": "22590765080.32",
+            "right": "22590765080.32",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "21456130739.99",
+            "right": "21456130739.99",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_parent_total",
+          "label": "合并：归母净利润加归母其他综合收益等于归母综合收益",
+          "current": {
+            "left": "21702862352.45",
+            "right": "21702862352.45",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "20620739395.88",
+            "right": "20620739395.88",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_minority_total",
+          "label": "合并：少数损益加少数其他综合收益等于少数综合收益",
+          "current": {
+            "left": "887902727.87",
+            "right": "887902727.87",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "835391344.11",
+            "right": "835391344.11",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_oci_split",
+          "label": "合并：可重分类与不可重分类的其他综合收益合计",
+          "current": {
+            "left": "-834240.57",
+            "right": "-834240.57",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "900191983.04",
+            "right": "900191983.04",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_oci_nonrecycle",
+          "label": "合并：不可重分类其他综合收益组成合计",
+          "current": {
+            "left": "555526834.13",
+            "right": "555526834.13",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "67057547.16",
+            "right": "67057547.16",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_oci_recycle",
+          "label": "合并：可重分类其他综合收益组成合计",
+          "current": {
+            "left": "-556361074.70",
+            "right": "-556361074.70",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "833134435.88",
+            "right": "833134435.88",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_income_comprehensive",
+          "label": "合并：净利润加其他综合收益等于综合收益总额",
+          "current": {
+            "left": "22590765080.32",
+            "right": "22590765080.32",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "21456130739.99",
+            "right": "21456130739.99",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_revenue",
+          "label": "母公司：营业收入等于八项组成合计",
+          "current": {
+            "left": "32192395303.15",
+            "right": "32192395303.15",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "33072382352.93",
+            "right": "33072382352.93",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_interest",
+          "label": "母公司：利息收入减利息支出等于利息净收入",
+          "current": {
+            "left": "1343448785.94",
+            "right": "1343448785.94",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "3158280713.61",
+            "right": "3158280713.61",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_cost",
+          "label": "母公司：营业支出等于明确列示的费用合计（转回保留负号）",
+          "current": {
+            "left": "15569927065.84",
+            "right": "15569927065.84",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "16399653771.95",
+            "right": "16399653771.95",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_operating",
+          "label": "母公司：营业收入减营业支出等于营业利润",
+          "current": {
+            "left": "16622468237.31",
+            "right": "16622468237.31",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "16672728580.98",
+            "right": "16672728580.98",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_pretax",
+          "label": "母公司：营业利润加营业外收入减营业外支出等于利润总额",
+          "current": {
+            "left": "16410717676.22",
+            "right": "16410717676.22",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "16757894478.69",
+            "right": "16757894478.69",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_tax",
+          "label": "母公司：利润总额减所得税费用等于净利润",
+          "current": {
+            "left": "13567707375.15",
+            "right": "13567707375.15",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "13364353450.72",
+            "right": "13364353450.72",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_continuity",
+          "label": "母公司：净利润等于原表经营持续性分类合计",
+          "current": {
+            "left": "13567707375.15",
+            "right": "13567707375.15",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "13364353450.72",
+            "right": "13364353450.72",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_oci_split",
+          "label": "母公司：可重分类与不可重分类的其他综合收益合计",
+          "current": {
+            "left": "42528206.33",
+            "right": "42528206.33",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "703911836.30",
+            "right": "703911836.30",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_oci_nonrecycle",
+          "label": "母公司：不可重分类其他综合收益组成合计",
+          "current": {
+            "left": "500042323.14",
+            "right": "500042323.14",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "94125717.95",
+            "right": "94125717.95",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_oci_recycle",
+          "label": "母公司：可重分类其他综合收益组成合计",
+          "current": {
+            "left": "-457514116.81",
+            "right": "-457514116.81",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "609786118.35",
+            "right": "609786118.35",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_income_comprehensive",
+          "label": "母公司：净利润加其他综合收益等于综合收益总额",
+          "current": {
+            "left": "13610235581.48",
+            "right": "13610235581.48",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "14068265287.02",
+            "right": "14068265287.02",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        }
+      ],
+      "balance": [
+        {
+          "key": "group_balance_assets",
+          "label": "合并：资产各主项等于资产总计",
+          "current": {
+            "left": "1710710828343.76",
+            "right": "1710710828343.76",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "1453359126043.71",
+            "right": "1453359126043.71",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_balance_liabs",
+          "label": "合并：负债各主项等于负债合计",
+          "current": {
+            "left": "1411944156810.95",
+            "right": "1411944156810.95",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "1179159917980.10",
+            "right": "1179159917980.10",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_balance_equity_parts",
+          "label": "合并：股东权益各主项合计",
+          "current": {
+            "left": "293108725612.16",
+            "right": "293108725612.16",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "268839608470.83",
+            "right": "268839608470.83",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_balance_equity_attribution",
+          "label": "合并：归母权益加少数股东权益等于权益合计",
+          "current": {
+            "left": "298766671532.81",
+            "right": "298766671532.81",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "274199208063.61",
+            "right": "274199208063.61",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_balance_balance",
+          "label": "合并：资产等于负债加股东权益",
+          "current": {
+            "left": "1710710828343.76",
+            "right": "1710710828343.76",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "1453359126043.71",
+            "right": "1453359126043.71",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_balance_totals",
+          "label": "合并：资产与负债权益两侧总额一致",
+          "current": {
+            "left": "1710710828343.76",
+            "right": "1710710828343.76",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "1453359126043.71",
+            "right": "1453359126043.71",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_balance_assets",
+          "label": "母公司：资产各主项等于资产总计",
+          "current": {
+            "left": "1167573218603.72",
+            "right": "1167573218603.72",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "1046954127888.24",
+            "right": "1046954127888.24",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_balance_liabs",
+          "label": "母公司：负债各主项等于负债合计",
+          "current": {
+            "left": "930625036848.87",
+            "right": "930625036848.87",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "826186254314.63",
+            "right": "826186254314.63",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_balance_equity_parts",
+          "label": "母公司：股东权益各主项合计",
+          "current": {
+            "left": "236948181754.85",
+            "right": "236948181754.85",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "220767873573.61",
+            "right": "220767873573.61",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_balance_balance",
+          "label": "母公司：资产等于负债加股东权益",
+          "current": {
+            "left": "1167573218603.72",
+            "right": "1167573218603.72",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "1046954127888.24",
+            "right": "1046954127888.24",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_balance_totals",
+          "label": "母公司：资产与负债权益两侧总额一致",
+          "current": {
+            "left": "1167573218603.72",
+            "right": "1167573218603.72",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "1046954127888.24",
+            "right": "1046954127888.24",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        }
+      ],
+      "cash": [
+        {
+          "key": "group_cash_经营_in",
+          "label": "合并：经营现金流入主项合计",
+          "current": {
+            "left": "309928296089.90",
+            "right": "309928296089.90",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "126791619154.67",
+            "right": "126791619154.67",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_cash_经营_out",
+          "label": "合并：经营现金流出主项合计",
+          "current": {
+            "left": "137365292534.50",
+            "right": "137365292534.50",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "167628578854.10",
+            "right": "167628578854.10",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_cash_经营_net",
+          "label": "合并：经营现金流入减流出等于净额",
+          "current": {
+            "left": "172563003555.40",
+            "right": "172563003555.40",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "-40836959699.43",
+            "right": "-40836959699.43",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_cash_投资_in",
+          "label": "合并：投资现金流入主项合计",
+          "current": {
+            "left": "1237470518.11",
+            "right": "1237470518.11",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "1158682519.02",
+            "right": "1158682519.02",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_cash_投资_out",
+          "label": "合并：投资现金流出主项合计",
+          "current": {
+            "left": "75501266962.26",
+            "right": "75501266962.26",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "19356702937.10",
+            "right": "19356702937.10",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_cash_投资_net",
+          "label": "合并：投资现金流入减流出等于净额",
+          "current": {
+            "left": "-74263796444.15",
+            "right": "-74263796444.15",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "-18198020418.08",
+            "right": "-18198020418.08",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_cash_筹资_in",
+          "label": "合并：筹资现金流入主项合计",
+          "current": {
+            "left": "381305317067.19",
+            "right": "381305317067.19",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "345308099536.11",
+            "right": "345308099536.11",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_cash_筹资_out",
+          "label": "合并：筹资现金流出主项合计",
+          "current": {
+            "left": "396667613087.86",
+            "right": "396667613087.86",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "297026673502.60",
+            "right": "297026673502.60",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_cash_筹资_net",
+          "label": "合并：筹资现金流入减流出等于净额",
+          "current": {
+            "left": "-15362296020.67",
+            "right": "-15362296020.67",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "48281426033.51",
+            "right": "48281426033.51",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_cash_delta",
+          "label": "合并：三类现金净额加汇率影响等于现金变动",
+          "current": {
+            "left": "83181999203.90",
+            "right": "83181999203.90",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "-10354784684.79",
+            "right": "-10354784684.79",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "group_cash_closing",
+          "label": "合并：期初现金加净变动等于期末现金",
+          "current": {
+            "left": "421778756897.94",
+            "right": "421778756897.94",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "338596757694.04",
+            "right": "338596757694.04",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_cash_经营_in",
+          "label": "母公司：经营现金流入主项合计",
+          "current": {
+            "left": "199969298824.86",
+            "right": "199969298824.86",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "-372276122.03",
+            "right": "-372276122.03",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_cash_经营_out",
+          "label": "母公司：经营现金流出主项合计",
+          "current": {
+            "left": "64564120024.41",
+            "right": "64564120024.41",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "46477849163.70",
+            "right": "46477849163.70",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_cash_经营_net",
+          "label": "母公司：经营现金流入减流出等于净额",
+          "current": {
+            "left": "135405178800.45",
+            "right": "135405178800.45",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "-46850125285.73",
+            "right": "-46850125285.73",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_cash_投资_in",
+          "label": "母公司：投资现金流入主项合计",
+          "current": {
+            "left": "1126807878.55",
+            "right": "1126807878.55",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "915895595.97",
+            "right": "915895595.97",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_cash_投资_out",
+          "label": "母公司：投资现金流出主项合计",
+          "current": {
+            "left": "61191692810.15",
+            "right": "61191692810.15",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "18494749704.69",
+            "right": "18494749704.69",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_cash_投资_net",
+          "label": "母公司：投资现金流入减流出等于净额",
+          "current": {
+            "left": "-60064884931.60",
+            "right": "-60064884931.60",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "-17578854108.72",
+            "right": "-17578854108.72",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_cash_筹资_in",
+          "label": "母公司：筹资现金流入主项合计",
+          "current": {
+            "left": "240963329783.78",
+            "right": "240963329783.78",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "235145696295.60",
+            "right": "235145696295.60",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_cash_筹资_out",
+          "label": "母公司：筹资现金流出主项合计",
+          "current": {
+            "left": "268559953778.08",
+            "right": "268559953778.08",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "180813717004.35",
+            "right": "180813717004.35",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_cash_筹资_net",
+          "label": "母公司：筹资现金流入减流出等于净额",
+          "current": {
+            "left": "-27596623994.30",
+            "right": "-27596623994.30",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "54331979291.25",
+            "right": "54331979291.25",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_cash_delta",
+          "label": "母公司：三类现金净额加汇率影响等于现金变动",
+          "current": {
+            "left": "47914720921.24",
+            "right": "47914720921.24",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "-9902316061.58",
+            "right": "-9902316061.58",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        },
+        {
+          "key": "parent_cash_closing",
+          "label": "母公司：期初现金加净变动等于期末现金",
+          "current": {
+            "left": "246746493705.39",
+            "right": "246746493705.39",
+            "difference": "0.00",
+            "passed": true
+          },
+          "previous": {
+            "left": "198831772784.15",
+            "right": "198831772784.15",
+            "difference": "0.00",
+            "passed": true
+          },
+          "passed": true
+        }
+      ]
+    },
+    "unit": "人民币元",
+    "unit_note": "三张报表原始单位均为“人民币元”，页面数值已统一换算为人民币元。",
+    "metrics": [
+      {
+        "key": "revenue",
+        "label": "营业收入",
+        "current_yuan": 63789215688.23,
+        "previous_yuan": 60067992766.11,
+        "change_rate": 0.06195017930113846,
+        "change_rate_note": "",
+        "statement": "独立合并报表（仅取本集团列）",
+        "pages": {
+          "start": 169,
+          "end": 169
+        },
+        "source": {
+          "raw_current_value": 63789215688.23,
+          "raw_previous_value": 60067992766.11,
+          "original_unit": "人民币元",
+          "accounting_basis": "合并口径",
+          "comparison_comparable": true,
+          "comparison_basis": "保留本年度报告本期与比较列原值；本表列头未标注重述。",
+          "statement": "独立合并报表（仅取本集团列）",
+          "pages": {
+            "start": 169,
+            "end": 169
+          },
+          "excerpt": "一、营业收入 ｜ 63,789,215,688.23 ｜ 60,067,992,766.11 ｜ 手续费及佣金净收入 ｜ 46 ｜ 26,081,624,664.11 ｜ 27,201,936,531.31",
+          "excerpt_status": "captured"
+        }
+      },
+      {
+        "key": "net_profit",
+        "label": "净利润（优先归母口径）",
+        "current_yuan": 21703696593.02,
+        "previous_yuan": 19720547412.84,
+        "change_rate": 0.10056258270441198,
+        "change_rate_note": "",
+        "statement": "独立合并报表（仅取本集团列）",
+        "pages": {
+          "start": 170,
+          "end": 170
+        },
+        "source": {
+          "raw_current_value": 21703696593.02,
+          "raw_previous_value": 19720547412.84,
+          "original_unit": "人民币元",
+          "accounting_basis": "归母净利润（合并报表）",
+          "comparison_comparable": true,
+          "comparison_basis": "保留本年度报告本期与比较列原值；本表列头未标注重述。",
+          "statement": "独立合并报表（仅取本集团列）",
+          "pages": {
+            "start": 170,
+            "end": 170
+          },
+          "excerpt": "1. 归属于母公司股东的 ｜ 净利润 ｜ 21,703,696,593.02 ｜ 19,720,547,412.84 ｜ 2. 少数股东损益 ｜ 885,760,206.91 ｜ 818,797,816.17",
+          "excerpt_status": "captured"
+        }
+      },
+      {
+        "key": "operating_cash_flow",
+        "label": "经营活动现金流量净额",
+        "current_yuan": 172563003555.4,
+        "previous_yuan": -40836959699.43,
+        "change_rate": null,
+        "change_rate_note": "比较基期为零或负数，不展示百分比变化；请比较两期金额。",
+        "statement": "独立合并报表（仅取本集团列）",
+        "pages": {
+          "start": 180,
+          "end": 180
+        },
+        "source": {
+          "raw_current_value": 172563003555.4,
+          "raw_previous_value": -40836959699.43,
+          "original_unit": "人民币元",
+          "accounting_basis": "合并口径",
+          "comparison_comparable": true,
+          "comparison_basis": "保留本年度报告本期与比较列原值；本表列头未标注重述。",
+          "statement": "独立合并报表（仅取本集团列）",
+          "pages": {
+            "start": 180,
+            "end": 180
+          },
+          "excerpt": "经营活动产生的现金流量净额 ｜ 62 ｜ 172,563,003,555.40 ｜ (40,836,959,699.43) ｜ 后附财务报表附注为本财务报表的组成部分。 ｜ 176 ｜ 第十节 财务报告",
+          "excerpt_status": "captured"
+        }
+      },
+      {
+        "key": "total_assets",
+        "label": "资产总额",
+        "current_yuan": 1710710828343.76,
+        "previous_yuan": 1453359126043.71,
+        "change_rate": 0.17707371680432835,
+        "change_rate_note": "",
+        "statement": "独立合并报表（仅取本集团列）",
+        "pages": {
+          "start": 163,
+          "end": 163
+        },
+        "source": {
+          "raw_current_value": 1710710828343.76,
+          "raw_previous_value": 1453359126043.71,
+          "original_unit": "人民币元",
+          "accounting_basis": "合并口径",
+          "comparison_comparable": true,
+          "comparison_basis": "保留本年度报告本期与比较列原值；本表列头未标注重述。",
+          "statement": "独立合并报表（仅取本集团列）",
+          "pages": {
+            "start": 163,
+            "end": 163
+          },
+          "excerpt": "资产总计 ｜ 1,710,710,828,343.76 ｜ 1,453,359,126,043.71 ｜ 后附财务报表附注为本财务报表的组成部分。 ｜ 159 ｜ 第十节 财务报告",
+          "excerpt_status": "captured"
+        }
+      },
+      {
+        "key": "total_liabilities",
+        "label": "负债总额",
+        "current_yuan": 1411944156810.95,
+        "previous_yuan": 1179159917980.1,
+        "change_rate": 0.19741532533569242,
+        "change_rate_note": "",
+        "statement": "独立合并报表（仅取本集团列）",
+        "pages": {
+          "start": 164,
+          "end": 164
+        },
+        "source": {
+          "raw_current_value": 1411944156810.95,
+          "raw_previous_value": 1179159917980.1,
+          "original_unit": "人民币元",
+          "accounting_basis": "合并口径",
+          "comparison_comparable": true,
+          "comparison_basis": "保留本年度报告本期与比较列原值；本表列头未标注重述。",
+          "statement": "独立合并报表（仅取本集团列）",
+          "pages": {
+            "start": 164,
+            "end": 164
+          },
+          "excerpt": "负债合计 ｜ 1,411,944,156,810.95 ｜ 1,179,159,917,980.10 ｜ 后附财务报表附注为本财务报表的组成部分。 ｜ 160 ｜ 第十节 财务报告",
+          "excerpt_status": "captured"
+        }
+      }
+    ],
+    "ratios": {
+      "net_profit_margin": null,
+      "operating_cash_conversion": null,
+      "liabilities_to_assets": null
+    },
+    "limitations": [
+      "本结果由程序从最新完整年度报告自动提取，未经人工复核或审计。",
+      "中信证券中国准则专项：合并及母公司两期分别检验收入、正数费用、利润归属和其他综合收益；不验证每股收益分母。",
+      "跨期增速使用同一份年报中的上年同期/上年末比较栏，可能包含追溯调整。",
+      "比较基期为零或负数时不展示百分比变化，保留两期金额供比较。",
+      "比例仅在分母为正且金额可用时计算；净利润不大于零时不展示现金利润比，避免负数相除被误读为现金转化良好。",
+      "银行、保险等特殊报表版式或扫描版PDF可能无法通过自动勾稽。",
+      "财务快照用于缩短资料整理时间，不构成估值结论或投资建议。",
+      "手工上传：官方链接和公告日期由用户提供，未联网比对该链接的PDF与上传文件；公司及年度仍需人工复核。"
+    ],
+    "input_provenance": "user_uploaded_official_report_candidate"
+  },
+  "source_rows": [
+    {
+      "SECUCODE": "600030.SH",
+      "SECURITY_CODE": "600030",
+      "SECURITY_NAME_ABBR": "中信证券",
+      "ORG_TYPE": "证券",
+      "REPORT_DATE": "2020-12-31",
+      "REPORT_TYPE": "年报",
+      "NOTICE_DATE": "2021-03-19",
+      "UPDATE_DATE": "2022-03-29",
+      "CURRENCY": "CNY",
+      "OPERATE_INCOME_PK": 54382730241.56,
+      "TOTALOPERATEREVE": 54382730241.56,
+      "PARENTNETPROFIT": 14902324215.75,
+      "NETCASH_OPERATE_PK": 101825030335.14,
+      "TOTAL_ASSETS_PK": 1052962294032.21,
+      "LIABILITY": 867079558284.09,
+      "TOTAL_EQUITY_PK": 185882735748.12,
+      "RISK_COVERAGE": 154.96,
+      "CAPITAL_LEVERAGE_RATIO": 14.95
+    },
+    {
+      "SECUCODE": "600030.SH",
+      "SECURITY_CODE": "600030",
+      "SECURITY_NAME_ABBR": "中信证券",
+      "ORG_TYPE": "证券",
+      "REPORT_DATE": "2021-12-31",
+      "REPORT_TYPE": "年报",
+      "NOTICE_DATE": "2022-03-29",
+      "UPDATE_DATE": "2023-03-31",
+      "CURRENCY": "CNY",
+      "OPERATE_INCOME_PK": 76523716526.93,
+      "TOTALOPERATEREVE": 76523716526.93,
+      "PARENTNETPROFIT": 23099624927.77,
+      "NETCASH_OPERATE_PK": 28458125358.77,
+      "TOTAL_ASSETS_PK": 1278664775096.62,
+      "LIABILITY": 1064856988915.04,
+      "TOTAL_EQUITY_PK": 213807786181.58,
+      "RISK_COVERAGE": 174.74,
+      "CAPITAL_LEVERAGE_RATIO": 14.22
+    },
+    {
+      "SECUCODE": "600030.SH",
+      "SECURITY_CODE": "600030",
+      "SECURITY_NAME_ABBR": "中信证券",
+      "ORG_TYPE": "证券",
+      "REPORT_DATE": "2022-12-31",
+      "REPORT_TYPE": "年报",
+      "NOTICE_DATE": "2023-03-31",
+      "UPDATE_DATE": "2024-03-27",
+      "CURRENCY": "CNY",
+      "OPERATE_INCOME_PK": 65108507999.21,
+      "TOTALOPERATEREVE": 65108507999.21,
+      "PARENTNETPROFIT": 21317422282.16,
+      "NETCASH_OPERATE_PK": 78522711376.43,
+      "TOTAL_ASSETS_PK": 1308603359471.01,
+      "LIABILITY": 1050231321008.45,
+      "TOTAL_EQUITY_PK": 258372038462.56,
+      "RISK_COVERAGE": 203.96,
+      "CAPITAL_LEVERAGE_RATIO": 17.79
+    },
+    {
+      "SECUCODE": "600030.SH",
+      "SECURITY_CODE": "600030",
+      "SECURITY_NAME_ABBR": "中信证券",
+      "ORG_TYPE": "证券",
+      "REPORT_DATE": "2023-12-31",
+      "REPORT_TYPE": "年报",
+      "NOTICE_DATE": "2024-03-27",
+      "UPDATE_DATE": "2025-03-27",
+      "CURRENCY": "CNY",
+      "OPERATE_INCOME_PK": 60067992766.11,
+      "TOTALOPERATEREVE": 60067992766.11,
+      "PARENTNETPROFIT": 19720547412.84,
+      "NETCASH_OPERATE_PK": -40836959699.43,
+      "TOTAL_ASSETS_PK": 1453359126043.71,
+      "LIABILITY": 1179159917980.1,
+      "TOTAL_EQUITY_PK": 274199208063.61,
+      "RISK_COVERAGE": 187.21,
+      "CAPITAL_LEVERAGE_RATIO": 16.32
+    },
+    {
+      "SECUCODE": "600030.SH",
+      "SECURITY_CODE": "600030",
+      "SECURITY_NAME_ABBR": "中信证券",
+      "ORG_TYPE": "证券",
+      "REPORT_DATE": "2024-12-31",
+      "REPORT_TYPE": "年报",
+      "NOTICE_DATE": "2025-03-27",
+      "UPDATE_DATE": "2026-03-27",
+      "CURRENCY": "CNY",
+      "OPERATE_INCOME_PK": 58119003450.22,
+      "TOTALOPERATEREVE": 58119003450.22,
+      "PARENTNETPROFIT": 21703696593.02,
+      "NETCASH_OPERATE_PK": 172563003555.4,
+      "TOTAL_ASSETS_PK": 1710710828343.76,
+      "LIABILITY": 1411944156810.95,
+      "TOTAL_EQUITY_PK": 298766671532.81,
+      "RISK_COVERAGE": 213.06,
+      "CAPITAL_LEVERAGE_RATIO": 15.06
+    },
+    {
+      "SECUCODE": "600030.SH",
+      "SECURITY_CODE": "600030",
+      "SECURITY_NAME_ABBR": "中信证券",
+      "ORG_TYPE": "证券",
+      "REPORT_DATE": "2025-12-31",
+      "REPORT_TYPE": "年报",
+      "NOTICE_DATE": "2026-03-27",
+      "UPDATE_DATE": "2026-03-27",
+      "CURRENCY": "CNY",
+      "OPERATE_INCOME_PK": 74854368352.85,
+      "TOTALOPERATEREVE": 74854368352.85,
+      "PARENTNETPROFIT": 30076100951.5,
+      "NETCASH_OPERATE_PK": 74104321265.96,
+      "TOTAL_ASSETS_PK": 2081902593243.18,
+      "LIABILITY": 1756080209141.24,
+      "TOTAL_EQUITY_PK": 325822384101.94,
+      "RISK_COVERAGE": 210.46,
+      "CAPITAL_LEVERAGE_RATIO": 13.83
+    }
+  ],
+  "public_fetched_at": "2026-09-23T17:52:49+00:00"
+}

@@ -2686,7 +2686,7 @@ render_financial_snapshot_page()
     assert not app_test.exception
     page_markup = "\n".join(item.value for item in app_test.markdown)
     assert "ON-DEMAND FINANCIAL SNAPSHOT" in page_markup
-    assert "全市场按需财务快照 Agent" in page_markup
+    assert "A股按需财务快照 Agent" in page_markup
     assert any(
         button.label == "生成最新年报财务快照"
         for button in app_test.button

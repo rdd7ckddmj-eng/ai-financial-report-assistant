@@ -390,3 +390,16 @@
 - [x] Assess 12 bounded OCR trials on PICC/CMOC; keep both blocked after observed monetary/label errors. No production OCR dependency or enlarged resource limit.
 - [ ] Establish reliable image/outline reading with reproducible source geometry and a verified production resource budget before enabling the two remaining samples.
 - [ ] Expand complete-report validation beyond these 51 issuer/year samples.
+
+
+## 2026-09-24 — Published exact-report scope and nine more originals
+
+- [x] Add a local tested-original catalogue and per-company UI with official links; distinguish searchable stocks, automatic candidates, and human financial confirmation. Preserve different PDF versions of the same issuer/year independently.
+- [x] Use a unique historical company name only for an unresolved display placeholder; never replace an explicit identity or bypass the new upload’s identity checks.
+- [x] Add CITIC Securities 2024/2025 group/parent checks and CMOC 2025 native traditional-Chinese CAS statements from one exact official HKEX URL. Preserve CMOC’s prior image-PDF failure.
+- [x] Add five ordinary-company candidates; handle compact Chinese/numeric note references only under an actual note-column header. Keep CSCEC’s image-only statements unavailable.
+- [x] Fix independent-review counterexamples: unexpected catalogue JSON status types, unvalidated CITIC signing tails/oversized amounts, and CMOC receivable subitem sum bounds.
+- [x] Compare 40 new current amounts: 39 close; retain CITIC 2024 revenue difference and attach the exact 2025 official before/after figures and policy explanation without overwriting either value.
+- [x] Run all 60 complete PDF versions: 57 candidates, 3 needs-review, 45 companies, 44 candidate companies, 59 issuer/year pairs. All prior 51 statuses and both-period amounts unchanged. Human financial confirmations remain zero.
+- [ ] Support image/outline sources only with a separately evidenced extraction method and verified production resource limits; PICC 2025, old CMOC image version and CSCEC 2025 remain explicit gaps.
+- [ ] Expand beyond the exact tested company/year/source versions; the published catalogue is not full-market coverage.

@@ -18184,7 +18184,7 @@ def _show_income_reconciliation(result) -> None:
         extra_checks = [check for section in ('balance', 'cash') for check in statements.get(section, [])]
         if extra_checks:
             with st.expander('查看资产负债与现金流金额关系'):
-                st.caption('按原报表单位展示；合并及公司两期列分别核对。费用与现金流出按专用版式保留负号，仍需人工核验。')
+                st.caption('按原报表单位逐项展示两期差额；核对范围见各条关系和利润表说明。自动检查不能替代人工复核。')
                 rows = income_reconciliation_rows({'income_reconciliation': {'checks': extra_checks}})
                 st.dataframe(rows, hide_index=True, width='stretch')
     detail = result.get('income_reconciliation')
@@ -19126,14 +19126,54 @@ def _render_manual_snapshot_input(company) -> None:
             gc.collect()
 
 
+def _show_annual_report_coverage(company=None):
+    """Show tested source versions without fetching or approving any report."""
+    from src.annual_report_coverage import (
+        load_coverage_catalog, coverage_summary, reports_for_company,
+        sample_company_identity, STATUSES,
+    )
+    try:
+        catalog = load_coverage_catalog()
+        summary = coverage_summary(catalog)
+        selected = reports_for_company(catalog, company) if company is not None else catalog['reports']
+    except ValueError:
+        st.caption('完整年报测试范围暂时无法读取；本次报告仍须独立检查。')
+        return company
+    with st.expander('查看已测试的年报范围'):
+        st.write(f"已测试 {summary['companies']} 家公司、{summary['report_versions']} 份完整年报原件；"
+                 f"{summary['candidates']} 份通过自动检查，{summary['needs_review']} 份仍有缺口。")
+        st.caption('能搜索到股票，不代表其年报已通过测试；自动检查通过也不代表完成人工复核。'
+                   '以下结果只对应列出的原件版本，其他年度或版本仍需重新检查。同一年度可能有不同披露版本。')
+        st.caption('测试记录时间：' + catalog['tested_at'].replace('T', ' ').replace('+00:00', ' UTC'))
+        if company is not None:
+            if st.checkbox('查看全部测试样本', key='annual_report_coverage_all'):
+                selected = catalog['reports']
+            elif not selected:
+                st.info('尚无这家公司的完整年报测试记录。可以继续尝试按需解析，但结果须由本次原件检查决定。')
+        if selected:
+            rows = [{'公司': r['company_name'], '股票代码': r['canonical_code'], '报告年度': r['report_year'],
+                     '处理结果': STATUSES[r['status']], '完整页数': r['page_count'], '公告日期': r['published_date'],
+                     '说明': r['reason'], '官方原件': r['source_url']} for r in selected]
+            st.dataframe(pd.DataFrame(rows), hide_index=True, width='stretch',
+                column_config={'报告年度': st.column_config.NumberColumn(format='%d'),
+                               '官方原件': st.column_config.LinkColumn(display_text='打开官方原件')})
+        st.caption('这份范围记录不会跳过当前报告的解析、金额检查或逐项人工复核，也不是全市场覆盖率。')
+    if company is not None:
+        resolved = sample_company_identity(company, catalog)
+        if resolved['name'] != company['name']:
+            st.caption(f"公司名称“{resolved['name']}”来自已测试的历史年报记录；本次上传仍须核对公司身份。")
+        return resolved
+    return None
+
+
 def render_financial_snapshot_page() -> None:
     """Generate one temporary, page-linked snapshot for an A-share company."""
     apply_product_theme()
     _sync_research_case_store()
     show_compact_page_header(
         "财务 / 按需快照 · ON-DEMAND FINANCIAL SNAPSHOT",
-        "全市场按需财务快照 Agent",
-        "输入或选择普通A股公司后，系统临时取得最新完整年度报告，"
+        "A股按需财务快照 Agent",
+        "输入或选择A股公司后，系统临时取得最新完整年度报告，"
         "完成三表勾稽、金额单位校验和核心指标计算；只保留小型结果，"
         "不预先囤积全市场PDF。",
     )
@@ -19157,6 +19197,7 @@ def render_financial_snapshot_page() -> None:
         ):
             _switch_page("workspace")
     company = _selected_company()
+    company = _show_annual_report_coverage(company)
     if company is None:
         st.warning("请先输入要生成财务快照的A股公司名称或6位代码。")
         company = _render_company_search(

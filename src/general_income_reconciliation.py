@@ -13,6 +13,7 @@ _AMOUNT = r'(?:\d{1,3}(?:[,，]\d{3})+|\d+)(?:\.\d+)?'
 _NUMBER = re.compile(rf'^(?:[-—–]|[-−－]?{_AMOUNT}|\({_AMOUNT}\)|（{_AMOUNT}）)$')
 _CN = '一二三四五六七八九十百'
 _NOTE = re.compile(rf'^(?:附注)?(?:[{_CN}]+(?:[、.．]\d{{1,3}}|\([{_CN}A-Za-z0-9]+\))|\([{_CN}]+\)\d{{1,3}})(?:[,，、])?$')
+_COMPACT_NOTE = re.compile(rf'^[{_CN}]+[1-9]\d{{0,2}}$')
 _ANNOTATION = re.compile(r'^\((?:(?:净亏损|亏损总额|亏损|损失)以[“"‘]?[-—–][”"’]?号填列|净亏损|亏损总额|亏损)\)')
 _ALIASES = {
     # Read the long attributable label first so its wrapped "净利润" tail is
@@ -43,19 +44,19 @@ def _value(token):
     return value
 
 
-def _financial_line(line):
+def _financial_line(line, *, compact_notes=False):
     """Return explicit note and numeric tokens; arbitrary text is a boundary."""
     parts=_text(line).split()
     if not parts:return [],False
     numbers=[];has_note=False
     for part in parts:
         if _NUMBER.fullmatch(part):numbers.append(part)
-        elif _NOTE.fullmatch(_compact(part)) and not numbers:has_note=True
+        elif (_NOTE.fullmatch(_compact(part)) or (compact_notes and _COMPACT_NOTE.fullmatch(_compact(part)))) and not numbers:has_note=True
         else:return None
     return numbers,has_note
 
 
-def _match_label(lines,index,label):
+def _match_label(lines,index,label, *, compact_notes=False):
     end=_chinese_label_span(lines,index,label)
     if end is None:return None
     merged=_text(' '.join(lines[index:end+1])).strip()
@@ -69,19 +70,22 @@ def _match_label(lines,index,label):
         # Annotation text has no amounts; preserve any same-line cells after it.
         closing=tail.find(')')
         tail=tail[closing+1:].strip()
-    if tail and _financial_line(tail) is None:return None
+    if tail and _financial_line(tail, compact_notes=compact_notes) is None:return None
     return end,tail
 
 
 def _rows(lines,page_numbers,column_count):
     found={key:[] for key in _ALIASES};reserved=set()
-    has_note_header=any(re.match(r'^附注',_compact(line)) for line in lines)
+    first_row = next((i for i in range(len(lines)) if any(_match_label(lines,i,label) is not None
+        for label in ('营业总收入','营业收入','其中：营业收入'))), 0)
+    has_note_header=any(re.fullmatch(r'(?:项目)?附注['+_CN+r']*(?:\d{4}年(?:度)?)*',_compact(line))
+                        for line in lines[:first_row])
     for index in range(len(lines)):
         if index in reserved:continue
         for key,labels in _ALIASES.items():
             match=None
             for label in labels:
-                label_match=_match_label(lines,index,label)
+                label_match=_match_label(lines,index,label, compact_notes=has_note_header)
                 if label_match is not None:
                     match=(label,label_match)
                     break
@@ -98,14 +102,14 @@ def _rows(lines,page_numbers,column_count):
                     last=line_number
                     cursor+=1
                     continue
-                parsed=_financial_line(line)
+                parsed=_financial_line(line, compact_notes=has_note_header)
                 if parsed is None:
                     # Numeric note references can wrap across lines (五(四十/七)).
                     if not parts:
                         joined='';note_end=None
                         for extra in range(cursor,min(cursor+3,len(remaining))):
                             joined+=_compact(remaining[extra][0])
-                            if _NOTE.fullmatch(joined):note_end=extra;break
+                            if _NOTE.fullmatch(joined) or (has_note_header and _COMPACT_NOTE.fullmatch(joined)):note_end=extra;break
                         if note_end is not None:
                             notes.append(joined)
                             last=remaining[note_end][1]

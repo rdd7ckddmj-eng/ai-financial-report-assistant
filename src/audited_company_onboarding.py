@@ -24,6 +24,10 @@ from src.pdf_text_derivation import replay_financial_geometry, preserve_original
 from src.petrochina_statement_extractor import (
     PETROCHINA_TEMPLATE, extract_petrochina_statements, is_petrochina_annual_report_identity,
 )
+from src.cmoc_statement_extractor import CMOC_TEMPLATE, is_cmoc_annual_report_identity, extract_cmoc_statements
+from src.citic_securities_statement_extractor import (
+    CITIC_SECURITIES_TEMPLATE, is_citic_annual_report_identity, extract_citic_securities_statements,
+)
 from src.insurance_statement_extractor import INSURANCE_TEMPLATE, extract_insurance_statements
 from src.chinalife_statement_extractor import CHINALIFE_TEMPLATE, extract_chinalife_statements, matches_chinalife_issuer
 from src.insurance_group_statement_extractor import TEMPLATES as INSURANCE_GROUP_TEMPLATES, extract_insurance_group_statements
@@ -33,7 +37,7 @@ from src.securities_statement_extractor import (SECURITIES_TEMPLATE, extract_sec
     CMS_SECURITIES_TEMPLATE, extract_cms_securities_statements, is_cms_annual_report_identity)
 from src.bank_statement_extractor import BANK_TEMPLATE, extract_bank_statements
 from src.cash_flow_extractor import find_cash_flow_figures
-from src.china_stock import build_cninfo_pdf_url, is_allowed_disclosure_url
+from src.china_stock import build_cninfo_pdf_url, is_allowed_disclosure_url, CMOC_2025_REPORT_URL
 from src.financial_statement_extractor import (
     _chinese_label_matches,
     find_income_statement_figures,
@@ -456,6 +460,13 @@ def build_candidate_report_result(
         statement_template = CMS_SECURITIES_TEMPLATE
         income, balance, cash_flow = cms['income'], cms['balance'], cms['cash']
         unsupported = None
+    citic = extract_citic_securities_statements(page_list, report_year) if (
+        unsupported == 'securities_unsupported_v1'
+        and is_citic_annual_report_identity(company, page_list, report_year)) else None
+    if citic:
+        statement_template = CITIC_SECURITIES_TEMPLATE
+        income, balance, cash_flow = citic['income'], citic['balance'], citic['cash']
+        unsupported = None
     # Enable only verified issuer/layout pairs; all others fail closed.
     insurance = extract_insurance_statements(page_list, report_year) if (
         unsupported == 'insurance_unsupported_v1' and company.get('code') == '601318'
@@ -494,11 +505,24 @@ def build_candidate_report_result(
             petrochina_failure = petrochina.get('failure_reason', '')
         else:
             petrochina_failure = '中国石油年报身份、年度或负费用专用版式未通过检查，不能回退普通费用规则。'
+    cmoc = None
+    cmoc_failure = ''
+    if source_url == CMOC_2025_REPORT_URL:
+        statement_template = CMOC_TEMPLATE
+        income = balance = cash_flow = None
+        if is_cmoc_annual_report_identity(company, page_list, report_year):
+            cmoc = extract_cmoc_statements(page_list, report_year)
+        if cmoc:
+            income, balance, cash_flow = cmoc['income'], cmoc['balance'], cmoc['cash']
+            cmoc_failure = cmoc.get('failure_reason', '')
+        else:
+            cmoc_failure = '洛阳钼业2025繁体原件身份、年度或版式未通过检查，不能回退普通模板。'
+    detailed_profile = petrochina or cmoc or citic
     if bank is None and not unsupported:
         inherit_statement_units(page_list, [income, balance, cash_flow])
     income_reconciliation = (
         check_general_income_reconciliation(financial_pages, income, report_year=report_year)
-        if statement_template == 'general' else (petrochina or {}).get('income_reconciliation')
+        if statement_template == 'general' else (detailed_profile or {}).get('income_reconciliation')
     )
     if geometry_error:
         income_reconciliation = dict(status='missing_evidence', passed=False, checks=[],
@@ -537,8 +561,8 @@ def build_candidate_report_result(
     return {
         "report_year": report_year,
         "statement_template": statement_template,
-        "extraction_note": (geometry_error or petrochina_failure or ('证券/保险公司专用三表模板尚未通过验证；不回退普通公司模板，不输出标准化金额或普通公司比例。'
-                            if unsupported else bank.get('failure_reason', '') if bank is not None
+        "extraction_note": (geometry_error or petrochina_failure or cmoc_failure or (citic or {}).get('failure_reason', '') or ('证券/保险公司专用三表模板尚未通过验证；不回退普通公司模板，不输出标准化金额或普通公司比例。'
+                            if unsupported else bank.get('failure_reason', '') if bank is not None and statement_template == BANK_TEMPLATE
                             else income_reconciliation['note'] if income_reconciliation and income_reconciliation['status'] != 'passed' else '')),
         "published_date": str(report["published_date"]),
         "title": title,
@@ -549,7 +573,7 @@ def build_candidate_report_result(
         "statement_checks": statement_checks,
         "income_reconciliation": income_reconciliation,
         "pdf_text_adjustments": text_adjustments,
-        "statement_reconciliation": (petrochina or {}).get('statement_reconciliation'),
+        "statement_reconciliation": (detailed_profile or {}).get('statement_reconciliation'),
         "unit_check": {
             "passed": units_consistent,
             "units": units,

@@ -1,14 +1,14 @@
 {
-  "release_id": "20260924-layout-9.1",
-  "source_digest_sha256": "93c4af978f4602a06689811042d3bbe55c1a9c8033de8d368c0eb253da285a6a",
-  "prior_commit": "5aa4e16669bd02880ba749d5d802a0223b70f78d",
-  "verified_python_tests": 1748,
+  "release_id": "20260924-coverage-10",
+  "source_digest_sha256": "c4f17cd7c6075627356e009b97fcbcf734876b9095f502c0bbf91b8e45828c98",
+  "prior_commit": "6c34b77c0f8b3e3ee8f1080df259d806ebd93a5f",
+  "verified_python_tests": 1981,
   "coverage": {
-    "real_reports_tested": 51,
-    "candidate_reports": 49,
-    "companies": 38,
-    "candidate_companies": 37,
+    "real_reports_tested": 60,
+    "candidate_reports": 57,
+    "companies": 45,
+    "candidate_companies": 44,
     "human_verified_new": 0
   },
-  "note": "LONGi 2025 split minus recovered from original PDF geometry; PetroChina 2024/2025 signed-expense four-column statements supported. All prior 46 candidate reports retain both-period amounts. 15 new current amounts: 13 close and two PetroChina differences explained by exact official interim restatement evidence; original amounts and difference statuses retained. PICC/CMOC 2025 remain needs-review after OCR errors; oversized Zijin excluded. Not all-market coverage or human financial confirmation."
+  "note": "Exact-source annual report catalogue added; 60 full PDF versions across 45 companies and 59 issuer/year pairs. Added CITIC Securities 2024/2025, CMOC 2025 traditional-Chinese CAS official original, and five ordinary-company candidates. All previous 51 report statuses and both-period amounts unchanged. 40 new current amounts: 39 close and one CITIC revenue difference explained by precise official restatement evidence; original values and difference status retained. PICC 2025, old CMOC image version and CSCEC 2025 remain needs-review. Not full-market coverage or human financial approval."
 }

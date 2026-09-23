@@ -264,6 +264,57 @@
         "公开源显示的更新日期仍为2026-03-30，不能将它推断为本次追溯数的真实入库时间。",
         "半年报为未经审计报表；本次为AI核对原文与确定性计算，人工财务确认仍为0。"
       ]
+    },
+    {
+      "evidence_id": "600030.SH-2024-revenue-2025FY",
+      "status": "registered_official_restatement_explanation",
+      "effect": "explanation_only",
+      "human_verification": "not_performed",
+      "company_code": "600030.SH",
+      "company_name": "中信证券",
+      "report_year": 2024,
+      "period_end": "2024-12-31",
+      "metric_key": "revenue",
+      "annual_yuan": "63789215688.23",
+      "restated_yuan": "58119003450.22",
+      "difference_yuan": "-5670212238.01",
+      "annual_report": {
+        "title": "中信证券股份有限公司2024年年度报告",
+        "published_date": "2025-03-27",
+        "source_url": "https://static.cninfo.com.cn/finalpage/2025-03-27/1222912838.PDF",
+        "sha256": "27ee61ad5296d8f200861692af538a7db034aadf770ba0ae67f736d4e693d50d",
+        "page_count": 393,
+        "amount_unit": "人民币元",
+        "amount_value": "63789215688.23",
+        "amount_pages": [
+          169
+        ]
+      },
+      "subsequent_report": {
+        "title": "中信证券股份有限公司2025年年度报告",
+        "published_date": "2026-03-27",
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-27/1225036081.PDF",
+        "sha256": "438f2a53dcf4bf0569b6783b51674aae25076d23d53198b08cf7b539e14003c2",
+        "page_count": 389,
+        "amount_unit": "人民币元",
+        "before_value": "63789215688.23",
+        "after_value": "58119003450.22",
+        "amount_pages": [
+          19,
+          182
+        ],
+        "explanation_pages": [
+          230
+        ]
+      },
+      "explanation": "官方2025年报物理第19页在2024年列下并列营业收入调整前63,789,215,688.23元、调整后58,119,003,450.22元，第182页合并利润表已重述比较列复现调整后值。第230页说明执行标准仓单交易相关会计处理实施问答：频繁买卖仓单赚取差价且不提取实物的交易，由按总额确认收入成本改为差额计入投资收益，并对可比期间追溯调整。该页其他业务收入减少5,760,577,410.27元、投资收益增加222,861,084.80元、公允价值变动收益减少132,495,912.54元，营业收入合计减少5,670,212,238.01元，与两版本收入差额完全一致。",
+      "limitations": [
+        "仅匹配已登记公司、年度、原年报PDF指纹、营业收入指标及两项精确金额，不是全市场自动重述识别。",
+        "后续官方重述金额与当前公开值一致，不证明供应商实际采用何份文档或何时、如何更新入库。",
+        "保留2024原年报数值及amount_difference状态；本条仅提供来源说明，不自动覆盖、确认或改为金额一致。",
+        "2025本期收入及2023比较数不属于这条匹配登记；不能将归母净利润或营业总收入替代营业收入。",
+        "本次为AI核对官方原文及确定性计算，人工财务确认仍为0。"
+      ]
     }
   ]
 }
