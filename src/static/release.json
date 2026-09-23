@@ -1,13 +1,14 @@
 {
-  "release_id": "20260924-reconciliation-7",
-  "source_digest_sha256": "ddd3809e0fd7368d869eb7d71bbb63c8df0680032d05667094feace8dac933e3",
-  "prior_commit": "a2a35e6d492715a6967b15d53866eddda0d4f3f7",
-  "verified_python_tests": 1415,
+  "release_id": "20260924-evidence-8",
+  "source_digest_sha256": "1ab959b4d015a5e21e73165449a1fb2c45f457186f343919e6b99f6161e96c0e",
+  "prior_commit": "b72345f2b8b885e60a3865e80090e4d5987642ed",
+  "verified_python_tests": 1570,
   "coverage": {
-    "real_reports_tested": 42,
-    "candidate_reports": 41,
-    "companies": 30,
+    "real_reports_tested": 50,
+    "candidate_reports": 46,
+    "companies": 38,
+    "candidate_companies": 35,
     "human_verified_new": 0
   },
-  "note": "Seven additional Shanghai/BSE reports validated. Two-period general income subtotal checks and period-column guards added; old snapshots explicitly require regeneration. PICC 2025 remains unsupported. 33/35 added amounts close; Shenhua balance differences and prior Huichuan difference match subsequent official restated columns. Original report values preserved. Candidates only."
+  "note": "Eight complete annual reports added: five candidates, three blocked by explicit PDF/layout limitations. Prior 42 statuses and both-period values unchanged; 25 new current amounts close to public data. Three known official restatement explanations shown and persisted without changing original amounts, difference status or human review. Not all-market coverage. PICC/LONGi/CMOC/PetroChina 2025 remain needs-review; oversized Zijin excluded."
 }

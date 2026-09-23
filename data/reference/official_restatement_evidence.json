@@ -1,0 +1,157 @@
+{
+  "schema": "official-restatement-evidence.v1",
+  "entries": [
+    {
+      "evidence_id": "300124.SZ-2025-total_assets-2026Q1",
+      "status": "registered_official_restatement_explanation",
+      "effect": "explanation_only",
+      "human_verification": "not_performed",
+      "company_code": "300124.SZ",
+      "company_name": "汇川技术",
+      "report_year": 2025,
+      "period_end": "2025-12-31",
+      "metric_key": "total_assets",
+      "annual_yuan": "71314393635.15",
+      "restated_yuan": "71314783635.15",
+      "difference_yuan": "390000.00",
+      "annual_report": {
+        "title": "深圳市汇川技术股份有限公司2025年年度报告",
+        "published_date": "2026-04-28",
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-28/1225208488.PDF",
+        "sha256": "622e4c655a31d41eca5e18fde18be214aeddef7d8a29a51d429efa1f322f8f01",
+        "page_count": 233,
+        "amount_value": "71314393635.15",
+        "amount_unit": "人民币元",
+        "amount_pages": [
+          9,
+          117,
+          118
+        ]
+      },
+      "subsequent_report": {
+        "title": "深圳市汇川技术股份有限公司2026年第一季度报告",
+        "published_date": "2026-04-28",
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-28/1225208497.PDF",
+        "sha256": "b46cd264afdab99455b303240a702e729a4d3e6b57b97dca753c09695cf393ba",
+        "page_count": 11,
+        "before_value": "71314393635.15",
+        "after_value": "71314783635.15",
+        "amount_unit": "人民币元",
+        "amount_pages": [
+          2,
+          7
+        ],
+        "explanation_pages": [
+          2,
+          11
+        ]
+      },
+      "explanation": "官方2026年一季报第2页并列2025年末调整前后资产；第11页说明自2026年1月1日起执行《企业会计准则解释第19号》，追溯调整非同一控制下企业合并补偿性资产的会计处理，其他非流动资产及未分配利润各增加390,000元。",
+      "limitations": [
+        "仅匹配已登记的公司、年度、原年报PDF指纹及两项金额，不是全市场自动重述识别。",
+        "官方后续比较数与当前公共值一致，不证明供应商实际采用何份文档或何时、如何更新入库。",
+        "保留原年报数值及两源差异；本记录只提供解释线索，不自动确认、改为金额一致或覆盖任何来源。"
+      ]
+    },
+    {
+      "evidence_id": "601088.SH-2025-total_assets-2026H1",
+      "status": "registered_official_restatement_explanation",
+      "effect": "explanation_only",
+      "human_verification": "not_performed",
+      "company_code": "601088.SH",
+      "company_name": "中国神华",
+      "report_year": 2025,
+      "period_end": "2025-12-31",
+      "metric_key": "total_assets",
+      "annual_yuan": "627761000000",
+      "restated_yuan": "903830000000",
+      "difference_yuan": "276069000000",
+      "annual_report": {
+        "title": "中国神华能源股份有限公司2025年度报告",
+        "published_date": "2026-03-31",
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-31/1225064293.PDF",
+        "sha256": "7068df1231922b8a2fcfd0336d9ae6550dabf7c7edc152d680089df8cc126bd2",
+        "page_count": 310,
+        "amount_value": "627761",
+        "amount_unit": "人民币百万元",
+        "amount_pages": [
+          148
+        ]
+      },
+      "subsequent_report": {
+        "title": "中国神华能源股份有限公司2026年半年度报告",
+        "published_date": "2026-08-29",
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-08-29/1225531759.PDF",
+        "sha256": "ff4a670c7aa9e0309dc610a0e225d490970731dcc14eda234d73bb8c9b9b54f4",
+        "page_count": 230,
+        "before_value": "627761",
+        "after_value": "903830",
+        "amount_unit": "人民币百万元",
+        "amount_pages": [
+          6,
+          76
+        ],
+        "explanation_pages": [
+          7
+        ]
+      },
+      "explanation": "半年报第7页说明：2026年上半年收购国家能源集团及西部能源持有的12家标的公司股权，除晋神能源外11家纳入合并范围；该交易属同一控制下企业合并，因此比较期合并报表追溯调整。",
+      "limitations": [
+        "仅匹配已登记的公司、年度、原年报PDF指纹及两项金额，不是全市场自动重述识别。",
+        "官方后续比较数与当前公共值一致，不证明供应商实际采用何份文档或何时、如何更新入库。",
+        "保留原年报数值及两源差异；本记录只提供解释线索，不自动确认、改为金额一致或覆盖任何来源。",
+        "调查时公共行UPDATE_DATE仍为2026-03-31，不能将该字段推断为此次重述数的真实入库时间。"
+      ]
+    },
+    {
+      "evidence_id": "601088.SH-2025-total_liabilities-2026H1",
+      "status": "registered_official_restatement_explanation",
+      "effect": "explanation_only",
+      "human_verification": "not_performed",
+      "company_code": "601088.SH",
+      "company_name": "中国神华",
+      "report_year": 2025,
+      "period_end": "2025-12-31",
+      "metric_key": "total_liabilities",
+      "annual_yuan": "146310000000",
+      "restated_yuan": "300203000000",
+      "difference_yuan": "153893000000",
+      "annual_report": {
+        "title": "中国神华能源股份有限公司2025年度报告",
+        "published_date": "2026-03-31",
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-31/1225064293.PDF",
+        "sha256": "7068df1231922b8a2fcfd0336d9ae6550dabf7c7edc152d680089df8cc126bd2",
+        "page_count": 310,
+        "amount_value": "146310",
+        "amount_unit": "人民币百万元",
+        "amount_pages": [
+          150
+        ]
+      },
+      "subsequent_report": {
+        "title": "中国神华能源股份有限公司2026年半年度报告",
+        "published_date": "2026-08-29",
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-08-29/1225531759.PDF",
+        "sha256": "ff4a670c7aa9e0309dc610a0e225d490970731dcc14eda234d73bb8c9b9b54f4",
+        "page_count": 230,
+        "before_value": "146310",
+        "after_value": "300203",
+        "amount_unit": "人民币百万元",
+        "amount_pages": [
+          6,
+          77
+        ],
+        "explanation_pages": [
+          7
+        ]
+      },
+      "explanation": "半年报第7页说明：2026年上半年收购国家能源集团及西部能源持有的12家标的公司股权，除晋神能源外11家纳入合并范围；该交易属同一控制下企业合并，因此比较期合并报表追溯调整。",
+      "limitations": [
+        "仅匹配已登记的公司、年度、原年报PDF指纹及两项金额，不是全市场自动重述识别。",
+        "官方后续比较数与当前公共值一致，不证明供应商实际采用何份文档或何时、如何更新入库。",
+        "保留原年报数值及两源差异；本记录只提供解释线索，不自动确认、改为金额一致或覆盖任何来源。",
+        "调查时公共行UPDATE_DATE仍为2026-03-31，不能将该字段推断为此次重述数的真实入库时间。"
+      ]
+    }
+  ]
+}

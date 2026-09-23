@@ -15,6 +15,7 @@ from src.financial_snapshot_review import CORE_METRIC_KEYS
 from src.public_financial_history import AMOUNT_FIELDS, validate_public_financial_history
 from src.insurance_group_statement_extractor import TOTAL_REVENUE_TEMPLATES
 from src.financial_sector_policy import SECURITIES_REVENUE_TEMPLATES
+from src.official_restatement_evidence import match_official_restatement_evidence
 
 LIMITATION = (
     "这是公开源与官方PDF自动提取候选的金额对照，不是人工核验。"
@@ -123,6 +124,16 @@ def build_public_financial_reconciliation(history, snapshot):
             tolerance_yuan=float(tolerance) if tolerance is not None else None,
             original_unit=str(source.get('original_unit', ''))[:40], pages=dict(pages) if pages else None,
             annual_basis=basis, excerpt=excerpt, verification_tasks=tasks))
+        if status == 'amount_difference' and pages is not None and excerpt:
+            explanation = match_official_restatement_evidence(
+                canonical, year, fingerprint, key, candidate, public)
+            if (explanation is not None
+                    and explanation['annual_report']['source_url'] == report['source_url']
+                    and explanation['annual_report']['page_count'] == page_count
+                    and explanation['annual_report']['published_date'] == report.get('published_date')):
+                # An exact known-version match explains a difference; it never
+                # changes either amount, the comparison status, or human review.
+                rows[-1]['official_restatement_evidence'] = explanation
     result = dict(schema='public-financial-reconciliation.v1', status='pending_human_review',
         company=history['company'], report_year=year, public_source_url=history['source_url'],
         public_fetched_at=history['fetched_at'], public_updated_date=point['updated_date'],

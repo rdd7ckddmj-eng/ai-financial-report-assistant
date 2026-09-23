@@ -114,6 +114,7 @@ from src.china_stock import (
     fetch_announcements,
     fetch_company_directory,
     fetch_market_history,
+    is_allowed_disclosure_url,
     resolve_company,
     scan_market_activity_events,
     select_latest_annual_report,
@@ -179,6 +180,7 @@ from src.public_financial_history import (
 )
 from src.research_case_public_financial_bridge import build_public_financial_case_patch, build_public_reconciliation_case_patch
 from src.public_financial_reconciliation import build_public_financial_reconciliation
+from src.official_restatement_evidence import validated_stored_restatement_evidence
 from src.manual_financial_snapshot import build_manual_financial_snapshot
 from src.flagship_cases import load_moutai_flagship_events
 from src.historical_lens import (
@@ -13599,6 +13601,8 @@ def _render_saved_financial_comparisons(case: Mapping[str, object]) -> None:
                 "公开值（元）": row.get("public_yuan"), "年报候选（元）": row.get("annual_candidate_yuan"),
                 "差额（元）": row.get("difference_yuan"), "记录状态": labels.get(row.get("status"), "状态待核对")}
                 for row in rows]), hide_index=True, width="stretch")
+            for row in rows:
+                _render_official_restatement_explanation(row, payload)
             st.download_button("下载此份已保存对照", json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False),
                 file_name=f"{case['company']['code']}_saved_comparison.json", mime="application/json", key=f"saved_compare_{artifact['artifact_id']}")
         if len(artifacts) > 5:
@@ -18716,6 +18720,44 @@ def _financial_snapshot_review_for(
     return review
 
 
+def _render_official_restatement_explanation(row: Mapping[str, object], comparison: Mapping[str, object]) -> None:
+    """Render the explanation stored in this receipt, without lookup or fetch."""
+    if "official_restatement_evidence" not in row:
+        return
+    evidence = validated_stored_restatement_evidence(comparison, row)
+    if evidence is None:
+        st.caption("重述说明与此对照记录不一致或字段不完整，待重新核对；未据此解释差异。")
+        return
+    report = evidence.get("subsequent_report")
+    if (row.get("status") != "amount_difference"
+            or evidence.get("effect") != "explanation_only"
+            or not isinstance(report, Mapping)):
+        return
+    url = str(report.get("source_url", ""))
+    if not is_allowed_disclosure_url(url):
+        st.caption("已保存的差异说明缺少可信官方链接，请重新核对来源。")
+        return
+    st.markdown(f"**{row.get('label', '金额差异')}：已有对应的官方重述说明**")
+    st.write(evidence.get("explanation", ""))
+    st.write(
+        f"同一 {evidence.get('period_end', '期末')} 的金额："
+        f"调整前 {report.get('before_value', '未记录')} → "
+        f"调整后 {report.get('after_value', '未记录')}（{report.get('amount_unit', '单位待核对')}）。"
+        "本次公开值与调整后金额相同，原年报候选保留原值。"
+    )
+    def page_text(value):
+        return "、".join(str(p) for p in value if type(p) is int and p > 0) if isinstance(value, list) else "未记录"
+    st.caption(
+        f"后续披露：{report.get('title', '官方报告')}｜公告日期：{report.get('published_date', '未记录')}｜"
+        f"金额见 PDF 第 {page_text(report.get('amount_pages'))} 页；"
+        f"原因见第 {page_text(report.get('explanation_pages'))} 页。页码从 PDF 首页起计。"
+    )
+    st.link_button(f"查看官方重述出处 · {row.get('label', '金额差异')}", url)
+    limitations = evidence.get("limitations", "")
+    st.caption("；".join(str(x) for x in limitations) if isinstance(limitations, list) else str(limitations))
+    st.caption("这是一条差异解释线索，未完成人工复核，也未确认公开数据商的更新过程。")
+
+
 def _render_public_financial_reconciliation(snapshot: Mapping[str, object]) -> None:
     """Offer source comparison without changing any human review decisions."""
     company = snapshot["company"]
@@ -18752,6 +18794,7 @@ def _render_public_financial_reconciliation(snapshot: Mapping[str, object]) -> N
         for row in result["rows"]:
             st.markdown(f"**{row['label']}：复核重点**")
             st.write("；".join(row["verification_tasks"]))
+            _render_official_restatement_explanation(row, result)
         st.info("请在下方逐项确认、修改或驳回年报数字。对照结果不会替你作出复核决定，也不会覆盖公开数据。")
         if st.button("将两源对照保存到研究案件", key="snapshot_comparison_save", width="stretch", disabled=not _research_case_write_ready()):
             try:

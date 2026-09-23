@@ -147,6 +147,22 @@ def test_only_complete_standalone_sign_annotation_can_precede_values():
     assert not check(annotated.replace('（净亏损以“-”号填列）', '（净亏损以“-”号填列'))['passed']
 
 
+def test_complete_loss_synonyms_preserve_negative_amounts_and_column_validation():
+    # Vanke 2025 uses these exact short label qualifiers rather than a full
+    # “以负号填列” sentence. The qualifier cannot supply or change any amount.
+    text = TABLE.replace('利润总额\n', '利润总额(亏损总额)\n')
+    text = text.replace('净利润\n', '净利润(净亏损)\n')
+    text = text.replace('100.10\n90.20', '(60.08)\n(54.16)')
+    text = text.replace('80.09\n72.18', '(80.09)\n(72.18)')
+    text = text.replace('70.01\n62.12', '(70.01)\n(62.12)')
+    text = text.replace('10.08\n10.06', '(10.08)\n(10.06)')
+    income = figures(); income.update(current_net_profit='-70.01', previous_net_profit='-62.12')
+    assert check(text, income)['passed']
+    assert check(text.replace('(净亏损)', '(含其他未列项目)'), income)['status'] == 'missing_evidence'
+    assert check(text.replace('(54.16)\n', '(54.16)\n1.00\n'), income)['status'] == 'missing_evidence'
+    assert check(text.replace('(净亏损)', '(净亏损'), income)['status'] == 'missing_evidence'
+
+
 def test_duplicate_group_total_is_ambiguous_and_parent_table_is_not_borrowed():
     assert check(TABLE.replace('净利润\n80.09\n72.18\n', '净利润\n80.09\n72.18\n净利润\n80.09\n72.18\n', 1))['status'] == 'missing_evidence'
     group = TABLE.replace('少数股东损益\n10.08\n10.06\n', '')

@@ -367,3 +367,14 @@
 - [x] Compare 35 added current amounts: 33 close, two Shenhua balance differences retained and matched to later interim restatement columns.
 - [ ] Expand complete-report coverage beyond these explicitly tested issuer/year layouts; PICC 2025 still needs a usable numeric source.
 - [ ] Extend ordinary-income component reconciliation beyond the two checked subtotal relationships.
+
+## 2026-09-24 — Eight industry reports and official restatement explanations
+
+- [x] Run 50 complete official annual PDFs in two batches capped at 40: 46 candidates, four needs-review reports, 38 companies, zero new human financial confirmations.
+- [x] Add COSCO Shipping, China Mobile, SANY, Vanke and Yangtze Power 2025 candidates; compare all 25 current amounts with the public source, all amount-close.
+- [x] Preserve the previous 42 reports' status and both-period amounts. Support only the exact evidenced Vanke loss qualifiers; reject unknown qualifiers.
+- [x] Keep LONGi split-sign, PetroChina signed-expense/cash-outflow, CMOC image-only statements and prior PICC 2025 numeric-layer failures explicit. Zijin's oversized original is excluded from the 50-report count.
+- [x] Register three precise Huichuan/Shenhua restatement explanations using company/year/original SHA/metric/both amounts; additionally match source URL/date/page count at the comparison boundary.
+- [x] Display original/restated amounts, official sources and physical pages in current and saved comparisons. Preserve original values, difference statuses, human review decisions and historical receipts; no vendor update mechanism is inferred.
+- [ ] Support the remaining PDF layouts using independently evidenced rules or a separately validated image-reading workflow; never infer signs or substitute vendor values to pass checks.
+- [ ] Expand beyond the three registered restatement explanations and the explicitly tested reports.

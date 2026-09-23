@@ -13,7 +13,7 @@ _AMOUNT = r'(?:\d{1,3}(?:[,，]\d{3})+|\d+)(?:\.\d+)?'
 _NUMBER = re.compile(rf'^(?:[-—–]|[-−－]?{_AMOUNT}|\({_AMOUNT}\)|（{_AMOUNT}）)$')
 _CN = '一二三四五六七八九十百'
 _NOTE = re.compile(rf'^(?:附注)?(?:[{_CN}]+(?:[、.．]\d{{1,3}}|\([{_CN}A-Za-z0-9]+\))|\([{_CN}]+\)\d{{1,3}})(?:[,，、])?$')
-_ANNOTATION = re.compile(r'^\((?:净亏损|亏损总额|亏损|损失)以[“"‘]?[-—–][”"’]?号填列\)')
+_ANNOTATION = re.compile(r'^\((?:(?:净亏损|亏损总额|亏损|损失)以[“"‘]?[-—–][”"’]?号填列|净亏损|亏损总额|亏损)\)')
 _ALIASES = {
     # Read the long attributable label first so its wrapped "净利润" tail is
     # never mistaken for a second consolidated-total row.
