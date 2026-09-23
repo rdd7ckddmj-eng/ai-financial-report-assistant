@@ -901,8 +901,18 @@ def classify_announcement(title: str) -> tuple[str, str]:
     return "其他公告", "低"
 
 
+VERIFIED_ISSUER_REPORT_URLS = frozenset({
+    # Individual complete reports verified against the issuer's IR pages.
+    # Do not allow arbitrary paths, subdomains or redirects on these hosts.
+    "https://www.cpic.com.cn/upload/resources/file/2025/04/09/86079.pdf",
+    "https://www.pingan.com/app_upload/images/info/upload/e1fd26bb-177b-485f-9778-cd6fabcc6476.pdf",
+})
+
+
 def is_allowed_disclosure_url(url: str) -> bool:
-    """Allow links only from known mainland disclosure domains."""
+    """Known disclosure domains plus individually verified issuer PDFs."""
+    if str(url).strip() in VERIFIED_ISSUER_REPORT_URLS:
+        return True
     parsed = urlparse(str(url).strip())
     hostname = (parsed.hostname or "").lower()
     allowed_hosts = (

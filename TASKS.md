@@ -316,7 +316,19 @@
 - [x] Identify explicit securities/insurance issuers and retain unsupported status through review/export/case; keep generic ratios disabled.
 - [x] Rerun 15 PDFs: 13 candidates, 2 unsupported; all 65 comparable amounts agree within existing tolerances; 939 tests pass.
 - [x] Implement and validate Huatai 2024 consolidated/company four-column financial statements.
-- [ ] Implement separately evidenced insurance/group revenue and three-statement reconciliation.
+- [x] Implement separately evidenced insurance/group revenue and three-statement reconciliation for explicitly verified layouts; see 2026-09-23 scope.
 - [ ] Retrieve and verify further BSE samples; BTR official download remains HTTP403.
 
 2026-09-21证券模板后续：15份样本14份候选；70项对照69一致、1项收入差异由华泰2025年报重述说明支持。956 tests passed。后续补第二年度/第二家证券真实样本；2025报告目前仅作为重述证据，不计入完整解析覆盖。
+
+
+## 2026-09-23 — Multi-insurer batch
+
+- [x] Add PICC/CPIC two-year and NCI consolidated/company four-column 2024 templates; validate signed/unsigned expenses, parent columns, and all three statements.
+- [x] Bind known insurer identities; block general fallback even when the cover name is an image. New extraction still requires legal-name evidence.
+- [x] Preserve operating revenue vs total operating revenue across snapshot, public comparison, review, export and case policies.
+- [x] Admit only the two exact verified CPIC 2024/Ping An 2023 company-hosted PDF URLs; arbitrary company-host URLs remain rejected.
+- [x] Run all 19 complete PDFs through manual-upload functions; 19 candidates, no human confirmations. Prior 14 candidates retain both-year amounts.
+- [x] Compare all 15 new current-year amounts with public source; all amount-close, not human-verified.
+- [ ] Validate additional insurer years and China Life's new-standard, restated multi-year layout; China Life mirror was diagnostic only.
+- [ ] Add more securities/BSE issuer fixtures and continue remaining research-view case producers.

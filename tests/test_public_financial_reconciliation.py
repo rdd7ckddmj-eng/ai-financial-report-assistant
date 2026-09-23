@@ -134,3 +134,23 @@ def test_securities_total_revenue_uses_explicit_public_field(total,org,status):
     assert result['public_field']=='total_operating_revenue'
     assert result['label']=='营业总收入'
     assert result['public_yuan']==total
+
+
+@pytest.mark.parametrize('template',['insurance_picc_million_v1','insurance_cpic_million_v1'])
+@pytest.mark.parametrize('total,org,status',[(10000000,'保险','amount_close'),(None,'保险','not_comparable'),(10000000,'证券','not_comparable')])
+def test_insurance_total_revenue_does_not_use_operating_income(template,total,org,status):
+    _,snapshot=inputs()
+    snapshot['report']['statement_template']=template
+    public=build_public_financial_history(snapshot['company'],[row(ORG_TYPE=org,OPERATE_INCOME_PK=777,TOTALOPERATEREVE=total)],fetched_at=datetime.now(timezone.utc).isoformat())
+    result=build_public_financial_reconciliation(public,snapshot)['rows'][0]
+    assert result['status']==status
+    assert result['public_field']=='total_operating_revenue'
+    assert result['public_yuan']==total
+
+
+def test_nci_operating_income_is_not_replaced_with_total_revenue():
+    _,snapshot=inputs(); snapshot['report']['statement_template']='insurance_nci_four_column_v1'
+    public=build_public_financial_history(snapshot['company'],[row(ORG_TYPE='保险',OPERATE_INCOME_PK=10000000,TOTALOPERATEREVE=777)],fetched_at=datetime.now(timezone.utc).isoformat())
+    result=build_public_financial_reconciliation(public,snapshot)['rows'][0]
+    assert result['status']=='amount_close'
+    assert result['public_field']=='revenue'

@@ -20,6 +20,8 @@ from typing import TypedDict
 from src.balance_sheet_extractor import find_balance_sheet_figures
 from src.statement_evidence_rules import inherit_statement_units
 from src.insurance_statement_extractor import INSURANCE_TEMPLATE, extract_insurance_statements
+from src.insurance_group_statement_extractor import TEMPLATES as INSURANCE_GROUP_TEMPLATES, extract_insurance_group_statements
+from src.financial_sector_policy import matches_known_insurer
 from src.financial_sector_policy import unsupported_issuer_template
 from src.securities_statement_extractor import SECURITIES_TEMPLATE, extract_securities_statements
 from src.bank_statement_extractor import BANK_TEMPLATE, extract_bank_statements
@@ -361,7 +363,7 @@ def _build_metric_evidence(
                 if figures is not None
                 else ""
             ),
-            "accounting_basis": "合并营业总收入（证券报表，本集团列）" if statement_template == SECURITIES_TEMPLATE and metric_key == "revenue" else "保险集团合并营业收入（非保费收入）" if statement_template == INSURANCE_TEMPLATE and metric_key == "revenue" else _statement_accounting_basis(page_text),
+            "accounting_basis": (source_override or {}).get("accounting_basis") or ("合并营业总收入（证券报表，本集团列）" if statement_template == SECURITIES_TEMPLATE and metric_key == "revenue" else "保险集团合并营业收入（非保费收入）" if statement_template == INSURANCE_TEMPLATE and metric_key == "revenue" else _statement_accounting_basis(page_text)),
             "comparison_basis": (source_override or {}).get("comparison_basis", "本期与年报比较栏原值；可能包含追溯调整"),
             "statement": statement_label,
             "pages": pages,
@@ -420,7 +422,7 @@ def build_candidate_report_result(
         statement_template = SECURITIES_TEMPLATE
         income, balance, cash_flow = securities['income'], securities['balance'], securities['cash']
         unsupported = None
-    # Start with the verified issuer/layout; other insurers remain unsupported.
+    # Enable only verified issuer/layout pairs; all others fail closed.
     insurance = extract_insurance_statements(page_list, report_year) if (
         unsupported == 'insurance_unsupported_v1' and company.get('code') == '601318'
         and company.get('name') == '中国平安'
@@ -428,6 +430,13 @@ def build_candidate_report_result(
     if insurance:
         statement_template = INSURANCE_TEMPLATE
         income, balance, cash_flow = insurance['income'], insurance['balance'], insurance['cash']
+        unsupported = None
+    group_insurance = extract_insurance_group_statements(page_list, report_year, company['code']) if (
+        unsupported == 'insurance_unsupported_v1' and matches_known_insurer(company, page_list)
+    ) else None
+    if group_insurance:
+        statement_template = INSURANCE_GROUP_TEMPLATES[company['code']]
+        income, balance, cash_flow = group_insurance['income'], group_insurance['balance'], group_insurance['cash']
         unsupported = None
     if bank is None and not unsupported:
         inherit_statement_units(page_list, [income, balance, cash_flow])

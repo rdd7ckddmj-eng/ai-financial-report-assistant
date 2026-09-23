@@ -119,7 +119,10 @@ def test_cpic_abbreviation_stays_special_and_does_not_enable_pingan_parser():
     front = [(1, '中国太平洋保险（集团）股份有限公司')]
     assert unsupported_issuer_template(company, front) == 'insurance_unsupported_v1'
     assert unsupported_issuer_template(dict(code='600519',name='贵州茅台'), front) is None
-    assert unsupported_issuer_template(company, [(1, '中国太保产品介绍')]) is None
+    assert unsupported_issuer_template(company, [(1, '中国太保产品介绍')]) == 'insurance_unsupported_v1'
+    # Known identity blocks general ratios; it does not enable extraction.
+    from src.financial_sector_policy import matches_known_insurer
+    assert not matches_known_insurer(company, [(1, '中国太保产品介绍')])
 
 
 def test_restated_provenance_reaches_candidate():

@@ -45,7 +45,7 @@ def test_chinese_year_still_checks_exact_year_and_full_report(monkeypatch,title,
  else:
   with pytest.raises(ValueError):build_manual_financial_snapshot(COMPANY,b'%PDF-test',**arguments())
 
-@pytest.mark.parametrize('template',['insurance_unsupported_v1','securities_unsupported_v1','securities_group_parent_yuan_v1','insurance_signed_million_v1'])
+@pytest.mark.parametrize('template',['insurance_unsupported_v1','securities_unsupported_v1','securities_group_parent_yuan_v1','insurance_signed_million_v1','insurance_picc_million_v1','insurance_cpic_million_v1','insurance_nci_four_column_v1'])
 def test_manually_reviewed_special_metrics_do_not_reenable_ratios(template):
  # Synthetic ready figures exercise the downstream manual-review contract;
  # production unsupported parsers still return no amounts.

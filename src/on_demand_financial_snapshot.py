@@ -6,6 +6,7 @@ small structure has been created.
 """
 
 from __future__ import annotations
+from src.insurance_group_statement_extractor import TOTAL_REVENUE_TEMPLATES
 
 import math
 from src.bank_statement_extractor import BANK_TEMPLATE
@@ -301,7 +302,7 @@ def build_on_demand_financial_snapshot(
         metrics.append(
             {
                 "key": key,
-                "label": "营业总收入（证券报表）" if key == "revenue" and result.get("statement_template") == "securities_group_parent_yuan_v1" else label,
+                "label": "营业总收入（证券报表）" if key == "revenue" and result.get("statement_template") == "securities_group_parent_yuan_v1" else "营业总收入（保险报表）" if key == "revenue" and result.get("statement_template") in TOTAL_REVENUE_TEMPLATES else label,
                 "current_yuan": current_yuan,
                 "previous_yuan": previous_yuan,
                 "change_rate": _safe_change_rate(current_yuan, previous_yuan),

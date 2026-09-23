@@ -13,6 +13,7 @@ from src.audited_company_onboarding import rmb_unit_multiplier
 from src.china_stock import build_company_identity, is_allowed_disclosure_url
 from src.financial_snapshot_review import CORE_METRIC_KEYS
 from src.public_financial_history import AMOUNT_FIELDS, validate_public_financial_history
+from src.insurance_group_statement_extractor import TOTAL_REVENUE_TEMPLATES
 
 LIMITATION = (
     "这是公开源与官方PDF自动提取候选的金额对照，不是人工核验。"
@@ -73,13 +74,14 @@ def build_public_financial_reconciliation(history, snapshot):
         metric = next(m for m in metrics if m['key'] == key)
         source = metric.get('source')
         source = source if isinstance(source, Mapping) else {}
-        public_key = ('total_operating_revenue' if key == 'revenue' and report.get('statement_template') == 'securities_group_parent_yuan_v1' else key)
+        public_key = ('total_operating_revenue' if key == 'revenue' and report.get('statement_template') in TOTAL_REVENUE_TEMPLATES | {'securities_group_parent_yuan_v1'} else key)
         public = _number(point[public_key])
         candidate = _number(metric.get('current_yuan'))
         raw = _number(source.get('raw_current_value'))
         reasons = []
-        if public_key != key and point.get("org_type") != "证券":
-            reasons.append("证券年报与公开源机构类型不一致，需核验收入口径")
+        expected_org = "保险" if report.get("statement_template") in TOTAL_REVENUE_TEMPLATES else "证券"
+        if public_key != key and point.get("org_type") != expected_org:
+            reasons.append(expected_org+"年报与公开源机构类型不一致，需核验收入口径")
         multiplier = None
         try:
             multiplier = Decimal(str(rmb_unit_multiplier(source.get('original_unit'))))

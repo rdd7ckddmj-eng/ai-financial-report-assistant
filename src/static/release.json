@@ -1,12 +1,12 @@
 {
-  "release_id": "20260922-insurance-crossyear-3",
-  "source_digest_sha256": "78b76641c3f55e2223aeb1071d3d3df31acd49e7bca4b60656900a55f076f934",
-  "prior_commit": "1b78786117f8dd05549bd302af5a9d582a1b1283",
-  "verified_python_tests": 984,
+  "release_id": "20260923-insurance-batch-4",
+  "source_digest_sha256": "1b405f54e8e233ab01309039d1e1cb3c3e220dfae8f00d25bc855a8dcd1b2249",
+  "prior_commit": "774b222cf19ae11f0dfdac627281aaa8074b6546",
+  "verified_python_tests": 1058,
   "coverage": {
-    "real_reports_tested": 16,
-    "candidate_reports": 16,
+    "real_reports_tested": 19,
+    "candidate_reports": 19,
     "human_verified_new": 0
   },
-  "note": "Ping An 2023/2024 templates validated, including restated opening balance column. CPIC issuer identified but extraction remains unsupported; human review required."
+  "note": "PICC, CPIC and NCI 2024 plus Ping An 2023/2024 verified as extraction candidates. China Life and other insurer years remain unsupported. Public-source amount comparison is not human verification."
 }

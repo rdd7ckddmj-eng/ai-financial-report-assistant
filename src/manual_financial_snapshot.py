@@ -20,7 +20,7 @@ def build_manual_financial_snapshot(company, pdf_bytes, *, report_year, source_u
     if type(report_year) is not int or not 1990 <= report_year < today.year:
         raise ValueError('请选择已经结束的完整财务年度。')
     if not isinstance(source_url, str) or len(source_url.strip()) > 800 or not is_allowed_disclosure_url(source_url.strip()):
-        raise ValueError('请填写受支持的交易所或巨潮资讯HTTPS官方原文链接。')
+        raise ValueError('请填写受支持的交易所、巨潮资讯或已核实公司官网年报原文链接。')
     try:
         published = date.fromisoformat(str(published_date))
     except ValueError as error:
