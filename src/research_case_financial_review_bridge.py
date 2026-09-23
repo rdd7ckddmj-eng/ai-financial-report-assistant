@@ -16,6 +16,7 @@ import math
 import re
 from src.bank_statement_extractor import BANK_TEMPLATE
 from src.financial_sector_policy import is_special_financial_template
+from src.pdf_text_derivation import compact_report_text_adjustments
 from typing import Any
 
 from src.financial_snapshot_review import (
@@ -414,6 +415,11 @@ def _validate_workpaper(
     for key, expected in expected_ratios.items():
         _validate_ratio(ratios.get(key), expected, field=f"ratios.{key}")
 
+    try:
+        text_adjustments = compact_report_text_adjustments(report)
+    except ValueError as error:
+        raise _error(str(error)) from error
+
     return {
         "exported_at": exported_at,
         "review_id": review_id,
@@ -425,6 +431,9 @@ def _validate_workpaper(
             "title": report_title,
             "published_date": published_date,
             "source_url": source_url,
+            **({'text_adjustments': text_adjustments,
+                'text_derivation_note': '此处保留负号连接摘要；完整坐标记录在原复核底稿中，原PDF未修改。'}
+               if text_adjustments else {}),
         },
         "fingerprint": fingerprint.lower(),
         "metrics": metrics,

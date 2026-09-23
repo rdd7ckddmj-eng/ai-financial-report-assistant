@@ -20,6 +20,10 @@ from typing import TypedDict
 from src.balance_sheet_extractor import find_balance_sheet_figures
 from src.statement_evidence_rules import inherit_statement_units
 from src.general_income_reconciliation import check_general_income_reconciliation
+from src.pdf_text_derivation import replay_financial_geometry, preserve_original_income_excerpts, MAX_DOCUMENT_ADJUSTMENTS
+from src.petrochina_statement_extractor import (
+    PETROCHINA_TEMPLATE, extract_petrochina_statements, is_petrochina_annual_report_identity,
+)
 from src.insurance_statement_extractor import INSURANCE_TEMPLATE, extract_insurance_statements
 from src.chinalife_statement_extractor import CHINALIFE_TEMPLATE, extract_chinalife_statements, matches_chinalife_issuer
 from src.insurance_group_statement_extractor import TEMPLATES as INSURANCE_GROUP_TEMPLATES, extract_insurance_group_statements
@@ -102,6 +106,8 @@ class CandidateReportResult(TypedDict):
     status: str
     statement_checks: dict[str, bool]
     income_reconciliation: dict[str, object] | None
+    pdf_text_adjustments: list[dict[str, object]]
+    statement_reconciliation: dict[str, object] | None
     unit_check: dict[str, object]
     statement_pages: dict[str, dict[str, int] | None]
     values: dict[str, float | None]
@@ -403,14 +409,28 @@ def build_candidate_report_result(
     if not pdf_bytes.startswith(b"%PDF"):
         raise ValueError("候选文件不是有效PDF。")
 
+    page_records = list(pages)
     page_list = [
         (int(page["page_number"]), str(page.get("text", "")))
-        for page in pages
+        for page in page_records
     ]
     if not page_list:
         raise ValueError("候选年报没有可核验页面。")
 
-    income = find_income_statement_figures(page_list)
+    fingerprint = hashlib.sha256(pdf_bytes).hexdigest()
+    financial_pages, text_adjustments, geometry_error = [], [], ''
+    try:
+        for page in page_records:
+            financial_text, changes = replay_financial_geometry(page,
+                pdf_fingerprint=fingerprint, report_year=report_year)
+            financial_pages.append((int(page['page_number']), financial_text))
+            text_adjustments.extend(changes)
+        if len(text_adjustments) > MAX_DOCUMENT_ADJUSTMENTS:
+            raise ValueError('PDF版面处理记录超过本次安全上限。')
+    except ValueError as error:
+        financial_pages, text_adjustments, geometry_error = page_list, [], str(error)
+
+    income = find_income_statement_figures(financial_pages)
     balance = find_balance_sheet_figures(page_list)
     cash_flow = find_cash_flow_figures(page_list)
     bank = extract_bank_statements(page_list, report_year)
@@ -460,12 +480,33 @@ def build_candidate_report_result(
         statement_template = CHINALIFE_TEMPLATE
         income, balance, cash_flow = chinalife['income'], chinalife['balance'], chinalife['cash']
         unsupported = None
+    petrochina = None
+    petrochina_failure = ''
+    if str(company.get('code')) == '601857':
+        # The known signed-expense issuer must never fall back to an ordinary
+        # positive-expense interpretation, including when identity is damaged.
+        statement_template = PETROCHINA_TEMPLATE
+        income = balance = cash_flow = None
+        if is_petrochina_annual_report_identity(company, page_list, report_year):
+            petrochina = extract_petrochina_statements(page_list, report_year)
+        if petrochina:
+            income, balance, cash_flow = petrochina['income'], petrochina['balance'], petrochina['cash']
+            petrochina_failure = petrochina.get('failure_reason', '')
+        else:
+            petrochina_failure = '中国石油年报身份、年度或负费用专用版式未通过检查，不能回退普通费用规则。'
     if bank is None and not unsupported:
         inherit_statement_units(page_list, [income, balance, cash_flow])
     income_reconciliation = (
-        check_general_income_reconciliation(page_list, income, report_year=report_year)
-        if statement_template == 'general' else None
+        check_general_income_reconciliation(financial_pages, income, report_year=report_year)
+        if statement_template == 'general' else (petrochina or {}).get('income_reconciliation')
     )
+    if geometry_error:
+        income_reconciliation = dict(status='missing_evidence', passed=False, checks=[],
+            unit='', pages=None, note=geometry_error)
+    elif text_adjustments and income_reconciliation:
+        preserve_original_income_excerpts(income_reconciliation, text_adjustments, page_list)
+        income_reconciliation['text_derivation_note'] = (
+            '利润检查使用带坐标依据的负号连接文本；原PDF和原始摘录不变，处理记录另行保留。')
     statement_checks = {
         "income_statement_reconciled": income is not None and (
             income_reconciliation is None or income_reconciliation['status'] == 'passed'
@@ -496,17 +537,19 @@ def build_candidate_report_result(
     return {
         "report_year": report_year,
         "statement_template": statement_template,
-        "extraction_note": ('证券/保险公司专用三表模板尚未通过验证；不回退普通公司模板，不输出标准化金额或普通公司比例。'
+        "extraction_note": (geometry_error or petrochina_failure or ('证券/保险公司专用三表模板尚未通过验证；不回退普通公司模板，不输出标准化金额或普通公司比例。'
                             if unsupported else bank.get('failure_reason', '') if bank is not None
-                            else income_reconciliation['note'] if income_reconciliation and income_reconciliation['status'] != 'passed' else ''),
+                            else income_reconciliation['note'] if income_reconciliation and income_reconciliation['status'] != 'passed' else '')),
         "published_date": str(report["published_date"]),
         "title": title,
         "source_url": source_url,
-        "evidence_fingerprint_sha256": hashlib.sha256(pdf_bytes).hexdigest(),
+        "evidence_fingerprint_sha256": fingerprint,
         "page_count": len(page_list),
         "status": "ready_for_human_review" if ready else "needs_review",
         "statement_checks": statement_checks,
         "income_reconciliation": income_reconciliation,
+        "pdf_text_adjustments": text_adjustments,
+        "statement_reconciliation": (petrochina or {}).get('statement_reconciliation'),
         "unit_check": {
             "passed": units_consistent,
             "units": units,

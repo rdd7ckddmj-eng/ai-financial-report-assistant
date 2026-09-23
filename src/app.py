@@ -18136,6 +18136,8 @@ def _process_onboarding_report(
         extracted_pages = extract_pdf_pages(
             pdf_bytes,
             max_bytes=ONBOARDING_PDF_MAX_BYTES,
+            include_financial_geometry=True,
+            financial_report_year=report['report_year'],
         )
         return build_candidate_report_result(
             company,
@@ -18149,9 +18151,42 @@ def _process_onboarding_report(
         gc.collect()
 
 
+def _show_pdf_text_adjustments(result) -> None:
+    """Keep original/derived signs visible wherever a candidate is reviewed."""
+    report = result.get('report', result)
+    adjustments = result.get('pdf_text_adjustments', report.get('text_adjustments', []))
+    if not isinstance(adjustments, list) or not adjustments:
+        return
+    with st.expander(f'查看负号换行处理依据（{len(adjustments)}处）'):
+        st.write('仅连接同一表格单元格内的负号与金额；原PDF和原始文字没有修改。请结合原文复核，程序处理不等于人工确认。')
+        for item in adjustments[:8]:
+            if not isinstance(item, Mapping):
+                continue
+            page = item.get('page_number')
+            st.caption(f"PDF第{page}页｜{item.get('label', '')}｜{item.get('column_year', '')}年列")
+            original, derived = st.columns(2)
+            original.write('原始文字')
+            original.code(str(item.get('original_span', ''))[:1000], language='text')
+            derived.write('程序读取')
+            derived.code(str(item.get('replacement_span', ''))[:1000], language='text')
+            st.caption(str(item.get('reason', ''))[:1000])
+            url = str(report.get('source_url', ''))
+            if type(page) is int and page > 0 and is_allowed_disclosure_url(url):
+                st.link_button(f'打开第{page}页原文', url.split('#', 1)[0] + f'#page={page}')
+
+
 def _show_income_reconciliation(result) -> None:
     """Show the checked profit relationships with source-unit differences."""
     from src.on_demand_financial_snapshot import income_reconciliation_rows
+    _show_pdf_text_adjustments(result)
+    statements = result.get('statement_reconciliation')
+    if isinstance(statements, Mapping):
+        extra_checks = [check for section in ('balance', 'cash') for check in statements.get(section, [])]
+        if extra_checks:
+            with st.expander('查看资产负债与现金流金额关系'):
+                st.caption('按原报表单位展示；合并及公司两期列分别核对。费用与现金流出按专用版式保留负号，仍需人工核验。')
+                rows = income_reconciliation_rows({'income_reconciliation': {'checks': extra_checks}})
+                st.dataframe(rows, hide_index=True, width='stretch')
     detail = result.get('income_reconciliation')
     if not detail:
         template = result.get('statement_template', result.get('report', {}).get('statement_template', 'general'))
@@ -18160,6 +18195,8 @@ def _show_income_reconciliation(result) -> None:
         return
     with st.expander('查看利润表金额关系与差额', expanded=detail['status'] != 'passed'):
         st.write(detail['note'])
+        if detail.get('text_derivation_note'):
+            st.caption(detail['text_derivation_note'])
         st.caption(' '.join(str(detail.get(key, '')) for key in ('tax_presentation', 'rounding_note')))
         pages = detail.get('pages')
         st.caption(f"差额按报表原单位展示：{detail.get('unit') or '待核验'}｜PDF第{_format_snapshot_pages(pages)}页")
@@ -19193,6 +19230,8 @@ def render_financial_snapshot_page() -> None:
                 extracted_pages = extract_pdf_pages(
                     pdf_bytes,
                     max_bytes=SNAPSHOT_PDF_MAX_BYTES,
+                    include_financial_geometry=True,
+                    financial_report_year=report['report_year'],
                 )
                 candidate_result = build_candidate_report_result(
                     company,

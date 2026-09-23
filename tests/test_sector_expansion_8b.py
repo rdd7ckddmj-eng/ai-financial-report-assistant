@@ -24,6 +24,13 @@ def snapshot(sample):
 def test_observed_official_report_status_and_all_five_metrics(sample):
     result = snapshot(sample)
     assert result['status'] == sample['status']
+    if sample['code'] == '601857':
+        # This historical excerpt omits the registered-name/PRC-audit pages
+        # now required by the explicit profile. It must not fall back to the
+        # ordinary extractor. Complete profile fixtures live in separate tests.
+        assert not any(result['statement_checks'].values())
+        assert all(m['current_yuan'] is None and m['source']['raw_current_value'] is None for m in result['metrics'])
+        return
     assert [key for key, passed in result['statement_checks'].items() if not passed] == sample['expected_failed_checks']
     assert len(sample['sha256']) == 64 and sample['bytes'] < 32 * 1024 * 1024
     assert sample['human_verification'] == 'not_performed'
@@ -75,11 +82,16 @@ def test_cmoc_image_only_core_tables_cannot_borrow_summary_or_note_numbers():
 
 
 def test_petrochina_signed_expense_layout_is_not_inferred_from_which_sum_balances():
+    from src.financial_statement_extractor import find_income_statement_figures
+    from src.general_income_reconciliation import check_general_income_reconciliation
     sample = next(s for s in SAMPLES if s['code'] == '601857')
     result = snapshot(sample)
     assert result['status'] == 'needs_review'
-    assert result['income_reconciliation']['status'] == 'mismatch'
-    assert result['income_reconciliation']['evidence']['income_tax']['values'] == ['-54144', '-57755', '-26270', '-27741']
+    assert not any(result['statement_checks'].values())
+    pages = [(p['page_number'], p['text']) for p in sample['pages']]
+    ordinary = check_general_income_reconciliation(pages, find_income_statement_figures(pages), report_year=2025)
+    assert ordinary['status'] == 'mismatch'
+    assert ordinary['evidence']['income_tax']['values'] == ['-54144', '-57755', '-26270', '-27741']
     assert not result['statement_checks']['cash_flow_statement_reconciled']
     assert all(m['current_yuan'] is None and m['previous_yuan'] is None for m in result['metrics'])
 

@@ -152,6 +152,118 @@
         "保留原年报数值及两源差异；本记录只提供解释线索，不自动确认、改为金额一致或覆盖任何来源。",
         "调查时公共行UPDATE_DATE仍为2026-03-31，不能将该字段推断为此次重述数的真实入库时间。"
       ]
+    },
+    {
+      "evidence_id": "601857.SH-2025-total_assets-2026H1",
+      "status": "registered_official_restatement_explanation",
+      "effect": "explanation_only",
+      "human_verification": "not_performed",
+      "company_code": "601857.SH",
+      "company_name": "中国石油",
+      "report_year": 2025,
+      "period_end": "2025-12-31",
+      "metric_key": "total_assets",
+      "annual_yuan": "2828017000000",
+      "restated_yuan": "2863458000000",
+      "difference_yuan": "35441000000",
+      "annual_report": {
+        "title": "中国石油天然气股份有限公司2025年度报告",
+        "published_date": "2026-03-30",
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-30/1225049376.PDF",
+        "sha256": "840b15aa4dc38745a6b86a3656063e6a73081ce87407acb0ca93554f4e836e65",
+        "page_count": 273,
+        "amount_value": "2828017",
+        "amount_unit": "人民币百万元",
+        "amount_pages": [
+          8,
+          32,
+          107
+        ]
+      },
+      "subsequent_report": {
+        "title": "中国石油天然气股份有限公司2026年半年度报告",
+        "published_date": "2026-08-31",
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-08-31/1225535179.PDF",
+        "sha256": "05e2f4240beebde9bb29acd8a0d39e4db3e8c474cc7727bdbe7c244177871aa1",
+        "page_count": 169,
+        "before_value": "2828017",
+        "after_value": "2863458",
+        "amount_unit": "人民币百万元",
+        "amount_pages": [
+          6,
+          51,
+          86
+        ],
+        "explanation_pages": [
+          6,
+          51,
+          52,
+          86
+        ]
+      },
+      "explanation": "官方2026年半年报物理第6页说明自2026年1月起合并新疆油田、重庆相国寺、辽河油田（盘锦）三家储气库，按同一控制下企业合并追溯调整比较数据；物理第86页附注6(2)披露合并日为2026年1月4日，以及三家被合并方2025年末资产35,441百万元、负债4,215百万元、权益31,226百万元。第6页中国企业会计准则表并列资产追溯前2,828,017百万元、追溯后2,863,458百万元，第51页合并比较列复现追溯后值，增加35,441百万元。",
+      "limitations": [
+        "仅匹配已登记公司、年度、原年报PDF指纹及两项金额，不是全市场自动重述识别。",
+        "后续比较数与当前公开值一致，不证明供应商实际采用何份文档或何时、如何更新入库。",
+        "保留原年报数值及amount_difference状态；只提供解释，不覆盖来源，不自动确认。",
+        "公开源该行UPDATE_DATE仍为2026-03-30，不能将它推断为本次追溯数的真实入库时间。",
+        "半年报为未经审计报表；本次为AI核对原文与确定性计算，人工财务确认仍为0。"
+      ]
+    },
+    {
+      "evidence_id": "601857.SH-2025-total_liabilities-2026H1",
+      "status": "registered_official_restatement_explanation",
+      "effect": "explanation_only",
+      "human_verification": "not_performed",
+      "company_code": "601857.SH",
+      "company_name": "中国石油",
+      "report_year": 2025,
+      "period_end": "2025-12-31",
+      "metric_key": "total_liabilities",
+      "annual_yuan": "1028469000000",
+      "restated_yuan": "1032684000000",
+      "difference_yuan": "4215000000",
+      "annual_report": {
+        "title": "中国石油天然气股份有限公司2025年度报告",
+        "published_date": "2026-03-30",
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-30/1225049376.PDF",
+        "sha256": "840b15aa4dc38745a6b86a3656063e6a73081ce87407acb0ca93554f4e836e65",
+        "page_count": 273,
+        "amount_value": "1028469",
+        "amount_unit": "人民币百万元",
+        "amount_pages": [
+          32,
+          108
+        ]
+      },
+      "subsequent_report": {
+        "title": "中国石油天然气股份有限公司2026年半年度报告",
+        "published_date": "2026-08-31",
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-08-31/1225535179.PDF",
+        "sha256": "05e2f4240beebde9bb29acd8a0d39e4db3e8c474cc7727bdbe7c244177871aa1",
+        "page_count": 169,
+        "before_value": "1028469",
+        "after_value": "1032684",
+        "amount_unit": "人民币百万元",
+        "amount_pages": [
+          52,
+          86
+        ],
+        "explanation_pages": [
+          6,
+          51,
+          52,
+          86
+        ]
+      },
+      "explanation": "官方2026年半年报物理第6页说明自2026年1月起合并新疆油田、重庆相国寺、辽河油田（盘锦）三家储气库，按同一控制下企业合并追溯调整比较数据；物理第86页附注6(2)披露合并日为2026年1月4日，以及三家被合并方2025年末资产35,441百万元、负债4,215百万元、权益31,226百万元。原年报第108页负债1,028,469百万元，半年报第52页合并比较列为1,032,684百万元；增加4,215百万元与第86页被合并方负债合计完全一致。负债调整前值来自原年报，不声称半年报直接并列披露负债前后值。",
+      "limitations": [
+        "仅匹配已登记公司、年度、原年报PDF指纹及两项金额，不是全市场自动重述识别。",
+        "后续比较数与当前公开值一致，不证明供应商实际采用何份文档或何时、如何更新入库。",
+        "保留原年报数值及amount_difference状态；只提供解释，不覆盖来源，不自动确认。",
+        "公开源该行UPDATE_DATE仍为2026-03-30，不能将它推断为本次追溯数的真实入库时间。",
+        "半年报为未经审计报表；本次为AI核对原文与确定性计算，人工财务确认仍为0。"
+      ]
     }
   ]
 }

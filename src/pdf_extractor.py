@@ -1,7 +1,8 @@
 """Bounded, page-level text extraction for uploaded PDF reports."""
 
 from threading import BoundedSemaphore
-from typing import TypedDict
+from typing import TypedDict, NotRequired
+from hashlib import sha256
 
 from src.pdf_resource_policy import (
     GENERAL_OFFICIAL_PDF_MAX_BYTES,
@@ -19,6 +20,7 @@ class ExtractedPage(TypedDict):
 
     page_number: int
     text: str
+    financial_geometry: NotRequired[dict]
 
 
 def extract_pdf_pages(
@@ -28,6 +30,8 @@ def extract_pdf_pages(
     max_pages: int = PDF_MAX_PAGES,
     max_text_characters: int = PDF_MAX_TEXT_CHARACTERS,
     wait_seconds: float = PDF_PARSE_WAIT_SECONDS,
+    include_financial_geometry: bool = False,
+    financial_report_year: int | None = None,
 ) -> list[ExtractedPage]:
     """Extract complete text with provenance inside explicit safety limits.
 
@@ -41,6 +45,9 @@ def extract_pdf_pages(
         raise ValueError("PDF processing limits must be greater than zero.")
     if wait_seconds < 0:
         raise ValueError("PDF wait time cannot be negative.")
+    if type(include_financial_geometry) is not bool or (financial_report_year is not None
+            and (type(financial_report_year) is not int or not 1990 <= financial_report_year <= 2200)):
+        raise ValueError("财务版面解析选项或年度无效。")
     if len(pdf_bytes) > max_bytes:
         raise ValueError(
             "该 PDF 超过当前流程允许的大小上限，请改用更小的公开年报文件。"
@@ -77,6 +84,8 @@ def extract_pdf_pages(
 
         pages: list[ExtractedPage] = []
         extracted_characters = 0
+        adjustment_count = 0
+        fingerprint = sha256(pdf_bytes).hexdigest() if include_financial_geometry else None
         for page_index, page in enumerate(document):
             try:
                 page_text = page.get_text("text")
@@ -100,6 +109,23 @@ def extract_pdf_pages(
                     "text": page_text,
                 }
             )
+            if include_financial_geometry:
+                from src.pdf_signed_amount_geometry import derive_signed_amount_geometry
+                from src.pdf_text_derivation import MAX_DOCUMENT_ADJUSTMENTS
+                try:
+                    derivation = derive_signed_amount_geometry(page, report_year=financial_report_year,
+                        original_text=page_text, previous_page=document[page_index - 1] if page_index else None)
+                except MemoryError:
+                    raise
+                except Exception as error:
+                    raise ValueError(f'PDF 第 {page_index + 1} 页无法完成版面检查，已停止本次解析。') from error
+                if derivation['adjustments']:
+                    adjustment_count += len(derivation['adjustments'])
+                    extracted_characters += len(derivation['parser_text'])
+                    if adjustment_count > MAX_DOCUMENT_ADJUSTMENTS or extracted_characters > max_text_characters:
+                        raise ValueError("PDF版面处理超过本次安全上限，没有返回不完整证据。")
+                    pages[-1]['financial_geometry'] = dict(derivation, document_sha256=fingerprint,
+                        original_text_sha256=sha256(page_text.encode()).hexdigest())
         return pages
     finally:
         if document is not None:

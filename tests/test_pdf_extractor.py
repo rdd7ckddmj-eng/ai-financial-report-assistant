@@ -108,3 +108,34 @@ def test_page_runtime_error_is_normalised_and_gate_released(
 
     monkeypatch.setattr(fitz, "open", original_open)
     assert len(extract_pdf_pages(pdf_bytes, wait_seconds=0)) == 2
+
+
+def test_geometry_is_opt_in_and_parser_failure_releases_shared_gate(monkeypatch):
+    import src.pdf_signed_amount_geometry as geometry
+    calls = []
+    def fail(*args, **kwargs):
+        calls.append(True)
+        raise RuntimeError('geometry engine unavailable')
+    monkeypatch.setattr(geometry, 'derive_signed_amount_geometry', fail)
+    data = make_two_page_pdf()
+    assert len(extract_pdf_pages(data)) == 2 and not calls
+    with pytest.raises(ValueError, match='第 1 页无法完成版面检查'):
+        extract_pdf_pages(data, include_financial_geometry=True, financial_report_year=2025)
+    assert calls == [True]
+    assert len(extract_pdf_pages(data, wait_seconds=0)) == 2
+
+
+def test_geometry_budget_rejects_whole_document_without_partial_result(monkeypatch):
+    import src.pdf_signed_amount_geometry as geometry
+    def over_budget(page, **kwargs):
+        return dict(parser_text=kwargs['original_text'], adjustments=[{}] * 9)
+    monkeypatch.setattr(geometry, 'derive_signed_amount_geometry', over_budget)
+    with pytest.raises(ValueError, match='版面处理超过本次安全上限'):
+        extract_pdf_pages(make_two_page_pdf(), include_financial_geometry=True, financial_report_year=2025)
+    assert len(extract_pdf_pages(make_two_page_pdf(), wait_seconds=0)) == 2
+
+
+@pytest.mark.parametrize('options', [{'include_financial_geometry': 'yes'}, {'financial_report_year': True}, {'financial_report_year': 9999}])
+def test_invalid_geometry_options_are_rejected_before_parsing(options):
+    with pytest.raises(ValueError, match='版面解析选项或年度无效'):
+        extract_pdf_pages(b'%PDF-unopened', **options)

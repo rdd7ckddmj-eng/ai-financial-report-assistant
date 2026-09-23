@@ -9,6 +9,7 @@ from __future__ import annotations
 from src.insurance_group_statement_extractor import TOTAL_REVENUE_TEMPLATES
 
 import math
+from copy import deepcopy
 from src.bank_statement_extractor import BANK_TEMPLATE
 from src.financial_sector_policy import is_special_financial_template, SECURITIES_REVENUE_TEMPLATES
 from collections.abc import Mapping
@@ -362,12 +363,15 @@ def build_on_demand_financial_snapshot(
             "title": str(result["title"]),
             "source_url": source_url,
             "page_count": int(result["page_count"]),
+            **({'text_adjustments': deepcopy(result['pdf_text_adjustments'])}
+               if result.get('pdf_text_adjustments') else {}),
         },
         "source_fingerprint_sha256": str(
             result["evidence_fingerprint_sha256"]
         ),
         "statement_checks": statement_checks,
         "income_reconciliation": result.get('income_reconciliation'),
+        "statement_reconciliation": deepcopy(result.get('statement_reconciliation')),
         "unit": unit if multiplier is not None else None,
         "unit_note": (
             f"三张报表原始单位均为“{unit}”，页面数值已统一换算为人民币元。"
@@ -390,6 +394,8 @@ def build_on_demand_financial_snapshot(
         "limitations": [
             *([str(result['extraction_note'])] if result.get('extraction_note') else []),
             "本结果由程序从最新完整年度报告自动提取，未经人工复核或审计。",
+            *(['本年报含带坐标依据的负号换行连接；原PDF与原文不改写，处理记录保留在报告信息中，仍需人工复核。']
+              if result.get('pdf_text_adjustments') else []),
             *([str(result['income_reconciliation']['note'])]
               if result.get('income_reconciliation') and not result.get('extraction_note') else []),
             "跨期增速使用同一份年报中的上年同期/上年末比较栏，可能包含追溯调整。",
@@ -518,6 +524,27 @@ def build_financial_snapshot_report_html(
     elif report.get('statement_template', 'general') == 'general':
         income_html = '<p>此快照未保存利润表金额关系复核明细；重新生成后可查看。</p>'
         display_status = '旧版候选快照；利润表金额关系需重新生成核对。'
+    statement_detail = snapshot.get('statement_reconciliation')
+    if isinstance(statement_detail, Mapping):
+        extra_checks = [check for section in ('balance', 'cash') for check in statement_detail.get(section, [])]
+        check_rows = income_reconciliation_rows({'income_reconciliation': {'checks': extra_checks}})
+        if check_rows:
+            income_html += ('<h2>资产负债与现金流金额关系</h2><p>按原报表单位展示；合并及公司两期列分别核对。仍需人工核验。</p>'
+                + '<table><thead><tr><th>核对关系</th><th>本期差额</th><th>比较期差额</th><th>检查结果</th></tr></thead><tbody>'
+                + ''.join('<tr>' + ''.join('<td>' + escape(value) + '</td>' for value in row.values()) + '</tr>' for row in check_rows)
+                + '</tbody></table>')
+    derivation_html = ''
+    adjustments = report.get('text_adjustments', [])
+    if isinstance(adjustments, list) and adjustments:
+        derivation_html = '<h2>负号换行处理依据</h2><p>仅连接同一表格单元格内的负号与金额；原PDF和原始文字没有修改，不代表人工复核。</p>'
+        for item in adjustments[:8]:
+            if not isinstance(item, Mapping):
+                continue
+            derivation_html += ('<p>PDF第' + escape(str(item.get('page_number', '待核对'))) + '页｜'
+                + escape(str(item.get('label', ''))) + '｜' + escape(str(item.get('column_year', ''))) + '年列</p>'
+                + '<p>原始文字：</p><pre>' + escape(str(item.get('original_span', ''))[:1000]) + '</pre>'
+                + '<p>程序读取：</p><pre>' + escape(str(item.get('replacement_span', ''))[:1000]) + '</pre>'
+                + '<p>' + escape(str(item.get('reason', ''))[:1000]) + '</p>')
     return f"""<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -545,6 +572,7 @@ th{{background:#edf3f8}} small{{color:#5d6b7a}} a{{color:#075ea8}}
 </tr></thead><tbody>{metric_rows}</tbody></table>
 <h2>确定性计算</h2><ul>{ratio_items}</ul>
 {income_html}
+{derivation_html}
 <h2>使用边界</h2><ul>{limitation_items}</ul>
 <p><small>生成时间（UTC）：{escape(snapshot['generated_at'])}<br>
 证据文件 SHA-256：{escape(snapshot['source_fingerprint_sha256'])}</small></p>

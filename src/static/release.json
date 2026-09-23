@@ -1,14 +1,14 @@
 {
-  "release_id": "20260924-evidence-8",
-  "source_digest_sha256": "1ab959b4d015a5e21e73165449a1fb2c45f457186f343919e6b99f6161e96c0e",
-  "prior_commit": "b72345f2b8b885e60a3865e80090e4d5987642ed",
-  "verified_python_tests": 1570,
+  "release_id": "20260924-layout-9",
+  "source_digest_sha256": "6d359d5a6bbfe50ce04fe0974ea9c9d44ab7e76af40bc3e93f4ec4e36f16cbb6",
+  "prior_commit": "ab1c8b6b5b4d2492f19314ca63c39ab9e0092a01",
+  "verified_python_tests": 1748,
   "coverage": {
-    "real_reports_tested": 50,
-    "candidate_reports": 46,
+    "real_reports_tested": 51,
+    "candidate_reports": 49,
     "companies": 38,
-    "candidate_companies": 35,
+    "candidate_companies": 37,
     "human_verified_new": 0
   },
-  "note": "Eight complete annual reports added: five candidates, three blocked by explicit PDF/layout limitations. Prior 42 statuses and both-period values unchanged; 25 new current amounts close to public data. Three known official restatement explanations shown and persisted without changing original amounts, difference status or human review. Not all-market coverage. PICC/LONGi/CMOC/PetroChina 2025 remain needs-review; oversized Zijin excluded."
+  "note": "LONGi 2025 split minus recovered from original PDF geometry; PetroChina 2024/2025 signed-expense four-column statements supported. All prior 46 candidate reports retain both-period amounts. 15 new current amounts: 13 close and two PetroChina differences explained by exact official interim restatement evidence; original amounts and difference statuses retained. PICC/CMOC 2025 remain needs-review after OCR errors; oversized Zijin excluded. Not all-market coverage or human financial confirmation."
 }

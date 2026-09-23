@@ -378,3 +378,15 @@
 - [x] Display original/restated amounts, official sources and physical pages in current and saved comparisons. Preserve original values, difference statuses, human review decisions and historical receipts; no vendor update mechanism is inferred.
 - [ ] Support the remaining PDF layouts using independently evidenced rules or a separately validated image-reading workflow; never infer signs or substitute vendor values to pass checks.
 - [ ] Expand beyond the three registered restatement explanations and the explicitly tested reports.
+
+## 2026-09-24 — Original-layout evidence and signed-expense statements
+
+- [x] Recover LONGi 2025 split minus using actual closed-cell geometry, exact raw-text replay and explicit source/derived evidence; preserve original PDF/text.
+- [x] Support PetroChina 2024/2025 PRC statements with explicit four-column identities and signed expense/outflow rules; save 52 two-period checks per report.
+- [x] Close independent-review counterexamples: parent-table numbered headers, inconsistent geometry metadata and nonzero company minority-cash subrows.
+- [x] Run 51 full official PDFs in bounded batches: 49 candidates, two needs-review, 38 tested companies, 37 candidate companies, zero new human financial confirmations. Preserve all prior 46 candidates’ both-period amounts.
+- [x] Explain both PetroChina 2025 public/annual balance differences with official 2026 interim common-control gas-storage acquisition evidence, without changing either amount or the difference status.
+- [x] Carry raw and parser excerpts separately; retain full coordinates in workpapers and bounded summaries in research cases without bypassing five human decisions.
+- [x] Assess 12 bounded OCR trials on PICC/CMOC; keep both blocked after observed monetary/label errors. No production OCR dependency or enlarged resource limit.
+- [ ] Establish reliable image/outline reading with reproducible source geometry and a verified production resource budget before enabling the two remaining samples.
+- [ ] Expand complete-report validation beyond these 51 issuer/year samples.

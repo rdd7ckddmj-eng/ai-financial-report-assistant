@@ -32,7 +32,8 @@ def build_manual_financial_snapshot(company, pdf_bytes, *, report_year, source_u
         raise ValueError('请上传有效的公开年度报告PDF。')
     if len(pdf_bytes) > MANUAL_PDF_MAX_BYTES:
         raise ValueError('手工年报不能超过32 MB。')
-    pages = extract_pdf_pages(pdf_bytes, max_bytes=MANUAL_PDF_MAX_BYTES)
+    pages = extract_pdf_pages(pdf_bytes, max_bytes=MANUAL_PDF_MAX_BYTES,
+        include_financial_geometry=True, financial_report_year=report_year)
     cms_identity = False
     if str(company.get('code')) == '600999':
         cms_identity = is_cms_annual_report_identity(company,
