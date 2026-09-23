@@ -1,7 +1,7 @@
 {
-  "release_id": "20260924-coverage-10",
-  "source_digest_sha256": "c4f17cd7c6075627356e009b97fcbcf734876b9095f502c0bbf91b8e45828c98",
-  "prior_commit": "6c34b77c0f8b3e3ee8f1080df259d806ebd93a5f",
+  "release_id": "20260924-coverage-10.1",
+  "source_digest_sha256": "819878419f07772e8eba43a75ce84e5a83a5a0f243a06098482f45c33951cd64",
+  "prior_commit": "4b2c92eeaa2e90b0ba9ff1b1d9a945c35e2c26a7",
   "verified_python_tests": 1981,
   "coverage": {
     "real_reports_tested": 60,

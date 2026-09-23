@@ -324,7 +324,7 @@ def extract_citic_securities_statements(pages, year):
             return result
         reconciliation = dict(status='passed', passed=True, unit='人民币元', header_years=[year, year-1], pages=dict(start=windows['group_income']['pages'][0][0], end=windows['group_income']['pages'][-1][0]), checks=checks['income'],
             note='中信证券中国准则专项：合并及母公司两期分别检验收入、正数费用、利润归属和其他综合收益；不验证每股收益分母。',
-            rounding_note='所有关系使用Decimal；每列允许差额不超过人民币0.01元。', tax_presentation='费用为正数，利润总额减所得税费用；明确减值转回保留负号。', comparison_basis=comparison)
+            rounding_note='按精确小数核对金额；每列允许差额不超过人民币0.01元。', tax_presentation='费用为正数，利润总额减所得税费用；明确减值转回保留负号。', comparison_basis=comparison)
         return dict(template=CITIC_SECURITIES_TEMPLATE,
             income=figures('income', {'revenue':'营业收入', 'net_profit':'归属于母公司股东的净利润'}),
             balance=figures('balance', {'total_assets':'资产总计', 'total_liabilities':'负债合计'}),
