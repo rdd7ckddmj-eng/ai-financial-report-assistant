@@ -18154,6 +18154,22 @@ def _process_onboarding_report(
 def _show_pdf_text_adjustments(result) -> None:
     """Keep original/derived signs visible wherever a candidate is reviewed."""
     report = result.get('report', result)
+    income_recoveries = result.get('income_layout_recoveries', report.get('income_layout_recoveries', []))
+    if isinstance(income_recoveries, list) and income_recoveries:
+        with st.expander('查看归母利润跨页读取依据'):
+            for item in income_recoveries[:8]:
+                if not isinstance(item, Mapping) or not isinstance(item.get('source_segments'), list):
+                    continue
+                st.write(str(item.get('note', '')))
+                for segment in item['source_segments']:
+                    if not isinstance(segment, Mapping):
+                        continue
+                    page = segment.get('page_number')
+                    st.caption(f'PDF第{page}页原始文字')
+                    st.code(str(segment.get('text', ''))[:2000], language='text')
+                    url = str(report.get('source_url', ''))
+                    if type(page) is int and page > 0 and is_allowed_disclosure_url(url):
+                        st.link_button(f'查看归母利润原件第{page}页', url.split('#', 1)[0] + f'#page={page}')
     recoveries = result.get('cash_flow_layout_recoveries', report.get('cash_flow_layout_recoveries', []))
     if isinstance(recoveries, list) and recoveries:
         with st.expander(f'查看现金流换行与附注读取依据（{len(recoveries)}处）'):
@@ -19107,6 +19123,46 @@ def _write_financial_review_to_research_case(
     )
 
 
+def _render_tested_snapshot_input(company) -> None:
+    """Offer an explicit exact-version source when discovery is unavailable."""
+    from src.tested_report_snapshot import tested_report_options, load_tested_report_snapshot
+    try:
+        rows = tested_report_options(company)
+    except ValueError:
+        return
+    if not rows:
+        return
+    with st.expander("从已测试的官方原件生成"):
+        st.caption("选择报告年度和版本后，重新下载原件并检查金额。这里不保证是最新披露，历史测试不能代替本次检查或人工复核。")
+        by_hash = {r['source_sha256']: r for r in rows}
+        def source_label(fingerprint):
+            row = by_hash[fingerprint]
+            status = '此前通过自动检查' if row['status'] == 'ready_for_human_review' else '此前仍有缺口'
+            return f"{row['report_year']}年度｜披露 {row['published_date']}｜{row['page_count']}页｜{status}｜版本 {fingerprint[:8]}"
+        chosen = st.selectbox("选择已测试年报版本", list(by_hash), format_func=source_label,
+            key=f"tested_snapshot_source_{company['canonical_code']}")
+        row = by_hash[chosen]
+        st.link_button("查看这份官方原件", row['source_url'])
+        if row['status'] != 'ready_for_human_review':
+            st.info("这份原件此前未通过自动检查，重新读取仍可能保留缺口。")
+        if not st.button("读取这份官方年报", key=f"read_tested_snapshot_{company['canonical_code']}", width="stretch"):
+            return
+        st.session_state.pop("on_demand_financial_snapshot", None)
+        st.session_state.pop(FINANCIAL_SNAPSHOT_REVIEW_SESSION_KEY, None)
+        try:
+            with st.spinner("正在下载所选官方原件、核对文件版本并重新检查金额……"):
+                snapshot = load_tested_report_snapshot(company, chosen)
+            st.session_state["on_demand_financial_snapshot"] = snapshot
+            st.success("已读取所选原件；检查结果和待复核金额见下方。")
+        except (DataSourceError, ValueError, TypeError, KeyError) as error:
+            st.error(str(error))
+            st.info("可以打开上方官方原件链接，或通过下方入口手工上传核验。")
+        except MemoryError:
+            st.error("报告解析超过当前内存范围，已停止；请查看官方原文。")
+        finally:
+            gc.collect()
+
+
 def _render_manual_snapshot_input(company) -> None:
     """Provide a bounded explicit fallback when the official index is unavailable."""
     code = company["canonical_code"]
@@ -19200,7 +19256,7 @@ def render_financial_snapshot_page() -> None:
     show_compact_page_header(
         "财务 / 按需快照 · ON-DEMAND FINANCIAL SNAPSHOT",
         "A股按需财务快照 Agent",
-        "输入或选择A股公司后，系统临时取得最新完整年度报告，"
+        "输入或选择A股公司后，可查找最新年报或选择已测试官方原件，"
         "完成三表勾稽、金额单位校验和核心指标计算；按需处理报告，"
         "不预先囤积全市场PDF。",
     )
@@ -19330,6 +19386,7 @@ def render_financial_snapshot_page() -> None:
             pdf_bytes = None
             gc.collect()
 
+    _render_tested_snapshot_input(company)
     _render_manual_snapshot_input(company)
 
     stored_snapshot = st.session_state.get("on_demand_financial_snapshot")
@@ -19413,7 +19470,7 @@ def render_financial_snapshot_page() -> None:
         )
 
     st.caption(
-        "变化率使用最新年报内的比较栏计算；利润表和现金流量表是同比，"
+        "变化率使用本次年报内的比较栏计算；利润表和现金流量表是同比，"
         "资产负债表是较上年末。比较栏可能包含追溯调整。"
     )
     for metric in snapshot["metrics"]:

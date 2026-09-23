@@ -4,6 +4,7 @@ import math
 import re
 from src.pdf_numeric_text import normalize_numeric_parentheses
 from src.statement_evidence_rules import extract_statement_unit, bound_consolidated_statement
+from src.income_row_layout_recovery import recover_cross_page_attributable_profit
 from collections.abc import Iterable
 from typing import TypedDict
 
@@ -46,6 +47,19 @@ CHINESE_NET_PROFIT_LABELS = (
     "归属于母公司股东的净利润",
     "归属于母公司所有者的净利润",
 )
+ORDINARY_SHAREHOLDER_PROFIT_LABEL = "归属于母公司普通股股东"
+
+
+def _ordinary_shareholder_attribution_allowed(lines, index):
+    """A short ownership label is profit only inside the net-profit section."""
+    preceding = [_compact_chinese_text(line) for line in lines[:index]]
+    marker = next((i for i in range(len(preceding) - 1, -1, -1)
+                   if preceding[i] == '按所有权归属分类'), None)
+    if marker is None or index - marker > 4:
+        return False
+    return (any(_chinese_label_matches(line, '净利润') for line in lines[:marker])
+            and not any('综合收益' in line for line in preceding)
+            and _compact_chinese_text(lines[index]) == ORDINARY_SHAREHOLDER_PROFIT_LABEL)
 
 
 def _normalise_lines(page_text: str) -> list[str]:
@@ -337,9 +351,13 @@ def _has_revenue_note_header(lines: list[str], row_index: int) -> bool:
         if re.match(r'^(?:[一二三四五六七八九十]+[、.．])?(?:其中：)?营业(?:总)?收入', compact):
             break
         header += compact
-    match = re.fullmatch(r'项目附注(\d{4})年度?(\d{4})年度?', header)
+    match = re.fullmatch(r'项目附注[一二三四五六七八九十百]*(\d{4})年度?(\d{4})年度?', header)
+    relative = re.fullmatch(r'项目附注[一二三四五六七八九十百]*本期金额上期金额', header)
+    subtitle_years = [line for line in lines[:start]
+                      if re.fullmatch(r'\d{4}年度', _compact_chinese_text(line))]
     unit = _extract_unit(lines).removeprefix('人民币')
-    return bool(match and int(match[1]) == int(match[2]) + 1
+    return bool(((match and int(match[1]) == int(match[2]) + 1)
+                 or (relative and len(subtitle_years) == 1))
                 and unit in {'元', '千元', '万元', '百万元'})
 
 
@@ -354,7 +372,8 @@ def _strict_noted_revenue_pair(lines: list[str], row_index: int, label_end: int)
     chinese = '一二三四五六七八九十百'
     note_line = lines[label_end + 1]
     note_end = label_end + 1
-    if re.fullmatch(rf'[{chinese}]+[1-9]\d{{0,2}}', note_line):
+    if (re.fullmatch(rf'[{chinese}]+[.．]?[1-9]\d{{0,2}}', note_line)
+            or re.fullmatch(rf'(?:\([{chinese}]+\)|（[{chinese}]+）)', note_line)):
         # Wanhua and China Nuclear print the note as 七61. This is only a
         # standalone note under the same explicit note/two-year header; do
         # not split glued digits into an assumed note plus an amount.
@@ -424,7 +443,8 @@ def _extract_chinese_revenue_pair(lines: list[str], *, value_column_count: int):
         following = lines[label_end + 1] if label_end + 1 < len(lines) else ''
         # Restrict the new path to the exact family it supports, including
         # malformed members of that family which must not enter old fallback.
-        if re.match(r'^(?:附注)?[一二三四五六七八九十百]+(?:、[（(]|[（(][一二三四五六七八九十百]|\d)', following):
+        if (re.match(r'^(?:附注)?[一二三四五六七八九十百]+(?:、[（(]|[.．]\d|[（(][一二三四五六七八九十百]|\d)', following)
+                or re.fullmatch(r'[（(][一二三四五六七八九十百]+[）)]', following)):
             return _strict_noted_revenue_pair(lines, row_index, label_end)
         return _extract_chinese_row_pair(lines, preferred, value_column_count=value_column_count)
     # Preserve the existing total-only legacy layout. Its separate semantic
@@ -436,6 +456,8 @@ def _extract_chinese_revenue_pair(lines: list[str], *, value_column_count: int):
 def extract_income_statement_figures(
     page_number: int,
     page_text: str,
+    *,
+    _source_pages=None,
 ) -> IncomeStatementFigures | None:
     """Extract revenue and profit totals without guessing missing values."""
     # The result's Chinese profit field is attributable to the parent. A
@@ -451,6 +473,8 @@ def extract_income_statement_figures(
         if parent is not None:
             lines = lines[:parent]
 
+    ordinary_shareholder_profit = False
+    recovered_profit = None
     if "Group income statement" in lines:
         revenue_totals = _extract_six_column_totals(lines, "Revenue")
         profit_totals = _extract_six_column_totals(
@@ -474,6 +498,19 @@ def extract_income_statement_figures(
             CHINESE_NET_PROFIT_LABELS,
             value_column_count=chinese_value_column_count,
         )
+        if profit_totals is None:
+            starts = [i for i in range(len(lines))
+                      if _ordinary_shareholder_attribution_allowed(lines, i)]
+            if len(starts) == 1:
+                profit_totals = _extract_chinese_row_pair(lines[starts[0]:],
+                    (ORDINARY_SHAREHOLDER_PROFIT_LABEL,), value_column_count=chinese_value_column_count)
+                ordinary_shareholder_profit = profit_totals is not None
+        if profit_totals is None and _source_pages is not None:
+            recovered_profit = recover_cross_page_attributable_profit(_source_pages)
+            if (recovered_profit and recovered_profit['values'] is not None
+                    and chinese_value_column_count == 2
+                    and _extract_unit(lines).removeprefix('人民币') == recovered_profit['unit']):
+                profit_totals = tuple(float(value) for value in recovered_profit['values'])
         current_period_weeks, previous_period_weeks = None, None
     else:
         return None
@@ -495,6 +532,11 @@ def extract_income_statement_figures(
         "end_page_number": page_number,
         "current_period_weeks": current_period_weeks,
         "previous_period_weeks": previous_period_weeks,
+        **({'attributable_label': ORDINARY_SHAREHOLDER_PROFIT_LABEL}
+           if ordinary_shareholder_profit else {}),
+        **({'attributable_layout_recovery': {
+            **recovered_profit, 'values': [str(v) for v in recovered_profit['values']]}}
+           if recovered_profit and recovered_profit['values'] is not None else {}),
     }
 
 
@@ -522,6 +564,7 @@ def find_income_statement_figures(
             figures = extract_income_statement_figures(
                 page_number=page_number,
                 page_text="\n".join(text for _, text in window),
+                _source_pages=window,
             )
             if figures is not None:
                 figures["end_page_number"] = window[-1][0]

@@ -6,19 +6,23 @@ adapters. Missing evidence is different from a demonstrated amount mismatch.
 from decimal import Decimal, InvalidOperation, localcontext
 import re
 
-from src.financial_statement_extractor import _normalise_lines, _chinese_label_span
+from src.financial_statement_extractor import (
+    _normalise_lines, _chinese_label_span, _ordinary_shareholder_attribution_allowed,
+    ORDINARY_SHAREHOLDER_PROFIT_LABEL,
+)
 from src.statement_evidence_rules import extract_statement_unit
+from src.income_row_layout_recovery import recover_cross_page_attributable_profit
 
 _AMOUNT = r'(?:\d{1,3}(?:[,，]\d{3})+|\d+)(?:\.\d+)?'
 _NUMBER = re.compile(rf'^(?:[-—–]|[-−－]?{_AMOUNT}|\({_AMOUNT}\)|（{_AMOUNT}）)$')
 _CN = '一二三四五六七八九十百'
-_NOTE = re.compile(rf'^(?:附注)?(?:[{_CN}]+(?:[、.．]\d{{1,3}}|\([{_CN}A-Za-z0-9]+\)|、\([{_CN}]+\))|\([{_CN}]+\)\d{{1,3}})(?:[,，、])?$')
+_NOTE = re.compile(rf'^(?:附注)?(?:[{_CN}]+(?:[、.．]\d{{1,3}}|\([{_CN}A-Za-z0-9]+\)|、\([{_CN}]+\))|\([{_CN}]+\)(?:\d{{1,3}})?)(?:[,，、])?$')
 _COMPACT_NOTE = re.compile(rf'^[{_CN}]+[1-9]\d{{0,2}}$')
 _ANNOTATION = re.compile(r'^\((?:(?:净亏损|亏损总额|亏损|损失)以[“"‘]?[-—–][”"’]?号填列|净亏损|亏损总额|亏损)\)')
 _ALIASES = {
     # Read the long attributable label first so its wrapped "净利润" tail is
     # never mistaken for a second consolidated-total row.
-    'attributable_profit': ('归属于母公司股东的净利润','归属于母公司所有者的净利润'),
+    'attributable_profit': ('归属于母公司股东的净利润','归属于母公司所有者的净利润',ORDINARY_SHAREHOLDER_PROFIT_LABEL),
     'minority_profit': ('少数股东损益',),
     'profit_before_tax': ('利润总额',),
     'income_tax': ('减：所得税(费用)/贷项','减：所得税费用','所得税费用'),
@@ -85,6 +89,8 @@ def _rows(lines,page_numbers,column_count):
         for key,labels in _ALIASES.items():
             match=None
             for label in labels:
+                if label == ORDINARY_SHAREHOLDER_PROFIT_LABEL and not _ordinary_shareholder_attribution_allowed(lines, index):
+                    continue
                 label_match=_match_label(lines,index,label, compact_notes=has_note_header)
                 if label_match is not None:
                     match=(label,label_match)
@@ -179,6 +185,8 @@ def _bounded_lines(pages,figures):
         or re.fullmatch(r'附注['+_CN+r']*',line)),default=0)
     # Preserve same-line years after “项目 [附注]”; subtitle years before this
     # column heading are not period columns.
+    subtitle_years = [int(m[1]) for item in header[:anchor]
+                      if (m := re.fullmatch(r'(\d{4})年度', item))]
     header=header[anchor:]
     header[0]=re.sub(r'^(?:项目(?:附注)?|附注['+_CN+r']*)','',header[0])
     periods=[];relative=[];cursor=0
@@ -197,10 +205,16 @@ def _bounded_lines(pages,figures):
             raise ValueError('年份列含未识别的期间或注释')
         elif re.fullmatch(r'(?:(?:本年|上年|本期|上期)发生额)+',item):
             relative.extend(re.findall(r'(?:本年|上年|本期|上期)发生额',item))
+        elif re.fullmatch(r'(?:(?:本期|上期)金额)+',item):
+            relative.extend(re.findall(r'(?:本期|上期)金额',item))
         cursor+=1
     if periods:
         expected=[periods[0],periods[0]-1]*(column_count//2)
         if periods!=expected or relative:raise ValueError('本期/比较期年份列顺序或列数不明确')
+    elif relative == ['本期金额','上期金额'] and column_count == 2:
+        if len(subtitle_years) != 1:
+            raise ValueError('本期金额表头缺少唯一完整年度标题')
+        periods = [subtitle_years[0], subtitle_years[0] - 1]
     elif relative not in (['本年发生额','上年发生额']*(column_count//2),['本期发生额','上期发生额']*(column_count//2)):
         raise ValueError('缺少明确的本期/比较期列头')
     if column_count==4:
@@ -219,8 +233,9 @@ def check_general_income_reconciliation(pages, income, *, report_year=None):
     result=dict(status='missing_evidence',passed=False,checks=[],unit=str((income or {}).get('unit','')),
         pages=None,evidence={},tolerance=None,header_years=None,note='缺少完整利润表证据，未判定金额是否一致。')
     if not income:return result
+    pages = list(pages)
     try:
-        lines,numbers,columns,header_years=_bounded_lines(list(pages),income)
+        lines,numbers,columns,header_years=_bounded_lines(pages,income)
         if columns==0:
             result.update(status='not_applicable',note='英文报表沿用原有专用流程，本检查不适用。');return result
         result['pages']=dict(start=numbers[0],end=numbers[-1])
@@ -232,9 +247,16 @@ def check_general_income_reconciliation(pages, income, *, report_year=None):
         local=extract_statement_unit(lines)
         if unit not in {'元','千元','万元','百万元'}:raise ValueError('缺少可核对的人民币金额单位')
         if local and _compact(local).removeprefix('人民币')!=unit:raise ValueError('利润表单位与提取金额单位不一致')
-        if not local and any(re.search(r'单位(?:为[：:]?|[：:])(?:人民币)?(?:百万元|万元|千元|元|美元|港元)|^人民币(?:百万元|万元|千元|元)$|币种[：:]?',_compact(line)) for line in lines):
+        if not local and any(re.search(r'单位(?:(?:均)?为[：:]?|[：:])(?:人民币)?(?:百万元|万元|千元|元|美元|港元)|^人民币(?:百万元|万元|千元|元)$|币种[：:]?',_compact(line)) for line in lines):
             raise ValueError('利润表含冲突或不受支持的单位声明')
         found=_rows(lines,numbers,columns)
+        attributable = found['attributable_profit']
+        if not attributable or (len(attributable) == 1 and attributable[0]['values'] is None):
+            selected_pages = [(n, text) for n, text in pages if numbers[0] <= n <= numbers[-1]]
+            recovery = recover_cross_page_attributable_profit(selected_pages, report_year=report_year)
+            if (recovery and recovery['values'] is not None and columns == 2
+                    and recovery['header_years'] == header_years and recovery['unit'] == unit):
+                found['attributable_profit'] = [recovery]
         rows={};missing=[]
         for key,matches in found.items():
             if len(matches)!=1 or matches[0]['values'] is None:

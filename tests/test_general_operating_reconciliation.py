@@ -163,13 +163,14 @@ def test_subdetail_amount_is_not_a_second_parent_contribution():
     assert operating(result)['evidence']['interest_income_detail']['values'] == ['120.00', '120.00']
 
 
-@pytest.mark.parametrize('code', ('000651', '000333', '002475', '000858'))
-def test_total_revenue_and_four_column_layouts_retain_explicit_older_scope(code):
+@pytest.mark.parametrize('code', ('000651', '000333', '000858'))
+def test_incomplete_total_revenue_and_four_column_layouts_retain_explicit_older_scope(code):
     sample = next(sample for sample in SAMPLES if sample['code'] == code)
     result = check_general_income_reconciliation(sample['pages'], sample['income'], report_year=sample['year'])
-    assert result['passed'] and operating(result)['status'] == 'unsupported_layout'
+    assert result['passed'] and operating(result)['status'] == (
+        'unsupported_layout' if code == '000333' else 'missing_evidence')
     assert operating(result)['checks'] == []
-    assert '未执行' in result['note']
+    assert '未执行' in result['note'] if code == '000333' else '未完成' in result['note']
     assert not any(item['key'] == 'operating_profit_components' for item in result['checks'])
 
 
@@ -210,7 +211,7 @@ def test_integer_note_reference_requires_note_header_and_never_applies_to_subtot
 def test_real_powerchina_tax_note_preserves_official_two_year_amounts():
     sample = json.loads((Path(__file__).parent / 'fixtures/powerchina_income_note_2025.json').read_text())
     result = check_general_income_reconciliation(sample['pages'], sample['income'], report_year=sample['year'])
-    assert result['passed'] and operating(result)['status'] == 'unsupported_layout'
+    assert result['passed'] and operating(result)['status'] == 'missing_evidence'
     row = result['evidence']['income_tax']
     assert row['values'] == ['4137137002.31', '3706302910.11']
     assert row['pages'] == {'start': 123, 'end': 123}

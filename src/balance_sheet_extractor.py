@@ -168,13 +168,30 @@ def _is_financial_values_line(line: str) -> bool:
     )
 
 
+def _strict_footer_values(line: str) -> list[float] | None:
+    """A newly recovered footer row must retain exactly formed cells."""
+    amount = r'(?:\d{1,3}(?:[,，]\d{3})+|\d+)(?:\.\d+)?'
+    cell = re.compile(rf'^(?:[-−－—–]|[-−－]?{amount}|\({amount}\)|（{amount}）)$')
+    tokens = line.split()
+    if not tokens or any(len(token) > 64 or not cell.fullmatch(token) for token in tokens):
+        return None
+    values = [_parse_financial_value(token) for token in tokens]
+    return values if all(math.isfinite(value) and abs(value) <= 1e24 for value in values) else None
+
+
 def _extract_chinese_row_pair(
     lines: list[str],
     labels: tuple[str, ...],
     *,
     value_column_count: int = 2,
+    strict_values: bool = False,
 ) -> tuple[float, float] | None:
     """Return current and prior-year values from a common A-share row."""
+    if strict_values:
+        starts = {index for index in range(len(lines)) if any(
+            _chinese_label_span(lines, index, label) is not None for label in labels)}
+        if len(starts) != 1:
+            return None
     for label in labels:
         for row_index in range(len(lines)):
             label_end = _chinese_label_span(lines, row_index, label)
@@ -184,7 +201,20 @@ def _extract_chinese_row_pair(
             same_line_values: list[float] = []
             for label_line in lines[row_index : label_end + 1]:
                 same_line_values.extend(_financial_values_in_line(label_line))
-            if value_column_count == 4 and len(same_line_values) >= 4:
+            if strict_values:
+                merged = ' '.join(lines[row_index:label_end + 1])
+                pattern = ''.join(re.escape(char) + r'\s*' for char in label)
+                match = re.match(pattern, merged)
+                if match is None:
+                    merged = re.sub(r'^(?:\d+[.．、]|[一二三四五六七八九十百]+[、.．])\s*', '', merged)
+                    match = re.match(pattern, merged)
+                if match is None:
+                    return None
+                tail = merged[match.end():].strip()
+                same_line_values = _strict_footer_values(tail) if tail else []
+                if same_line_values is None:
+                    return None
+            if not strict_values and value_column_count == 4 and len(same_line_values) >= 4:
                 # Consolidated figures are the first two of the four value
                 # columns.  A PDF page number may be extracted immediately
                 # after the last row, so selecting from the beginning also
@@ -192,18 +222,33 @@ def _extract_chinese_row_pair(
                 # consolidated amount.
                 current, previous, _, _ = same_line_values[:4]
                 return current, previous
-            if value_column_count == 2 and len(same_line_values) >= 2:
+            if not strict_values and value_column_count == 2 and len(same_line_values) >= 2:
                 return same_line_values[-2], same_line_values[-1]
 
-            following_values: list[float] = []
-            for following_line in lines[label_end + 1 : label_end + 7]:
+            following_values: list[float] = same_line_values if strict_values else []
+            following_lines = lines[label_end + 1:] if strict_values else lines[label_end + 1:label_end + 7]
+            for following_line in following_lines:
                 if _is_financial_values_line(following_line):
+                    if strict_values and _strict_footer_values(following_line) is None:
+                        return None
                     following_values.extend(
                         _financial_values_in_line(following_line)
                     )
                     continue
+                if strict_values:
+                    compact = _compact_chinese_text(following_line)
+                    if (re.fullmatch(r'(?:无数据|不适用|N/?A|NAN|NULL|NONE|[+-]?INF(?:INITY)?)',
+                                     compact, re.IGNORECASE)
+                            or (re.match(r'^[+\-−－—–(（.,\d]', compact) and re.search(r'\d', compact)
+                                and not re.search(r'[\u4e00-\u9fff]', compact))):
+                        return None
+                    # These subtotal rows have no note column to skip; an
+                    # unknown row may not supply a missing monetary pair.
+                    break
                 if following_values:
                     break
+            if strict_values:
+                return (following_values[0], following_values[1]) if len(following_values) == value_column_count else None
             if value_column_count == 4 and len(following_values) >= 4:
                 current, previous, _, _ = following_values[:4]
                 return current, previous
@@ -278,42 +323,50 @@ def _extract_chinese_balance_sheet_figures(
     lines: list[str],
     *,
     value_column_count: int = 2,
+    strict_values: bool = False,
 ) -> BalanceSheetFigures | None:
     """Extract a common A-share consolidated balance sheet and reconcile it."""
     current_assets = _extract_chinese_row_pair(
         lines,
         CHINESE_CURRENT_ASSETS_LABELS,
         value_column_count=value_column_count,
+        strict_values=strict_values,
     )
     noncurrent_assets = _extract_chinese_row_pair(
         lines,
         CHINESE_NONCURRENT_ASSETS_LABELS,
         value_column_count=value_column_count,
+        strict_values=strict_values,
     )
     reported_total_assets = _extract_chinese_row_pair(
         lines,
         CHINESE_TOTAL_ASSETS_LABELS,
         value_column_count=value_column_count,
+        strict_values=strict_values,
     )
     current_liabilities = _extract_chinese_row_pair(
         lines,
         CHINESE_CURRENT_LIABILITIES_LABELS,
         value_column_count=value_column_count,
+        strict_values=strict_values,
     )
     noncurrent_liabilities = _extract_chinese_row_pair(
         lines,
         CHINESE_NONCURRENT_LIABILITIES_LABELS,
         value_column_count=value_column_count,
+        strict_values=strict_values,
     )
     reported_total_liabilities = _extract_chinese_row_pair(
         lines,
         CHINESE_TOTAL_LIABILITIES_LABELS,
         value_column_count=value_column_count,
+        strict_values=strict_values,
     )
     reported_total_equity = _extract_chinese_row_pair(
         lines,
         CHINESE_TOTAL_EQUITY_LABELS,
         value_column_count=value_column_count,
+        strict_values=strict_values,
     )
     extracted_rows = (
         current_assets,
@@ -428,15 +481,31 @@ def _extract_chinese_balance_sheet_figures(
 def extract_balance_sheet_figures(
     page_number: int,
     page_text: str,
+    *,
+    source_pages: list[tuple[int, str]] | None = None,
 ) -> BalanceSheetFigures | None:
     """Extract current resources and liabilities only when totals reconcile."""
-    lines = _normalise_lines(bound_consolidated_statement(page_text, "资产负债表"))
+    # Preserve the final two amounts when a separate, matching physical-page
+    # footer follows them; arbitrary trailing numbers remain evidence.
+    original_pages = source_pages or [(page_number, page_text)]
+    if source_pages is not None and "\n".join(t for _, t in source_pages) != page_text:
+        return None
+    clean_text = "\n".join(re.sub(
+        rf'(?:\r?\n[ \t]*){{2,}}{number}[ \t]*(?:\r?\n[ \t]*)*\Z',
+        '\n', text) for number, text in original_pages)
+    bounded = bound_consolidated_statement(clean_text, "资产负债表")
+    parent = re.search(r'(?m)^[ \t]*(?:(?:[（(][一二三四五六七八九十百0-9]+[）)]'
+                       r'|[一二三四五六七八九十百0-9]+[、.．])[ \t]*)?'
+                       r'(?:母\s*公\s*司|公\s*司)\s*资产负债表'
+                       r'\s*(?:[（(]续[）)])?[ \t]*$', bounded)
+    lines = _normalise_lines(bounded[:parent.start()] if parent else bounded)
     chinese_value_column_count = _chinese_balance_sheet_column_count(lines)
     if chinese_value_column_count is not None:
         return _extract_chinese_balance_sheet_figures(
             page_number,
             lines,
             value_column_count=chinese_value_column_count,
+            strict_values=clean_text != page_text,
         )
     if "Group balance sheet" not in lines:
         return None
@@ -591,6 +660,7 @@ def find_balance_sheet_figures(
             figures = extract_balance_sheet_figures(
                 page_number=page_number,
                 page_text="\n".join(text for _, text in window),
+                source_pages=window,
             )
             if figures is not None:
                 figures["end_page_number"] = window[-1][0]

@@ -41,7 +41,7 @@ def extract_statement_unit(lines):
         compact=re.sub(r'\s+', '', line).replace(':','：')
         if re.fullmatch(r'[£$€](?:k|m|bn)?', compact, re.IGNORECASE):
             explicit.append(compact)
-        for m in re.finditer(r'(?:金额)?单位(?:[：]|为[：]?)(?:人民币)?(百万元|千元|万元|元|美元|港元|欧元|日元)',compact):
+        for m in re.finditer(r'(?:金额)?单位(?:[：]|(?:均)?为[：]?)(?:人民币)?(百万元|千元|万元|元|美元|港元|欧元|日元)',compact):
             explicit.append(('人民币' if '人民币' in compact else '')+m[1])
         currency=re.search(r'币种[：]?(美元|港元|欧元|日元)', compact)
         if currency:

@@ -1,15 +1,15 @@
 {
-  "release_id": "20260924-coverage-11.1",
-  "source_digest_sha256": "d188dd0752e09a1fb5dbc4d0e53bc7baec3e98093ad557dd45d2aeffd1c00698",
-  "prior_commit": "5ae8380c69a90be8f610ef5458229fbb2f538f52",
-  "verified_python_tests": 2346,
+  "release_id": "20260924-coverage-12.1",
+  "source_digest_sha256": "bef07d87022ef8aa155066170613b329be5043ca0f5916f5d500761198a9de35",
+  "prior_commit": "14c01f505e428c3434c754ca54029d9db4d5dfa8",
+  "verified_python_tests": 2950,
   "coverage": {
-    "real_reports_tested": 68,
-    "candidate_reports": 63,
-    "companies": 52,
-    "candidate_companies": 49,
-    "issuer_year_pairs": 66,
+    "real_reports_tested": 88,
+    "candidate_reports": 84,
+    "companies": 72,
+    "candidate_companies": 70,
+    "issuer_year_pairs": 86,
     "human_verified_new": 0
   },
-  "note": "PICC 2025 exact HKEX A-share CAS original and five additional issuers; original failures preserved. Four ordinary reports have explicit two-period operating components and visible arithmetic. Cash layout evidence retains exact page spans. Explicit operating revenue may not fall back to total revenue. Equivalent RMB spelling preserves raw units; incompatible currency and scale blocked. Prior 60 full report statuses, statement checks and both-period amounts unchanged; 30 new current amounts match an independent public source. 68 PDF versions are 66 issuer/year pairs, not full-market coverage or human financial approval."
+  "note": "Twenty new 2025 issuers and Sinopec CAS repair; other 67 originals retain statuses, statement checks and both-period amounts. Eight originals pass bounded operating-component checks. Cross-page profit evidence retains original page slices. Exact tested-source download verifies fresh bytes and re-runs current parsing; historical status never grants a pass or financial approval. 103 of 105 new/repaired current amounts have zero public-source difference; Conch assets and liabilities retain differences explained by subsequent official restatement. 88 PDF versions, not all-market coverage. No OCR or raised resource limits."
 }

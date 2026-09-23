@@ -25,6 +25,10 @@ from src.petrochina_statement_extractor import (
     PETROCHINA_TEMPLATE, extract_petrochina_statements, is_petrochina_annual_report_identity,
 )
 from src.cmoc_statement_extractor import CMOC_TEMPLATE, is_cmoc_annual_report_identity, extract_cmoc_statements
+from src.sinopec_statement_extractor import (
+    SINOPEC_TEMPLATE, SINOPEC_2025_REPORT_URL,
+    is_sinopec_annual_report_identity, extract_sinopec_statements,
+)
 from src.citic_securities_statement_extractor import (
     CITIC_SECURITIES_TEMPLATE, is_citic_annual_report_identity, extract_citic_securities_statements,
 )
@@ -342,6 +346,11 @@ def _build_metric_evidence(
         # A bank's attributable profit can be explicitly disclosed in its EPS
         # note. Keep that metric's source distinct from the income statement.
         source_override = (figures or {}).get('metric_sources', {}).get(metric_key)
+        if (source_override is None and metric_key == 'net_profit'
+                and (figures or {}).get('attributable_label') == '归属于母公司普通股股东'):
+            source_override = dict(labels=('归属于母公司普通股股东',), statement='利润表',
+                accounting_basis='合并净利润归属于母公司普通股股东的部分',
+                page_number=figures['page_number'], end_page_number=figures['end_page_number'])
         if source_override:
             labels = tuple(source_override['labels'])
             statement_label = str(source_override['statement'])
@@ -363,6 +372,10 @@ def _build_metric_evidence(
         if parent_heading and "合并" in re.sub(r"\s+", "", page_text[:parent_heading.start()]) and not re.sub(r"\s+", "", page_text[:parent_heading.start()]).endswith("合并及"):
             page_text = page_text[:parent_heading.start()]
         excerpt, excerpt_status = _compact_metric_excerpt(page_text, labels)
+        recovery = (figures or {}).get('attributable_layout_recovery') if metric_key == 'net_profit' else None
+        if recovery:
+            pages = recovery['pages']
+            excerpt, excerpt_status = recovery['excerpt'], 'captured'
         notes = " ".join(str((figures or {}).get(key, "")) for key in ("unit_source_note", "rounding_note")).strip()
         if notes:
             excerpt = notes + " 原金额摘录：" + excerpt
@@ -524,7 +537,21 @@ def build_candidate_report_result(
             cmoc_failure = cmoc.get('failure_reason', '')
         else:
             cmoc_failure = '洛阳钼业2025繁体原件身份、年度或版式未通过检查，不能回退普通模板。'
-    detailed_profile = petrochina or cmoc or citic
+    sinopec = None
+    sinopec_failure = ''
+    if str(company.get('code')) == '600028' or source_url == SINOPEC_2025_REPORT_URL:
+        # This original contains a second IFRS table group. A missing or
+        # damaged CAS identity/table must not fall back to either group.
+        statement_template = SINOPEC_TEMPLATE
+        income = balance = cash_flow = None
+        if is_sinopec_annual_report_identity(company, page_list, report_year):
+            sinopec = extract_sinopec_statements(page_list, report_year)
+        if sinopec:
+            income, balance, cash_flow = sinopec['income'], sinopec['balance'], sinopec['cash']
+            sinopec_failure = sinopec.get('failure_reason', '')
+        else:
+            sinopec_failure = '中国石化所选年报的公司、年度或中国会计准则报表未通过专用检查，不回退其他准则或母公司报表。'
+    detailed_profile = petrochina or cmoc or citic or sinopec
     if bank is None and not unsupported:
         inherit_statement_units(page_list, [income, balance, cash_flow])
     income_reconciliation = (
@@ -567,7 +594,7 @@ def build_candidate_report_result(
     return {
         "report_year": report_year,
         "statement_template": statement_template,
-        "extraction_note": (geometry_error or petrochina_failure or cmoc_failure or (citic or {}).get('failure_reason', '') or ('证券/保险公司专用三表模板尚未通过验证；不回退普通公司模板，不输出标准化金额或普通公司比例。'
+        "extraction_note": (geometry_error or petrochina_failure or cmoc_failure or sinopec_failure or (citic or {}).get('failure_reason', '') or ('证券/保险公司专用三表模板尚未通过验证；不回退普通公司模板，不输出标准化金额或普通公司比例。'
                             if unsupported else bank.get('failure_reason', '') if bank is not None and statement_template == BANK_TEMPLATE
                             else income_reconciliation['note'] if income_reconciliation and income_reconciliation['status'] != 'passed' else '')),
         "published_date": str(report["published_date"]),
@@ -580,6 +607,8 @@ def build_candidate_report_result(
         "income_reconciliation": income_reconciliation,
         "pdf_text_adjustments": text_adjustments,
         "cash_flow_layout_recoveries": (cash_flow or {}).get('layout_recoveries', []),
+        "income_layout_recoveries": ([(income or {})['attributable_layout_recovery']]
+                                     if (income or {}).get('attributable_layout_recovery') else []),
         "statement_reconciliation": (detailed_profile or {}).get('statement_reconciliation'),
         "unit_check": {
             "passed": units_consistent,

@@ -1,63 +1,41 @@
 # FANGZHENG AI Financial Research Lab
 
-**2026-09-24 第11批开发验收范围：** 非预置A股可按需获取最多六个年度的公开财务候选，
-连接综合研究、年度趋势、年报金额对照、逐字段人工复核与本机研究案件。
-公开源已有独立60家公司抽查记录；可搜索股票数不等于逐份年报验证数。
+**2026-09-24 第12批开发验收范围：** 完整PDF回归为88份精确原件版本、72家公司、86个公司/年度组合：
+84份生成待人工复核候选，4份保留缺口；70家公司至少有一份通过的原件。新增20家公司2025年报，
+并修复原中国石化2025缺口。其余67份旧原件的状态、三表检查和两期五项金额均不变。
+可搜索股票数不等于逐份年报验证数，新增人工财务确认仍为0。
 
-当前完整PDF回归为68份原件版本、52家公司、66个公司/年度组合：63份生成待人工复核候选，
-5份保留缺口；49家公司至少有一份通过的原件。原有60份的状态、三表检查和两期五项金额全部不变。
-目录按公司、年度和精确原件SHA独立展示，未测公司明确提示未知，新增真人财务确认仍为0。
+财务快照新增“从已测试的官方原件生成”：选择具体年度与版本，再点击重新下载、核对文件SHA与页数、
+重新执行当前检查。目录不提供金额或通过资格，不保证是最新披露；旧失败版本仍独立保留。
+官方源无法读取或文件变化时明确停止，仍可用已有手工入口继续核验，不沿用旧结果或旧人工确认。
 
-本批新增伊利、海天、牧原、国电南瑞、中国电建2025候选，以及港交所披露的中国人保2025 A股完整年报。
-人保新原件明确采用中国企业会计准则；旧数字文字缺失版本保持失败，H股IFRS版本不能替代。
-六份新增候选的30项本期金额与公开源对照均为零差额；这只是自动对照，不代表财务审计。
+中国石化独立检查中国会计准则合并报表，不借同一本年报的IFRS或母公司数据；
+中兴按净利润所有权分类确认短标签，长安按明确年度与单位读取本期/上期金额，山东黄金识别确切附注写法。
+宝钢跨页归母利润保留97、98页原始片段，并在页面与HTML展示读取依据。
+海螺独立符号说明、长城页尾页码和融资科目修复配有损坏数字、额外金额及母公司越界反例。
+不改写PDF、不补空白为零、不用公开源替换年报数字。
 
-普通直接列示利润表新增“营业收入→营业利润→税前利润”两期检查与可见原文分项，
-已在比亚迪2024、京东方/海康/迈瑞2025四份真实年报通过。负费用和负减值保留符号，
-利息等子项不重复加总。未支持或证据不足的版式只保留原检查范围；完整证据计算矛盾会阻断候选。
-中国电建的附注黏连曾导致收入误取营业总收入，现修正为原文营业收入；原始失败回执保留。
-营业收入行存在但无法读取时，不得退回不同口径的营业总收入。
-现金流跨页标签和附注黏连保留逐页原始文字，并随快照、页面及HTML导出；未知行、额外金额和重复科目不被跳过。
-“元/人民币元”等同量纲别名可以核对一致，但各项原始单位不改写；外币或不同量纲仍阻断。
+经营分项增强现有8份完整原件通过：比亚迪2024、京东方/立讯/海康/迈瑞/中车/中兴/宝钢2025。
+总收入、总成本与明确列示子项分别核对，财务费用下利息等明细不重复加总；保留负费用和负减值。
+证据不足只保留原检查范围；完整金额矛盾阻断快照。原文营业收入行存在但读不清时不得退回营业总收入。
 
-未通过的五份为人保2025旧数字缺失原件、洛阳钼业2025旧A股图像版、中国建筑2025图像主表、
-中国石化2025未支持利润版式，以及中国联通2025受损文字层。中国中铁及此前紫金超大原件未计入68份。
-未启用生产OCR、未提高文件或页数上限、未用公开源金额填补年报。人保与洛钼的新旧文件独立保留结果。
-保险、证券、银行不套用普通公司比例；国寿2024比较期金融工具未重述，另停算自动同比。
-既有隆基负号坐标证据、中国石油带符号专用报表、中信证券双年度、六条精确官方重述登记保持原有边界。
+20份新增年报的100项本期金额对照中98项零差额；海螺两项差异已由后续官方半年报重述解释，
+两边原值和差异状态继续保留。中国石化另5项零差额。这些是自动来源对照，不是财务审计。
+完整本地测试2950项通过；平台构建、实际版本和真实页面流程另行验收，不能由本地状态推断线上。
 
-本项目继续使用每8页清理可重建PDF缓存的资源修复；上批已完成真实线上顺序上传。
-本批的代码验收、版本发布与线上验证分别留证，不能用本地回归或平台成功代替真实页面验收。
+剩余4份未通过原件：人保2025旧数字缺失版本、洛阳钼业2025旧A股图像版、中国建筑2025图像主表、
+中国联通2025受损文字层。超大中国中铁与此前紫金原件未纳入88份。
+未启用生产OCR，未提高既有上限（手工32 MiB、官方快照45 MiB、1000页），继续使用串行解析与PDF缓存清理。
+金融机构停算普通公司比例、国寿比较口径限制，以及隆基负号坐标与已有重述登记等边界保留。
 
-详细范围及来源见 [第11批扩围](docs/INDUSTRY_EXPANSION_11.md)、
-[经营分项核对](docs/GENERAL_OPERATING_RECONCILIATION.md)、
-[现金流版式与原文](docs/CASH_FLOW_LAYOUT_RECOVERY_11.md)、
-[人保2025原件](docs/PICC_2025_TEMPLATE_SCOPE.md)、
-[保险模板说明](docs/INSURANCE_TEMPLATE_SCOPE.md)、
-[国寿双年度说明](docs/CHINALIFE_TEMPLATE_SCOPE.md)、
-[招商证券两年说明](docs/SECURITIES_SECOND_ISSUER_SCOPE.md)、
-[普通企业扩围](docs/GENERAL_INDUSTRY_EXPANSION_20260923.md)、
-[沪市与利润复核扩围](docs/SHANGHAI_INCOME_EXPANSION_20260924.md)、
-[北交所双年度扩围](docs/BSE_EXPANSION_20260923.md)、
-[汇川追溯调整](docs/HUICHUAN_ASSET_RESTATEMENT.md)、
-[神华并表重述](docs/SHENHUA_BALANCE_RESTATEMENT.md)、
-[重述解释登记与呈现](docs/OFFICIAL_RESTATEMENT_EVIDENCE.md)、
-[航运通信机械扩围](docs/SECTOR_EXPANSION_8A.md)、
-[地产能源电力矿业边界](docs/SECTOR_EXPANSION_8B.md)、
-[利润金额检查范围](docs/GENERAL_INCOME_RECONCILIATION.md)、
-[负号坐标证据](docs/PDF_SIGNED_AMOUNT_GEOMETRY.md)、
-[中国石油专用模板](docs/PETROCHINA_TEMPLATE_SCOPE.md)、
-[中国石油余额重述](docs/PETROCHINA_BALANCE_RESTATEMENT.md)、
-[版式接入与样本边界](docs/LAYOUT_RECOVERY_20260924.md)、
-[完整原件测试范围](docs/ANNUAL_REPORT_COVERAGE_CATALOG.md)、
-[六家行业扩围](docs/INDUSTRY_EXPANSION_10.md)、
-[中信证券双年度](docs/CITIC_SECURITIES_TEMPLATE_SCOPE.md)、
-[中信2024收入重述](docs/CITIC_REVENUE_RESTATEMENT.md)、
-[洛阳钼业繁体中国准则原件](docs/CMOC_TEMPLATE_SCOPE.md)、
-[导航初始化修复](docs/NAVIGATION_STARTUP_20260923.md) 与
-[公开财务覆盖说明](docs/PUBLIC_FINANCIAL_COVERAGE.md)。
-代码验收与线上状态分开：线上版本须核对 `/app/static/release.json`，
-不能仅凭本地提交或部署平台的成功状态推定实际生效。
+本批详细范围：[20家公司与完整原件](docs/INDUSTRY_EXPANSION_12.md)、
+[官方原件读取入口](docs/TESTED_ORIGINAL_SNAPSHOT.md)、[中国石化CAS](docs/SINOPEC_2025_CAS_20260924.md)、
+[跨页归母原文](docs/INCOME_ROW_PAGE_BREAK_20260924.md)、[总额经营分项](docs/GENERAL_OPERATING_TOTALS_RECONCILIATION.md)、
+[海螺重述差异](docs/COVERAGE12_RESTATEMENT_SOURCE.md)。
+此前范围见[第11批](docs/INDUSTRY_EXPANSION_11.md)、[利润复核](docs/GENERAL_INCOME_RECONCILIATION.md)、
+[现金流读取依据](docs/CASH_FLOW_LAYOUT_RECOVERY_11.md)、[完整原件目录](docs/ANNUAL_REPORT_COVERAGE_CATALOG.md)、
+[公开财务覆盖](docs/PUBLIC_FINANCIAL_COVERAGE.md)。
+线上版本须核对 `/app/static/release.json` 及本批最终部署回执。
 
 A Chinese-first financial learning and research product with two
 connected modules: **《消失的现金》** teaches evidence-based financial

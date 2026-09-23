@@ -57,6 +57,8 @@ CHINESE_CASH_FLOW_LABELS = {
         "投资活动现金流量净额",
     ),
     "financing": (
+        "筹资活动(使用)产生的现金流量净额",
+        "筹资活动（使用）产生的现金流量净额",
         "筹资活动(使用)/产生的现金流量净额",
         "筹资活动（使用）/产生的现金流量净额",
         "筹资活动产生/(使用)的现金流量净额",
@@ -334,10 +336,11 @@ def _extract_chinese_row_pair(
     *,
     value_column_count: int = 2,
     recoveries: list | None = None,
+    strict_values: bool = False,
 ) -> tuple[float, float] | None:
     """Return current and prior-year values from a common A-share row."""
     recovery_header = _has_recovery_header(lines)
-    if recovery_header:
+    if recovery_header or strict_values:
         starts = set()
         for index, line in enumerate(lines):
             compact = _compact_chinese_text(line)
@@ -364,22 +367,48 @@ def _extract_chinese_row_pair(
             same_line_values: list[float] = []
             for label_line in lines[row_index : label_end + 1]:
                 same_line_values.extend(_financial_values_in_line(label_line))
-            if value_column_count == 4 and len(same_line_values) >= 4:
+            if strict_values:
+                # Footer removal must not leave the legacy "take last two"
+                # fallback free to discard an extra monetary cell.
+                merged = ' '.join(lines[row_index:label_end + 1])
+                pattern = ''.join(re.escape(char) + r'\s*' for char in label)
+                match = re.match(pattern, merged)
+                if match is None:
+                    merged = re.sub(r'^(?:\d+[.．、]|[一二三四五六七八九十百]+[、.．])\s*', '', merged)
+                    match = re.match(pattern, merged)
+                if match is None:
+                    return None
+                tail = merged[match.end():].strip()
+                same_line_values = _strict_recovery_values(tail) if tail else []
+                if same_line_values is None:
+                    return None
+            if not strict_values and value_column_count == 4 and len(same_line_values) >= 4:
                 current, previous, _, _ = same_line_values[-4:]
                 return current, previous
-            if value_column_count == 2 and len(same_line_values) >= 2:
+            if not strict_values and value_column_count == 2 and len(same_line_values) >= 2:
                 return same_line_values[-2], same_line_values[-1]
 
-            following_values: list[float] = []
+            following_values: list[float] = same_line_values if strict_values else []
             note_recovery = False
+            sign_caption_recovery = False
+            standalone_notes = 0
             last = label_end
-            for last, following_line in enumerate(lines[label_end + 1 : label_end + 7], label_end + 1):
+            following_lines = lines[label_end + 1:] if strict_values else lines[label_end + 1:label_end + 7]
+            for last, following_line in enumerate(following_lines, label_end + 1):
                 if _is_financial_values_line(following_line):
-                    if note_recovery and _strict_recovery_values(following_line) is None:
+                    if (strict_values or note_recovery or sign_caption_recovery) and _strict_recovery_values(following_line) is None:
                         return None
                     following_values.extend(
                         _financial_values_in_line(following_line)
                     )
+                    continue
+                if (recovery_header and last == label_end + 1
+                    and label in CHINESE_CASH_FLOW_LABELS['net_change']
+                    and re.fullmatch(r'[（(]净减少以[“"\'][-－−][”"\']号填列[）)]',
+                                     _compact_chinese_text(following_line))):
+                    # This is the sign convention printed below the same row,
+                    # not a new account or permission to skip arbitrary text.
+                    sign_caption_recovery = True
                     continue
                 if recovery_header and not following_values:
                     noted = _joined_note_values(following_line)
@@ -387,27 +416,38 @@ def _extract_chinese_row_pair(
                         following_values.extend(noted)
                         note_recovery = True
                         continue
-                if recovery_header and _invalid_numeric_boundary(following_line):
+                if (recovery_header or strict_values) and _invalid_numeric_boundary(following_line):
                     return None
                 if following_values:
                     break
                 if note_recovery:
                     break
-                if recovery_header:
-                    if _standalone_note(following_line):
+                if recovery_header or strict_values:
+                    parenthesized_note = bool(strict_values and re.fullmatch(
+                        r'[（(][一二三四五六七八九十百]+[）)][1-9]\d{0,2}(?:[（(][A-Za-z0-9]+[）)])*',
+                        _compact_chinese_text(following_line)))
+                    if _standalone_note(following_line) or parenthesized_note:
+                        standalone_notes += 1
+                        if strict_values and standalone_notes > 1:
+                            return None
                         continue
                     # A real two-column table must not borrow an amount from
                     # a later account after this row's evidence is missing.
                     break
-            if note_recovery:
+            if strict_values and len(following_values) != value_column_count:
+                return None
+            if note_recovery or sign_caption_recovery:
                 # A newly recognised note must leave exactly two cells. Never
                 # select the last two from an ambiguous three-cell row.
                 if len(following_values) != 2:
                     return None
                 if recoveries is not None:
                     end = last if _is_financial_values_line(lines[last]) else last - 1
-                    recoveries.append(dict(kind="chinese_note_adjacent_to_amount", label=label,
+                    recoveries.append(dict(kind=("wrapped_net_change_sign_caption" if sign_caption_recovery
+                                                 else "chinese_note_adjacent_to_amount"), label=label,
                         normalized_lines=lines[row_index:end + 1]))
+                return following_values[0], following_values[1]
+            if strict_values:
                 return following_values[0], following_values[1]
             if value_column_count == 4 and len(following_values) >= 4:
                 current, previous, _, _ = following_values[-4:]
@@ -544,7 +584,15 @@ def extract_cash_flow_figures(
     source_pages: list[tuple[int, str]] | None = None,
 ) -> CashFlowFigures | None:
     """Extract cash-flow totals only when both cash reconciliations pass."""
-    lines = _normalise_lines(_bounded_cash_flow_text(page_text))
+    # A page footer is not a third financial cell. Only remove a standalone
+    # final integer matching this physical page, separated by a blank line.
+    original_pages = source_pages or [(page_number, page_text)]
+    if source_pages is not None and "\n".join(t for _, t in source_pages) != page_text:
+        return None
+    clean_text = "\n".join(re.sub(
+        rf'(?:\r?\n[ \t]*){{2,}}{number}[ \t]*(?:\r?\n[ \t]*)*\Z',
+        '\n', text) for number, text in original_pages)
+    lines = _normalise_lines(_bounded_cash_flow_text(clean_text))
     chinese_value_column_count = _chinese_cash_flow_column_count(lines)
     recoveries = []
     if chinese_value_column_count is not None:
@@ -554,6 +602,7 @@ def extract_cash_flow_figures(
                 labels,
                 value_column_count=chinese_value_column_count,
                 recoveries=recoveries,
+                strict_values=clean_text != page_text,
             )
             for name, labels in CHINESE_CASH_FLOW_LABELS.items()
         }

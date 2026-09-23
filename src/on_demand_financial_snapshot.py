@@ -368,6 +368,8 @@ def build_on_demand_financial_snapshot(
                if result.get('pdf_text_adjustments') else {}),
             **({'cash_flow_layout_recoveries': deepcopy(result['cash_flow_layout_recoveries'])}
                if result.get('cash_flow_layout_recoveries') else {}),
+            **({'income_layout_recoveries': deepcopy(result['income_layout_recoveries'])}
+               if result.get('income_layout_recoveries') else {}),
         },
         "source_fingerprint_sha256": str(
             result["evidence_fingerprint_sha256"]
@@ -396,7 +398,7 @@ def build_on_demand_financial_snapshot(
         }),
         "limitations": [
             *([str(result['extraction_note'])] if result.get('extraction_note') else []),
-            "本结果由程序从最新完整年度报告自动提取，未经人工复核或审计。",
+            "本结果由程序从本次所选完整年度报告自动提取，未经人工复核或审计。",
             *(['本年报含带坐标依据的负号换行连接；原PDF与原文不改写，处理记录保留在报告信息中，仍需人工复核。']
               if result.get('pdf_text_adjustments') else []),
             *([str(result['income_reconciliation']['note'])]
@@ -595,6 +597,15 @@ def build_financial_snapshot_report_html(
                     continue
                 derivation_html += ('<p>PDF第' + escape(str(span.get('page_number', ''))) + '页</p><pre>'
                     + escape(str(span.get('original_text', ''))[:2000]) + '</pre>')
+    for item in report.get('income_layout_recoveries', [])[:8]:
+        if not isinstance(item, Mapping) or not isinstance(item.get('source_segments'), list):
+            continue
+        derivation_html += ('<h2>归母利润跨页读取依据</h2><p>'
+            + escape(str(item.get('note', ''))) + '</p>')
+        for segment in item['source_segments']:
+            if isinstance(segment, Mapping):
+                derivation_html += ('<p>PDF第' + escape(str(segment.get('page_number', ''))) + '页原始文字</p><pre>'
+                    + escape(str(segment.get('text', ''))[:2000]) + '</pre>')
     return f"""<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">

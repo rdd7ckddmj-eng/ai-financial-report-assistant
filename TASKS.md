@@ -423,5 +423,19 @@
 - [x] Preserve raw cash-flow layout spans through candidate, snapshot, batch, UI and HTML; reject malformed extra cells, duplicate labels, unknown-account borrowing and parent boundaries.
 - [x] Accept only equivalent RMB unit spellings while preserving every original unit and blocking currency/scale mismatches.
 - [x] Run 68 full original PDFs: 63 candidates, five gaps, 52 issuers, 49 candidate issuers, 66 issuer/year pairs; prior 60 statuses, statement checks and two-period amounts unchanged. Thirty added current amounts match the public source; no new human financial confirmations.
-- [ ] Complete batch 11 deployment and actual browser acceptance; use the task's final release receipt to close this pre-deployment checkpoint.
+- [x] Batch 11 deployment and actual browser acceptance completed at 14c01f5 / 20260924-coverage-11.1; final release receipt verified four successes and one retained failure.
 - [ ] Extend beyond these exact report versions; the old PICC/CMOC originals, CSCEC image tables, Sinopec layout and Unicom text corruption remain gaps. Do not assume OCR or full-market support.
+
+
+## 2026-09-24 — Batch 12: twenty issuers, CAS repair and exact-original input
+
+- [x] Add 20 issuers' 2025 complete official originals; repair the prior Sinopec 2025 CAS layout without IFRS/parent fallback.
+- [x] Bound new ordinary-shareholder, relative-year/unit, note and cross-page profit layouts; retain source segments through UI and HTML.
+- [x] Separate operating totals and their explicitly listed children, keeping eight full-report enhanced checks and explicit incomplete evidence elsewhere.
+- [x] Add exact tested-source selection and fresh official download, SHA/page validation and re-parsing; history cannot grant a current pass or human confirmation.
+- [x] Close independent-review counterexamples involving bad comma groups, extra amounts, numbered parent headers, source-company mismatch and redirect control characters.
+- [x] Run all 88 complete PDFs: 84 candidates, four gaps, 72 issuers, 70 candidate issuers, 86 issuer/year pairs; old 67 unchanged apart from the expected Sinopec repair. 2,950 full local tests pass.
+- [x] Compare 105 added/repaired current amounts: 103 zero differences; preserve two Conch differences explained by later official common-control restatement.
+- [ ] Complete batch 12 deployment, exact-version health checks and actual official-download/browser acceptance; final task release receipt closes this pre-deployment item.
+- [ ] Investigate the remaining four exact PDF gaps with independently evidenced methods; do not assume OCR or full-market coverage.
+- [ ] Carry the new downloaded-original provenance enum into the separate public comparison artifact (currently not_recorded there; source URL/date/pages/SHA and financial amounts remain explicit).

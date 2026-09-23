@@ -1,0 +1,63 @@
+[
+  {
+    "code": "002475",
+    "name": "立讯精密",
+    "year": 2025,
+    "source_fixture": "general_income_reconciliation_real.json",
+    "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-15/1225104908.PDF",
+    "pdf_sha256": "957556c331a237cc3235b63659e884c7e1e877b6460f06d5039159f1598e4e46",
+    "physical_pages_viewed": [
+      120,
+      121
+    ],
+    "verification_date": "2026-09-24",
+    "method": "Poppler rendered full physical page PNGs, visually inspected against original PDF",
+    "visual_observations": [
+      "第120页底部明确列示营业总收入及两期金额；第121页续表列示营业收入及营业总成本。",
+      "已赚保费、保险成本、汇兑及净敞口套期收益均为两期显式0.00。",
+      "财务费用比较期为-503,176,648.23；减值及终止确认收益符号清楚。"
+    ],
+    "expected_operating_status": "passed",
+    "expected_check_count": 5
+  },
+  {
+    "code": "601766",
+    "name": "中国中车",
+    "year": 2025,
+    "source_fixture": "shanghai_2025_statements.json",
+    "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-28/1225047457.PDF",
+    "pdf_sha256": "52254f29206ef598b0ab52a5f359cc87c2cf8e5a48ff87057015267bda99bf3d",
+    "physical_pages_viewed": [
+      92
+    ],
+    "verification_date": "2026-09-24",
+    "method": "Poppler rendered full physical page PNGs, visually inspected against original PDF",
+    "visual_observations": [
+      "仅列营业总收入，未列营业收入行；不得宣称这两个口径相同。",
+      "营业总成本下列明营业成本、税金及四项费用；利息费用和利息收入属于财务费用子项。",
+      "比较期标题2024年度（重述）；财务费用比较期括号11,908表示负数。"
+    ],
+    "expected_operating_status": "passed",
+    "expected_check_count": 4
+  },
+  {
+    "code": "000858",
+    "name": "五粮液",
+    "year": 2025,
+    "source_fixture": "general_income_reconciliation_real.json",
+    "source_url": "https://disc.static.szse.cn/disc/disk03/finalpage/2026-04-30/7b179575-3e07-4607-8d7e-d1bb9c4c8786.PDF",
+    "pdf_sha256": "09133e1f44b3bb4b2cebe211529ad68f5b04b6be10b43870f2a78c947d5910a4",
+    "physical_pages_viewed": [
+      56
+    ],
+    "verification_date": "2026-09-24",
+    "method": "Poppler rendered full physical page PNGs, visually inspected against original PDF",
+    "visual_observations": [
+      "营业总收入与营业总成本明确列示。",
+      "利息收入、已赚保费、若干成本子项、汇兑及净敞口套期、公允价值收益单元格为空白。",
+      "空白单元格不转成0，即使其他已读金额相加可以平衡，增强检查仍不完成。"
+    ],
+    "expected_operating_status": "missing_evidence",
+    "expected_check_count": 0
+  }
+]
