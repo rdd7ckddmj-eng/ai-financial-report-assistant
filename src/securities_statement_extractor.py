@@ -1,4 +1,4 @@
-"""Explicit four-column securities statements, initially Huatai 2024.
+"""Explicit four-column securities statements, validated on Huatai 2024/2025.
 
 Group current/prior and parent current/prior are validated independently. Signed
 cash outflows and signed income costs are never converted with abs().
@@ -9,7 +9,8 @@ from src.financial_statement_extractor import _normalise_lines, _chinese_label_s
 
 SECURITIES_TEMPLATE = 'securities_group_parent_yuan_v1'
 _TITLES = {'income':'合并及母公司利润表','balance':'合并及母公司资产负债表','cash':'合并及母公司现金流量表'}
-_NUMBER = re.compile(r'^(?:[-—–]|[（(]?[-−－]?\d[\d,，]*(?:\.\d+)?[）)]?)$')
+_AMOUNT = r'(?:\d{1,3}(?:[,，]\d{3})+|\d+)(?:\.\d+)?'
+_NUMBER = re.compile(rf'^(?:[-—–]|[-−－]?{_AMOUNT}|\({_AMOUNT}\)|（{_AMOUNT}）)$')
 _NOTE = re.compile(r'^\d{1,3}(?:[（(]\d+[）)])+$')
 
 
@@ -20,6 +21,7 @@ def _window(pages, title, year, section):
         compact=[re.sub(r'\s+','',line) for line in lines]
         if title not in compact:continue
         pieces=[]
+        restated=None
         for offset,(page,content) in enumerate(pages[index:index+3]):
             ls=_normalise_lines(content);cs=[re.sub(r'\s+','',line) for line in ls]
             heading=title if offset==0 else title+'-续'
@@ -29,25 +31,47 @@ def _window(pages, title, year, section):
             pos=cs.index('附注五',start)
             if cs[pos-2:pos]!=['本集团','本公司']:raise ValueError('column groups')
             suffix='年12月31日' if section=='balance' else '年度'
-            expected=[]
-            for y in (year,year-1,year,year-1):expected.extend([f'{y}{suffix}','人民币元'])
-            if cs[pos+1:pos+9]!=expected:raise ValueError('year/unit columns')
-            body=ls[pos+9:]
+            cursor=pos+1
+            page_restated=False
+            for column,y in enumerate((year,year-1,year,year-1)):
+                if cs[cursor:cursor+2]!=[f'{y}{suffix}','人民币元']:
+                    raise ValueError('year/unit columns')
+                cursor+=2
+                if cursor<len(cs) and cs[cursor] in ('(经重述)','（经重述）'):
+                    # Huatai 2025 restates only the group's prior income column.
+                    # A marker on a different column must not silently move it.
+                    if section!='income' or column!=1:
+                        raise ValueError('unsupported restated column')
+                    page_restated=True
+                    cursor+=1
+            if restated is not None and restated!=page_restated:
+                raise ValueError('inconsistent restatement headers')
+            restated=page_restated
+            body=ls[cursor:]
             # A second statement on the same page is not a continuation.
             if any(re.search(r'(?:合并|母公司).*(?:资产负债表|利润表|现金流量表)',v) for v in body):raise ValueError('mixed statements')
             pieces.append((page,body))
         if len(pieces) == 3 and index+3 < len(pages) and title+'-续' in [re.sub(r'\s+','',x) for x in _normalise_lines(pages[index+3][1])]:
             raise ValueError('statement exceeds three pages')
-        if pieces:found.append(pieces)
+        if pieces:found.append(dict(pages=pieces,restated=restated))
     if len(found)!=1:raise ValueError('missing or duplicate statement')
     return found[0]
 
 
+def _label_span(lines,index,label):
+    """This layout has label-only lines; unobserved suffixes are not aliases."""
+    end=_chinese_label_span(lines,index,label)
+    if end is None:return None
+    compact=re.sub(r'\s+','',''.join(lines[index:end+1])).replace(':','：')
+    compact=re.sub(r'^(?:\d+[.．、]|[一二三四五六七八九十]+[、.．])','',compact,count=1)
+    return end if compact==re.sub(r'\s+','',label).replace(':','：') else None
+
+
 def _read(window,label):
-    lines=[line for _,body in window for line in body]
+    lines=[line for _,body in window['pages'] for line in body]
     matches=[]
     for i in range(len(lines)):
-        end=_chinese_label_span(lines,i,label)
+        end=_label_span(lines,i,label)
         if end is None:continue
         tokens=[]
         # Supported table has label-only lines, then optional note and four cells.
@@ -70,15 +94,34 @@ def _read(window,label):
     return matches[0]
 
 
+def _one_label(window, labels):
+    """Choose one observed exact label, never the first successful parse."""
+    lines=[line for _,body in window['pages'] for line in body]
+    matches=[label for label in labels if any(
+        _label_span(lines,i,label) is not None for i in range(len(lines)))]
+    if len(matches)!=1:raise ValueError('missing or ambiguous label variants')
+    return matches[0]
+
+
+def _row_page(window,label):
+    matches=[page for page,lines in window['pages'] if any(
+        _label_span(lines,i,label) is not None for i in range(len(lines)))]
+    if len(matches)!=1:raise ValueError('missing or duplicate source page')
+    return matches[0]
+
+
 def extract_securities_statements(pages,year):
     try:
         windows={k:_window(pages,v,year,k) for k,v in _TITLES.items()}
         def read(section,label):return _read(windows[section],label)
+        def choose_label(section,*variants):return _one_label(windows[section],variants)
         def equal(left,*parts):
             if any(abs(left[i]-sum(p[i] for p in parts))>Decimal('.01') for i in range(4)):
                 raise ValueError('four-column reconciliation')
         rev=read('income','营业总收入')
-        equal(rev,*[read('income',s) for s in ('手续费及佣金净收入','利息净收入','投资收益','其他收益','公允价值变动(损失)/收益','汇兑收益/(损失)','其他业务收入','资产处置收益')])
+        equal(rev,*[read('income',s) for s in ('手续费及佣金净收入','利息净收入','投资收益','其他收益',
+            choose_label('income','公允价值变动(损失)/收益','公允价值变动损失'),
+            choose_label('income','汇兑收益/(损失)','汇兑(损失)/收益'),'其他业务收入','资产处置收益')])
         equal(read('income','利息净收入'),read('income','其中：利息收入'),read('income','利息支出'))
         costs=read('income','营业总支出')
         if any(v>0 for v in costs):raise ValueError('unsigned expenses')
@@ -95,18 +138,24 @@ def extract_securities_statements(pages,year):
         equal(equity,read('balance','归属于母公司股东权益合计'),minor_equity)
         if any(minor_equity[i]!=0 for i in (2,3)):raise ValueError('parent-only minority equity')
         flows=[]
-        labels=('经营活动产生/(使用)的现金流量净额','投资活动使用的现金流量净额','筹资活动(使用)/产生的现金流量净额')
+        labels=(choose_label('cash','经营活动产生/(使用)的现金流量净额','经营活动(使用)/产生的现金流量净额'),
+            choose_label('cash','投资活动使用的现金流量净额','投资活动(使用)/产生的现金流量净额'),
+            choose_label('cash','筹资活动(使用)/产生的现金流量净额','筹资活动产生/(使用)的现金流量净额'))
         for kind,label in zip(('经营','投资','筹资'),labels):
             incoming=read('cash',kind+'活动现金流入小计');outgoing=read('cash',kind+'活动现金流出小计')
             if any(v<0 for v in incoming) or any(v>0 for v in outgoing):raise ValueError('cash signs')
             flow=read('cash',label);equal(flow,incoming,outgoing);flows.append(flow)
-        delta=read('cash','现金及现金等价物净增加/(减少)额')
+        delta=read('cash',choose_label('cash','现金及现金等价物净增加/(减少)额','现金及现金等价物净增加额'))
         equal(delta,*flows,read('cash','汇率变动对现金及现金等价物的影响'))
         equal(read('cash','年末现金及现金等价物余额'),read('cash','加：年初现金及现金等价物余额'),delta)
         def figures(section,values,sources):
-            start,end=windows[section][0][0],windows[section][-1][0]
+            window=windows[section]
+            start,end=window['pages'][0][0],window['pages'][-1][0]
+            comparison=('本期与本报告本集团比较栏原值；上年本集团利润表经重述，不能替换为上年报告未重述值'
+                if window['restated'] else '本期与本报告本集团比较栏原值；该表列头未标注重述')
             result=dict(unit='人民币元',page_number=start,end_page_number=end,
-                metric_sources={k:dict(page_number=start,end_page_number=end,labels=[v],statement='合并及母公司报表（仅取本集团列）') for k,v in sources.items()})
+                metric_sources={k:dict(page_number=_row_page(window,v),end_page_number=_row_page(window,v),
+                    labels=[v],statement='合并及母公司报表（仅取本集团列）',comparison_basis=comparison) for k,v in sources.items()})
             for key,value in values.items():result['current_'+key],result['previous_'+key]=map(float,value[:2])
             return result
         return dict(income=figures('income',dict(revenue=rev,net_profit=parent),dict(revenue='营业总收入',net_profit='归属于母公司股东的净利润')),

@@ -1,5 +1,7 @@
-"""Synthetic four-column financial statements, not actual company evidence."""
+"""Synthetic rejection checks plus source-linked Huatai 2024/2025 report pages."""
 from decimal import Decimal
+import json
+from pathlib import Path
 import pytest
 from src.securities_statement_extractor import extract_securities_statements, SECURITIES_TEMPLATE
 
@@ -73,3 +75,97 @@ def test_snapshot_provenance_and_revenue_label():
  assert s['metrics'][0]['source']['excerpt'].startswith('营业总收入')
  assert all('仅取本集团列' in m['source']['statement'] for m in s['metrics'])
  assert all(v is None for v in s['ratios'].values())
+
+
+def real_pages(year=2025):
+ data=json.loads((Path(__file__).parent/'fixtures'/f'huatai_securities_{year}_statements.json').read_text())
+ return [(n,t) for n,t in data['pages']]
+
+
+@pytest.mark.parametrize('year,expected',[
+ (2024,(41466367393.80,36577585349.48,15351162321.66,68167706589.90,814270493580.79,622376572865.76)),
+ (2025,(35809920255.16,33519165071.03,16383497118.10,-12601571386.35,1077347555872.09,870351351718.75)),
+])
+def test_real_reports_preserve_signed_amounts_and_own_comparative_vintage(year,expected):
+ r=extract_securities_statements(real_pages(year),year)
+ assert r is not None
+ actual=(r['income']['current_revenue'],r['income']['previous_revenue'],
+         r['income']['current_net_profit'],r['cash']['current_operating_cash_flow'],
+         r['balance']['current_total_assets'],r['balance']['current_total_liabilities'])
+ assert actual==expected
+ basis=r['income']['metric_sources']['revenue']['comparison_basis']
+ assert ('上年本集团利润表经重述' in basis)==(year==2025)
+ assert '未标注重述' in r['balance']['metric_sources']['total_assets']['comparison_basis']
+
+
+@pytest.mark.parametrize('page,old,new',[
+ # All four income columns must reconcile, including the unused company columns.
+ (206,'35,809,920,255.16','35,809,920,256.16'),
+ (206,'33,519,165,071.03','41,466,367,393.80'), # do not substitute the prior report's unrevised revenue
+ (206,'22,296,628,570.39','22,296,628,571.39'),
+ (206,'18,725,207,083.01','18,725,207,084.01'),
+ # Group/current, group/prior, company/current and company/prior assets.
+ (203,'1,077,347,555,872.09','1,077,347,555,873.09'),
+ (203,'814,270,493,580.79','814,270,493,581.79'),
+ (203,'846,202,964,923.47','846,202,964,924.47'),
+ (203,'644,967,323,077.78','644,967,323,078.78'),
+ # Signed operating cash flows in all four columns.
+ (209,'(12,601,571,386.35)','12,601,571,386.35'),
+ (209,'68,167,706,589.90','68,167,706,590.90'),
+ (209,'(2,574,790,211.96)','(2,574,790,212.96)'),
+ (209,'62,634,325,305.45','62,634,325,306.45'),
+])
+def test_real_report_rejects_changed_current_comparative_and_parent_cells(page,old,new):
+ p=real_pages()
+ assert any(n==page and old in t for n,t in p)
+ p=[(n,t.replace(old,new,1) if n==page else t) for n,t in p]
+ assert extract_securities_statements(p,2025) is None
+
+
+@pytest.mark.parametrize('change',[
+ 'current_marker','parent_marker','inconsistent_marker','unknown_marker',
+ 'duplicate_variant','extra_cell','wrong_unit','missing_continuation',
+ 'unobserved_label_suffix','unclosed_negative','malformed_grouping',
+])
+def test_real_report_rejects_ambiguous_or_inconsistent_restatement_tables(change):
+ p=real_pages()
+ for i,(n,t) in enumerate(p):
+  if n!=206:continue
+  if change=='current_marker':
+   t=t.replace('( 经重述)\n','').replace('2025 年度\n人民币元','2025 年度\n人民币元\n( 经重述)',1)
+  if change=='parent_marker':
+   t=t.replace('( 经重述)\n','').replace('一、营业总收入','( 经重述)\n一、营业总收入',1)
+  if change=='inconsistent_marker':t=t.replace('( 经重述)\n','')
+  if change=='unknown_marker':t=t.replace('( 经重述)','( 未经重述)')
+  if change=='duplicate_variant':
+   t+='\n公允价值变动(损失)/收益\n1.00\n1.00\n1.00\n1.00\n'
+  if change=='extra_cell':t=t.replace('35,809,920,255.16','1.00\n35,809,920,255.16',1)
+  if change=='wrong_unit':t=t.replace('人民币元','人民币千元',1)
+  if change=='unobserved_label_suffix':t=t.replace('公允价值变动损失','公允价值变动损失(其他口径)',1)
+  if change=='unclosed_negative':t=t.replace('(3,008,586,602.83)','(3,008,586,602.83',1)
+  if change=='malformed_grouping':t=t.replace('35,809,920,255.16','358,09,920,255.16',1)
+  p[i]=(n,t)
+ if change=='missing_continuation':p=[(n,t) for n,t in p if n!=207]
+ assert extract_securities_statements(p,2025) is None
+
+
+def test_real_2025_snapshot_carries_row_pages_restatement_and_financial_sector_policy():
+ from src.audited_company_onboarding import build_candidate_report_result
+ from src.china_stock import build_company_identity
+ from src.on_demand_financial_snapshot import build_on_demand_financial_snapshot
+ company=build_company_identity('601688','华泰证券')
+ c=build_candidate_report_result(company,dict(report_year=2025,title='2025年年度报告',
+   published_date='2026-03-31',url='https://static.cninfo.com.cn/finalpage/2026-03-31/1225050753.PDF'),
+   b'%PDF-fixture-not-full-document',[dict(page_number=n,text=t) for n,t in real_pages()])
+ assert c['statement_template']==SECURITIES_TEMPLATE
+ s=build_on_demand_financial_snapshot(company,c)
+ assert all(s['statement_checks'].values())
+ expected_pages={'revenue':206,'net_profit':206,'operating_cash_flow':209,'total_assets':203,'total_liabilities':204}
+ for metric in s['metrics']:
+  page=expected_pages[metric['key']]
+  assert metric['source']['pages']==dict(start=page,end=page)
+  assert metric['source']['excerpt_status']=='captured'
+  assert '仅取本集团列' in metric['source']['statement']
+ assert s['metrics'][0]['label']=='营业总收入（证券报表）'
+ assert '经重述' in s['metrics'][0]['source']['comparison_basis']
+ assert all(value is None for value in s['ratios'].values())

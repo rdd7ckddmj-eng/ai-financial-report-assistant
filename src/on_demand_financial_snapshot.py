@@ -35,6 +35,7 @@ class SnapshotMetricSource(TypedDict):
     original_unit: str
     accounting_basis: str
     comparison_basis: str
+    comparison_comparable: bool
     statement: str
     pages: dict[str, int] | None
     excerpt: str
@@ -206,6 +207,7 @@ def _normalise_metric_source(
             source.get("accounting_basis", "报表口径待人工确认")
         ).strip()
         or "报表口径待人工确认",
+        "comparison_comparable": source.get("comparison_comparable", True) is not False,
         "comparison_basis": str(
             source.get(
                 "comparison_basis",
@@ -305,8 +307,8 @@ def build_on_demand_financial_snapshot(
                 "label": "营业总收入（证券报表）" if key == "revenue" and result.get("statement_template") == "securities_group_parent_yuan_v1" else "营业总收入（保险报表）" if key == "revenue" and result.get("statement_template") in TOTAL_REVENUE_TEMPLATES else label,
                 "current_yuan": current_yuan,
                 "previous_yuan": previous_yuan,
-                "change_rate": _safe_change_rate(current_yuan, previous_yuan),
-                "change_rate_note": _change_rate_note(current_yuan, previous_yuan),
+                "change_rate": _safe_change_rate(current_yuan, previous_yuan) if source["comparison_comparable"] else None,
+                "change_rate_note": _change_rate_note(current_yuan, previous_yuan) if source["comparison_comparable"] else "会计准则比较口径不一致，不自动计算同比。",
                 "statement": source["statement"],
                 "pages": source["pages"],
                 "source": source,

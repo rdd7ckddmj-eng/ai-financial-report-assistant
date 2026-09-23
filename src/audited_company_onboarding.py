@@ -20,6 +20,7 @@ from typing import TypedDict
 from src.balance_sheet_extractor import find_balance_sheet_figures
 from src.statement_evidence_rules import inherit_statement_units
 from src.insurance_statement_extractor import INSURANCE_TEMPLATE, extract_insurance_statements
+from src.chinalife_statement_extractor import CHINALIFE_TEMPLATE, extract_chinalife_statements, matches_chinalife_issuer
 from src.insurance_group_statement_extractor import TEMPLATES as INSURANCE_GROUP_TEMPLATES, extract_insurance_group_statements
 from src.financial_sector_policy import matches_known_insurer
 from src.financial_sector_policy import unsupported_issuer_template
@@ -364,6 +365,7 @@ def _build_metric_evidence(
                 else ""
             ),
             "accounting_basis": (source_override or {}).get("accounting_basis") or ("合并营业总收入（证券报表，本集团列）" if statement_template == SECURITIES_TEMPLATE and metric_key == "revenue" else "保险集团合并营业收入（非保费收入）" if statement_template == INSURANCE_TEMPLATE and metric_key == "revenue" else _statement_accounting_basis(page_text)),
+            "comparison_comparable": (source_override or {}).get("comparison_comparable", True),
             "comparison_basis": (source_override or {}).get("comparison_basis", "本期与年报比较栏原值；可能包含追溯调整"),
             "statement": statement_label,
             "pages": pages,
@@ -426,6 +428,7 @@ def build_candidate_report_result(
     insurance = extract_insurance_statements(page_list, report_year) if (
         unsupported == 'insurance_unsupported_v1' and company.get('code') == '601318'
         and company.get('name') == '中国平安'
+        and matches_known_insurer(company, page_list)
     ) else None
     if insurance:
         statement_template = INSURANCE_TEMPLATE
@@ -437,6 +440,13 @@ def build_candidate_report_result(
     if group_insurance:
         statement_template = INSURANCE_GROUP_TEMPLATES[company['code']]
         income, balance, cash_flow = group_insurance['income'], group_insurance['balance'], group_insurance['cash']
+        unsupported = None
+    chinalife = extract_chinalife_statements(page_list, report_year) if (
+        unsupported == 'insurance_unsupported_v1' and matches_chinalife_issuer(company, page_list)
+    ) else None
+    if chinalife:
+        statement_template = CHINALIFE_TEMPLATE
+        income, balance, cash_flow = chinalife['income'], chinalife['balance'], chinalife['cash']
         unsupported = None
     if bank is None and not unsupported:
         inherit_statement_units(page_list, [income, balance, cash_flow])

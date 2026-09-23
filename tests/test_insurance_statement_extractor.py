@@ -134,3 +134,18 @@ def test_restated_provenance_reaches_candidate():
         b'%PDF-fixture', [dict(page_number=1,text='中国平安保险（集团）股份有限公司')]+[dict(page_number=n,text=t) for n,t in pages_2023()])
     assert result['status'] == 'ready_for_human_review'
     assert all('已重述' in x['comparison_basis'] for x in result['metric_evidence'].values())
+
+
+@pytest.mark.parametrize('bad',['1,,028,,925','1,028,925,','10,28,925'])
+def test_pingan_rejects_malformed_thousands_groups(bad):
+    assert extract_insurance_statements([(n,t.replace('1,028,925',bad)) for n,t in pages()],2024) is None
+
+
+def test_pingan_selected_identity_does_not_replace_document_legal_name():
+    from src.audited_company_onboarding import build_candidate_report_result
+    from src.china_stock import build_company_identity
+    p=[dict(page_number=n,text=t.replace('中国平安保险（集团）股份有限公司','')) for n,t in pages()]
+    result=build_candidate_report_result(build_company_identity('601318','中国平安'),dict(report_year=2024,title='2024年年度报告',published_date='2025-03-20',url='https://static.cninfo.com.cn/fixture.pdf'),b'%PDF-fixture',p)
+    assert result['statement_template']=='insurance_unsupported_v1'
+    assert result['status']=='needs_review'
+    assert all(x is None for x in result['values'].values())

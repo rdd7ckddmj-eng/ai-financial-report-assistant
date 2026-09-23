@@ -332,3 +332,14 @@
 - [x] Compare all 15 new current-year amounts with public source; all amount-close, not human-verified.
 - [ ] Validate additional insurer years and China Life's new-standard, restated multi-year layout; China Life mirror was diagnostic only.
 - [ ] Add more securities/BSE issuer fixtures and continue remaining research-view case producers.
+
+
+## 2026-09-23 — Cross-year insurance/securities batch
+
+- [x] Add full-report CPIC/NCI 2025, Huatai 2025 and China Life 2024/2025 fixtures and explicit layout rules.
+- [x] Preserve Huatai restated group comparatives and negative operating cash flow; suppress China Life 2024 automatic growth for mixed accounting-standard comparatives.
+- [x] Fix independent-review findings: Ping An legal-name gate, malformed thousands separators, and extra comparison/amount columns.
+- [x] Run 25 official full PDFs: 24 candidates and PICC 2025 needs-review; no filled-in missing amounts and no human confirmations.
+- [x] Check 25 new current-year public/PDF amounts and preserve all prior 19 reports' current/prior values.
+- [ ] Obtain usable official PICC 2025 numeric text and validate its year profile before enabling.
+- [ ] Expand beyond the verified securities issuer and BSE sample; untested reports remain unclaimed.

@@ -12,7 +12,8 @@ INSURANCE_TEMPLATE = 'insurance_signed_million_v1'
 UNIT = '（除特别注明外，金额单位为人民币百万元）'
 END = '后附财务报表附注为财务报表的组成部分。'
 TITLES = {'income': '合并利润表', 'balance': '合并资产负债表', 'cash': '合并现金流量表'}
-NUMBER = re.compile(r'(?:[–—-]|-?\d[\d,]*|\(\d[\d,]*\))')
+INTEGER = r'(?:\d{1,3}(?:,\d{3})+|\d+)'
+NUMBER = re.compile(rf'(?:[–—-]|-?{INTEGER}|\({INTEGER}\))')
 NOTE = re.compile(r'\d{1,2}(?:\(\d+\))*')
 ROW_NOTES = dict(zip(
     ('保险服务收入', '银行业务利息净收入', '银行业务利息收入', '银行业务利息支出',

@@ -906,6 +906,11 @@ VERIFIED_ISSUER_REPORT_URLS = frozenset({
     # Do not allow arbitrary paths, subdomains or redirects on these hosts.
     "https://www.cpic.com.cn/upload/resources/file/2025/04/09/86079.pdf",
     "https://www.pingan.com/app_upload/images/info/upload/e1fd26bb-177b-485f-9778-cd6fabcc6476.pdf",
+    "https://www.cpic.com.cn/upload/resources/file/2026/03/26/93802.pdf",
+    "https://static-cdn.newchinalife.com/ncl/pdf/20260327/d5c70560-e595-4188-a006-643ad4766e0d.pdf",
+    "https://www.picc.com.cn/jttzzgx/dqbg/202603/P020260326740062299792.pdf",
+    "https://www.e-chinalife.com/upload/resources/file/2025/03/26/2024%E5%B9%B4%E5%B9%B4%E5%BA%A6%E6%8A%A5%E5%91%8A.pdf",
+    "https://www.e-chinalife.com/upload/resources/file/2026/03/25/2025%E5%B9%B4%E5%B9%B4%E5%BA%A6%E6%8A%A5%E5%91%8A.pdf",
 })
 
 

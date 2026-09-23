@@ -127,6 +127,7 @@ def _normalise_source(metric: Mapping[str, object]) -> dict[str, object]:
             source.get("accounting_basis", "报表口径待人工确认")
         ).strip()
         or "报表口径待人工确认",
+        "comparison_comparable": source.get("comparison_comparable", True) is not False,
         "comparison_basis": str(
             source.get(
                 "comparison_basis",

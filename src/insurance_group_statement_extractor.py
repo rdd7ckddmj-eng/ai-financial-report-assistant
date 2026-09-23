@@ -1,9 +1,10 @@
-"""Verified PICC/CPIC/NCI 2024 layouts, with explicit issuer-specific rules.
+"""Verified PICC 2024 and CPIC/NCI 2024–2025 issuer-specific layouts.
 
 These profiles do not imply all insurance reports are supported. We validate
 both years (and NCI's parent columns) before returning consolidated candidates.
 """
 from decimal import Decimal
+from copy import deepcopy
 import re
 
 TEMPLATES = {
@@ -12,6 +13,9 @@ TEMPLATES = {
     '601336': 'insurance_nci_four_column_v1',
 }
 TOTAL_REVENUE_TEMPLATES = frozenset(TEMPLATES[c] for c in ('601319', '601601'))
+VERIFIED_YEARS = {'601319': frozenset({2024}),
+                  '601601': frozenset({2024, 2025}),
+                  '601336': frozenset({2024, 2025})}
 TITLES = dict(balance='资产负债表', income='利润表', cash='现金流量表')
 END = '后附财务报表附注为本财务报表的组成部分'
 INTEGER = r'(?:\d{1,3}(?:,\d{3})+|\d+)'
@@ -58,8 +62,33 @@ PROFILES = {
 }
 
 
+def _profile(code, year):
+    """Keep changed row labels and note numbers scoped to an observed year."""
+    profile = deepcopy(PROFILES[code])
+    if year == 2025 and code == '601601':
+        replacements = {'公允价值变动收益/(损失)': '公允价值变动收益',
+                        '汇兑(损失)/收益': '汇兑损失',
+                        profile['delta']: '五、现金及现金等价物净增加额'}
+        profile['revenue_parts'] = [replacements.get(x, x) for x in profile['revenue_parts']]
+        profile['delta'] = replacements[profile['delta']]
+        profile['notes'] = {replacements.get(k, k): v for k, v in profile['notes'].items()}
+    if year == 2025 and code == '601336':
+        profile['revenue_parts'] = ['汇兑损益' if x == '汇兑收益' else x for x in profile['revenue_parts']]
+        profile['notes'] = {
+            '保险服务收入':'39', '利息收入':'40/56(4)', '投资收益':'41/56(5)',
+            '公允价值变动损益':'42', '其他收益':'43', '保险服务费用':'44',
+            '承保财务损失':'45', '减：分出再保险财务收益':'45',
+            '税金及附加':'46', '业务及管理费':'46', '信用减值损失':'47',
+            '其他资产减值损失':'48', '其他业务成本':'46', '加：营业外收入':'49',
+            '减：所得税费用':'50', '经营活动产生的现金流量净额':'53(1)/56(6)',
+            '五、现金及现金等价物净增加额':'53(2)/56(6)',
+            '六、年末现金及现金等价物余额':'53(3)/56(6)',
+        }
+    return profile
+
+
 def _window(pages, section, year, code):
-    profile = PROFILES[code]
+    profile = _profile(code, year)
     nci = code == '601336'
     title = ('合并及公司' if nci else '合并') + TITLES[section]
     starts = [i for i, (_, t) in enumerate(pages)
@@ -102,13 +131,37 @@ def _window(pages, section, year, code):
         if lines[pos+1:pos+1+len(columns)] != columns:
             raise ValueError('year columns')
         tail = lines[pos+1+len(columns):]
-        endings = [i for i,x in enumerate(tail) if x.rstrip('。') == END]
+        first_rows = {
+            'balance': (('资产', '负债和股东权益') if code == '601319'
+                        else ('货币资金', '交易性金融负债' if nci else '衍生金融负债')),
+            'income': (profile['revenue'], '五、净利润'),
+            'cash': ('一、经营活动产生的现金流量',
+                     '三、筹资活动产生/(使用)的现金流量' if code == '601319'
+                     else '三、筹资活动产生的现金流量'),
+        }
+        if not tail or tail[0] != first_rows[section][offset]:
+            raise ValueError('extra or unverified column header')
+        # NCI's 2025 income/cash PDF stores the visual footer before the header
+        # in its text layer. Bound it by the physical page and exact header;
+        # allow this ordering only for the observed issuer/year/sections.
+        prefix_footer = nci and year == 2025 and section in {'income', 'cash'}
+        endings = [i for i,x in enumerate(lines) if x.rstrip('。.') == END]
         if len(endings) != 1:
             raise ValueError('unbounded statement')
-        part = tail[:endings[0]]
+        if prefix_footer:
+            if endings[0] >= pos:
+                raise ValueError('unverified footer order')
+            part = tail
+        else:
+            if endings[0] < pos+1+len(columns):
+                raise ValueError('unverified footer order')
+            part = lines[pos+1+len(columns):endings[0]]
         # NCI wraps this exact label; do not concatenate arbitrary rows.
         if nci:
-            part = '\n'.join(part).replace('归属于母公司股东的\n股东权益合计','归属于母公司股东的股东权益合计').splitlines()
+            part = ('\n'.join(part)
+                    .replace('归属于母公司股东的\n股东权益合计','归属于母公司股东的股东权益合计')
+                    .replace('归属于母公司股东的股东\n权益合计','归属于母公司股东的股东权益合计')
+                    .splitlines())
         rows.extend((page, x) for x in part)
     return dict(rows=rows, columns=count, profile=profile, nci=nci)
 
@@ -122,6 +175,10 @@ def _read(window, label):
         cells = []
         for _, value in rows[i+1:i+count+3]:
             if not (NUMBER.fullmatch(value) or NOTE.fullmatch(value) or value == '/'):
+                # An extra malformed/decimal/N/A cell is still a column, not a
+                # row boundary. Only a text label may terminate a numeric row.
+                if not re.search(r'[\u4e00-\u9fff]', value) or value in {'不适用', '无'}:
+                    raise ValueError('invalid amount or extra column: '+label)
                 break
             cells.append(value)
         expected_note = window['profile']['notes'].get(label)
@@ -150,7 +207,7 @@ def _read(window, label):
 
 
 def _extract(pages, year, code):
-    profile = PROFILES[code]
+    profile = _profile(code, year)
     windows = {key: _window(pages, key, year, code) for key in TITLES}
     def read(section, label):
         return _read(windows[section], label)[0]
@@ -210,7 +267,7 @@ def _extract(pages, year, code):
 
 def extract_insurance_group_statements(pages, year, code):
     # Only the sampled year is enabled until another year's layout is tested.
-    if code not in PROFILES or year != 2024:
+    if year not in VERIFIED_YEARS.get(code, ()):
         return None
     try:
         return _extract(pages,year,code)

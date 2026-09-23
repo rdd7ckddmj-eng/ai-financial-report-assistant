@@ -17,7 +17,7 @@ def matches_known_insurer(company, pages):
     return bool(issuer and company.get('name') == issuer[0] and re.search(issuer[1], front))
 
 SPECIAL_FINANCIAL_TEMPLATES = frozenset(TEMPLATES.values()) | frozenset({
-    'insurance_signed_million_v1', 'securities_group_parent_yuan_v1', 'bank_signed_million_v1', 'insurance_unsupported_v1', 'securities_unsupported_v1',
+    'insurance_chinalife_million_v1', 'insurance_signed_million_v1', 'securities_group_parent_yuan_v1', 'bank_signed_million_v1', 'insurance_unsupported_v1', 'securities_unsupported_v1',
 })
 
 

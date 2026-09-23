@@ -373,6 +373,7 @@ def _validate_workpaper(
                     "comparison_basis": _compact_text(
                         source.get("comparison_basis"), limit=320
                     ),
+                    "comparison_comparable": source.get("comparison_comparable", True) is not False,
                     "statement": _compact_text(
                         source.get("statement"), limit=120
                     ),
