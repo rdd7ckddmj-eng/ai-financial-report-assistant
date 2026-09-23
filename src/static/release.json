@@ -1,8 +1,8 @@
 {
-  "release_id": "20260924-coverage-10.1",
-  "source_digest_sha256": "819878419f07772e8eba43a75ce84e5a83a5a0f243a06098482f45c33951cd64",
-  "prior_commit": "4b2c92eeaa2e90b0ba9ff1b1d9a945c35e2c26a7",
-  "verified_python_tests": 1981,
+  "release_id": "20260924-coverage-10.2",
+  "source_digest_sha256": "24647131c8a025db679905897704e4438bd5bfb04dad68d3e56b2fd99d6dbaa7",
+  "prior_commit": "32f15fab8864a7e74f23e895bccebd0279a101db",
+  "verified_python_tests": 1998,
   "coverage": {
     "real_reports_tested": 60,
     "candidate_reports": 57,
@@ -10,5 +10,5 @@
     "candidate_companies": 44,
     "human_verified_new": 0
   },
-  "note": "Exact-source annual report catalogue added; 60 full PDF versions across 45 companies and 59 issuer/year pairs. Added CITIC Securities 2024/2025, CMOC 2025 traditional-Chinese CAS official original, and five ordinary-company candidates. All previous 51 report statuses and both-period amounts unchanged. 40 new current amounts: 39 close and one CITIC revenue difference explained by precise official restatement evidence; original values and difference status retained. PICC 2025, old CMOC image version and CSCEC 2025 remain needs-review. Not full-market coverage or human financial approval."
+  "note": "Exact-source annual report catalogue; 60 full PDF versions across 45 companies and 59 issuer/year pairs, 57 candidates and 3 gaps. All 60 complete report receipts unchanged after bounded native PDF cache cleanup; upload checks avoid a full-file writable copy. Prior deployed 10.1 encountered confirmed 512 MB instance OOM; 10.2 requires fresh sequential live acceptance. Local macOS memory reduction is not a Render RSS guarantee. 40 new current amounts: 39 close and one CITIC revenue difference explained by precise official restatement evidence; original values and difference status retained. PICC 2025, old CMOC image version and CSCEC 2025 remain needs-review. Not full-market coverage or human financial approval."
 }

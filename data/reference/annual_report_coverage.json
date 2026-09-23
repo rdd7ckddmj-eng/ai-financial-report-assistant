@@ -1,7 +1,7 @@
 {
   "schema": "complete-annual-report-test-catalog.v1",
   "scope": "exact_complete_pdf_versions",
-  "tested_at": "2026-09-23T18:16:05.854025+00:00",
+  "tested_at": "2026-09-23T18:39:47.266370+00:00",
   "human_verification": "not_performed",
   "reports": [
     {
@@ -1085,5 +1085,5 @@
       "human_verification": "not_performed"
     }
   ],
-  "receipt_sha256": "a01c71535261ba741345a8dcb4f11687af5d0590ba10723e50808cb89e0f03ef"
+  "receipt_sha256": "4363c8b0a933d2ae3708823b815b32e72c35a5cc2f2c4199718cf9d165fa696b"
 }

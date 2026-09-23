@@ -121,3 +121,46 @@ def test_form_entry_has_no_network_or_parse_and_clears_old_result_on_failure(mon
     assert not at.exception
     assert any('请先选择' in e.value for e in at.error)
     assert 'on_demand_financial_snapshot' not in at.session_state
+
+
+@pytest.mark.parametrize('declared_size,data,error', [
+    (9, b'%PDF-test', None),
+    (13, None, '超过32 MB'),
+    (1, b'%PDF-too-large', '超过32 MB'),
+    ('9', None, '无法确认'),
+    (True, None, '无法确认'),
+    (-1, None, '无法确认'),
+    (1, bytearray(b'%PDF'), '无法读取'),
+])
+def test_upload_size_checks_avoid_writable_copy_and_reject_actual_oversize(
+    monkeypatch, declared_size, data, error
+):
+    from src import app
+    class Upload:
+        size = declared_size
+        def getbuffer(self):
+            raise AssertionError('must not request a writable copy of uploaded bytes')
+        def getvalue(self):
+            assert data is not None, 'oversized/invalid metadata must stop before reading bytes'
+            return data
+    calls = []
+    def build(company, payload, **kwargs):
+        calls.append(payload)
+        assert payload is data
+        return {'status': 'test-result'}
+    monkeypatch.setattr(app.st, 'file_uploader', lambda *args, **kwargs: Upload())
+    monkeypatch.setattr(app, 'MANUAL_PDF_MAX_BYTES', 12)
+    monkeypatch.setattr(app, 'build_manual_financial_snapshot', build)
+    at = AppTest.from_string("from src import app\nfrom src.china_stock import build_company_identity\napp._render_manual_snapshot_input(build_company_identity('600519','贵州茅台'))")
+    at.session_state['on_demand_financial_snapshot'] = {'old': True}
+    at.run()
+    assert not at.exception and not calls
+    at.button[0].click().run()
+    assert not at.exception
+    if error is None:
+        assert calls == [data] and not at.error
+        assert at.session_state['on_demand_financial_snapshot'] == {'status': 'test-result'}
+    else:
+        assert not calls
+        assert any(error in item.value for item in at.error)
+        assert 'on_demand_financial_snapshot' not in at.session_state

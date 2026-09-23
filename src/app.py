@@ -19105,13 +19105,18 @@ def _render_manual_snapshot_input(company) -> None:
         try:
             if uploaded is None:
                 raise ValueError("请先选择完整年度报告PDF。")
-            view = uploaded.getbuffer()
-            try:
-                if view.nbytes > MANUAL_PDF_MAX_BYTES:
-                    raise ValueError("手工上传PDF超过32 MB上限。")
-            finally:
-                view.release()
+            # A writable getbuffer() view copies Streamlit's shared upload
+            # bytes. The public size field permits a check without that copy;
+            # verify the actual bytes again before parsing.
+            if type(uploaded.size) is not int or uploaded.size < 0:
+                raise ValueError("无法确认上传PDF的文件大小，请重新选择文件。")
+            if uploaded.size > MANUAL_PDF_MAX_BYTES:
+                raise ValueError("手工上传PDF超过32 MB上限。")
             pdf_bytes = uploaded.getvalue()
+            if not isinstance(pdf_bytes, bytes):
+                raise ValueError("无法读取上传PDF，请重新选择文件。")
+            if len(pdf_bytes) > MANUAL_PDF_MAX_BYTES:
+                raise ValueError("手工上传PDF超过32 MB上限。")
             with st.spinner("正在校验报告身份、年度及三张报表……"):
                 snapshot = build_manual_financial_snapshot(company, pdf_bytes, report_year=int(year),
                     source_url=source, published_date=published, identity_confirmed=confirmed)
@@ -19174,7 +19179,7 @@ def render_financial_snapshot_page() -> None:
         "财务 / 按需快照 · ON-DEMAND FINANCIAL SNAPSHOT",
         "A股按需财务快照 Agent",
         "输入或选择A股公司后，系统临时取得最新完整年度报告，"
-        "完成三表勾稽、金额单位校验和核心指标计算；只保留小型结果，"
+        "完成三表勾稽、金额单位校验和核心指标计算；按需处理报告，"
         "不预先囤积全市场PDF。",
     )
     _render_research_case_storage_notice()

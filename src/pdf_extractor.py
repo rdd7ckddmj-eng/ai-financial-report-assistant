@@ -13,6 +13,19 @@ from src.pdf_resource_policy import (
 
 
 _PDF_PARSE_GATE = BoundedSemaphore(value=1)
+# MuPDF's native resource store can reach 256 MiB inside one full report.
+# Closing the document later does not necessarily return that allocator high
+# water mark to the OS. Keep reusable native resources bounded during parsing.
+_PDF_STORE_CLEAR_PAGE_INTERVAL = 8
+
+
+def _clear_pdf_store(module) -> None:
+    try:
+        module.TOOLS.store_shrink(100)
+    except MemoryError:
+        raise
+    except Exception as error:
+        raise ValueError("PDF缓存无法安全释放，本次解析已停止。") from error
 
 
 class ExtractedPage(TypedDict):
@@ -63,9 +76,12 @@ def extract_pdf_pages(
     # the company-research pages without opening a PDF, so load it only when a
     # report is actually submitted for extraction.
     document = None
+    fitz = None
+    original_error = None
     try:
         import fitz
 
+        _clear_pdf_store(fitz)
         try:
             document = fitz.open(stream=pdf_bytes, filetype="pdf")
         except Exception as error:
@@ -126,8 +142,45 @@ def extract_pdf_pages(
                         raise ValueError("PDF版面处理超过本次安全上限，没有返回不完整证据。")
                     pages[-1]['financial_geometry'] = dict(derivation, document_sha256=fingerprint,
                         original_text_sha256=sha256(page_text.encode()).hexdigest())
+            if (page_index + 1) % _PDF_STORE_CLEAR_PAGE_INTERVAL == 0:
+                # Only evicts regenerable library resources: all original text
+                # and any audited geometry records above remain unchanged.
+                _clear_pdf_store(fitz)
         return pages
+    except BaseException as error:
+        # Capture only this invocation's failure. sys.exc_info() inside finally
+        # could instead expose an already-handled exception in the caller.
+        original_error = error
+        raise
     finally:
-        if document is not None:
-            document.close()
-        _PDF_PARSE_GATE.release()
+        cleanup_error = None
+        try:
+            if document is not None:
+                try:
+                    document.close()
+                except MemoryError as error:
+                    cleanup_error = error
+                except Exception as error:
+                    cleanup_error = ValueError("PDF文档无法安全关闭，本次解析已停止。")
+                    cleanup_error.__cause__ = error
+                except BaseException as error:
+                    cleanup_error = error
+        finally:
+            try:
+                if fitz is not None:
+                    try:
+                        _clear_pdf_store(fitz)
+                    except BaseException as error:
+                        if cleanup_error is None:
+                            cleanup_error = error
+                        else:
+                            cleanup_error.add_note(f"另有PDF缓存清理错误：{error}")
+            finally:
+                # A close/cleanup failure must never strand the process-wide
+                # gate and prevent all subsequent visitors from parsing.
+                _PDF_PARSE_GATE.release()
+        if cleanup_error is not None:
+            if original_error is not None:
+                original_error.add_note(f"PDF资源清理也未完成：{cleanup_error}")
+            else:
+                raise cleanup_error

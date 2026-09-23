@@ -403,3 +403,12 @@
 - [x] Run all 60 complete PDF versions: 57 candidates, 3 needs-review, 45 companies, 44 candidate companies, 59 issuer/year pairs. All prior 51 statuses and both-period amounts unchanged. Human financial confirmations remain zero.
 - [ ] Support image/outline sources only with a separately evidenced extraction method and verified production resource limits; PICC 2025, old CMOC image version and CSCEC 2025 remain explicit gaps.
 - [ ] Expand beyond the exact tested company/year/source versions; the published catalogue is not full-market coverage.
+
+## 2026-09-24 — Continuous PDF parsing memory correction
+
+- [x] Reproduce the actual Render 512 MB out-of-memory restart during consecutive full-report uploads; preserve the failed acceptance record.
+- [x] Clear regenerable MuPDF native resources every eight pages inside the existing serial parse gate, without truncating original text or geometry evidence.
+- [x] Release the parse gate even if document close or native cache cleanup fails; reject cleanup-only failures and preserve original parse exceptions.
+- [x] Replace the upload's writable buffer size check with public size metadata plus actual bytes-length verification, avoiding a full-file copy while preserving the 32 MiB limit.
+- [x] Run 1,998 local tests and all 60 complete originals; full per-report receipts remain identical. Six large-report parses retain raw-text/geometry fingerprints and financial results, with local fresh-process peak RSS about 269 MiB versus 519 MiB previously.
+- [ ] Complete deployed sequential-upload acceptance for this memory fix; local memory observations are not Render memory measurements or concurrency guarantees.
