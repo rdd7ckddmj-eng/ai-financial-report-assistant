@@ -17,6 +17,7 @@ import re
 from src.bank_statement_extractor import BANK_TEMPLATE
 from src.financial_sector_policy import is_special_financial_template
 from src.pdf_text_derivation import compact_report_text_adjustments
+from src.financial_report_reading_evidence import compact_reading_evidence
 from typing import Any
 
 from src.financial_snapshot_review import (
@@ -417,6 +418,7 @@ def _validate_workpaper(
 
     try:
         text_adjustments = compact_report_text_adjustments(report)
+        reading_evidence = compact_reading_evidence(report, fingerprint=fingerprint.lower(), company=company)
     except ValueError as error:
         raise _error(str(error)) from error
 
@@ -426,6 +428,7 @@ def _validate_workpaper(
         "review_status": str(review_status),
         "company_id": canonical_code,
         "report": {
+            **reading_evidence,
             "statement_template": report.get('statement_template', 'general'),
             "report_year": report.get("report_year"),
             "title": report_title,

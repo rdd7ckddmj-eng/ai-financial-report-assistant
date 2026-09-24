@@ -1,0 +1,331 @@
+{
+  "report_year": 2025,
+  "statement_template": "general",
+  "extraction_note": "",
+  "published_date": "2026-03-20",
+  "title": "中国联通2025年年度报告",
+  "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-20/1225078768.PDF",
+  "evidence_fingerprint_sha256": "f13c0ee26f35fa8d3486c0464f372dd6189c6f591e36dc38c3110c89d4638c4b",
+  "page_count": 213,
+  "status": "ready_for_human_review",
+  "statement_checks": {
+    "income_statement_reconciled": true,
+    "balance_sheet_reconciled": true,
+    "cash_flow_statement_reconciled": true
+  },
+  "income_reconciliation": {
+    "status": "passed",
+    "passed": true,
+    "checks": [
+      {
+        "key": "profit_after_tax",
+        "label": "合并：利润总额减所得税费用等于净利润",
+        "passed": true,
+        "current": {
+          "left": "20787789422",
+          "right": "20787789422",
+          "difference": "0",
+          "passed": true
+        },
+        "previous": {
+          "left": "20600584260",
+          "right": "20600584260",
+          "difference": "0",
+          "passed": true
+        }
+      },
+      {
+        "key": "profit_attribution",
+        "label": "合并：归母利润加少数股东损益等于净利润",
+        "passed": true,
+        "current": {
+          "left": "20787789422",
+          "right": "20787789422",
+          "difference": "0",
+          "passed": true
+        },
+        "previous": {
+          "left": "20600584260",
+          "right": "20600584260",
+          "difference": "0",
+          "passed": true
+        }
+      },
+      {
+        "key": "profit_after_tax_company",
+        "label": "母公司：利润总额减所得税费用等于净利润",
+        "passed": true,
+        "current": {
+          "left": "5980726779",
+          "right": "5980726779",
+          "difference": "0",
+          "passed": true
+        },
+        "previous": {
+          "left": "5187286631",
+          "right": "5187286631",
+          "difference": "0",
+          "passed": true
+        }
+      },
+      {
+        "key": "profit_attribution_company",
+        "label": "母公司：归母利润加少数股东损益等于净利润",
+        "passed": true,
+        "current": {
+          "left": "5980726779",
+          "right": "5980726779",
+          "difference": "0",
+          "passed": true
+        },
+        "previous": {
+          "left": "5187286631",
+          "right": "5187286631",
+          "difference": "0",
+          "passed": true
+        }
+      },
+      {
+        "key": "selected_attributable_profit",
+        "label": "输出归母利润与原文归母行一致",
+        "passed": true,
+        "current": {
+          "left": "9126662570",
+          "right": "9126662570.0",
+          "difference": "0.0",
+          "passed": true
+        },
+        "previous": {
+          "left": "9029899018",
+          "right": "9029899018.0",
+          "difference": "0.0",
+          "passed": true
+        }
+      }
+    ],
+    "unit": "人民币元",
+    "pages": {
+      "start": 79,
+      "end": 79
+    },
+    "evidence": {
+      "attributable_profit": {
+        "label": "归属于母公司股东的净利润",
+        "values": [
+          "9126662570",
+          "9029899018",
+          "5980726779",
+          "5187286631"
+        ],
+        "error": null,
+        "pages": {
+          "start": 79,
+          "end": 79
+        },
+        "excerpt": "1. 归属于母公司股东的净利润 ｜ 9,126,662,570 ｜ 9,029,899,018 ｜ 5,980,726,779 ｜ 5,187,286,631",
+        "notes": []
+      },
+      "minority_profit": {
+        "label": "少数股东损益",
+        "values": [
+          "11661126852",
+          "11570685242",
+          "0",
+          "0"
+        ],
+        "error": null,
+        "pages": {
+          "start": 79,
+          "end": 79
+        },
+        "excerpt": "2. 少数股东损益 ｜ 11,661,126,852 ｜ 11,570,685,242 ｜ - ｜ -",
+        "notes": []
+      },
+      "profit_before_tax": {
+        "label": "利润总额",
+        "values": [
+          "25302808365",
+          "25091515224",
+          "6001284179",
+          "5205874450"
+        ],
+        "error": null,
+        "pages": {
+          "start": 79,
+          "end": 79
+        },
+        "excerpt": "四、利润总额 ｜ 25,302,808,365 ｜ 25,091,515,224 ｜ 6,001,284,179 ｜ 5,205,874,450",
+        "notes": []
+      },
+      "income_tax": {
+        "label": "减：所得税费用",
+        "values": [
+          "4515018943",
+          "4490930964",
+          "20557400",
+          "18587819"
+        ],
+        "error": null,
+        "pages": {
+          "start": 79,
+          "end": 79
+        },
+        "excerpt": "减：所得税费用 ｜ 五(49) ｜ 4,515,018,943 ｜ 4,490,930,964 ｜ 20,557,400 ｜ 18,587,819",
+        "notes": [
+          "五(49)"
+        ]
+      },
+      "consolidated_net_profit": {
+        "label": "净利润",
+        "values": [
+          "20787789422",
+          "20600584260",
+          "5980726779",
+          "5187286631"
+        ],
+        "error": null,
+        "pages": {
+          "start": 79,
+          "end": 79
+        },
+        "excerpt": "五、净利润 ｜ 20,787,789,422 ｜ 20,600,584,260 ｜ 5,980,726,779 ｜ 5,187,286,631",
+        "notes": []
+      }
+    },
+    "tolerance": "0.01",
+    "header_years": [
+      2025,
+      2024
+    ],
+    "note": "两期税前至税后利润关系、利润归属关系和输出归母行通过金额检查；这不是全利润表审计，收入与成本全部分项尚未逐项勾稽。 四列或非两列版式未执行经营分项增强检查；不据此宣称全利润表勾稽通过。",
+    "rounding_note": "金额差额上限为0.01个原文单位。",
+    "tax_presentation": "按所得税费用原有正负号从利润总额扣减",
+    "operating_reconciliation": {
+      "status": "unsupported_layout",
+      "passed": false,
+      "checks": [],
+      "evidence": {},
+      "unit": "人民币元",
+      "pages": null,
+      "tolerance": "0.01",
+      "note": "四列或非两列版式未执行经营分项增强检查；不据此宣称全利润表勾稽通过。"
+    }
+  },
+  "pdf_text_adjustments": [],
+  "cash_flow_layout_recoveries": [],
+  "balance_sheet_layout_recoveries": [],
+  "income_layout_recoveries": [],
+  "statement_reconciliation": null,
+  "unit_check": {
+    "passed": true,
+    "units": [
+      "人民币元",
+      "人民币元",
+      "人民币元"
+    ],
+    "note": "三张报表金额单位一致。"
+  },
+  "statement_pages": {
+    "income_statement": {
+      "start": 79,
+      "end": 79
+    },
+    "balance_sheet": {
+      "start": 77,
+      "end": 78
+    },
+    "cash_flow_statement": {
+      "start": 80,
+      "end": 80
+    }
+  },
+  "values": {
+    "current_revenue": 392222880560.0,
+    "previous_revenue": 389589219642.0,
+    "current_net_profit": 9126662570.0,
+    "previous_net_profit": 9029899018.0,
+    "current_operating_cash_flow": 91410552538.0,
+    "previous_operating_cash_flow": 91255016708.0,
+    "current_total_assets": 671056308815.0,
+    "previous_total_assets": 672836701609.0,
+    "current_total_liabilities": 294555241530.0,
+    "previous_total_liabilities": 304048390353.0
+  },
+  "metric_evidence": {
+    "revenue": {
+      "raw_current_value": 392222880560.0,
+      "raw_previous_value": 389589219642.0,
+      "original_unit": "人民币元",
+      "accounting_basis": "合并口径（页面同时列示公司口径）",
+      "comparison_comparable": true,
+      "comparison_basis": "本期与年报比较栏原值；可能包含追溯调整",
+      "statement": "利润表",
+      "pages": {
+        "start": 79,
+        "end": 79
+      },
+      "excerpt": "一、营业收入 ｜ 五(37) ｜ 392,222,880,560 389,589,219,642 ｜ - ｜ - ｜ 二、减：营业成本 ｜ 五(37)",
+      "excerpt_status": "captured"
+    },
+    "net_profit": {
+      "raw_current_value": 9126662570.0,
+      "raw_previous_value": 9029899018.0,
+      "original_unit": "人民币元",
+      "accounting_basis": "合并口径（页面同时列示公司口径）",
+      "comparison_comparable": true,
+      "comparison_basis": "本期与年报比较栏原值；可能包含追溯调整",
+      "statement": "利润表",
+      "pages": {
+        "start": 79,
+        "end": 79
+      },
+      "excerpt": "1. 归属于母公司股东的净利润 ｜ 9,126,662,570 ｜ 9,029,899,018 ｜ 5,980,726,779 ｜ 5,187,286,631 ｜ 2. 少数股东损益 ｜ 11,661,126,852",
+      "excerpt_status": "captured"
+    },
+    "operating_cash_flow": {
+      "raw_current_value": 91410552538.0,
+      "raw_previous_value": 91255016708.0,
+      "original_unit": "人民币元",
+      "accounting_basis": "合并口径（页面同时列示公司口径）",
+      "comparison_comparable": true,
+      "comparison_basis": "本期与年报比较栏原值；可能包含追溯调整",
+      "statement": "现金流量表",
+      "pages": {
+        "start": 80,
+        "end": 80
+      },
+      "excerpt": "经营活动产生的现金流量净额 ｜ 五(52) ｜ 91,410,552,538 ｜ 91,255,016,708 ｜ 49,086,077 ｜ 84,047,910 ｜ 二、投资活动产生的现金流量",
+      "excerpt_status": "captured"
+    },
+    "total_assets": {
+      "raw_current_value": 671056308815.0,
+      "raw_previous_value": 672836701609.0,
+      "original_unit": "人民币元",
+      "accounting_basis": "合并口径（页面同时列示公司口径）",
+      "comparison_comparable": true,
+      "comparison_basis": "本期与年报比较栏原值；可能包含追溯调整",
+      "statement": "资产负债表",
+      "pages": {
+        "start": 77,
+        "end": 78
+      },
+      "excerpt": "资产总计 ｜ 671,056,308,815 ｜ 672,836,701,609 ｜ 109,001,139,230 ｜ 108,331,495,154 ｜ 77 ｜ 合并及公司资产负债表 - 续",
+      "excerpt_status": "captured"
+    },
+    "total_liabilities": {
+      "raw_current_value": 294555241530.0,
+      "raw_previous_value": 304048390353.0,
+      "original_unit": "人民币元",
+      "accounting_basis": "合并口径（页面同时列示公司口径）",
+      "comparison_comparable": true,
+      "comparison_basis": "本期与年报比较栏原值；可能包含追溯调整",
+      "statement": "资产负债表",
+      "pages": {
+        "start": 77,
+        "end": 78
+      },
+      "excerpt": "负债合计 ｜ 294,555,241,530 ｜ 304,048,390,353 ｜ 1,258,186,715 ｜ 1,269,604,509 ｜ 股东权益 ｜ 股本",
+      "excerpt_status": "captured"
+    }
+  }
+}

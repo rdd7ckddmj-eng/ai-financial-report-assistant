@@ -21,16 +21,17 @@ _CN = '一二三四五六七八九十百'
 _NOTE = re.compile(rf'^(?:附注)?(?:[{_CN}]+(?:[、.．]\d{{1,3}}|\([{_CN}A-Za-z0-9]+\)|、\([{_CN}]+\))|\([{_CN}]+\)(?:\d{{1,3}})?)(?:[,，、])?$')
 _STRUCTURED_NOTE = re.compile(rf'^(?:[{_CN}]+、[{_CN}]+、\d{{1,3}}|\([{_CN}]+\)\d{{1,3}}[,，]\([{_CN}]+\)\d{{1,3}})$')
 _COMPACT_NOTE = re.compile(rf'^[{_CN}]+[1-9]\d{{0,2}}$')
+_BOUNDED_NOTE = re.compile(rf'^(?:注释[1-9]\d{{0,2}}|[{_CN}]+[-·][1-9]\d{{0,2}})$')
 _ANNOTATION = re.compile(r'^\((?:(?:净亏损|亏损总额|亏损|损失)以[“"‘]?[-—–][”"’]?号填列|净亏损|亏损总额|亏损)\)')
 _ALIASES = {
     # Read the long attributable label first so its wrapped "净利润" tail is
     # never mistaken for a second consolidated-total row.
-    'attributable_profit': ('归属于母公司股东的净利润','归属于母公司所有者的净利润',ORDINARY_SHAREHOLDER_PROFIT_LABEL),
+    'attributable_profit': ('归属于母公司股东的净利润','归属于母公司所有者的净利润','归属于母公司所有者（或股东）的净利润','归属于母公司股东的净亏损',ORDINARY_SHAREHOLDER_PROFIT_LABEL),
     'other_equity_holder_profit': ('归属于母公司其他权益工具持有者的净利润',),
-    'minority_profit': ('少数股东损益',),
-    'profit_before_tax': ('利润总额',),
+    'minority_profit': ('少数股东损益','少数股东净亏损'),
+    'profit_before_tax': ('利润总额','亏损总额'),
     'income_tax': ('减：所得税(费用)/贷项','减：所得税费用','所得税费用'),
-    'consolidated_net_profit': ('净利润',),
+    'consolidated_net_profit': ('净利润','净亏损'),
 }
 
 
@@ -56,11 +57,15 @@ def _financial_line(line, *, compact_notes=False, allow_parent_na=False):
     """Return explicit note and numeric tokens; arbitrary text is a boundary."""
     parts=_text(line).split()
     if not parts:return [],False
-    numbers=[];has_note=False
+    numbers=[];has_note=False;bounded_note=False
     for part in parts:
         if _NUMBER.fullmatch(part) or (allow_parent_na and part in ('/', '不适用')):numbers.append(part)
         elif (_NOTE.fullmatch(_compact(part)) or (compact_notes and (
-                _COMPACT_NOTE.fullmatch(_compact(part)) or _STRUCTURED_NOTE.fullmatch(_compact(part))))) and not numbers:has_note=True
+                _COMPACT_NOTE.fullmatch(_compact(part)) or _STRUCTURED_NOTE.fullmatch(_compact(part))
+                or _BOUNDED_NOTE.fullmatch(_compact(part))))) and not numbers:
+            is_bounded=bool(_BOUNDED_NOTE.fullmatch(_compact(part)))
+            if has_note and (bounded_note or is_bounded):return None
+            has_note=True;bounded_note=bounded_note or is_bounded
         else:return None
     return numbers,has_note
 
@@ -122,7 +127,8 @@ def _rows(lines,page_numbers,column_count):
                         for extra in range(cursor,min(cursor+3,len(remaining))):
                             joined+=_compact(remaining[extra][0])
                             if _NOTE.fullmatch(joined) or (has_note_header and (
-                                    _COMPACT_NOTE.fullmatch(joined) or _STRUCTURED_NOTE.fullmatch(joined))):note_end=extra;break
+                                    _COMPACT_NOTE.fullmatch(joined) or _STRUCTURED_NOTE.fullmatch(joined)
+                                    or _BOUNDED_NOTE.fullmatch(joined))):note_end=extra;break
                         if note_end is not None:
                             notes.append(joined)
                             last=remaining[note_end][1]
@@ -147,6 +153,8 @@ def _rows(lines,page_numbers,column_count):
                 notes.append(parts.pop(0))
             try:
                 if error:raise ValueError(error)
+                if len(notes) != 1 and any(_BOUNDED_NOTE.fullmatch(_compact(note)) for note in notes):
+                    raise ValueError('新增编号附注重复或与另一附注混列')
                 if len(parts)!=column_count:raise ValueError('金额列数不是明确的本期/比较期列数')
                 if any(p in ('/', '不适用') for p in parts):
                     allowed_na = [['不适用', '不适用']] + ([['/', '/']] if key == 'minority_profit' else [])
@@ -170,7 +178,8 @@ def _rows(lines,page_numbers,column_count):
 
 def _other_equity_attribution_context(lines, found, columns):
     """Only explicit sibling attribution rows can introduce a third summand."""
-    totals = [i for i in range(len(lines)) if _match_label(lines, i, '净利润') is not None]
+    totals = [i for i in range(len(lines)) if any(_match_label(lines, i, label) is not None
+              for label in _ALIASES['consolidated_net_profit'])]
     if not totals:
         return bool(found['other_equity_holder_profit']), False
     start = totals[0]

@@ -1,5 +1,7 @@
 """Bounded fallback from a user-supplied public annual report to a snapshot."""
 from datetime import date, datetime, timezone
+from copy import deepcopy
+from hashlib import sha256
 import re
 
 from src.audited_company_onboarding import build_candidate_report_result
@@ -11,6 +13,7 @@ from src.securities_statement_extractor import is_cms_annual_report_identity
 from src.cmoc_statement_extractor import is_cmoc_annual_report_identity
 from src.citic_securities_statement_extractor import is_citic_annual_report_identity
 from src.insurance_group_statement_extractor import is_picc_2025_annual_report_identity
+from src.annual_report_period_identity import recover_annual_report_period_identity, has_disallowed_report_title
 
 
 def build_manual_financial_snapshot(company, pdf_bytes, *, report_year, source_url,
@@ -37,6 +40,8 @@ def build_manual_financial_snapshot(company, pdf_bytes, *, report_year, source_u
         raise ValueError('手工年报不能超过32 MB。')
     pages = extract_pdf_pages(pdf_bytes, max_bytes=MANUAL_PDF_MAX_BYTES,
         include_financial_geometry=True, financial_report_year=report_year)
+    if has_disallowed_report_title([(p['page_number'], p['text']) for p in pages], company=company):
+        raise ValueError('请上传中文完整年度报告，摘要、英文或中期报告不能替代完整年报。')
     cms_identity = False
     if str(company.get('code')) == '600999':
         cms_identity = is_cms_annual_report_identity(company,
@@ -63,15 +68,15 @@ def build_manual_financial_snapshot(company, pdf_bytes, *, report_year, source_u
             raise ValueError('该港交所原件仅支持中国人保2025年A股完整年报；公司、年度、A股代码及中国企业会计准则必须一致。')
     specific_identity = cms_identity or cmoc_identity or citic_identity or picc_identity
     front = re.sub(r'\s+', '', '\n'.join(p['text'] for p in pages[:10]))
-    heading = re.sub(r'\s+', '', '\n'.join(p['text'] for p in pages[:2]))
-    if '年度报告摘要' in heading or '年度报告英文' in heading:
-        raise ValueError('请上传中文完整年度报告，摘要或英文版本不能替代完整年报。')
     chinese_year = ''.join('零一二三四五六七八九'[int(d)] for d in str(report_year))
     chinese_title = re.search(rf'{chinese_year}年(?:年报|年度报告)', front)
-    if '年报摘要' in heading or '年报英文' in heading:
-        raise ValueError('请上传中文完整年度报告，摘要或英文版本不能替代完整年报。')
+    annual_identity_evidence = {}
     if not specific_identity and not re.search(rf'{report_year}年?年度报告', front) and not chinese_title:
-        raise ValueError('前十页未识别到所选年度的完整年报标题，不能仅凭文件名确定年度。')
+        annual_identity_evidence = recover_annual_report_period_identity(company,
+            [(p['page_number'], p['text']) for p in pages], report_year,
+            pdf_fingerprint=sha256(pdf_bytes).hexdigest()) or {}
+        if not annual_identity_evidence:
+            raise ValueError('前十页未识别到所选年度的完整年报标题，且报告期、公司身份与年度财务报表交叉证据不足；不能仅凭文件名确定年度。')
     code_found = re.search(rf'(?<!\d){re.escape(str(company["code"]))}(?!\d)', front)
     name = str(company.get('name', '')).strip()
     name_found = len(name) >= 3 and name != '待核验公司' and name in front
@@ -80,7 +85,9 @@ def build_manual_financial_snapshot(company, pdf_bytes, *, report_year, source_u
     report = dict(report_year=report_year, published_date=published.isoformat(),
                   title=f'{name}{report_year}年年度报告（手工上传候选）',url=source_url.strip())
     candidate = build_candidate_report_result(company, report, pdf_bytes, pages)
+    candidate['annual_identity_evidence'] = annual_identity_evidence
     snapshot = build_on_demand_financial_snapshot(company, candidate)
+    snapshot['report'].setdefault('annual_identity_evidence', deepcopy(annual_identity_evidence))
     snapshot['limitations'].append('手工上传：官方链接和公告日期由用户提供，未联网比对该链接的PDF与上传文件；公司及年度仍需人工复核。')
     snapshot['input_provenance'] = 'user_uploaded_official_report_candidate'
     return snapshot

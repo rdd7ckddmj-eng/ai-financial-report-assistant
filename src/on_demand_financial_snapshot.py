@@ -23,6 +23,7 @@ from src.audited_company_onboarding import (
 )
 from src.china_stock import is_allowed_disclosure_url
 from src.statement_evidence_rules import consistent_statement_unit
+from src.financial_report_reading_evidence import validated_reading_evidence
 
 
 SNAPSHOT_SCHEMA_VERSION = "1.1"
@@ -247,6 +248,8 @@ def build_on_demand_financial_snapshot(
         raise ValueError("财务快照只接受受信任的交易所或巨潮资讯来源。")
 
     unit_check = result.get("unit_check", {})
+    reading_evidence = validated_reading_evidence(result,
+        fingerprint=str(result['evidence_fingerprint_sha256']), company=company)
     raw_units = unit_check.get("units", [])
     units = (
         [str(item).strip() for item in raw_units]
@@ -358,6 +361,7 @@ def build_on_demand_financial_snapshot(
             )
         },
         "report": {
+            **reading_evidence,
             "statement_template": result.get('statement_template', 'general'),
             "report_year": int(result["report_year"]),
             "published_date": str(result["published_date"]),
@@ -586,6 +590,20 @@ def build_financial_snapshot_report_html(
                 + ''.join('<tr>' + ''.join('<td>' + escape(value) + '</td>' for value in row.values()) + '</tr>' for row in check_rows)
                 + '</tbody></table>')
     derivation_html = ''
+    native_readings = report.get('pdf_native_text_recoveries', [])
+    if isinstance(native_readings, list) and native_readings:
+        derivation_html += '<h2>PDF文字读取依据</h2><p>PDF替代文字与页面不一致；按页面原生字形读取，未使用OCR。默认文字与读取结果均保留，仍需人工复核。</p>'
+        for item in native_readings[:6]:
+            if isinstance(item, Mapping):
+                derivation_html += ('<h3>PDF第' + escape(str(item.get('page_number', ''))) + '页</h3>'
+                    + '<p>默认文字摘录</p><pre>' + escape(str(item.get('original_excerpt', ''))[:1600]) + '</pre>'
+                    + '<p>原生字形读取摘录</p><pre>' + escape(str(item.get('native_excerpt', ''))[:1600]) + '</pre>')
+    if report.get('annual_identity_evidence'):
+        derivation_html += '<h2>年报年度与主体读取依据</h2><p>由报告期定义、公司信息、财务报表封面及三表交叉确认；未使用OCR，仍需人工复核。</p>'
+        for item in report['annual_identity_evidence'].get('sources', [])[:10]:
+            if isinstance(item, Mapping):
+                derivation_html += ('<p>PDF第' + escape(str(item.get('page_number', ''))) + '页原始文字</p><pre>'
+                    + escape(str(item.get('excerpt', ''))[:2000]) + '</pre>')
     adjustments = report.get('text_adjustments', [])
     if isinstance(adjustments, list) and adjustments:
         derivation_html = '<h2>负号换行处理依据</h2><p>仅连接同一表格单元格内的负号与金额；原PDF和原始文字没有修改，不代表人工复核。</p>'

@@ -286,6 +286,26 @@ def _has_explicit_standalone_note_header(lines: list[str]) -> bool:
                 == [int(match[1]), int(match[1]) - 1] * 2)
 
 
+def _qualified_note_style(lines: list[str]) -> str | None:
+    """Recognise two observed note-column headers before the first cash row."""
+    end = next((i for i, line in enumerate(lines) if re.fullmatch(
+        r'一、经营活动产生的现金流量[：:]?', _compact_chinese_text(line))), None)
+    if end is None or _chinese_cash_flow_column_count(lines) != 2:
+        return None
+    compact = [_compact_chinese_text(line) for line in lines[:end]]
+    start = next((i for i, line in enumerate(compact)
+                  if line in {'项', '项目'} or line.startswith('附注')), None)
+    if start is None:
+        return None
+    header = ''.join(compact[start:])
+    numbered = re.fullmatch(r'附注[一二三四五六七八九十]+(20\d{2})年(20\d{2})年', header)
+    if numbered and int(numbered[1]) == int(numbered[2]) + 1:
+        return 'numbered_note_column'
+    if header == '项目附注本期发生额上期发生额':
+        return 'chinese_ordinal_note_column'
+    return None
+
+
 def _strict_recovery_values(line: str) -> list[float] | None:
     """New recovery paths require complete, bounded financial cells."""
     amount = r"(?:\d{1,3}(?:[,，]\d{3})+|\d+)(?:\.\d+)?"
@@ -396,6 +416,8 @@ def _extract_chinese_row_pair(
     """Return current and prior-year values from a common A-share row."""
     recovery_header = _has_recovery_header(lines)
     standalone_note_header = _has_explicit_standalone_note_header(lines)
+    qualified_note_style = _qualified_note_style(lines)
+    strict_values = strict_values or bool(qualified_note_style)
     if recovery_header or strict_values or standalone_note_header:
         starts = set()
         for index, line in enumerate(lines):
@@ -449,9 +471,18 @@ def _extract_chinese_row_pair(
             sign_caption_recovery = False
             standalone_notes = 0
             lettered_note_recovery = False
+            qualified_note_recovery = False
             last = label_end
             following_lines = lines[label_end + 1:] if strict_values else lines[label_end + 1:label_end + 7]
             for last, following_line in enumerate(following_lines, label_end + 1):
+                if (qualified_note_style and last == label_end + 1 and not following_values):
+                    note_cell = _compact_chinese_text(following_line)
+                    valid_note = (bool(re.fullmatch(r'[1-9]\d{0,2}', note_cell))
+                        if qualified_note_style == 'numbered_note_column' else
+                        bool(re.fullmatch(r'[一二三四五六七八九十]+、[（(][一二三四五六七八九十百]+[）)]', note_cell)))
+                    if valid_note:
+                        qualified_note_recovery = True
+                        continue
                 if _is_financial_values_line(following_line):
                     if (strict_values or note_recovery or sign_caption_recovery or standalone_notes) and _strict_recovery_values(following_line) is None:
                         return None
@@ -492,6 +523,10 @@ def _extract_chinese_row_pair(
                     return None
                 if following_values:
                     break
+                if qualified_note_recovery:
+                    # The qualified column has already consumed its one note.
+                    # It may not also use a legacy note-skipping path.
+                    return None
                 if note_recovery:
                     break
                 if recovery_header or strict_values or standalone_note_header:
@@ -512,6 +547,10 @@ def _extract_chinese_row_pair(
                 break
             if strict_values and len(following_values) != value_column_count:
                 return None
+            if qualified_note_recovery and recoveries is not None:
+                end = last if _is_financial_values_line(lines[last]) else last - 1
+                recoveries.append(dict(kind=qualified_note_style, label=label,
+                    normalized_lines=lines[row_index:end + 1]))
             if standalone_notes and len(following_values) != value_column_count:
                 return None
             if lettered_note_recovery and recoveries is not None:

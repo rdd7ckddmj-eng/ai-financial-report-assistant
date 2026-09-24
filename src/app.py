@@ -18164,6 +18164,35 @@ def _process_onboarding_report(
 def _show_pdf_text_adjustments(result) -> None:
     """Keep original/derived signs visible wherever a candidate is reviewed."""
     report = result.get('report', result)
+    identity_evidence = report.get('annual_identity_evidence', {})
+    if isinstance(identity_evidence, Mapping) and identity_evidence:
+        with st.expander('查看年报年度与主体读取依据'):
+            st.write('由报告期定义、公司信息、财务报表封面及三表交叉确认；未使用OCR，仍需人工复核。')
+            for evidence_index, item in enumerate(identity_evidence.get('sources', [])[:10], 1):
+                if not isinstance(item, Mapping):
+                    continue
+                page = item.get('page_number')
+                st.caption(f'PDF第{page}页原始文字')
+                st.code(str(item.get('excerpt', ''))[:2000], language='text')
+                url = str(report.get('source_url', ''))
+                if type(page) is int and page > 0 and is_allowed_disclosure_url(url):
+                    st.link_button(f'查看年度与主体原件第{page}页（依据{evidence_index}）', url.split('#', 1)[0] + f'#page={page}')
+    native_readings = result.get('pdf_native_text_recoveries', report.get('pdf_native_text_recoveries', []))
+    if isinstance(native_readings, list) and native_readings:
+        with st.expander('查看PDF文字读取依据'):
+            st.write('PDF替代文字与页面不一致；按页面原生字形读取，未使用OCR。默认文字与读取结果均保留，仍需人工复核。')
+            for item in native_readings[:6]:
+                if not isinstance(item, Mapping):
+                    continue
+                page = item.get('page_number')
+                st.caption(f'PDF第{page}页')
+                st.write('默认文字摘录')
+                st.code(str(item.get('original_excerpt', ''))[:1600], language='text')
+                st.write('原生字形读取摘录')
+                st.code(str(item.get('native_excerpt', ''))[:1600], language='text')
+                url = str(report.get('source_url', ''))
+                if type(page) is int and page > 0 and is_allowed_disclosure_url(url):
+                    st.link_button(f'查看PDF文字读取原件第{page}页', url.split('#', 1)[0] + f'#page={page}')
     income_recoveries = result.get('income_layout_recoveries', report.get('income_layout_recoveries', []))
     for title, selected in (
         ('归母利润', [x for x in income_recoveries if isinstance(x, Mapping) and x.get('label') != '利润总额'] if isinstance(income_recoveries, list) else []),

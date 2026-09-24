@@ -21,6 +21,8 @@ from src.balance_sheet_extractor import find_balance_sheet_figures
 from src.statement_evidence_rules import inherit_statement_units
 from src.general_income_reconciliation import check_general_income_reconciliation
 from src.pdf_text_derivation import replay_financial_geometry, preserve_original_income_excerpts, MAX_DOCUMENT_ADJUSTMENTS
+from src.pdf_actualtext_recovery import replay_native_text_recovery, validate_native_text_recoveries
+from src.annual_report_period_identity import recover_annual_report_period_identity
 from src.petrochina_statement_extractor import (
     PETROCHINA_TEMPLATE, extract_petrochina_statements, is_petrochina_annual_report_identity,
 )
@@ -119,6 +121,8 @@ class CandidateReportResult(TypedDict):
     statement_checks: dict[str, bool]
     income_reconciliation: dict[str, object] | None
     pdf_text_adjustments: list[dict[str, object]]
+    pdf_native_text_recoveries: list[dict[str, object]]
+    annual_identity_evidence: dict[str, object]
     cash_flow_layout_recoveries: list[dict[str, object]]
     balance_sheet_layout_recoveries: list[dict[str, object]]
     statement_reconciliation: dict[str, object] | None
@@ -440,12 +444,39 @@ def build_candidate_report_result(
     if not page_list:
         raise ValueError("候选年报没有可核验页面。")
 
+    # The exact-tested official route also retains image-cover identity. This
+    # evidence does not replace any existing issuer/layout failure or amount check.
+    front_identity = re.sub(r'\s+', '', '\n'.join(text for _, text in page_list[:10]))
+    chinese_year = ''.join('零一二三四五六七八九'[int(d)] for d in str(report_year))
+    ordinary_annual_title = (re.search(rf'{report_year}年?年度报告', front_identity)
+        or re.search(rf'{chinese_year}年(?:年报|年度报告)', front_identity))
     fingerprint = hashlib.sha256(pdf_bytes).hexdigest()
+    annual_identity_evidence = (recover_annual_report_period_identity(company, page_list, report_year,
+        pdf_fingerprint=fingerprint) or {} if not ordinary_annual_title else {})
+    native_recoveries, native_error = [], ''
+    try:
+        native_pages = []
+        for page in page_records:
+            native_text, recovery = replay_native_text_recovery(page,
+                pdf_fingerprint=fingerprint, report_year=report_year)
+            native_pages.append((int(page['page_number']), native_text))
+            if recovery is not None:
+                native_recoveries.append(recovery)
+        validate_native_text_recoveries(native_recoveries,
+            pdf_fingerprint=fingerprint, report_year=report_year)
+        if len({number for number, _ in native_pages}) != len(native_pages):
+            raise ValueError('PDF页面重复，原生恢复不能跨页面借用。')
+        page_list = native_pages
+    except ValueError as error:
+        native_recoveries, native_error = [], str(error)
     financial_pages, text_adjustments, geometry_error = [], [], ''
     try:
         for page in page_records:
-            financial_text, changes = replay_financial_geometry(page,
-                pdf_fingerprint=fingerprint, report_year=report_year)
+            if page.get('native_text_recovery') and not native_error:
+                financial_text, changes = dict(page_list)[int(page['page_number'])], []
+            else:
+                financial_text, changes = replay_financial_geometry(page,
+                    pdf_fingerprint=fingerprint, report_year=report_year)
             financial_pages.append((int(page['page_number']), financial_text))
             text_adjustments.extend(changes)
         if len(text_adjustments) > MAX_DOCUMENT_ADJUSTMENTS:
@@ -559,7 +590,11 @@ def build_candidate_report_result(
         check_general_income_reconciliation(financial_pages, income, report_year=report_year)
         if statement_template == 'general' else (detailed_profile or {}).get('income_reconciliation')
     )
-    if geometry_error:
+    if native_error:
+        income = balance = cash_flow = None
+        income_reconciliation = dict(status='missing_evidence', passed=False, checks=[],
+            unit='', pages=None, note=native_error)
+    elif geometry_error:
         income_reconciliation = dict(status='missing_evidence', passed=False, checks=[],
             unit='', pages=None, note=geometry_error)
     elif text_adjustments and income_reconciliation:
@@ -595,7 +630,7 @@ def build_candidate_report_result(
     return {
         "report_year": report_year,
         "statement_template": statement_template,
-        "extraction_note": (geometry_error or petrochina_failure or cmoc_failure or sinopec_failure or (citic or {}).get('failure_reason', '') or ('证券/保险公司专用三表模板尚未通过验证；不回退普通公司模板，不输出标准化金额或普通公司比例。'
+        "extraction_note": (native_error or geometry_error or petrochina_failure or cmoc_failure or sinopec_failure or (citic or {}).get('failure_reason', '') or ('证券/保险公司专用三表模板尚未通过验证；不回退普通公司模板，不输出标准化金额或普通公司比例。'
                             if unsupported else bank.get('failure_reason', '') if bank is not None and statement_template == BANK_TEMPLATE
                             else income_reconciliation['note'] if income_reconciliation and income_reconciliation['status'] != 'passed' else '')),
         "published_date": str(report["published_date"]),
@@ -607,6 +642,8 @@ def build_candidate_report_result(
         "statement_checks": statement_checks,
         "income_reconciliation": income_reconciliation,
         "pdf_text_adjustments": text_adjustments,
+        "pdf_native_text_recoveries": native_recoveries,
+        "annual_identity_evidence": annual_identity_evidence,
         "cash_flow_layout_recoveries": (cash_flow or {}).get('layout_recoveries', []),
         "balance_sheet_layout_recoveries": (balance or {}).get('layout_recoveries', []),
         "income_layout_recoveries": ([(income or {})['attributable_layout_recovery']]

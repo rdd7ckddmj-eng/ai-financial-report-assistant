@@ -37,6 +37,14 @@ def standalone_statement_unit(lines):
 def extract_statement_unit(lines):
     """Keep all explicit declarations consistent, never pick a convenient one."""
     explicit=[]
+    # A line break inside the currency name is not a missing unit. Only join
+    # these two adjacent, complete header cells; never search ahead in rows.
+    lines = list(lines)
+    for first, second in zip(lines, lines[1:]):
+        left = re.sub(r'\s+', '', first).replace(':', '：')
+        right = re.sub(r'\s+', '', second)
+        if re.fullmatch(r'(?:金额)?单位(?:：|(?:均)?为：?)人民', left) and re.fullmatch(r'币(?:百万元|千元|万元|元)', right):
+            explicit.append('人民' + right)
     for line in lines:
         compact=re.sub(r'\s+', '', line).replace(':','：')
         if re.fullmatch(r'[£$€](?:k|m|bn)?', compact, re.IGNORECASE):

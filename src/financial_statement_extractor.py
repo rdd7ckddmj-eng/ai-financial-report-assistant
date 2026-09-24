@@ -46,6 +46,8 @@ CHINESE_REVENUE_LABELS = (
 CHINESE_NET_PROFIT_LABELS = (
     "归属于母公司股东的净利润",
     "归属于母公司所有者的净利润",
+    "归属于母公司所有者（或股东）的净利润",
+    "归属于母公司股东的净亏损",
 )
 ORDINARY_SHAREHOLDER_PROFIT_LABEL = "归属于母公司普通股股东"
 
@@ -342,7 +344,8 @@ def _has_revenue_note_header(lines: list[str], row_index: int) -> bool:
     if _chinese_income_statement_column_count(lines) != 2:
         return False
     start = next((i for i, line in enumerate(lines[:row_index])
-                  if _compact_chinese_text(line).startswith('项目')), None)
+                  if (_compact_chinese_text(line).startswith('项目')
+                      or (line == '项' and i + 1 < row_index and lines[i + 1] == '目'))), None)
     if start is None:
         return False
     header = ''
@@ -352,7 +355,7 @@ def _has_revenue_note_header(lines: list[str], row_index: int) -> bool:
             break
         header += compact
     match = re.fullmatch(r'项目附注[一二三四五六七八九十百]*(\d{4})年度?(\d{4})年度?', header)
-    relative = re.fullmatch(r'项目附注[一二三四五六七八九十百]*本期金额上期金额', header)
+    relative = re.fullmatch(r'项目附注[一二三四五六七八九十百]*(?:本期金额上期金额|本期发生额上期发生额)', header)
     subtitle_years = [line for line in lines[:start]
                       if re.fullmatch(r'\d{4}年度', _compact_chinese_text(line))]
     unit = _extract_unit(lines).removeprefix('人民币')
@@ -372,7 +375,8 @@ def _strict_noted_revenue_pair(lines: list[str], row_index: int, label_end: int)
     chinese = '一二三四五六七八九十百'
     note_line = lines[label_end + 1]
     note_end = label_end + 1
-    if (re.fullmatch(rf'[{chinese}]+[.．]?[1-9]\d{{0,2}}', note_line)
+    if (re.fullmatch(rf'(?:注释[1-9]\d{{0,2}}|[{chinese}]+[-·][1-9]\d{{0,2}})', _compact_chinese_text(note_line))
+            or re.fullmatch(rf'[{chinese}]+[.．]?[1-9]\d{{0,2}}', note_line)
             or re.fullmatch(rf'[{chinese}]+、[{chinese}]+、[1-9]\d{{0,2}}', note_line)
             or re.fullmatch(rf'(?:\([{chinese}]+\)|（[{chinese}]+）)', note_line)):
         # Wanhua and China Nuclear print the note as 七61. This is only a
@@ -479,6 +483,24 @@ def _extract_chinese_revenue_pair(lines: list[str], *, value_column_count: int):
         else:
             cursor += 1
     if visible_operating_row:
+        if len(starts) == 2:
+            # One observed form labels both its parent and immediately nested
+            # operating-revenue row 营业收入. Require the explicit hierarchy,
+            # identical note and both independently complete period pairs.
+            first, second = starts
+            parent_label = re.sub(r'^[一二三四五六七八九十]+[、.．]', '',
+                                  _compact_chinese_text(lines[first[0]]), count=1)
+            note = _compact_chinese_text(lines[first[1] + 1])
+            if (value_column_count != 2 or parent_label != '营业收入'
+                    or _compact_chinese_text(lines[second[0]]) != '其中：营业收入'
+                    or second[0] != first[1] + 4
+                    or not re.fullmatch(r'[一二三四五六七八九十百]+、[（(][一二三四五六七八九十百]+[）)]', note)
+                    or second[1] + 1 >= len(lines)
+                    or _compact_chinese_text(lines[second[1] + 1]) != note):
+                return None
+            parent_pair = _strict_noted_revenue_pair(lines, *first)
+            child_pair = _strict_noted_revenue_pair(lines, *second)
+            return child_pair if child_pair is not None and child_pair == parent_pair else None
         if len(starts) != 1:
             return None
         row_index, label_end = starts[0]
@@ -487,7 +509,8 @@ def _extract_chinese_revenue_pair(lines: list[str], *, value_column_count: int):
             return _strict_four_column_noted_revenue(lines, row_index, label_end)
         # Restrict the new path to the exact family it supports, including
         # malformed members of that family which must not enter old fallback.
-        if (re.match(r'^(?:附注)?[一二三四五六七八九十百]+(?:、[一二三四五六七八九十百]|、[（(]|[.．]\d|[（(][一二三四五六七八九十百]|\d)', following)
+        if (re.match(r'^(?:注释|[一二三四五六七八九十百]+[-·])', following)
+                or re.match(r'^(?:附注)?[一二三四五六七八九十百]+(?:、[一二三四五六七八九十百]|、[（(]|[.．]\d|[（(][一二三四五六七八九十百]|\d)', following)
                 or re.fullmatch(r'[（(][一二三四五六七八九十百]+[）)]', following)):
             return _strict_noted_revenue_pair(lines, row_index, label_end)
         return _extract_chinese_row_pair(lines, preferred, value_column_count=value_column_count)
@@ -574,6 +597,30 @@ def _strict_combined_parent_na_income(lines, source_pages=None):
     return (revenue, profit) if revenue is not None and profit is not None else None
 
 
+def _attribution_row_has_na(lines):
+    """Only attribution cells select the special company-NA layout.
+
+    EPS and other later disclosures can independently say 不适用. They do
+    not change a fully numeric group/company profit row's column semantics.
+    """
+    labels = CHINESE_NET_PROFIT_LABELS + ('少数股东损益',)
+    for index in range(len(lines)):
+        for label in labels:
+            end = _chinese_label_span(lines, index, label)
+            if end is None:
+                continue
+            if any('不适用' in line for line in lines[index:end + 1]):
+                return True
+            for line in lines[end + 1:end + 9]:
+                if '不适用' in line:
+                    return True
+                if (_is_financial_values_line(line)
+                        or CHINESE_NOTE_REFERENCE_PATTERN.fullmatch(_compact_chinese_text(line))):
+                    continue
+                break
+    return False
+
+
 def extract_income_statement_figures(
     page_number: int,
     page_text: str,
@@ -610,7 +657,7 @@ def extract_income_statement_figures(
             lines
         )
     ) is not None:
-        if chinese_value_column_count == 4 and any('不适用' in line for line in lines):
+        if chinese_value_column_count == 4 and _attribution_row_has_na(lines):
             supported_na = _strict_combined_parent_na_income(lines, _source_pages)
             if supported_na is None:
                 return None

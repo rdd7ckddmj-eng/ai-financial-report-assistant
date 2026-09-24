@@ -34,6 +34,7 @@ class ExtractedPage(TypedDict):
     page_number: int
     text: str
     financial_geometry: NotRequired[dict]
+    native_text_recovery: NotRequired[dict]
 
 
 def extract_pdf_pages(
@@ -101,6 +102,7 @@ def extract_pdf_pages(
         pages: list[ExtractedPage] = []
         extracted_characters = 0
         adjustment_count = 0
+        native_recoveries = []
         fingerprint = sha256(pdf_bytes).hexdigest() if include_financial_geometry else None
         for page_index, page in enumerate(document):
             try:
@@ -126,11 +128,33 @@ def extract_pdf_pages(
                 }
             )
             if include_financial_geometry:
+                from src.pdf_actualtext_recovery import (
+                    derive_native_text_recovery, validate_native_text_recoveries,
+                )
+                try:
+                    native = derive_native_text_recovery(document, page,
+                        original_text=page_text, report_year=financial_report_year,
+                        pdf_fingerprint=fingerprint, module=fitz)
+                except MemoryError:
+                    raise
+                except Exception as error:
+                    raise ValueError(f'PDF 第 {page_index + 1} 页原生文字依据无法安全检查。') from error
+                if native is not None:
+                    native_recoveries.append(native)
+                    validate_native_text_recoveries(native_recoveries,
+                        pdf_fingerprint=fingerprint, report_year=financial_report_year)
+                    extracted_characters += len(native['native_text'])
+                    if extracted_characters > max_text_characters:
+                        raise ValueError('PDF原生文字恢复超过安全文本上限，未返回部分证据。')
+                    pages[-1]['native_text_recovery'] = native
                 from src.pdf_signed_amount_geometry import derive_signed_amount_geometry
                 from src.pdf_text_derivation import MAX_DOCUMENT_ADJUSTMENTS
                 try:
-                    derivation = derive_signed_amount_geometry(page, report_year=financial_report_year,
-                        original_text=page_text, previous_page=document[page_index - 1] if page_index else None)
+                    # Both derivations must never silently compose. Native
+                    # recovery is already a complete, explicitly sourced page.
+                    derivation = {'adjustments': []} if native is not None else derive_signed_amount_geometry(
+                        page, report_year=financial_report_year, original_text=page_text,
+                        previous_page=document[page_index - 1] if page_index else None)
                 except MemoryError:
                     raise
                 except Exception as error:
