@@ -1,8 +1,8 @@
 {
-  "release_id": "20260924-coverage-14.1",
-  "source_digest_sha256": "0ef02b285c5ac0cd67c544d7ffc433dec106e1363e2d30feffecb8acdabee758",
-  "prior_commit": "adac4d089721efe22662ce531a0727f77b354a98",
-  "verified_python_tests": 3574,
+  "release_id": "20260924-coverage-14.2",
+  "source_digest_sha256": "08b0aeffe9d4c3f2b18145e6e98cd8db6dc0e1c793f5b8d5694d130bade38734",
+  "prior_commit": "f481335685bfb9b591829b17a90d530752edaf1d",
+  "verified_python_tests": 3590,
   "coverage": {
     "real_reports_tested": 132,
     "candidate_reports": 122,
@@ -11,5 +11,5 @@
     "issuer_year_pairs": 130,
     "human_verified_new": 0
   },
-  "note": "Twenty-four additional 2025 issuers: 20 candidates and 4 evidence gaps; prior 108 exact originals preserve statuses, statement checks and both-period amounts, raw units and pages. Bounded printed-page, income-continuation and four-column expense evidence survives candidate, snapshot and export. TCL dual-source restatement explanations preserve both originals, differences and pending human review. New 120 current metric comparisons: 100 amount-close, 0 retained differences, 20 not comparable; 0 nonzero comparisons are recorded explicitly in the release manifest. Not all-market coverage or human financial approval; no OCR or resource-limit increases."
+  "note": "Navigation readiness patch after 14.1 passed ten real PDF flows but failed cross-page initialization. No newly added originals: all 132 exact PDFs were re-audited under the patched source, preserving all 14.1 financial amounts, checks and evidence. The original batch-14 cohort of 24 issuers remains 20 candidates and 4 evidence gaps; prior 108 exact originals preserve statuses, statement checks and both-period amounts, raw units and pages. Bounded printed-page, income-continuation and four-column expense evidence survives candidate, snapshot and export. TCL dual-source restatement explanations preserve both originals, differences and pending human review. Repeated 120 current metric comparisons: 100 amount-close, 0 retained differences, 20 not comparable; 0 nonzero comparisons are recorded explicitly in the release manifest. Not all-market coverage or human financial approval; no OCR or resource-limit increases."
 }

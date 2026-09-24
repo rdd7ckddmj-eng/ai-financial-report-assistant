@@ -7349,8 +7349,13 @@ def _sync_research_case_store() -> None:
                 "base_revision": base_revision,
             },
             default={
-                "snapshot": known_snapshot,
-                "storage_status": "pending",
+                # A page switch can recreate the component before it has a
+                # browser result. Keep the last acknowledged storage status:
+                # unchanged localStorage deliberately sends no redundant event.
+                # A default is never a browser acknowledgement of a pending
+                # write, so do not echo known_snapshot back as a saved value.
+                "snapshot": None,
+                "storage_status": known_status if hydrated else "pending",
             },
             key="wfz_research_case_storage",
             on_snapshot_change=lambda: None,
@@ -7368,7 +7373,11 @@ def _sync_research_case_store() -> None:
     if isinstance(result, Mapping):
         raw_snapshot = result.get("snapshot", raw_snapshot)
         raw_status = result.get("storage_status", raw_status)
-    if raw_status in {"pending", "available", "unavailable", "invalid"}:
+    if raw_status == "pending":
+        # JavaScript only returns a completed read status. A pending default
+        # (including a stale one from a remount) is not new browser evidence.
+        return
+    if raw_status in {"available", "unavailable", "invalid"}:
         st.session_state[RESEARCH_CASE_STORAGE_STATUS_KEY] = raw_status
 
     browser_snapshot = _validated_research_case_store(raw_snapshot)
