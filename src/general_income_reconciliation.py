@@ -17,12 +17,14 @@ _AMOUNT = r'(?:\d{1,3}(?:[,，]\d{3})+|\d+)(?:\.\d+)?'
 _NUMBER = re.compile(rf'^(?:[-—–]|[-−－]?{_AMOUNT}|\({_AMOUNT}\)|（{_AMOUNT}）)$')
 _CN = '一二三四五六七八九十百'
 _NOTE = re.compile(rf'^(?:附注)?(?:[{_CN}]+(?:[、.．]\d{{1,3}}|\([{_CN}A-Za-z0-9]+\)|、\([{_CN}]+\))|\([{_CN}]+\)(?:\d{{1,3}})?)(?:[,，、])?$')
+_STRUCTURED_NOTE = re.compile(rf'^(?:[{_CN}]+、[{_CN}]+、\d{{1,3}}|\([{_CN}]+\)\d{{1,3}}[,，]\([{_CN}]+\)\d{{1,3}})$')
 _COMPACT_NOTE = re.compile(rf'^[{_CN}]+[1-9]\d{{0,2}}$')
 _ANNOTATION = re.compile(r'^\((?:(?:净亏损|亏损总额|亏损|损失)以[“"‘]?[-—–][”"’]?号填列|净亏损|亏损总额|亏损)\)')
 _ALIASES = {
     # Read the long attributable label first so its wrapped "净利润" tail is
     # never mistaken for a second consolidated-total row.
     'attributable_profit': ('归属于母公司股东的净利润','归属于母公司所有者的净利润',ORDINARY_SHAREHOLDER_PROFIT_LABEL),
+    'other_equity_holder_profit': ('归属于母公司其他权益工具持有者的净利润',),
     'minority_profit': ('少数股东损益',),
     'profit_before_tax': ('利润总额',),
     'income_tax': ('减：所得税(费用)/贷项','减：所得税费用','所得税费用'),
@@ -48,19 +50,20 @@ def _value(token):
     return value
 
 
-def _financial_line(line, *, compact_notes=False):
+def _financial_line(line, *, compact_notes=False, allow_parent_na=False):
     """Return explicit note and numeric tokens; arbitrary text is a boundary."""
     parts=_text(line).split()
     if not parts:return [],False
     numbers=[];has_note=False
     for part in parts:
-        if _NUMBER.fullmatch(part):numbers.append(part)
-        elif (_NOTE.fullmatch(_compact(part)) or (compact_notes and _COMPACT_NOTE.fullmatch(_compact(part)))) and not numbers:has_note=True
+        if _NUMBER.fullmatch(part) or (allow_parent_na and part == '/'):numbers.append(part)
+        elif (_NOTE.fullmatch(_compact(part)) or (compact_notes and (
+                _COMPACT_NOTE.fullmatch(_compact(part)) or _STRUCTURED_NOTE.fullmatch(_compact(part))))) and not numbers:has_note=True
         else:return None
     return numbers,has_note
 
 
-def _match_label(lines,index,label, *, compact_notes=False):
+def _match_label(lines,index,label, *, compact_notes=False, allow_parent_na=False):
     end=_chinese_label_span(lines,index,label)
     if end is None:return None
     merged=_text(' '.join(lines[index:end+1])).strip()
@@ -74,7 +77,7 @@ def _match_label(lines,index,label, *, compact_notes=False):
         # Annotation text has no amounts; preserve any same-line cells after it.
         closing=tail.find(')')
         tail=tail[closing+1:].strip()
-    if tail and _financial_line(tail, compact_notes=compact_notes) is None:return None
+    if tail and _financial_line(tail, compact_notes=compact_notes, allow_parent_na=allow_parent_na) is None:return None
     return end,tail
 
 
@@ -87,11 +90,12 @@ def _rows(lines,page_numbers,column_count):
     for index in range(len(lines)):
         if index in reserved:continue
         for key,labels in _ALIASES.items():
+            parent_na = key == 'minority_profit' and column_count == 4
             match=None
             for label in labels:
                 if label == ORDINARY_SHAREHOLDER_PROFIT_LABEL and not _ordinary_shareholder_attribution_allowed(lines, index):
                     continue
-                label_match=_match_label(lines,index,label, compact_notes=has_note_header)
+                label_match=_match_label(lines,index,label, compact_notes=has_note_header, allow_parent_na=parent_na)
                 if label_match is not None:
                     match=(label,label_match)
                     break
@@ -108,14 +112,15 @@ def _rows(lines,page_numbers,column_count):
                     last=line_number
                     cursor+=1
                     continue
-                parsed=_financial_line(line, compact_notes=has_note_header)
+                parsed=_financial_line(line, compact_notes=has_note_header, allow_parent_na=parent_na)
                 if parsed is None:
                     # Numeric note references can wrap across lines (五(四十/七)).
                     if not parts:
                         joined='';note_end=None
                         for extra in range(cursor,min(cursor+3,len(remaining))):
                             joined+=_compact(remaining[extra][0])
-                            if _NOTE.fullmatch(joined) or (has_note_header and _COMPACT_NOTE.fullmatch(joined)):note_end=extra;break
+                            if _NOTE.fullmatch(joined) or (has_note_header and (
+                                    _COMPACT_NOTE.fullmatch(joined) or _STRUCTURED_NOTE.fullmatch(joined))):note_end=extra;break
                         if note_end is not None:
                             notes.append(joined)
                             last=remaining[note_end][1]
@@ -133,20 +138,112 @@ def _rows(lines,page_numbers,column_count):
                 parts.extend(numbers)
                 last=line_number
                 cursor+=1
-            if (key=='income_tax' and has_note_header and len(parts)==column_count+1
+            if (key=='income_tax' and has_note_header and not notes and len(parts)==column_count+1
                     and re.fullmatch(r'\d{1,3}',parts[0])):
                 notes.append(parts.pop(0))
             try:
                 if error:raise ValueError(error)
                 if len(parts)!=column_count:raise ValueError('金额列数不是明确的本期/比较期列数')
-                values=tuple(_value(p) for p in parts)
+                if '/' in parts:
+                    if not parent_na or parts[2:] != ['/', '/'] or '/' in parts[:2]:
+                        raise ValueError('不适用标记只能同时出现在少数股东行的两个母公司列')
+                    values=tuple(_value(p) for p in parts[:2]) + (None, None)
+                else:
+                    values=tuple(_value(p) for p in parts)
             except (ValueError,InvalidOperation) as exc:
                 values=None;error=str(exc)
             found[key].append(dict(label=label,values=values,error=error,
                 pages=dict(start=page_numbers[index],end=page_numbers[min(last,len(page_numbers)-1)]),
-                excerpt=' ｜ '.join(lines[index:min(last+1,len(lines))]),notes=notes))
+                excerpt=' ｜ '.join(lines[index:min(last+1,len(lines))]),notes=notes,
+                _line_span=(index,last)))
+            if values is not None and '/' in parts:
+                found[key][-1]['raw_values'] = list(parts)
             break
     return found
+
+
+def _other_equity_attribution_context(lines, found, columns):
+    """Only explicit sibling attribution rows can introduce a third summand."""
+    totals = [i for i in range(len(lines)) if _match_label(lines, i, '净利润') is not None]
+    if not totals:
+        return bool(found['other_equity_holder_profit']), False
+    start = totals[0]
+    end = next((i for i in range(start + 1, len(lines)) if re.match(
+        rf'^(?:[{_CN}]+[、.．])?其他综合收益', _compact(lines[i]))), len(lines))
+    section = ''.join(_compact(line) for line in lines[start:end])
+    present = '其他权益工具' in section or '权益工具持有者' in section or bool(found['other_equity_holder_profit'])
+    if not present:
+        return False, False
+    headings = [i for i in range(start, end) if re.fullmatch(
+        rf'(?:\([{_CN}]+\))?按所有权归属分类[：:]?', _compact(lines[i]))]
+    if columns != 2 or len(headings) != 1:
+        return True, False
+    # These labels distinguish ordinary shareholder profit from the independent
+    # other-equity-holder row. A “其中” child or unknown scope is not additive.
+    indices=[];enumerations=[];covered=set()
+    for key in ('attributable_profit', 'other_equity_holder_profit', 'minority_profit'):
+        matches=found[key]
+        if len(matches) != 1 or matches[0]['values'] is None:
+            return True, False
+        label=matches[0]['label']
+        if key == 'attributable_profit' and label == '归属于母公司所有者的净利润':
+            return True, False
+        positions=[i for i in range(headings[0] + 1, end) if _match_label(lines, i, label) is not None]
+        if len(positions) != 1:
+            return True, False
+        index=positions[0]
+        number=re.match(r'^(\d+)[.．、]', _compact(lines[index]))
+        if number is None:
+            return True, False
+        indices.append(index);enumerations.append(int(number[1]))
+        span=matches[0].get('_line_span')
+        if span is None:
+            return True, False
+        first,last=span
+        covered.update(range(first,last+1))
+    # An isolated “其中” or unknown scope sentence between sibling rows can
+    # change their hierarchy. Numbering alone must never override that text.
+    complete_section=covered == set(range(headings[0]+1,end))
+    return True, complete_section and indices == sorted(indices) and enumerations == [1, 2, 3]
+
+
+def _check_continuation_headers(lines, first_row, periods, relative, columns):
+    """An explicit repeated column header must agree even on a middle page."""
+    qualifier=r'(?:\((?:重述|经重述|已重述|调整后)\))?'
+    for index in range(first_row + 1, len(lines)):
+        item=_compact(lines[index])
+        if not re.fullmatch(r'项目(?:附注)?(?:\d{4}年.*)?', item):
+            continue
+        repeated=[];repeated_relative=[];roles=[]
+        cursor=index
+        while cursor < min(index + 16, len(lines)):
+            item=_compact(lines[cursor])
+            if cursor == index:
+                item=re.sub(r'^项目(?:附注)?', '', item)
+            if not item or re.fullmatch(r'附注['+_CN+r']*', item):
+                cursor+=1;continue
+            if item in ('合并','公司','母公司'):
+                roles.append(item);cursor+=1;continue
+            if re.match(r'^\d{4}年',item) and item.count('(')>item.count(')'):
+                while cursor+1<len(lines) and item.count('(')>item.count(')'):
+                    cursor+=1;item+=_compact(lines[cursor])
+            if re.fullmatch(r'(?:\d{4}年(?:度)?'+qualifier+r')+',item):
+                repeated.extend(int(y) for y in re.findall(r'(\d{4})年',item))
+            elif re.search(r'\d{4}年',item):
+                raise ValueError('续页年份列含未识别的期间或注释')
+            elif re.fullmatch(r'(?:(?:本年|上年|本期|上期)发生额|(?:本期|上期)金额)+',item):
+                repeated_relative.extend(re.findall(r'(?:本年|上年|本期|上期)发生额|(?:本期|上期)金额',item))
+            else:
+                break
+            cursor+=1
+        if periods:
+            if repeated != periods or repeated_relative:
+                raise ValueError('续页本期/比较期年份列与首表不一致')
+        elif repeated or repeated_relative != relative:
+            raise ValueError('续页本期/比较期列与首表不一致')
+        if roles and (columns != 4 or roles not in (
+                ['合并','合并','公司','公司'], ['合并','合并','母公司','母公司'])):
+            raise ValueError('续页合并及母公司列顺序不明确')
 
 
 def _bounded_lines(pages,figures):
@@ -218,9 +315,10 @@ def _bounded_lines(pages,figures):
     elif relative not in (['本年发生额','上年发生额']*(column_count//2),['本期发生额','上期发生额']*(column_count//2)):
         raise ValueError('缺少明确的本期/比较期列头')
     if column_count==4:
-        roles=[_compact(x) for x in lines if _compact(x) in ('合并','公司')]
-        if roles!=['合并','合并','公司','公司']:
+        roles=[_compact(x) for x in lines[:first_row] if _compact(x) in ('合并','公司','母公司')]
+        if roles not in (['合并','合并','公司','公司'], ['合并','合并','母公司','母公司']):
             raise ValueError('合并及公司四列表头顺序不明确')
+    _check_continuation_headers(lines, first_row, periods, relative, column_count)
     return lines,numbers,column_count,periods[:2] or None
 
 
@@ -257,6 +355,13 @@ def check_general_income_reconciliation(pages, income, *, report_year=None):
             if (recovery and recovery['values'] is not None and columns == 2
                     and recovery['header_years'] == header_years and recovery['unit'] == unit):
                 found['attributable_profit'] = [recovery]
+        other_present, other_independent = _other_equity_attribution_context(lines, found, columns)
+        if not other_present:
+            found.pop('other_equity_holder_profit')
+        elif not other_independent:
+            # Presence with an unknown scope is required missing evidence even
+            # when the remaining two terms happen to add up without it.
+            found['other_equity_holder_profit'] = []
         rows={};missing=[]
         for key,matches in found.items():
             if len(matches)!=1 or matches[0]['values'] is None:
@@ -264,9 +369,12 @@ def check_general_income_reconciliation(pages, income, *, report_year=None):
                 result['evidence'][key]=dict(status='missing_or_ambiguous',note='必需行缺失、重复或金额列不完整')
             else:
                 row=matches[0];rows[key]=row
-                result['evidence'][key]={**row,'values':[str(v) for v in row['values']]}
-        required_values=[value for row in rows.values() for value in row['values']]
-        integer_scaled=(unit in {'千元','万元','百万元'} and len(rows)==5
+                result['evidence'][key]={**{k:v for k,v in row.items() if k != '_line_span'},
+                    'values':[str(v) if v is not None else None for v in row['values']]}
+                if key == 'minority_profit' and row['values'][2:] == (None, None):
+                    result['evidence'][key]['not_applicable_columns'] = ['company_current', 'company_previous']
+        required_values=[value for row in rows.values() for value in row['values'] if value is not None]
+        integer_scaled=(unit in {'千元','万元','百万元'} and len(rows)==len(found)
             and all(v==v.to_integral_value() for v in required_values)
             and not any(re.search(r'\d\.\d',line) for line in lines))
         tolerance=Decimal('1') if integer_scaled else Decimal('.01')
@@ -294,9 +402,17 @@ def check_general_income_reconciliation(pages, income, *, report_year=None):
             add_check('profit_after_tax'+suffix,scope+tax_label,
                 ('profit_before_tax','income_tax','consolidated_net_profit'),
                 lambda i:(value('profit_before_tax',i)+(1 if signed_tax else -1)*value('income_tax',i),value('consolidated_net_profit',i)),offset)
-            add_check('profit_attribution'+suffix,scope+'归母利润加少数股东损益等于净利润',
-                ('attributable_profit','minority_profit','consolidated_net_profit'),
-                lambda i:(value('attributable_profit',i)+value('minority_profit',i),value('consolidated_net_profit',i)),offset)
+            if offset and rows.get('minority_profit',{}).get('values', ())[2:] == (None, None):
+                add_check('profit_attribution'+suffix,scope+'股东净利润等于净利润（少数股东栏不适用，未作零值计算）',
+                    ('attributable_profit','consolidated_net_profit'),
+                    lambda i:(value('attributable_profit',i),value('consolidated_net_profit',i)),offset)
+            else:
+                attribution_keys=('attributable_profit','minority_profit') + (('other_equity_holder_profit',) if other_present else ())
+                attribution_label=('归母股东利润加独立其他权益工具持有者利润加少数股东损益等于净利润'
+                                   if other_present else '归母利润加少数股东损益等于净利润')
+                add_check('profit_attribution'+suffix,scope+attribution_label,
+                    attribution_keys+('consolidated_net_profit',),
+                    lambda i:(sum(value(k,i) for k in attribution_keys),value('consolidated_net_profit',i)),offset)
         # Couple the reconciled row to the amount actually exposed to the user.
         candidate=[]
         for key in ('current_net_profit','previous_net_profit'):
@@ -311,7 +427,7 @@ def check_general_income_reconciliation(pages, income, *, report_year=None):
         if mismatched:
             result.update(status='mismatch',note='利润表已取得的金额关系存在不一致，请核对原文；缺失行仍不补零。')
         elif missing:
-            result.update(note='必需的税前利润、所得税、合并净利润、归母利润或少数股东行存在缺失/歧义，不能宣称勾稽通过。')
+            result.update(note='必需的税前利润、所得税、合并净利润、归母利润、少数股东行或已列其他权益工具持有者行存在缺失/歧义，不能宣称勾稽通过。')
         else:
             result.update(status='passed',passed=True,note='两期税前至税后利润关系、利润归属关系和输出归母行通过金额检查；这不是全利润表审计，收入与成本全部分项尚未逐项勾稽。')
         # An additional bounded layout can extend, but never silently replace,

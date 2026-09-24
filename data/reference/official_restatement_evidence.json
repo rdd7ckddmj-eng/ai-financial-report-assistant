@@ -315,6 +315,130 @@
         "2025本期收入及2023比较数不属于这条匹配登记；不能将归母净利润或营业总收入替代营业收入。",
         "本次为AI核对官方原文及确定性计算，人工财务确认仍为0。"
       ]
+    },
+    {
+      "evidence_id": "600585.SH-2025-total_assets-2026H1",
+      "status": "registered_official_restatement_explanation",
+      "effect": "explanation_only",
+      "human_verification": "not_performed",
+      "company_code": "600585.SH",
+      "company_name": "海螺水泥",
+      "report_year": 2025,
+      "period_end": "2025-12-31",
+      "metric_key": "total_assets",
+      "evidence_basis": "annual_original_to_subsequent_restated",
+      "annual_yuan": "256000730169",
+      "restated_yuan": "256494726008",
+      "difference_yuan": "493995839",
+      "annual_report": {
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-25/1225028852.PDF",
+        "published_date": "2026-03-25",
+        "sha256": "a50f3e7f150954b2b45c44c50afdaa618c4184ebe4bb1e9b3a2b6475267c66d8",
+        "page_count": 268,
+        "title": "安徽海螺水泥股份有限公司2025年度报告",
+        "amount_value": "256000730169",
+        "amount_unit": "人民币元",
+        "amount_pages": [
+          88
+        ],
+        "company_code": "600585.SH",
+        "amount_period_end": "2025-12-31",
+        "amount_label": "资产总计",
+        "amount_column": "annual_current",
+        "statement_scope": "consolidated",
+        "accounting_basis": "china_accounting_standards"
+      },
+      "subsequent_report": {
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-08-27/1225511652.PDF",
+        "published_date": "2026-08-27",
+        "sha256": "7c9b1464eb36998cad9e76c525e0979af53920c182951aa86cc4fc398efdce06",
+        "page_count": 238,
+        "title": "安徽海螺水泥股份有限公司2026年半年度报告",
+        "after_value": "256494726008",
+        "amount_unit": "人民币元",
+        "amount_pages": [
+          60
+        ],
+        "explanation_pages": [
+          8
+        ],
+        "company_code": "600585.SH",
+        "amount_period_end": "2025-12-31",
+        "amount_label": "资产总计",
+        "amount_column": "restated_comparative",
+        "statement_scope": "consolidated",
+        "accounting_basis": "china_accounting_standards"
+      },
+      "explanation": "官方2026年半年报物理第8页说明，报告期内收购安徽海螺绿能售电有限公司和海螺设计院属于同一控制下企业合并，需对过往年度财务报表进行重述。2025年报物理第88页按中国会计准则编制的合并资产负债表原列资产总计256000730169元；2026年半年报物理第60页同口径的2025年12月31日“经重述”比较列为256494726008元，与本次公开值相同。该元级对照分别取自原年报及后续半年报，后续金额页未并列披露精确到元的调整前值。",
+      "limitations": [
+        "仅匹配已登记公司、年度、原年报PDF指纹、指标及两项精确金额，不是全市场自动重述识别。",
+        "原年报原值与后续重述比较值分别来自两份原件；不得将原年报数伪记为后续报告的调整前值，也不得用千元摘要补足精确到元的金额。",
+        "后续报表为未经审计的中国会计准则合并报表；2026年6月30日本期列、母公司列和国际财务报告准则金额均不属于本条对照。",
+        "公开源NOTICE_DATE及UPDATE_DATE仍为2026-03-25；相同金额不证明供应商实际采用的文档或更新入库时间。",
+        "保留原年报候选金额和金额有差异状态；本条仅提供解释，不自动覆盖来源或作出人工确认。"
+      ]
+    },
+    {
+      "evidence_id": "600585.SH-2025-total_liabilities-2026H1",
+      "status": "registered_official_restatement_explanation",
+      "effect": "explanation_only",
+      "human_verification": "not_performed",
+      "company_code": "600585.SH",
+      "company_name": "海螺水泥",
+      "report_year": 2025,
+      "period_end": "2025-12-31",
+      "metric_key": "total_liabilities",
+      "evidence_basis": "annual_original_to_subsequent_restated",
+      "annual_yuan": "52284946547",
+      "restated_yuan": "52490389624",
+      "difference_yuan": "205443077",
+      "annual_report": {
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-25/1225028852.PDF",
+        "published_date": "2026-03-25",
+        "sha256": "a50f3e7f150954b2b45c44c50afdaa618c4184ebe4bb1e9b3a2b6475267c66d8",
+        "page_count": 268,
+        "title": "安徽海螺水泥股份有限公司2025年度报告",
+        "amount_value": "52284946547",
+        "amount_unit": "人民币元",
+        "amount_pages": [
+          89
+        ],
+        "company_code": "600585.SH",
+        "amount_period_end": "2025-12-31",
+        "amount_label": "负债合计",
+        "amount_column": "annual_current",
+        "statement_scope": "consolidated",
+        "accounting_basis": "china_accounting_standards"
+      },
+      "subsequent_report": {
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-08-27/1225511652.PDF",
+        "published_date": "2026-08-27",
+        "sha256": "7c9b1464eb36998cad9e76c525e0979af53920c182951aa86cc4fc398efdce06",
+        "page_count": 238,
+        "title": "安徽海螺水泥股份有限公司2026年半年度报告",
+        "after_value": "52490389624",
+        "amount_unit": "人民币元",
+        "amount_pages": [
+          61
+        ],
+        "explanation_pages": [
+          8
+        ],
+        "company_code": "600585.SH",
+        "amount_period_end": "2025-12-31",
+        "amount_label": "负债合计",
+        "amount_column": "restated_comparative",
+        "statement_scope": "consolidated",
+        "accounting_basis": "china_accounting_standards"
+      },
+      "explanation": "官方2026年半年报物理第8页说明，报告期内收购安徽海螺绿能售电有限公司和海螺设计院属于同一控制下企业合并，需对过往年度财务报表进行重述。2025年报物理第89页按中国会计准则编制的合并资产负债表原列负债合计52284946547元；2026年半年报物理第61页同口径的2025年12月31日“经重述”比较列为52490389624元，与本次公开值相同。该元级对照分别取自原年报及后续半年报，后续金额页未并列披露精确到元的调整前值。",
+      "limitations": [
+        "仅匹配已登记公司、年度、原年报PDF指纹、指标及两项精确金额，不是全市场自动重述识别。",
+        "原年报原值与后续重述比较值分别来自两份原件；不得将原年报数伪记为后续报告的调整前值，也不得用千元摘要补足精确到元的金额。",
+        "后续报表为未经审计的中国会计准则合并报表；2026年6月30日本期列、母公司列和国际财务报告准则金额均不属于本条对照。",
+        "公开源NOTICE_DATE及UPDATE_DATE仍为2026-03-25；相同金额不证明供应商实际采用的文档或更新入库时间。",
+        "保留原年报候选金额和金额有差异状态；本条仅提供解释，不自动覆盖来源或作出人工确认。"
+      ]
     }
   ]
 }

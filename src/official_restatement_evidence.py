@@ -18,6 +18,7 @@ from src.china_stock import build_company_identity
 REGISTRY_PATH = Path(__file__).resolve().parents[1] / 'data/reference/official_restatement_evidence.json'
 REGISTRY_SCHEMA = 'official-restatement-evidence.v1'
 EVIDENCE_STATUS = 'registered_official_restatement_explanation'
+DUAL_SOURCE_BASIS = 'annual_original_to_subsequent_restated'
 _SHA = re.compile(r'[0-9a-f]{64}')
 _NUMBER = re.compile(r'-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?')
 _OFFICIAL_HOSTS = frozenset({
@@ -69,7 +70,7 @@ def _pages(value, page_count):
         raise ValueError('原文物理页码必须完整、唯一且在全文范围内。')
 
 
-def _report(report, *, subsequent):
+def _report(report, *, subsequent, dual_source=False):
     if not isinstance(report, dict):
         raise ValueError('缺少原文报告信息。')
     _required_text(report.get('title'))
@@ -93,12 +94,39 @@ def _report(report, *, subsequent):
     unit = report.get('amount_unit')
     if not isinstance(unit, str) or unit not in _UNITS:
         raise ValueError('原始金额单位不受支持。')
-    amount_keys = ('before_value', 'after_value') if subsequent else ('amount_value',)
+    if subsequent and dual_source:
+        # The original amount belongs to the annual PDF, not to a later page
+        # that only discloses the restated comparative. Reject even null here.
+        if 'before_value' in report:
+            raise ValueError('双源证据不得将原年报金额记为后续报告的调整前值。')
+        amount_keys = ('after_value',)
+    else:
+        amount_keys = ('before_value', 'after_value') if subsequent else ('amount_value',)
     for key in amount_keys:
         if not isinstance(report.get(key), str):
             raise ValueError('登记金额必须使用十进制字符串。')
         _amount(report[key])
     return published
+
+
+def _dual_source_context(entry, annual, subsequent):
+    """Bind each balance to its own company, year-end, row and table column."""
+    labels = {
+        'total_assets': ('资产总计', '资产总额', '总资产'),
+        'total_liabilities': ('负债合计', '负债总计', '总负债'),
+    }
+    if entry['metric_key'] not in labels:
+        raise ValueError('双源证据目前仅支持年末合并资产与负债。')
+    for report, column in ((annual, 'annual_current'), (subsequent, 'restated_comparative')):
+        if (report.get('company_code') != entry['company_code']
+                or report.get('amount_period_end') != entry['period_end']
+                or report.get('amount_label') not in labels[entry['metric_key']]
+                or report.get('amount_column') != column
+                or report.get('statement_scope') != 'consolidated'
+                or report.get('accounting_basis') != 'china_accounting_standards'):
+            raise ValueError('双源金额的公司、时点、指标或合并比较列口径不一致。')
+    if annual['sha256'] == subsequent['sha256'] or annual['source_url'] == subsequent['source_url']:
+        raise ValueError('双源证据必须分别指向原年报和后续披露原件。')
 
 
 def validate_official_restatement_registry(data):
@@ -135,11 +163,17 @@ def validate_official_restatement_registry(data):
             raise ValueError('缺少重述证据的使用边界。')
         for item in limitations:
             _required_text(item)
+        basis = entry.get('evidence_basis')
+        if 'evidence_basis' in entry and basis != DUAL_SOURCE_BASIS:
+            raise ValueError('重述金额来源模式无效。')
+        dual_source = basis == DUAL_SOURCE_BASIS
         annual, subsequent = entry.get('annual_report'), entry.get('subsequent_report')
         annual_date = _report(annual, subsequent=False)
-        subsequent_date = _report(subsequent, subsequent=True)
+        subsequent_date = _report(subsequent, subsequent=True, dual_source=dual_source)
         if annual_date <= period_end or subsequent_date < annual_date:
             raise ValueError('后续披露与原年报的日期顺序无效。')
+        if dual_source:
+            _dual_source_context(entry, annual, subsequent)
         for field in ('annual_yuan', 'restated_yuan', 'difference_yuan'):
             if not isinstance(entry.get(field), str):
                 raise ValueError('人民币金额必须使用十进制字符串。')
@@ -148,7 +182,7 @@ def validate_official_restatement_registry(data):
             before, after = _amount(entry['annual_yuan']), _amount(entry['restated_yuan'])
             if (before == after or _amount(entry['difference_yuan']) != after - before
                     or _amount(annual['amount_value']) * _UNITS[annual['amount_unit']] != before
-                    or _amount(subsequent['before_value']) * _UNITS[subsequent['amount_unit']] != before
+                    or (not dual_source and _amount(subsequent['before_value']) * _UNITS[subsequent['amount_unit']] != before)
                     or _amount(subsequent['after_value']) * _UNITS[subsequent['amount_unit']] != after):
                 raise ValueError('原值、重述前后值、单位换算或差额不一致。')
         key = (entry['company_code'], year, annual['sha256'], entry['metric_key'])

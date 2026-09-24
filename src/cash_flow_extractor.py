@@ -232,6 +232,57 @@ def _has_recovery_header(lines: list[str]) -> bool:
     return bool(match and int(match[1]) == int(match[2]) + 1)
 
 
+def _has_named_period_note_header(lines: list[str]) -> bool:
+    """Recognise the existing Hikvision note column, without new recoveries."""
+    if _chinese_cash_flow_column_count(lines) != 2:
+        return False
+    header = ""
+    for index, line in enumerate(lines):
+        if not _compact_chinese_text(line).startswith("项目"):
+            continue
+        for part in lines[index:index + 6]:
+            if "经营活动" in part:
+                break
+            header += _compact_chinese_text(part)
+        break
+    return header == "项目附注本年发生额上年发生额"
+
+
+def _has_explicit_standalone_note_header(lines: list[str]) -> bool:
+    """Allow one complete note cell under observed, unambiguous headers.
+
+    This does not enable the two-column interleaved-label recovery. Combined
+    group/company statements must also declare all four ordered column roles.
+    """
+    if _has_named_period_note_header(lines):
+        return True
+    columns = _chinese_cash_flow_column_count(lines)
+    compact = [_compact_chinese_text(line).replace('（', '(').replace('）', ')')
+               for line in lines]
+    end = next((i for i, line in enumerate(compact)
+                if re.fullmatch(r'一、经营活动产生(?:/\(使用\))?的现金流量[：:]?', line)), None)
+    if end is None:
+        return False
+    start = next((i for i, line in enumerate(compact[:end])
+                  if line.startswith('项目') or line == '项' or line == '附注'), None)
+    if start is None:
+        return False
+    header = ''.join(compact[start:end])
+    if columns == 2:
+        match = re.fullmatch(r'(?:项目)?附注(\d{4})年度?(\d{4})年度?'
+                             r'(?:\((?:已)?重述\))?', header)
+        return bool(match and int(match[1]) == int(match[2]) + 1)
+    if columns != 4:
+        return False
+    match = re.fullmatch(r'项目附注(\d{4})年度(\d{4})年度(\d{4})年度(\d{4})年度'
+                         r'合并合并公司公司', header)
+    if match is None:
+        match = re.fullmatch(r'项目附注(\d{4})年度合并(\d{4})年度合并'
+                             r'(\d{4})年度母公司(\d{4})年度母公司', header)
+    return bool(match and [int(year) for year in match.groups()]
+                == [int(match[1]), int(match[1]) - 1] * 2)
+
+
 def _strict_recovery_values(line: str) -> list[float] | None:
     """New recovery paths require complete, bounded financial cells."""
     amount = r"(?:\d{1,3}(?:[,，]\d{3})+|\d+)(?:\.\d+)?"
@@ -340,7 +391,8 @@ def _extract_chinese_row_pair(
 ) -> tuple[float, float] | None:
     """Return current and prior-year values from a common A-share row."""
     recovery_header = _has_recovery_header(lines)
-    if recovery_header or strict_values:
+    standalone_note_header = _has_explicit_standalone_note_header(lines)
+    if recovery_header or strict_values or standalone_note_header:
         starts = set()
         for index, line in enumerate(lines):
             compact = _compact_chinese_text(line)
@@ -396,7 +448,7 @@ def _extract_chinese_row_pair(
             following_lines = lines[label_end + 1:] if strict_values else lines[label_end + 1:label_end + 7]
             for last, following_line in enumerate(following_lines, label_end + 1):
                 if _is_financial_values_line(following_line):
-                    if (strict_values or note_recovery or sign_caption_recovery) and _strict_recovery_values(following_line) is None:
+                    if (strict_values or note_recovery or sign_caption_recovery or standalone_notes) and _strict_recovery_values(following_line) is None:
                         return None
                     following_values.extend(
                         _financial_values_in_line(following_line)
@@ -416,25 +468,28 @@ def _extract_chinese_row_pair(
                         following_values.extend(noted)
                         note_recovery = True
                         continue
-                if (recovery_header or strict_values) and _invalid_numeric_boundary(following_line):
+                if (recovery_header or strict_values or standalone_notes) and _invalid_numeric_boundary(following_line):
                     return None
                 if following_values:
                     break
                 if note_recovery:
                     break
-                if recovery_header or strict_values:
-                    parenthesized_note = bool(strict_values and re.fullmatch(
+                if recovery_header or strict_values or standalone_note_header:
+                    parenthesized_note = bool((strict_values or standalone_note_header) and re.fullmatch(
                         r'[（(][一二三四五六七八九十百]+[）)][1-9]\d{0,2}(?:[（(][A-Za-z0-9]+[）)])*',
                         _compact_chinese_text(following_line)))
                     if _standalone_note(following_line) or parenthesized_note:
                         standalone_notes += 1
-                        if strict_values and standalone_notes > 1:
+                        if (strict_values or standalone_note_header) and standalone_notes > 1:
                             return None
                         continue
-                    # A real two-column table must not borrow an amount from
-                    # a later account after this row's evidence is missing.
-                    break
+                # Any unrecognised text ends this row, including in tables
+                # without an explicit note column. A blank amount must not
+                # borrow a later account's cells merely because they reconcile.
+                break
             if strict_values and len(following_values) != value_column_count:
+                return None
+            if standalone_notes and len(following_values) != value_column_count:
                 return None
             if note_recovery or sign_caption_recovery:
                 # A newly recognised note must leave exactly two cells. Never

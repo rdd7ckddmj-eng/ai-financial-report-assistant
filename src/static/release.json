@@ -1,15 +1,15 @@
 {
-  "release_id": "20260924-coverage-12.1",
-  "source_digest_sha256": "bef07d87022ef8aa155066170613b329be5043ca0f5916f5d500761198a9de35",
-  "prior_commit": "14c01f505e428c3434c754ca54029d9db4d5dfa8",
-  "verified_python_tests": 2950,
+  "release_id": "20260924-coverage-13.1",
+  "source_digest_sha256": "fdbc2035d8b25fa6d59cfcf1d33e1ed8f902e763539c22e8b97ad6529dfe6a65",
+  "prior_commit": "2705a55c339281d1c09144bb93236aa9713be9c0",
+  "verified_python_tests": 3278,
   "coverage": {
-    "real_reports_tested": 88,
-    "candidate_reports": 84,
-    "companies": 72,
-    "candidate_companies": 70,
-    "issuer_year_pairs": 86,
+    "real_reports_tested": 108,
+    "candidate_reports": 102,
+    "companies": 92,
+    "candidate_companies": 88,
+    "issuer_year_pairs": 106,
     "human_verified_new": 0
   },
-  "note": "Twenty new 2025 issuers and Sinopec CAS repair; other 67 originals retain statuses, statement checks and both-period amounts. Eight originals pass bounded operating-component checks. Cross-page profit evidence retains original page slices. Exact tested-source download verifies fresh bytes and re-runs current parsing; historical status never grants a pass or financial approval. 103 of 105 new/repaired current amounts have zero public-source difference; Conch assets and liabilities retain differences explained by subsequent official restatement. 88 PDF versions, not all-market coverage. No OCR or raised resource limits."
+  "note": "Twenty additional 2025 issuers: 18 candidates, two evidence gaps; prior 88 exact originals preserve statuses, statement checks and both-period amounts. Strict note and four-column extraction, bounded income continuation and independent other-equity-holder attribution. Blank cash rows cannot borrow the next account. Official-original input provenance survives comparison and archive replay. Conch dual-source restatement explanations preserve both originals and difference status. New 100 current metric comparisons: 88 zero differences, two retained TCL differences, ten not comparable. Not all-market coverage or human financial approval; no OCR or resource limit increases."
 }

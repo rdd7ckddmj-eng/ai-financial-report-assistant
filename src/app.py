@@ -13593,6 +13593,7 @@ def _render_saved_financial_comparisons(case: Mapping[str, object]) -> None:
             payload = artifact["payload"]
             st.markdown(f"**{artifact['title']}**")
             st.caption(f"保存时间：{artifact['generated_at']}｜公开源取数：{payload.get('public_fetched_at', '未记录')}")
+            _render_comparison_input_provenance(payload)
             rows = payload.get("rows", [])
             if not isinstance(rows, list) or len(rows) != 5 or any(not isinstance(row, Mapping) for row in rows):
                 st.warning("旧对照记录结构不完整，请重新生成；原档案未修改。")
@@ -18814,14 +18815,28 @@ def _render_official_restatement_explanation(row: Mapping[str, object], comparis
         return
     st.markdown(f"**{row.get('label', '金额差异')}：已有对应的官方重述说明**")
     st.write(evidence.get("explanation", ""))
-    st.write(
-        f"同一 {evidence.get('period_end', '期末')} 的金额："
-        f"调整前 {report.get('before_value', '未记录')} → "
-        f"调整后 {report.get('after_value', '未记录')}（{report.get('amount_unit', '单位待核对')}）。"
-        "本次公开值与调整后金额相同，原年报候选保留原值。"
-    )
     def page_text(value):
         return "、".join(str(p) for p in value if type(p) is int and p > 0) if isinstance(value, list) else "未记录"
+    if evidence.get("evidence_basis") == "annual_original_to_subsequent_restated":
+        annual = evidence["annual_report"]
+        st.write(
+            f"同一 {evidence['period_end']} 的金额："
+            f"{evidence['report_year']} 年报原列值 {annual['amount_value']}（{annual['amount_unit']}，"
+            f"PDF 第 {page_text(annual['amount_pages'])} 页）→ "
+            f"后续报告重述比较值 {report['after_value']}（{report['amount_unit']}，"
+            f"PDF 第 {page_text(report['amount_pages'])} 页）。"
+            "本次公开值与重述比较值相同，原年报候选保留原值。"
+        )
+        st.caption("两项金额分别取自原年报和后续报告；后续报告的元级报表未列调整前值。")
+        st.link_button(f"查看原年报金额出处 · {row.get('label', '金额差异')}",
+            annual['source_url'] + f"#page={annual['amount_pages'][0]}")
+    else:
+        st.write(
+            f"同一 {evidence.get('period_end', '期末')} 的金额："
+            f"调整前 {report.get('before_value', '未记录')} → "
+            f"调整后 {report.get('after_value', '未记录')}（{report.get('amount_unit', '单位待核对')}）。"
+            "本次公开值与调整后金额相同，原年报候选保留原值。"
+        )
     st.caption(
         f"后续披露：{report.get('title', '官方报告')}｜公告日期：{report.get('published_date', '未记录')}｜"
         f"金额见 PDF 第 {page_text(report.get('amount_pages'))} 页；"
@@ -18831,6 +18846,17 @@ def _render_official_restatement_explanation(row: Mapping[str, object], comparis
     limitations = evidence.get("limitations", "")
     st.caption("；".join(str(x) for x in limitations) if isinstance(limitations, list) else str(limitations))
     st.caption("这是一条差异解释线索，未完成人工复核，也未确认公开数据商的更新过程。")
+
+
+def _render_comparison_input_provenance(comparison: Mapping[str, object]) -> None:
+    """Describe the recorded input route without authenticating imported data."""
+    labels = {
+        "user_uploaded_official_report_candidate": "用户上传的年报候选",
+        "redownloaded_exact_tested_official_report": "重新读取已测试的官方原件",
+    }
+    value = comparison.get("annual_input_provenance")
+    label = labels.get(value, "此记录未保存输入方式") if isinstance(value, str) else "此记录未保存输入方式"
+    st.caption(f"记录的年报输入方式：{label}。输入方式不代表已完成人工复核。")
 
 
 def _render_public_financial_reconciliation(snapshot: Mapping[str, object]) -> None:
@@ -18855,6 +18881,7 @@ def _render_public_financial_reconciliation(snapshot: Mapping[str, object]) -> N
             st.warning(f"暂不能对照：{error}")
             return
         st.caption(f"只对照 {result['report_year']} 年本期列｜公开源更新：{result['public_updated_date']}｜年报公告：{result['annual_published_date']}")
+        _render_comparison_input_provenance(result)
         st.warning(result["limitation"])
         labels = {"amount_close": "金额接近，口径待核验", "amount_difference": "金额有差异，需追查", "not_comparable": "数据不足，暂不可比"}
         st.dataframe(pd.DataFrame([{

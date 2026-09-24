@@ -23,6 +23,11 @@ LIMITATION = (
     "公开源可能重述，归母利润与合并净利润、营业收入与营业总收入不能混用。"
 )
 
+RECORDED_ANNUAL_INPUTS = (
+    'user_uploaded_official_report_candidate',
+    'redownloaded_exact_tested_official_report',
+)
+
 
 def _number(value):
     if value is None:
@@ -140,7 +145,8 @@ def build_public_financial_reconciliation(history, snapshot):
         public_fingerprint=history['fingerprint'], annual_source_url=report['source_url'],
         annual_published_date=report.get('published_date'), annual_pdf_fingerprint=fingerprint,
         rows=rows, limitation=LIMITATION,
-        annual_input_provenance=('user_uploaded_official_report_candidate' if snapshot.get('input_provenance') == 'user_uploaded_official_report_candidate' else 'not_recorded'),
+        annual_input_provenance=(snapshot['input_provenance']
+            if snapshot.get('input_provenance') in RECORDED_ANNUAL_INPUTS else 'not_recorded'),
         tolerance_rule='允许差值为原始年报单位的0.005，最低1元；只描述金额接近，不确认报表口径。')
     result['fingerprint'] = sha256(json.dumps(result, ensure_ascii=False, sort_keys=True, allow_nan=False).encode()).hexdigest()
     return result

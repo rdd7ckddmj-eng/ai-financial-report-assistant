@@ -1,0 +1,335 @@
+{
+  "schema": "conch-dual-source-restatement-fixture.v1",
+  "provenance": {
+    "description": "Read-only fixture from batch12 final production receipt row plus unchanged download metadata/public response and native PDF page text. No new PDF extraction or substituted amount. Physical pages 88/89 (annual), 8/60/61 (H1) visually rechecked in batch13.",
+    "final_receipt_filename": "第12批完整年报回执_final_20260924.json",
+    "final_receipt_sha256": "270c615824832cddc52409a9e54da51bb7bcb15896e93bf608d2da21c6be1029",
+    "annual_metadata_sha256": "708aa41f762a34fbf9b60ecb3e0962c532d50a22ab02d36aa1e3317aeaab2fd8",
+    "public_raw_sha256": "82cce774c33592323478af7d020128451c89e4c43a69204a5491cf057fb7878c",
+    "human_verifications": 0
+  },
+  "annual_report": {
+    "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-25/1225028852.PDF",
+    "published_date": "2026-03-25",
+    "sha256": "a50f3e7f150954b2b45c44c50afdaa618c4184ebe4bb1e9b3a2b6475267c66d8",
+    "page_count": 268,
+    "bytes": 2859484
+  },
+  "subsequent_report": {
+    "source_url": "https://static.cninfo.com.cn/finalpage/2026-08-27/1225511652.PDF",
+    "published_date": "2026-08-27",
+    "sha256": "7c9b1464eb36998cad9e76c525e0979af53920c182951aa86cc4fc398efdce06",
+    "page_count": 238,
+    "bytes": 2538351,
+    "scope": "2026 half-year CAS consolidated statement; 2025-12-31 comparative column explicitly labelled 经重述",
+    "visual_pages": [
+      8,
+      60,
+      61
+    ]
+  },
+  "annual_snapshot": {
+    "company": {
+      "code": "600585",
+      "name": "海螺水泥",
+      "exchange": "SH",
+      "exchange_name": "上海证券交易所",
+      "canonical_code": "600585.SH"
+    },
+    "report": {
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-25/1225028852.PDF",
+      "report_year": 2025,
+      "page_count": 268,
+      "published_date": "2026-03-25",
+      "statement_template": "general"
+    },
+    "source_fingerprint_sha256": "a50f3e7f150954b2b45c44c50afdaa618c4184ebe4bb1e9b3a2b6475267c66d8",
+    "metrics": [
+      {
+        "key": "revenue",
+        "label": "营业收入",
+        "current_yuan": 82532050796.0,
+        "previous_yuan": 91029615303.0,
+        "change_rate": -0.09334944983250909,
+        "change_rate_note": "",
+        "statement": "利润表",
+        "pages": {
+          "start": 94,
+          "end": 94
+        },
+        "source": {
+          "raw_current_value": 82532050796.0,
+          "raw_previous_value": 91029615303.0,
+          "original_unit": "人民币元",
+          "accounting_basis": "合并口径",
+          "comparison_comparable": true,
+          "comparison_basis": "本期与年报比较栏原值；可能包含追溯调整",
+          "statement": "利润表",
+          "pages": {
+            "start": 94,
+            "end": 94
+          },
+          "excerpt": "一、营业收入 ｜ 五、43 ｜ 82,532,050,796 ｜ 91,029,615,303 ｜ 二、减：营业成本 ｜ 五、43 ｜ 62,589,049,730",
+          "excerpt_status": "captured"
+        }
+      },
+      {
+        "key": "net_profit",
+        "label": "净利润（优先归母口径）",
+        "current_yuan": 8113068470.0,
+        "previous_yuan": 7696117949.0,
+        "change_rate": 0.054176732186670386,
+        "change_rate_note": "",
+        "statement": "利润表",
+        "pages": {
+          "start": 94,
+          "end": 94
+        },
+        "source": {
+          "raw_current_value": 8113068470.0,
+          "raw_previous_value": 7696117949.0,
+          "original_unit": "人民币元",
+          "accounting_basis": "合并口径",
+          "comparison_comparable": true,
+          "comparison_basis": "本期与年报比较栏原值；可能包含追溯调整",
+          "statement": "利润表",
+          "pages": {
+            "start": 94,
+            "end": 94
+          },
+          "excerpt": "1.归属于母公司股东的净利润 ｜ 8,113,068,470 ｜ 7,696,117,949 ｜ 2.少数股东损益 ｜ -247,380,469 ｜ -32,917,779 ｜ 刊载于第104页至第262页的财务报表附注为本财务报表的组成部分。",
+          "excerpt_status": "captured"
+        }
+      },
+      {
+        "key": "operating_cash_flow",
+        "label": "经营活动现金流量净额",
+        "current_yuan": 16643907685.0,
+        "previous_yuan": 18476252523.0,
+        "change_rate": -0.09917297004460301,
+        "change_rate_note": "",
+        "statement": "现金流量表",
+        "pages": {
+          "start": 98,
+          "end": 99
+        },
+        "source": {
+          "raw_current_value": 16643907685.0,
+          "raw_previous_value": 18476252523.0,
+          "original_unit": "人民币元",
+          "accounting_basis": "合并口径",
+          "comparison_comparable": true,
+          "comparison_basis": "本期与年报比较栏原值；可能包含追溯调整",
+          "statement": "现金流量表",
+          "pages": {
+            "start": 98,
+            "end": 99
+          },
+          "excerpt": "经营活动产生的现金流量净额 ｜ 五、59（1） ｜ 16,643,907,685 ｜ 18,476,252,523 ｜ 二、投资活动产生的现金流量： ｜ 收回投资收到的现金 ｜ 27,840,370,871",
+          "excerpt_status": "captured"
+        }
+      },
+      {
+        "key": "total_assets",
+        "label": "资产总额",
+        "current_yuan": 256000730169.0,
+        "previous_yuan": 254635243900.0,
+        "change_rate": 0.005362518746761748,
+        "change_rate_note": "",
+        "statement": "资产负债表",
+        "pages": {
+          "start": 88,
+          "end": 90
+        },
+        "source": {
+          "raw_current_value": 256000730169.0,
+          "raw_previous_value": 254635243900.0,
+          "original_unit": "人民币元",
+          "accounting_basis": "合并口径",
+          "comparison_comparable": true,
+          "comparison_basis": "本期与年报比较栏原值；可能包含追溯调整",
+          "statement": "资产负债表",
+          "pages": {
+            "start": 88,
+            "end": 90
+          },
+          "excerpt": "资产总计 ｜ 256,000,730,169 ｜ 254,635,243,900 ｜ 刊载于第104页至第262页的财务报表附注为本财务报表的组成部分。 ｜ 89 ｜ 安徽海螺水泥股份有限公司 ｜ 合并资产负债表（续）",
+          "excerpt_status": "captured"
+        }
+      },
+      {
+        "key": "total_liabilities",
+        "label": "负债总额",
+        "current_yuan": 52284946547.0,
+        "previous_yuan": 54257807200.0,
+        "change_rate": -0.03636086223919495,
+        "change_rate_note": "",
+        "statement": "资产负债表",
+        "pages": {
+          "start": 88,
+          "end": 90
+        },
+        "source": {
+          "raw_current_value": 52284946547.0,
+          "raw_previous_value": 54257807200.0,
+          "original_unit": "人民币元",
+          "accounting_basis": "合并口径",
+          "comparison_comparable": true,
+          "comparison_basis": "本期与年报比较栏原值；可能包含追溯调整",
+          "statement": "资产负债表",
+          "pages": {
+            "start": 88,
+            "end": 90
+          },
+          "excerpt": "负债合计 ｜ 52,284,946,547 ｜ 54,257,807,200 ｜ 刊载于第104页至第262页的财务报表附注为本财务报表的组成部分。 ｜ 90 ｜ 安徽海螺水泥股份有限公司 ｜ 合并资产负债表（续）",
+          "excerpt_status": "captured"
+        }
+      }
+    ],
+    "status": "ready_for_human_review",
+    "statement_checks": {
+      "income_statement_reconciled": true,
+      "balance_sheet_reconciled": true,
+      "cash_flow_statement_reconciled": true
+    }
+  },
+  "source_rows": [
+    {
+      "SECUCODE": "600585.SH",
+      "SECURITY_CODE": "600585",
+      "SECURITY_NAME_ABBR": "海螺水泥",
+      "ORG_TYPE": "通用",
+      "REPORT_DATE": "2020-12-31",
+      "REPORT_TYPE": "年报",
+      "NOTICE_DATE": "2021-03-26",
+      "UPDATE_DATE": "2022-03-26",
+      "CURRENCY": "CNY",
+      "OPERATE_INCOME_PK": 176294715308.0,
+      "TOTALOPERATEREVE": 176294715308.0,
+      "PARENTNETPROFIT": 35158224782.0,
+      "NETCASH_OPERATE_PK": 34822097573.0,
+      "TOTAL_ASSETS_PK": 201852917398.0,
+      "LIABILITY": 33237286113.0,
+      "TOTAL_EQUITY_PK": 168615631285.0
+    },
+    {
+      "SECUCODE": "600585.SH",
+      "SECURITY_CODE": "600585",
+      "SECURITY_NAME_ABBR": "海螺水泥",
+      "ORG_TYPE": "通用",
+      "REPORT_DATE": "2021-12-31",
+      "REPORT_TYPE": "年报",
+      "NOTICE_DATE": "2022-03-26",
+      "UPDATE_DATE": "2023-03-28",
+      "CURRENCY": "CNY",
+      "OPERATE_INCOME_PK": 167959692761.0,
+      "TOTALOPERATEREVE": 167959692761.0,
+      "PARENTNETPROFIT": 33267557457.0,
+      "NETCASH_OPERATE_PK": 33895232445.0,
+      "TOTAL_ASSETS_PK": 230555681501.0,
+      "LIABILITY": 38698557547.0,
+      "TOTAL_EQUITY_PK": 191857123954.0
+    },
+    {
+      "SECUCODE": "600585.SH",
+      "SECURITY_CODE": "600585",
+      "SECURITY_NAME_ABBR": "海螺水泥",
+      "ORG_TYPE": "通用",
+      "REPORT_DATE": "2022-12-31",
+      "REPORT_TYPE": "年报",
+      "NOTICE_DATE": "2023-03-28",
+      "UPDATE_DATE": "2024-03-20",
+      "CURRENCY": "CNY",
+      "OPERATE_INCOME_PK": 132021553710.0,
+      "TOTALOPERATEREVE": 132021553710.0,
+      "PARENTNETPROFIT": 15660749869.0,
+      "NETCASH_OPERATE_PK": 9649267916.0,
+      "TOTAL_ASSETS_PK": 243976422237.0,
+      "LIABILITY": 47982827505.0,
+      "TOTAL_EQUITY_PK": 195993594732.0
+    },
+    {
+      "SECUCODE": "600585.SH",
+      "SECURITY_CODE": "600585",
+      "SECURITY_NAME_ABBR": "海螺水泥",
+      "ORG_TYPE": "通用",
+      "REPORT_DATE": "2023-12-31",
+      "REPORT_TYPE": "年报",
+      "NOTICE_DATE": "2024-03-20",
+      "UPDATE_DATE": "2025-03-25",
+      "CURRENCY": "CNY",
+      "OPERATE_INCOME_PK": 141157206613.0,
+      "TOTALOPERATEREVE": 141157206613.0,
+      "PARENTNETPROFIT": 10427551650.0,
+      "NETCASH_OPERATE_PK": 20074155896.0,
+      "TOTAL_ASSETS_PK": 246356360411.0,
+      "LIABILITY": 48335063593.0,
+      "TOTAL_EQUITY_PK": 198021296818.0
+    },
+    {
+      "SECUCODE": "600585.SH",
+      "SECURITY_CODE": "600585",
+      "SECURITY_NAME_ABBR": "海螺水泥",
+      "ORG_TYPE": "通用",
+      "REPORT_DATE": "2024-12-31",
+      "REPORT_TYPE": "年报",
+      "NOTICE_DATE": "2025-03-25",
+      "UPDATE_DATE": "2026-03-25",
+      "CURRENCY": "CNY",
+      "OPERATE_INCOME_PK": 91029615303.0,
+      "TOTALOPERATEREVE": 91029615303.0,
+      "PARENTNETPROFIT": 7696117949.0,
+      "NETCASH_OPERATE_PK": 18476252523.0,
+      "TOTAL_ASSETS_PK": 254635243900.0,
+      "LIABILITY": 54257807200.0,
+      "TOTAL_EQUITY_PK": 200377436700.0
+    },
+    {
+      "SECUCODE": "600585.SH",
+      "SECURITY_CODE": "600585",
+      "SECURITY_NAME_ABBR": "海螺水泥",
+      "ORG_TYPE": "通用",
+      "REPORT_DATE": "2025-12-31",
+      "REPORT_TYPE": "年报",
+      "NOTICE_DATE": "2026-03-25",
+      "UPDATE_DATE": "2026-03-25",
+      "CURRENCY": "CNY",
+      "OPERATE_INCOME_PK": 82532050796.0,
+      "TOTALOPERATEREVE": 82532050796.0,
+      "PARENTNETPROFIT": 8113068470.0,
+      "NETCASH_OPERATE_PK": 16643907685.0,
+      "TOTAL_ASSETS_PK": 256494726008.0,
+      "LIABILITY": 52490389624.0,
+      "TOTAL_EQUITY_PK": 204004336384.0
+    }
+  ],
+  "public_fetched_at": "2026-09-23T20:32:23+00:00",
+  "annual_pages": [
+    {
+      "page_number": 88,
+      "text": " \n88 \n安徽海螺水泥股份有限公司 \n合并资产负债表 \n2025年12月31日 \n \n金额单位：人民币元 \n项目 \n附注 \n2025年 \n12月31日 \n2024年 \n12月31日 \n流动资产： \n  \n  \n  \n货币资金 \n五、1 \n50,252,254,165 \n70,229,347,994 \n交易性金融资产 \n五、2 \n12,899,352,683 \n509,202,642 \n应收票据 \n五、3 \n5,795,292,472 \n5,913,012,705 \n应收账款 \n五、4 \n2,922,319,660 \n3,773,192,484 \n应收款项融资 \n五、5 \n1,548,405,892 \n1,423,972,998 \n预付款项 \n五、6 \n694,850,901 \n944,849,151 \n其他应收款 \n五、7 \n1,444,659,039 \n1,410,263,853 \n存货 \n五、8 \n7,596,948,434 \n8,108,520,343 \n持有待售资产 \n五、9 \n- \n11,442,212 \n一年内到期的非流动资产 \n五、10 \n1,369,409,315 \n- \n其他流动资产 \n五、11 \n4,281,263,129 \n1,438,229,912 \n流动资产合计 \n  \n88,804,755,690 \n93,762,034,294 \n非流动资产： \n  \n \n \n长期股权投资 \n五、12 \n7,981,403,690 \n7,775,668,868 \n其他权益工具投资 \n五、13 \n1,416,433,764 \n1,506,953,238 \n投资性房地产 \n五、14 \n63,351,166 \n66,978,091 \n固定资产 \n五、15 \n92,533,715,111 \n89,227,646,848 \n在建工程 \n五、16 \n6,172,122,578 \n9,355,746,141 \n使用权资产 \n五、17 \n888,246,087 \n737,454,156 \n无形资产 \n五、18 \n37,051,103,465 \n34,264,064,763 \n商誉 \n五、19 \n1,241,748,131 \n1,451,586,751 \n递延所得税资产 \n五、20 \n1,744,279,226 \n1,486,465,934 \n其他非流动资产 \n五、21 \n18,103,571,261 \n15,000,644,816 \n非流动资产合计 \n  \n167,195,974,479 \n160,873,209,606 \n资产总计 \n  \n256,000,730,169 \n254,635,243,900 \n \n刊载于第104页至第262页的财务报表附注为本财务报表的组成部分。 \n"
+    },
+    {
+      "page_number": 89,
+      "text": " \n89 \n安徽海螺水泥股份有限公司 \n合并资产负债表（续） \n2025年12月31日 \n \n金额单位：人民币元 \n项目 \n附注 \n2025年 \n12月31日 \n2024年 \n12月31日 \n流动负债： \n  \n  \n  \n短期借款 \n五、22 \n4,540,763,707 \n5,748,688,099 \n应付票据 \n五、23 \n134,416,983 \n272,108,465 \n应付账款 \n五、24 \n5,166,255,030 \n5,854,946,100 \n合同负债 \n五、25 \n2,915,942,015 \n2,569,304,570 \n应付职工薪酬 \n五、26 \n1,607,059,187 \n1,597,654,998 \n应交税费 \n五、27 \n1,961,586,739 \n2,349,464,020 \n其他应付款 \n五、28 \n9,095,885,439 \n8,526,959,405 \n一年内到期的非流动负债 \n五、29 \n2,396,599,885 \n1,972,962,009 \n流动负债合计 \n  \n27,818,508,985 \n28,892,087,666 \n非流动负债： \n  \n \n \n长期借款 \n五、30 \n7,018,946,364 \n10,086,380,926 \n应付债券 \n五、31 \n12,500,000,000 \n11,500,000,000 \n租赁负债 \n五、32 \n220,156,287 \n240,355,306 \n长期应付职工薪酬 \n \n55,948,330 \n- \n长期应付款 \n五、33 \n1,168,719,362 \n694,716,035 \n预计负债 \n五、34 \n133,514,210 \n86,115,411 \n递延收益 \n五、35 \n1,508,167,239 \n1,054,850,935 \n递延所得税负债 \n五、20 \n1,860,985,770 \n1,703,300,921 \n非流动负债合计 \n  \n24,466,437,562 \n25,365,719,534 \n负债合计 \n  \n52,284,946,547 \n54,257,807,200 \n \n \n \n \n \n \n \n \n刊载于第104页至第262页的财务报表附注为本财务报表的组成部分。 \n"
+    }
+  ],
+  "subsequent_pages": [
+    {
+      "page_number": 8,
+      "text": "8\n（七）\n国际审计师：\n安永会计师事务所\n于《会计及财务汇报局条例》（香港法例第\n588章）下的注册公众利益实体核数师\n香港鲗鱼涌英皇道979号太古坊一座27楼\n中国审计师：\n安永华明会计师事务所（特殊普通合伙）\n中国北京市东城区东长安街1号东方广场安\n永大楼17层01-12室\n（八）\nH股过户登记处：\n香港中央证券登记有限公司\n香港湾仔皇后大道东183号合和中心17楼\n1712-1716号铺\n（九）按中国会计准则编制的会计资料\n表一：\n项\n目\n2026年6月30日\n（千元）\n（未经审计）\n2025年12月31日\n（千元）\n本报告期末比\n上年度末增减\n（%）\n调整后\n调整前\n总资产\n252,464,266\n256,494,726\n256,000,730\n-1.57\n归属于上市公司股东的净资产\n191,232,721\n192,703,439\n192,427,628\n-0.76\n注：报告期内，本公司因收购安徽海螺绿能售电有限公司和海螺设计院，属于同一控制\n下企业合并事项，需分别按照中国会计准则、国际财务报告准则有关规定对过往年度财\n务报表进行重述（下同）。\n表二：\n项\n目\n2026年1-6月\n（千元）\n（未经审计）\n2025年1-6月\n（千元）\n（未经审计）\n本报告期比\n上年同期增减\n（%）\n调整后\n调整前\n营业收入\n36,926,872\n41,436,746\n41,291,785\n-10.88\n利润总额\n3,265,319\n5,903,295\n5,836,359\n-44.69\n归属于上市公司股东的净利润\n2,526,712\n4,414,320\n4,367,868\n-42.76\n归属于上市公司股东的扣除非\n经常性损益的净利润\n1,902,123\n4,198,097\n4,198,097\n-54.69\n基本每股收益（元/股）\n0.48\n0.84\n0.83\n-42.76\n稀释每股收益（元/股）\n0.48\n0.84\n0.83\n-42.76\n"
+    },
+    {
+      "page_number": 10,
+      "text": "10\n项\n目\n2026年6月30日\n（千元）\n（未经审计）\n2025年12月31日\n（千元）\n本报告期末比\n上年度末增减\n（%）\n调整后\n调整前\n总资产\n252,464,266\n256,494,726\n256,000,730\n-1.57\n总负债\n50,554,413\n52,518,230\n52,312,787\n-3.74\n（十一）按中国会计准则编制的合并会计报表与根据国际财务报告准则编制的合并会\n计报表的差异说明\n归属于上市公司股东之\n净利润\n归属于上市公司股东之\n股东权益\n2026 年1-6 月\n（千元）\n（未经审计）\n2025 年1-6 月\n（千元）\n（未经审计）\n2026 年\n6 月30 日\n（千元）\n（未经审计）\n2025 年\n12 月31 日\n（千元）\n按中国会计准则编制的法定财务报表所载之金额\n2,526,712\n4,414,320\n191,232,721\n192,703,439\n－按国际财务报告准则递延确认的不属于《企业会\n计准则第16 号—政府补助》规范下的项目\n4,868\n6,202\n-17,761\n-22,628\n－执行《企业会计准则解释第3 号》产生的差异\n188,206\n256,951\n-\n-\n按国际财务报告准则编制之金额\n2,719,786\n4,677,473\n191,214,960\n192,680,811\n"
+    },
+    {
+      "page_number": 60,
+      "text": "60 \n安徽海螺水泥股份有限公司 \n合并资产负债表（未经审计） \n2026年6月30日 \n \n金额单位：人民币元 \n项目 \n附注 \n2026年6月30日 \n2025年12月31日 \n(经重述) \n流动资产： \n  \n  \n  \n货币资金 \n五、1 \n 34,328,683,249 \n 50,598,226,803 \n交易性金融资产 \n五、2 \n 23,451,797,314 \n 12,999,961,465 \n应收票据 \n五、3 \n 4,593,960,615 \n 5,832,261,667 \n应收账款 \n五、4 \n 2,384,398,279 \n 3,050,127,539 \n应收款项融资 \n五、5 \n 1,434,719,556 \n1,574,248,704 \n预付款项 \n五、6 \n 724,855,055 \n 700,063,837 \n其他应收款 \n五、7 \n 1,533,873,199 \n 1,450,496,932 \n存货 \n五、8 \n8,543,762,245 \n 7,596,948,434 \n一年内到期的非流动资产 \n五、9 \n 5,163,438,616 \n 1,369,409,315 \n其他流动资产 \n五、10 \n  4,549,849,413 \n  4,281,263,129 \n流动资产合计 \n  \n86,709,337,541 \n  89,453,007,825 \n非流动资产： \n  \n \n \n长期股权投资 \n五、11 \n8,518,308,897 \n 7,981,403,690 \n其他权益工具投资 \n五、12 \n 1,184,772,951 \n 1,416,433,764 \n投资性房地产 \n五、13 \n 49,316,448 \n 63,351,166 \n固定资产 \n五、14 \n 89,984,078,761 \n 92,417,323,985 \n在建工程 \n五、15 \n  6,593,016,936 \n 6,105,558,165 \n使用权资产 \n五、16 \n 949,435,515 \n 888,246,087 \n无形资产 \n五、17 \n 37,129,343,374 \n 37,056,177,553 \n商誉 \n五、18 \n 1,241,748,131 \n 1,241,748,131 \n递延所得税资产 \n五、19 \n  1,824,815,356 \n 1,787,727,692 \n其他非流动资产 \n五、20 \n 18,280,092,043 \n 18,083,747,950 \n非流动资产合计 \n  \n165,754,928,412  167,041,718,183 \n资产总计 \n  \n252,464,265,953 \n256,494,726,008 \n    \n \n \n \n \n \n刊载于第76页至第238页的财务报表附注为本财务报表的组成部分。 \n"
+    },
+    {
+      "page_number": 61,
+      "text": "61 \n安徽海螺水泥股份有限公司 \n合并资产负债表 (续) （未经审计） \n2026年6月30日 \n \n金额单位：人民币元 \n项目 \n附注 \n2026年6月30日 \n2025年12月31日 \n(经重述) \n流动负债： \n  \n  \n  \n短期借款 \n五、21 \n5,056,998,798 \n4,540,763,707 \n应付票据 \n五、22 \n117,421,653 \n134,416,983 \n应付账款 \n五、23 \n5,538,728,535 \n5,397,280,448 \n合同负债 \n五、24 \n2,409,459,796 \n2,923,388,305 \n应付职工薪酬 \n五、25 \n321,229,707 \n1,622,688,945 \n应交税费 \n五、26 \n1,539,454,499 \n1,974,185,462 \n其他应付款 \n五、27 \n9,209,470,030 \n9,030,463,867 \n一年内到期的非流动负债 \n五、28 \n5,717,211,386 \n2,396,599,885 \n流动负债合计 \n \n29,909,974,404 \n28,019,787,602 \n非流动负债： \n  \n \n \n长期借款 \n五、29 \n5,728,116,423 \n7,018,946,364 \n应付债券 \n五、30 \n9,500,000,000 \n12,500,000,000 \n长期应付职工薪酬 \n \n52,567,679 \n55,948,330 \n租赁负债 \n五、31 \n290,108,126 \n220,156,287 \n长期应付款 \n五、32 \n1,352,584,059 \n1,168,719,362 \n预计负债 \n五、33 \n165,971,752 \n133,514,210 \n递延收益 \n五、34 \n1,585,853,467 \n1,512,331,699 \n递延所得税负债 \n五、19 \n1,946,457,610 \n1,860,985,770 \n非流动负债合计 \n  \n20,621,659,116 \n24,470,602,022 \n负债合计 \n  \n50,531,633,520 \n52,490,389,624 \n    \n \n \n \n \n \n \n \n \n \n \n刊载于第76页至第238页的财务报表附注为本财务报表的组成部分。 \n"
+    }
+  ]
+}

@@ -436,6 +436,20 @@
 - [x] Close independent-review counterexamples involving bad comma groups, extra amounts, numbered parent headers, source-company mismatch and redirect control characters.
 - [x] Run all 88 complete PDFs: 84 candidates, four gaps, 72 issuers, 70 candidate issuers, 86 issuer/year pairs; old 67 unchanged apart from the expected Sinopec repair. 2,950 full local tests pass.
 - [x] Compare 105 added/repaired current amounts: 103 zero differences; preserve two Conch differences explained by later official common-control restatement.
-- [ ] Complete batch 12 deployment, exact-version health checks and actual official-download/browser acceptance; final task release receipt closes this pre-deployment item.
+- [x] Complete batch 12 deployment (2705a55 / 20260924-coverage-12.1), exact-version checks and six actual official-download flows; five candidates and one retained failure verified.
 - [ ] Investigate the remaining four exact PDF gaps with independently evidenced methods; do not assume OCR or full-market coverage.
-- [ ] Carry the new downloaded-original provenance enum into the separate public comparison artifact (currently not_recorded there; source URL/date/pages/SHA and financial amounts remain explicit).
+- [x] Carry the downloaded-original provenance into public comparison and saved artifacts; historical records without a recorded route remain explicitly unknown.
+
+
+## 2026-09-24 — Batch 13: broader industries and source-preserving comparison
+
+- [x] Add 20 exact annual originals across manufacturing, healthcare, transport, consumption and energy; 18 candidates and two explicit evidence gaps.
+- [x] Preserve note references, combined/parent column roles, third-page income evidence and independent other-equity-holder attribution without changing shareholder profit.
+- [x] Reject mismatched continuation periods, split scope labels, extra/malformed numeric cells, and missing group amounts; parent nonapplicability stays null rather than zero.
+- [x] Stop blank cash rows at unknown text, while preserving five evidenced standalone-note layouts; keep Gujing and image-only China Eastern unverified.
+- [x] Preserve official-download provenance through comparison/export/replay; display Conch dual-source restatement without invented subsequent before-values.
+- [x] Run all 108 originals: 102 candidates, six gaps, 92 issuers, 88 candidate issuers, 106 issuer/year pairs. Prior 88 statuses, statement checks and both-period amounts unchanged.
+- [x] Compare 100 new current amounts: 88 zero differences, two retained TCL differences explained by subsequent official restatement, ten not comparable. No human confirmations.
+- [x] Retain the first full-run regression failures and independent boundary counterexamples; repair compatibility before release.
+- [ ] Complete batch 13 normal deployment and exact-version live official-download acceptance; final task release receipt records the outcome.
+- [ ] Continue investigating six exact PDF gaps and untested issuers with original-source evidence; do not claim full-market coverage or fill missing cells.

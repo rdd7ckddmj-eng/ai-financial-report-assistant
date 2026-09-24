@@ -373,6 +373,7 @@ def _strict_noted_revenue_pair(lines: list[str], row_index: int, label_end: int)
     note_line = lines[label_end + 1]
     note_end = label_end + 1
     if (re.fullmatch(rf'[{chinese}]+[.．]?[1-9]\d{{0,2}}', note_line)
+            or re.fullmatch(rf'[{chinese}]+、[{chinese}]+、[1-9]\d{{0,2}}', note_line)
             or re.fullmatch(rf'(?:\([{chinese}]+\)|（[{chinese}]+）)', note_line)):
         # Wanhua and China Nuclear print the note as 七61. This is only a
         # standalone note under the same explicit note/two-year header; do
@@ -403,14 +404,55 @@ def _strict_noted_revenue_pair(lines: list[str], row_index: int, label_end: int)
                 return None
             continue
         compact = _compact_chinese_text(line)
-        if (re.match(r'^[+\-−－—–(（.,\d]', compact) and re.search(r'\d', compact)
+        if _damaged_revenue_tail(compact) or (re.match(r'^[+\-−－—–(（.,\d]', compact) and re.search(r'\d', compact)
                 and not re.search(r'[\u4e00-\u9fff]', compact)) or re.fullmatch(
-                r'(?:不适用|无数据|N/?A|NAN|NULL|NONE)', compact, re.IGNORECASE):
+                r'(?:/|不适用|无数据|N/?A|NAN|NULL|NONE)', compact, re.IGNORECASE):
             return None
         # Any other account/annotation ends this row. If either value is
         # missing the next account cannot supply it, even if it would balance.
         break
     if len(values) != 2 or not all(math.isfinite(value) and abs(value) <= 1e24 for value in values):
+        return None
+    return values[0], values[1]
+
+
+def _damaged_revenue_tail(text):
+    """Do not treat a garbled or unit-suffixed extra cell as a row boundary."""
+    return bool(re.match(r'^[?？].*\d', text) or re.fullmatch(
+        r'(?:人民币)?[-−－+]?\d[\d,，.]*\s*(?:百万元|千元|万元|元)', text))
+
+
+def _strict_four_column_noted_revenue(lines, row_index, label_end):
+    """A combined table may cite separate group and parent notes on one row."""
+    start = next((i for i, line in enumerate(lines[:row_index]) if line == '项目'), None)
+    if start is None or label_end + 1 >= len(lines):
+        return None
+    header = ''.join(_compact_chinese_text(line) for line in lines[start:row_index])
+    match = re.fullmatch(r'项目附注(\d{4})年度合并(\d{4})年度合并(\d{4})年度母公司(\d{4})年度母公司', header)
+    if (not match or [int(x) for x in match.groups()] != [int(match[1]), int(match[1])-1]*2
+            or _extract_unit(lines).removeprefix('人民币') not in {'元', '千元', '万元', '百万元'}):
+        return None
+    chinese = '一二三四五六七八九十百'
+    note = rf'[（(][{chinese}]+[）)][1-9]\d{{0,2}}'
+    if not re.fullmatch(note + r'[,，]' + note, lines[label_end + 1]):
+        return None
+    amount = r'(?:\d{1,3}(?:[,，]\d{3})+|\d+)(?:\.\d+)?'
+    cell = re.compile(rf'^(?:[-−－—–]|[-−－]?{amount}|\({amount}\)|（{amount}）)$')
+    values = []
+    for line in lines[label_end + 2:label_end + 9]:
+        tokens = line.split()
+        if tokens and all(len(token) <= 64 and cell.fullmatch(token) for token in tokens):
+            values.extend(_parse_financial_value(token) for token in tokens)
+            if len(values) > 4:
+                return None
+            continue
+        compact = _compact_chinese_text(line)
+        if _damaged_revenue_tail(compact) or (re.match(r'^[+\-−－—–(（.,\d]', compact) and re.search(r'\d', compact)
+                and not re.search(r'[\u4e00-\u9fff]', compact)) or re.fullmatch(
+                r'(?:/|不适用|无数据|N/?A|NAN|NULL|NONE)', compact, re.IGNORECASE):
+            return None
+        break
+    if len(values) != 4 or not all(math.isfinite(value) and abs(value) <= 1e24 for value in values):
         return None
     return values[0], values[1]
 
@@ -441,9 +483,11 @@ def _extract_chinese_revenue_pair(lines: list[str], *, value_column_count: int):
             return None
         row_index, label_end = starts[0]
         following = lines[label_end + 1] if label_end + 1 < len(lines) else ''
+        if value_column_count == 4 and re.match(r'^[（(][一二三四五六七八九十百]+[）)]\d+[,，]', following):
+            return _strict_four_column_noted_revenue(lines, row_index, label_end)
         # Restrict the new path to the exact family it supports, including
         # malformed members of that family which must not enter old fallback.
-        if (re.match(r'^(?:附注)?[一二三四五六七八九十百]+(?:、[（(]|[.．]\d|[（(][一二三四五六七八九十百]|\d)', following)
+        if (re.match(r'^(?:附注)?[一二三四五六七八九十百]+(?:、[一二三四五六七八九十百]|、[（(]|[.．]\d|[（(][一二三四五六七八九十百]|\d)', following)
                 or re.fullmatch(r'[（(][一二三四五六七八九十百]+[）)]', following)):
             return _strict_noted_revenue_pair(lines, row_index, label_end)
         return _extract_chinese_row_pair(lines, preferred, value_column_count=value_column_count)
@@ -540,6 +584,44 @@ def extract_income_statement_figures(
     }
 
 
+def _with_attribution_continuation(figures, page_list):
+    """Include a third page only for an explicit continuation of attribution.
+
+    Finding revenue and parent profit on two pages does not mean the income
+    table ends there. A matching repeated header and minority row can follow.
+    """
+    start, end = figures['page_number'], figures['end_page_number']
+    if end - start >= 2:
+        return figures
+    selected = [(n, t) for n, t in page_list if start <= n <= end]
+    if [n for n, _ in selected] != list(range(start, end + 1)):
+        return figures
+    lines = _normalise_lines(bound_consolidated_statement('\n'.join(t for _, t in selected), '利润表'))
+    if (_chinese_income_statement_column_count(lines) != 2
+            or any('少数股东损益' in line or '其他综合收益' in line or '母公司利润表' in line for line in lines)):
+        return figures
+    next_pages = [t for n, t in page_list if n == end + 1]
+    if len(next_pages) != 1:
+        return figures
+    continuation = _normalise_lines(next_pages[0])
+    if len(continuation) < 5 or continuation[:2] != ['项目', '附注']:
+        return figures
+    years = continuation[2:4]
+    if (not all(re.fullmatch(r'\d{4} 年度|\d{4}年度', y) for y in years)
+            or int(years[0][:4]) != int(years[1][:4]) + 1):
+        return figures
+    compact = [_compact_chinese_text(x) for x in lines]
+    expected = ['项目', '附注'] + [_compact_chinese_text(y) for y in years]
+    if not any(compact[i:i+4] == expected for i in range(len(compact)-3)):
+        return figures
+    for i in range(len(compact)):
+        if compact[i:i+2] == ['项目', '附注'] and compact[i:i+4] != expected:
+            return figures
+    if _chinese_label_span(continuation, 4, '少数股东损益') is None:
+        return figures
+    return {**figures, 'end_page_number': end + 1}
+
+
 def find_income_statement_figures(
     pages: Iterable[tuple[int, str]],
 ) -> IncomeStatementFigures | None:
@@ -551,7 +633,7 @@ def find_income_statement_figures(
             page_text=page_text,
         )
         if figures is not None:
-            return figures
+            return _with_attribution_continuation(figures, page_list)
         if _chinese_income_statement_column_count(
             _normalise_lines(page_text)
         ) is None:
@@ -568,6 +650,6 @@ def find_income_statement_figures(
             )
             if figures is not None:
                 figures["end_page_number"] = window[-1][0]
-                return figures
+                return _with_attribution_continuation(figures, page_list)
 
     return None

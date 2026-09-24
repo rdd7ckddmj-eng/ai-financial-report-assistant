@@ -13,3 +13,5 @@
 沿用既有 `SNAPSHOT_PDF_MAX_BYTES`（45 MiB）及 PDF 页数/文字量/串行解析限制，没有提高任何上限。手工上传仍为 32 MiB。下载使用 35 秒 socket/读取循环预算；操作系统 DNS 查询本身不在硬超时控制内。完整 PDF 仅为本次请求临时对象，不保存进会话结果或目录，不启用后台预取。
 
 `src/tested_report_snapshot.py` 实现精确来源选择和重新读取；`tests/test_tested_report_snapshot.py` 检查各类官方 URL 分派、重定向/DNS/TLS、流式大小与 EOF、文件指纹与页数、当前解析失败不得继承旧通过，以及 Streamlit 失败状态清除。下载网络可用性需以部署后的实际点击结果单独核实，单元测试不能替代线上验收。
+
+两源对照、JSON下载和已保存研究案件保留输入方式 `redownloaded_exact_tested_official_report`。上传入口保留原有枚举；历史记录未记载输入方式时显示未记录，不根据URL或测试目录猜测。输入方式是记录描述，不构成人工财务核验或对导入数据的认证。
