@@ -1,8 +1,8 @@
 {
-  "release_id": "20260925-coverage-15.1",
-  "source_digest_sha256": "f74498a46e9c8ee3e3ddd8d305ec4f552806d63765fae21ce7c514afa4ed0dc7",
-  "prior_commit": "14d0df221f3f5c6b9b6a0fa5db735d132a6df0ce",
-  "verified_python_tests": 3861,
+  "release_id": "20260925-coverage-15.2",
+  "source_digest_sha256": "f4d77c051941456abb6c45e16dbbed6ad8490af7e62f710148f99fb18710b01e",
+  "prior_commit": "5c577f94a2024b6fb8f725e8e45f7724deecd480",
+  "verified_python_tests": 3909,
   "coverage": {
     "real_reports_tested": 180,
     "candidate_reports": 164,
@@ -11,5 +11,5 @@
     "issuer_year_pairs": 178,
     "human_verified_new": 0
   },
-  "note": "Forty-eight additional 2025 issuers: 41 candidates and 7 evidence gaps; 131 prior financial results unchanged, with two source-bound ZTE note annotations added; one identical Unicom PDF has an explicitly reviewed native-text recovery, with default text retained. Bounded note columns, loss labels, complete-year identity and structural native-text evidence survive snapshot and export. TCL dual-source restatement explanations preserve both originals, differences and pending human review. New 240 current metric comparisons: 203 amount-close, 2 retained differences, 35 not comparable; 2 nonzero comparisons are recorded explicitly in the release manifest. Not all-market coverage or human financial approval; no OCR or resource-limit increases."
+  "note": "Copy-only follow-up to verified batch 15.1: missing excerpts are described without guessing snapshot age in the review UI, HTML and research-case explanations. Financial calculations, original values, units, page provenance, catalog and human-review gates are unchanged. Coverage inherits the verified 180 exact report originals; this patch does not add coverage or human financial approval."
 }

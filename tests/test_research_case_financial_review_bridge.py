@@ -276,13 +276,13 @@ def test_legacy_missing_excerpt_is_explicit_and_never_fabricated() -> None:
 
     assert all("excerpt" not in item for item in patch["evidence"])
     assert all(
-        "旧版快照未保留原文摘录" in item["basis"]
+        "本项未保留原文摘录" in item["basis"]
         for item in patch["evidence"]
     )
     assert patch["question_updates"]["financial_quality"]["status"] == "in_progress"
     assert patch["case_brief_update"]["next_action"]["module"] == "annual_report"
     assert any(
-        "系统没有伪造摘录" in item["summary"]
+        "以下指标未保留原文摘录，仍需回到官方年报人工定位：" in item["summary"]
         for item in patch["case_brief_update"]["unknowns"]
     )
 

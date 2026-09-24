@@ -19062,8 +19062,8 @@ def _render_financial_snapshot_review(
                 st.write(excerpt)
             else:
                 st.warning(
-                    "这是一份旧快照，未保存对应原文摘录。请查看官方年报"
-                    "页码，或重新生成快照后再复核；系统不会伪造摘录。"
+                    "本项未保存对应原文摘录。请查看官方年报原文，"
+                    "定位相应报表项目后再复核。"
                 )
 
             existing_choice = decision_to_choice.get(str(metric["decision"]))

@@ -529,7 +529,7 @@ def build_financial_snapshot_report_html(
         f"<td>{escape(str(source_for_report(item)['accounting_basis']))}<br>"
         f"{escape(item['statement'])} 第"
         f"{escape(_format_pages(item['pages']))}页</td>"
-        f"<td>{escape(str(source_for_report(item)['excerpt']) or '旧快照未保存原文摘录')}</td>"
+        f"<td>{escape(str(source_for_report(item)['excerpt']) or '本项未保存原文摘录，请查看官方年报原文')}</td>"
         "</tr>"
         for item in snapshot["metrics"]
     )

@@ -351,7 +351,7 @@ def _validate_workpaper(
         if excerpt_status == "captured" and not excerpt:
             raise _error(f"{key}标记已捕获原文，但原文摘录为空。")
         if excerpt_status == "unavailable_legacy" and excerpt:
-            raise _error(f"{key}是旧快照无原文状态，不能伪造原文摘录。")
+            raise _error(f"{key}标记为无原文摘录，不能同时提供原文摘录。")
 
         metrics.append(
             {
@@ -460,7 +460,7 @@ def _source_basis(metric: Mapping[str, Any]) -> str:
     if pages is None:
         parts.append("页码未保留，需回到官方年报定位")
     if source.get("excerpt_status") == "unavailable_legacy":
-        parts.append("旧版快照未保留原文摘录，未生成或补写摘录")
+        parts.append("本项未保留原文摘录，需回到官方年报核验")
     if metric["decision"] == "corrected":
         parts.append(
             "人工更正后的标准化值为"
@@ -607,7 +607,7 @@ def _build_unknowns(
     if legacy_metrics:
         add(
             "legacy-excerpts",
-            "旧版快照未保留以下指标的原文摘录，系统没有伪造摘录，"
+            "以下指标未保留原文摘录，"
             "仍需回到官方年报人工定位：" + "、".join(legacy_metrics) + "。",
         )
     if missing_page_metrics:
