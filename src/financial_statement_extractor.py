@@ -497,6 +497,83 @@ def _extract_chinese_revenue_pair(lines: list[str], *, value_column_count: int):
                                      value_column_count=value_column_count)
 
 
+def _strict_combined_parent_na_income(lines, source_pages=None):
+    """Read a group attribution row whose two company cells say 不适用.
+
+    Those cells are not zero and cannot fill either group amount. This path
+    requires the observed four-year/four-role header on every continuation,
+    and exact row boundaries so an extra cell cannot shift the selected pair.
+    """
+    compact = [_compact_chinese_text(line) for line in lines]
+    headers = [i for i, line in enumerate(compact) if line == '项目']
+    if len(headers) != 2 or _extract_unit(lines).removeprefix('人民币') not in {'元', '千元', '万元', '百万元'}:
+        return None
+    # The verified two-page form repeats its full header. A header removed
+    # from either page cannot borrow the other page's column interpretation.
+    if source_pages is not None and (len(source_pages) != 2 or any(
+            sum(_compact_chinese_text(line) == '项目' for line in _normalise_lines(text)) != 1
+            for _, text in source_pages)):
+        return None
+    expected = None
+    for start in headers:
+        header = ''.join(compact[start:start + 10])
+        match = re.fullmatch(r'项目附注(\d{4})年度(\d{4})年度(\d{4})年度(\d{4})年度合并合并公司公司', header)
+        if not match:
+            return None
+        years = tuple(int(x) for x in match.groups())
+        if years != (years[0], years[0] - 1) * 2 or (expected is not None and years != expected):
+            return None
+        expected = years
+    if any(int(match[1]) != expected[0] for line in compact
+           if (match := re.search(r'(\d{4})年度合并及公司利润表', line)) is not None):
+        return None
+
+    amount = r'(?:\d{1,3}(?:[,，]\d{3})+|\d+)(?:\.\d+)?'
+    cell = re.compile(rf'^(?:[-−－—–]|[-−－]?{amount}|\({amount}\)|（{amount}）)$')
+
+    def read_row(labels, boundary, *, parent_na=False):
+        starts = [(index, label) for index in range(len(lines)) for label in labels
+                  if _chinese_label_span(lines, index, label) is not None]
+        if len(starts) != 1:
+            return None
+        start, label = starts[0]
+        if not (headers[1] < start if parent_na else headers[0] < start < headers[1]):
+            return None
+        # The verified layout prints each label and cell separately. Do not
+        # reinterpret a damaged inline label or note as the first amount.
+        unnumbered = re.sub(r'^(?:\d+[.．、]|[一二三四五六七八九十]+[、.．])', '', compact[start], count=1)
+        if unnumbered != label:
+            return None
+        end = next((i for i in range(start + 1, len(lines))
+                    if _chinese_label_span(lines, i, boundary) is not None), None)
+        if end is None:
+            return None
+        tokens = []; note_seen = False
+        for line in lines[start + 1:end]:
+            if not parent_na and not tokens and not note_seen and CHINESE_NOTE_REFERENCE_PATTERN.fullmatch(_compact_chinese_text(line)):
+                note_seen = True
+                continue
+            for token in line.split():
+                if token != '不适用' and (len(token) > 64 or not cell.fullmatch(token)):
+                    return None
+                tokens.append(token)
+        if len(tokens) != 4:
+            return None
+        if parent_na:
+            if tokens[2:] != ['不适用', '不适用'] or '不适用' in tokens[:2]:
+                return None
+        elif '不适用' in tokens:
+            return None
+        values = [_parse_financial_value(token) for token in tokens if token != '不适用']
+        if not all(math.isfinite(value) and abs(value) <= 1e24 for value in values):
+            return None
+        return tuple(values[:2])
+
+    revenue = read_row(('营业收入',), '减：营业成本')
+    profit = read_row(CHINESE_NET_PROFIT_LABELS, '少数股东损益', parent_na=True)
+    return (revenue, profit) if revenue is not None and profit is not None else None
+
+
 def extract_income_statement_figures(
     page_number: int,
     page_text: str,
@@ -533,15 +610,22 @@ def extract_income_statement_figures(
             lines
         )
     ) is not None:
-        revenue_totals = _extract_chinese_revenue_pair(
-            lines,
-            value_column_count=chinese_value_column_count,
-        )
-        profit_totals = _extract_chinese_row_pair(
-            lines,
-            CHINESE_NET_PROFIT_LABELS,
-            value_column_count=chinese_value_column_count,
-        )
+        if chinese_value_column_count == 4 and any('不适用' in line for line in lines):
+            supported_na = _strict_combined_parent_na_income(lines, _source_pages)
+            if supported_na is None:
+                return None
+            revenue_totals, profit_totals = supported_na
+            current_period_weeks, previous_period_weeks = None, None
+        else:
+            revenue_totals = _extract_chinese_revenue_pair(
+                lines,
+                value_column_count=chinese_value_column_count,
+            )
+            profit_totals = _extract_chinese_row_pair(
+                lines,
+                CHINESE_NET_PROFIT_LABELS,
+                value_column_count=chinese_value_column_count,
+            )
         if profit_totals is None:
             starts = [i for i in range(len(lines))
                       if _ordinary_shareholder_attribution_allowed(lines, i)]

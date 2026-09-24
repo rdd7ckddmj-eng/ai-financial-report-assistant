@@ -439,6 +439,130 @@
         "公开源NOTICE_DATE及UPDATE_DATE仍为2026-03-25；相同金额不证明供应商实际采用的文档或更新入库时间。",
         "保留原年报候选金额和金额有差异状态；本条仅提供解释，不自动覆盖来源或作出人工确认。"
       ]
+    },
+    {
+      "evidence_id": "002129.SZ-2025-total_assets-2026H1",
+      "status": "registered_official_restatement_explanation",
+      "effect": "explanation_only",
+      "human_verification": "not_performed",
+      "company_code": "002129.SZ",
+      "company_name": "TCL中环",
+      "report_year": 2025,
+      "period_end": "2025-12-31",
+      "metric_key": "total_assets",
+      "evidence_basis": "annual_original_to_subsequent_restated",
+      "annual_yuan": "117997173481.15",
+      "restated_yuan": "118020660725.66",
+      "difference_yuan": "23487244.51",
+      "annual_report": {
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-25/1225029362.PDF",
+        "published_date": "2026-03-25",
+        "sha256": "f787f5489df911d12f8534f912fe7f71312413d1bec19e60ec9ee184e691c3b6",
+        "page_count": 240,
+        "title": "TCL中环新能源科技股份有限公司2025年年度报告",
+        "amount_value": "117997173481.15",
+        "amount_unit": "人民币元",
+        "amount_pages": [
+          77
+        ],
+        "company_code": "002129.SZ",
+        "amount_period_end": "2025-12-31",
+        "amount_label": "资产总计",
+        "amount_column": "annual_current",
+        "statement_scope": "consolidated",
+        "accounting_basis": "china_accounting_standards"
+      },
+      "subsequent_report": {
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-08-27/1225514850.PDF",
+        "published_date": "2026-08-27",
+        "sha256": "561af4b2dce6afc60a3ae97f5c4db583e1eb1f4d47450ba8f549b886b39884be",
+        "page_count": 213,
+        "title": "TCL中环新能源科技股份有限公司2026年半年度报告",
+        "after_value": "118020660725.66",
+        "amount_unit": "人民币元",
+        "amount_pages": [
+          50
+        ],
+        "explanation_pages": [
+          8
+        ],
+        "company_code": "002129.SZ",
+        "amount_period_end": "2025-12-31",
+        "amount_label": "资产总计",
+        "amount_column": "restated_comparative",
+        "statement_scope": "consolidated",
+        "accounting_basis": "china_accounting_standards"
+      },
+      "explanation": "官方2026年半年报物理第8页说明，报告期内子公司同一控制下合并茂兴控股有限公司，自2026年2月起纳入合并范围，并按企业会计准则重述比较数。2025年报物理第77页合并资产负债表的2025年12月31日期末资产总计为117997173481.15元；半年报物理第50页同口径期初比较值为118020660725.66元，与本次公开值相同。后续主表表头日期为2026年6月30日，列名为“期末余额/期初余额”，本条只取重述后的2025年末期初比较列。半年报第8页主要财务指标摘要另并列上年度末总资产调整前117997173481.15元、调整后118020660725.66元，独立支持该重述；本条双源金额仍取原年报和第50页合并主表。",
+      "limitations": [
+        "仅匹配已登记公司、年度、原年报PDF指纹、指标及两项精确金额；这不是全市场自动识别重述。",
+        "原年报原值与后续重述比较值分别来自两份原件；选定的后续主表金额页不并列调整前值，不用原年报值补造后续before_value。",
+        "后续报表未经审计；本条仅限中国会计准则合并口径的2025年12月31日，不能使用2026年6月30日期末列或母公司列替代。",
+        "公开源NOTICE_DATE及UPDATE_DATE仍为2026-03-25；数字吻合不证明供应商实际采集文档或入库时间，保留原公开响应抓取时间。",
+        "保留原年报候选、公开源金额、金额有差异状态及待人工复核决定；只添加来源解释，不覆盖数值、不自动确认。"
+      ]
+    },
+    {
+      "evidence_id": "002129.SZ-2025-total_liabilities-2026H1",
+      "status": "registered_official_restatement_explanation",
+      "effect": "explanation_only",
+      "human_verification": "not_performed",
+      "company_code": "002129.SZ",
+      "company_name": "TCL中环",
+      "report_year": 2025,
+      "period_end": "2025-12-31",
+      "metric_key": "total_liabilities",
+      "evidence_basis": "annual_original_to_subsequent_restated",
+      "annual_yuan": "78738123809.74",
+      "restated_yuan": "78649163862.64",
+      "difference_yuan": "-88959947.10",
+      "annual_report": {
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-03-25/1225029362.PDF",
+        "published_date": "2026-03-25",
+        "sha256": "f787f5489df911d12f8534f912fe7f71312413d1bec19e60ec9ee184e691c3b6",
+        "page_count": 240,
+        "title": "TCL中环新能源科技股份有限公司2025年年度报告",
+        "amount_value": "78738123809.74",
+        "amount_unit": "人民币元",
+        "amount_pages": [
+          78
+        ],
+        "company_code": "002129.SZ",
+        "amount_period_end": "2025-12-31",
+        "amount_label": "负债合计",
+        "amount_column": "annual_current",
+        "statement_scope": "consolidated",
+        "accounting_basis": "china_accounting_standards"
+      },
+      "subsequent_report": {
+        "source_url": "https://static.cninfo.com.cn/finalpage/2026-08-27/1225514850.PDF",
+        "published_date": "2026-08-27",
+        "sha256": "561af4b2dce6afc60a3ae97f5c4db583e1eb1f4d47450ba8f549b886b39884be",
+        "page_count": 213,
+        "title": "TCL中环新能源科技股份有限公司2026年半年度报告",
+        "after_value": "78649163862.64",
+        "amount_unit": "人民币元",
+        "amount_pages": [
+          51
+        ],
+        "explanation_pages": [
+          8
+        ],
+        "company_code": "002129.SZ",
+        "amount_period_end": "2025-12-31",
+        "amount_label": "负债合计",
+        "amount_column": "restated_comparative",
+        "statement_scope": "consolidated",
+        "accounting_basis": "china_accounting_standards"
+      },
+      "explanation": "官方2026年半年报物理第8页说明，报告期内子公司同一控制下合并茂兴控股有限公司，自2026年2月起纳入合并范围，并按企业会计准则重述比较数。2025年报物理第78页合并资产负债表的2025年12月31日期末负债合计为78738123809.74元；半年报物理第51页同口径期初比较值为78649163862.64元，与本次公开值相同。后续主表表头日期为2026年6月30日，列名为“期末余额/期初余额”，本条只取重述后的2025年末期初比较列。半年报第8页说明重述原因，但没有列负债调整前值；本条负债原值仅取原年报，未伪造后续报告的调整前金额。",
+      "limitations": [
+        "仅匹配已登记公司、年度、原年报PDF指纹、指标及两项精确金额；这不是全市场自动识别重述。",
+        "原年报原值与后续重述比较值分别来自两份原件；选定的后续主表金额页不并列调整前值，不用原年报值补造后续before_value。",
+        "后续报表未经审计；本条仅限中国会计准则合并口径的2025年12月31日，不能使用2026年6月30日期末列或母公司列替代。",
+        "公开源NOTICE_DATE及UPDATE_DATE仍为2026-03-25；数字吻合不证明供应商实际采集文档或入库时间，保留原公开响应抓取时间。",
+        "保留原年报候选、公开源金额、金额有差异状态及待人工复核决定；只添加来源解释，不覆盖数值、不自动确认。"
+      ]
     }
   ]
 }

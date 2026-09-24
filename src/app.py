@@ -18156,9 +18156,14 @@ def _show_pdf_text_adjustments(result) -> None:
     """Keep original/derived signs visible wherever a candidate is reviewed."""
     report = result.get('report', result)
     income_recoveries = result.get('income_layout_recoveries', report.get('income_layout_recoveries', []))
-    if isinstance(income_recoveries, list) and income_recoveries:
-        with st.expander('查看归母利润跨页读取依据'):
-            for item in income_recoveries[:8]:
+    for title, selected in (
+        ('归母利润', [x for x in income_recoveries if isinstance(x, Mapping) and x.get('label') != '利润总额'] if isinstance(income_recoveries, list) else []),
+        ('税前利润', [x for x in income_recoveries if isinstance(x, Mapping) and x.get('label') == '利润总额'] if isinstance(income_recoveries, list) else []),
+    ):
+        if not selected:
+            continue
+        with st.expander(f'查看{title}跨页读取依据'):
+            for item in selected[:8]:
                 if not isinstance(item, Mapping) or not isinstance(item.get('source_segments'), list):
                     continue
                 st.write(str(item.get('note', '')))
@@ -18170,7 +18175,23 @@ def _show_pdf_text_adjustments(result) -> None:
                     st.code(str(segment.get('text', ''))[:2000], language='text')
                     url = str(report.get('source_url', ''))
                     if type(page) is int and page > 0 and is_allowed_disclosure_url(url):
-                        st.link_button(f'查看归母利润原件第{page}页', url.split('#', 1)[0] + f'#page={page}')
+                        st.link_button(f'查看{title}原件第{page}页', url.split('#', 1)[0] + f'#page={page}')
+    balance_recoveries = result.get('balance_sheet_layout_recoveries', report.get('balance_sheet_layout_recoveries', []))
+    if isinstance(balance_recoveries, list) and balance_recoveries:
+        with st.expander('查看资产负债表页码读取依据'):
+            st.write('仅识别连续报表页边界上的印刷页码；保留原始文字，未改写金额。PDF页码从文件首页起计，可能与印刷页码不同。')
+            for item in balance_recoveries[:8]:
+                if not isinstance(item, Mapping) or not isinstance(item.get('source_spans'), list):
+                    continue
+                for span in item['source_spans']:
+                    if not isinstance(span, Mapping):
+                        continue
+                    page = span.get('page_number')
+                    st.caption(f'PDF第{page}页原始文字')
+                    st.code(str(span.get('original_text', ''))[:2000], language='text')
+                    url = str(report.get('source_url', ''))
+                    if type(page) is int and page > 0 and is_allowed_disclosure_url(url):
+                        st.link_button(f'查看资产负债表原件第{page}页', url.split('#', 1)[0] + f'#page={page}')
     recoveries = result.get('cash_flow_layout_recoveries', report.get('cash_flow_layout_recoveries', []))
     if isinstance(recoveries, list) and recoveries:
         with st.expander(f'查看现金流换行与附注读取依据（{len(recoveries)}处）'):
@@ -18227,6 +18248,23 @@ def _show_income_reconciliation(result) -> None:
         if template == 'general':
             st.caption('此快照未保存利润表金额关系复核明细；重新生成后可查看。')
         return
+    if detail.get('layout_recoveries'):
+        with st.expander('查看利润表页码读取依据'):
+            st.caption('仅识别连续报表页边界上的印刷页码；保留原始文字，未改写金额。')
+            for item in detail['layout_recoveries'][:8]:
+                for span in item.get('source_spans', []):
+                    page = span.get('page_number')
+                    st.caption(f'PDF第{page}页原始文字')
+                    st.code(str(span.get('original_text', ''))[:2000], language='text')
+                    url = str(result.get('report', result).get('source_url', ''))
+                    if type(page) is int and page > 0 and is_allowed_disclosure_url(url):
+                        st.link_button(f'查看利润表原件第{page}页', url.split('#', 1)[0] + f'#page={page}')
+    if detail.get('signed_expense_presentation'):
+        with st.expander('查看费用符号读取依据'):
+            st.write(detail['signed_expense_presentation']['note'])
+            for item in detail['signed_expense_presentation']['evidence']:
+                st.caption(f"{item['label']}｜PDF第{_format_snapshot_pages(item['pages'])}页")
+                st.code(str(item['excerpt']), language='text')
     with st.expander('查看利润表金额关系与差额', expanded=detail['status'] != 'passed'):
         st.write(detail['note'])
         if detail.get('text_derivation_note'):
@@ -18827,7 +18865,7 @@ def _render_official_restatement_explanation(row: Mapping[str, object], comparis
             f"PDF 第 {page_text(report['amount_pages'])} 页）。"
             "本次公开值与重述比较值相同，原年报候选保留原值。"
         )
-        st.caption("两项金额分别取自原年报和后续报告；后续报告的元级报表未列调整前值。")
+        st.caption("本条选用的后续金额页未并列调整前值；原值来自原年报。")
         st.link_button(f"查看原年报金额出处 · {row.get('label', '金额差异')}",
             annual['source_url'] + f"#page={annual['amount_pages'][0]}")
     else:
@@ -18953,12 +18991,19 @@ def _render_financial_snapshot_review(
             heading_columns[0].markdown(f"#### {metric['label']}")
             heading_columns[1].caption(status_labels[str(metric["decision"])])
             value_columns = st.columns(3)
-            value_columns[0].metric(
-                "年报原值 / 原单位",
+            value_columns[0].caption("年报原值 / 原单位")
+            # Full source amounts are review evidence; metric cards truncate long values.
+            value_columns[0].write(
                 _format_snapshot_original_value(
                     source.get("raw_current_value"),
                     source.get("original_unit"),
                 ),
+            )
+            value_columns[0].caption(
+                "比较栏原值："
+                + _format_snapshot_original_value(
+                    source.get("raw_previous_value"), source.get("original_unit")
+                )
             )
             value_columns[1].metric(
                 "程序换算值",
@@ -19537,6 +19582,12 @@ def render_financial_snapshot_page() -> None:
                 "年报原值："
                 f"{_format_snapshot_original_value(source.get('raw_current_value'), source.get('original_unit'))}｜"
                 f"{source.get('accounting_basis', '口径待核验')}"
+            )
+            st.caption(
+                "比较栏原值："
+                + _format_snapshot_original_value(
+                    source.get("raw_previous_value"), source.get("original_unit")
+                )
             )
         st.code(snapshot["source_fingerprint_sha256"], language=None)
         for limitation in snapshot["limitations"]:

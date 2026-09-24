@@ -1,15 +1,15 @@
 {
-  "release_id": "20260924-coverage-13.1",
-  "source_digest_sha256": "fdbc2035d8b25fa6d59cfcf1d33e1ed8f902e763539c22e8b97ad6529dfe6a65",
-  "prior_commit": "2705a55c339281d1c09144bb93236aa9713be9c0",
-  "verified_python_tests": 3278,
+  "release_id": "20260924-coverage-14.1",
+  "source_digest_sha256": "0ef02b285c5ac0cd67c544d7ffc433dec106e1363e2d30feffecb8acdabee758",
+  "prior_commit": "adac4d089721efe22662ce531a0727f77b354a98",
+  "verified_python_tests": 3574,
   "coverage": {
-    "real_reports_tested": 108,
-    "candidate_reports": 102,
-    "companies": 92,
-    "candidate_companies": 88,
-    "issuer_year_pairs": 106,
+    "real_reports_tested": 132,
+    "candidate_reports": 122,
+    "companies": 116,
+    "candidate_companies": 108,
+    "issuer_year_pairs": 130,
     "human_verified_new": 0
   },
-  "note": "Twenty additional 2025 issuers: 18 candidates, two evidence gaps; prior 88 exact originals preserve statuses, statement checks and both-period amounts. Strict note and four-column extraction, bounded income continuation and independent other-equity-holder attribution. Blank cash rows cannot borrow the next account. Official-original input provenance survives comparison and archive replay. Conch dual-source restatement explanations preserve both originals and difference status. New 100 current metric comparisons: 88 zero differences, two retained TCL differences, ten not comparable. Not all-market coverage or human financial approval; no OCR or resource limit increases."
+  "note": "Twenty-four additional 2025 issuers: 20 candidates and 4 evidence gaps; prior 108 exact originals preserve statuses, statement checks and both-period amounts, raw units and pages. Bounded printed-page, income-continuation and four-column expense evidence survives candidate, snapshot and export. TCL dual-source restatement explanations preserve both originals, differences and pending human review. New 120 current metric comparisons: 100 amount-close, 0 retained differences, 20 not comparable; 0 nonzero comparisons are recorded explicitly in the release manifest. Not all-market coverage or human financial approval; no OCR or resource-limit increases."
 }

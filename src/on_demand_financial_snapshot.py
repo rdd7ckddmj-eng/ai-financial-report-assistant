@@ -368,6 +368,8 @@ def build_on_demand_financial_snapshot(
                if result.get('pdf_text_adjustments') else {}),
             **({'cash_flow_layout_recoveries': deepcopy(result['cash_flow_layout_recoveries'])}
                if result.get('cash_flow_layout_recoveries') else {}),
+            **({'balance_sheet_layout_recoveries': deepcopy(result['balance_sheet_layout_recoveries'])}
+               if result.get('balance_sheet_layout_recoveries') else {}),
             **({'income_layout_recoveries': deepcopy(result['income_layout_recoveries'])}
                if result.get('income_layout_recoveries') else {}),
         },
@@ -553,6 +555,17 @@ def build_financial_snapshot_report_html(
             + ''.join('<tr>' + ''.join('<td>' + escape(value) + '</td>' for value in row.values()) + '</tr>' for row in check_rows)
             + '</tbody></table>'
         )
+        for recovery in income_detail.get('layout_recoveries', [])[:8]:
+            income_html += '<h3>利润表页码读取依据</h3><p>仅识别连续报表页边界上的印刷页码；保留原始文字，未改写金额。</p>'
+            for span in recovery.get('source_spans', []):
+                income_html += ('<p>PDF第' + escape(str(span.get('page_number', ''))) + '页原始文字</p><pre>'
+                    + escape(str(span.get('original_text', ''))[:2000]) + '</pre>')
+        presentation = income_detail.get('signed_expense_presentation')
+        if presentation:
+            income_html += '<h3>费用符号读取依据</h3><p>' + escape(str(presentation['note'])) + '</p>'
+            for item in presentation['evidence']:
+                income_html += ('<p>' + escape(str(item['label'])) + '｜PDF第' + escape(_format_pages(item['pages']))
+                    + '页</p><pre>' + escape(str(item['excerpt'])) + '</pre>')
         components = operating_reconciliation_rows(snapshot)
         if components:
             income_html += ('<h3>营业收入至税前利润的原文分项</h3>'
@@ -597,10 +610,21 @@ def build_financial_snapshot_report_html(
                     continue
                 derivation_html += ('<p>PDF第' + escape(str(span.get('page_number', ''))) + '页</p><pre>'
                     + escape(str(span.get('original_text', ''))[:2000]) + '</pre>')
+    balance_recoveries = report.get('balance_sheet_layout_recoveries', [])
+    if isinstance(balance_recoveries, list) and balance_recoveries:
+        derivation_html += '<h2>资产负债表页码读取依据</h2><p>仅识别连续报表页边界上的印刷页码；保留原始文字，未改写金额。</p>'
+        for item in balance_recoveries[:8]:
+            if not isinstance(item, Mapping) or not isinstance(item.get('source_spans'), list):
+                continue
+            for span in item['source_spans']:
+                if isinstance(span, Mapping):
+                    derivation_html += ('<p>PDF第' + escape(str(span.get('page_number', ''))) + '页</p><pre>'
+                        + escape(str(span.get('original_text', ''))[:2000]) + '</pre>')
     for item in report.get('income_layout_recoveries', [])[:8]:
         if not isinstance(item, Mapping) or not isinstance(item.get('source_segments'), list):
             continue
-        derivation_html += ('<h2>归母利润跨页读取依据</h2><p>'
+        title = '税前利润' if item.get('label') == '利润总额' else '归母利润'
+        derivation_html += ('<h2>' + title + '跨页读取依据</h2><p>'
             + escape(str(item.get('note', ''))) + '</p>')
         for segment in item['source_segments']:
             if isinstance(segment, Mapping):

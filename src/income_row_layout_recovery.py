@@ -8,6 +8,7 @@ from decimal import Decimal, InvalidOperation
 import re
 
 CROSS_PAGE_ATTRIBUTABLE_LAYOUT = 'attributable_profit_annotation_page_break_v1'
+CROSS_PAGE_PRETAX_LAYOUT = 'profit_before_tax_annotation_page_break_v1'
 _LABEL = '归属于母公司股东的净利润'
 _PREFIX = '1.' + _LABEL + '（净亏'
 _SUFFIX = '损以“-”号填列）'
@@ -131,4 +132,80 @@ def recover_cross_page_attributable_profit(pages, *, report_year=None):
                     note='金额保留在前页；下一页仅用于确认原文括号注释完整，未调换或补造原文。')
     except (ValueError,InvalidOperation,IndexError,TypeError) as error:
         failure['error']=str(error)
+        return failure
+
+
+def recover_cross_page_profit_before_tax(pages, *, report_year=None):
+    """Read the observed page-tail pretax row without rearranging its text.
+
+    Both amounts must remain on the first page. Only the annotation suffix may
+    continue after the matching next-page header and exact physical page number.
+    The next tax and net-profit rows are mandatory boundaries, not substitutes.
+    """
+    pages = list(pages)
+    label = '利润总额'
+    prefix = '四、利润总额（亏损总额以“－”号填'
+    candidates = [(n, text, i) for n, text in pages for i, line in enumerate(_lines(text))
+                  if label in _c(line.group()) and '（' in _c(line.group())
+                  and '）' not in _c(line.group()) and _c(line.group()).startswith('四、')]
+    if not candidates:
+        return None
+    failure = dict(label=label, values=None, error='', pages=None, excerpt='', notes=[],
+                   layout_recovery=CROSS_PAGE_PRETAX_LAYOUT, source_segments=[])
+    try:
+        numbers = [n for n, _ in pages]
+        if (any(type(n) is not int or n < 1 for n in numbers)
+                or numbers != sorted(set(numbers)) or len(candidates) != 1):
+            raise ValueError('跨页税前行候选或物理页码不唯一')
+        number, text, index = candidates[0]
+        following = [t for n, t in pages if n == number + 1]
+        if len(following) != 1:
+            raise ValueError('跨页税前行缺少紧邻的下一物理页')
+        next_text = following[0]
+        lines, next_lines = _lines(text), _lines(next_text)
+        if len(lines) < 12 or len(next_lines) < 10:
+            raise ValueError('跨页税前行页面不完整')
+        compact = [_c(m.group()) for m in lines]
+        next_compact = [_c(m.group()) for m in next_lines]
+        header = _REPORT_HEADER.fullmatch(compact[0])
+        if (header is None or compact[0] != next_compact[0]
+                or compact[1] != str(number) or next_compact[1] != str(number + 1)):
+            raise ValueError('跨页税前行年报页眉或物理页码不一致')
+        year = int(header['year'])
+        if not 1990 <= year <= 2199 or (report_year is not None and (type(report_year) is not int or report_year != year)):
+            raise ValueError('跨页税前行报告年度不匹配')
+        titles = [i for i, line in enumerate(compact) if line == '合并利润表']
+        if len(titles) != 1:
+            raise ValueError('缺少唯一明确的合并利润表标题')
+        title = titles[0]
+        expected = ['合并利润表', f'{year}年1—12月', '单位：元币种：人民币',
+                    '项目', '附注', f'{year}年度', f'{year-1}年度', '一、营业总收入']
+        if compact[title:title + len(expected)] != expected:
+            raise ValueError('跨页税前行两期、合并范围或人民币元单位不明确')
+        if index <= title or any(re.search(r'(?:母公司|公司|合并)(?:利润表|资产负债表|现金流量表)', s)
+                                 for s in compact[title + 1:index]):
+            raise ValueError('跨页税前行越过合并表边界')
+        if compact[index] != prefix or index != len(lines) - 3:
+            raise ValueError('税前行必须位于页尾且恰有两项明确金额')
+        values = tuple(_money(lines[i].group()) for i in (index + 1, index + 2))
+        if (next_compact[2:4] != ['列）', '减：所得税费用']
+                or not re.fullmatch(r'[一二三四五六七八九十]+、\d{1,3}', next_compact[4])
+                or next_compact[7] != '五、净利润（净亏损以“－”号填列）'):
+            raise ValueError('税前注释后缀与下一税费/净利润行不连续')
+        for i in (5, 6, 8, 9):
+            _money(next_lines[i].group())
+        next_end = next((i for i, s in enumerate(next_compact) if s == '母公司利润表'), len(next_compact))
+        if sum('四、利润总额' in s for s in compact[title:] + next_compact[2:next_end]) != 1:
+            raise ValueError('合并范围内税前利润行重复')
+        first_segment = text[lines[index].start():lines[-1].end()]
+        second_segment = next_text[next_lines[0].start():next_lines[2].end()]
+        segments = [dict(page_number=number, text=first_segment, start_offset=lines[index].start(), end_offset=lines[-1].end()),
+                    dict(page_number=number + 1, text=second_segment, start_offset=next_lines[0].start(), end_offset=next_lines[2].end())]
+        return dict(label=label, values=values, error=None, pages=dict(start=number, end=number + 1),
+                    amount_pages=dict(start=number, end=number), notes=[], excerpt=first_segment + '\n' + second_segment,
+                    source_segments=segments, header_years=[year, year - 1], unit='元', currency='人民币',
+                    layout_recovery=CROSS_PAGE_PRETAX_LAYOUT,
+                    note='税前金额在前页；下一页仅补足原文括号注释的范围证据，未调换或补造原文。')
+    except (ValueError, InvalidOperation, IndexError, TypeError) as error:
+        failure['error'] = str(error)
         return failure

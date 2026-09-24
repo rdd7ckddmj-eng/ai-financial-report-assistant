@@ -4,6 +4,7 @@ import math
 import re
 from src.pdf_numeric_text import normalize_numeric_parentheses
 from src.statement_evidence_rules import integer_rounding_tolerance, extract_statement_unit, bound_consolidated_statement
+from src.statement_page_layout_recovery import recover_printed_statement_page_numbers
 from collections.abc import Iterable
 from typing import NotRequired, TypedDict
 
@@ -50,6 +51,8 @@ CHINESE_CASH_FLOW_LABELS = {
         "经营活动现金流量净额",
     ),
     "investing": (
+        "投资活动（使用）/产生的现金流量净额",
+        "投资活动(使用)/产生的现金流量净额",
         "投资活动产生/(使用)的现金流量净额",
         "投资活动产生/（使用）的现金流量净额",
         "投资活动使用的现金流量净额",
@@ -323,7 +326,8 @@ def _standalone_note(line: str) -> bool:
     # not permission to skip arbitrary Chinese text before the amounts.
     return bool(re.fullmatch(r"(?:附注)?(?:[一二三四五六七八九十百]+、?[1-9]\d{0,2}"
         r"(?:[（(][A-Za-z0-9]{1,8}[）)])*"
-        r"|[一二三四五六七八九十百]+(?:[（(][A-Za-z0-9]+[）)])+)", compact))
+        r"|[一二三四五六七八九十百]+(?:[（(][A-Za-z0-9]+[）)])+"
+        r"|[一二三四五六七八九十百]+、[1-9]\d{0,2}[（(][1-9]\d?[）)][a-z])", compact))
 
 
 def _interleaved_label_pair(lines, row_index, label):
@@ -444,6 +448,7 @@ def _extract_chinese_row_pair(
             note_recovery = False
             sign_caption_recovery = False
             standalone_notes = 0
+            lettered_note_recovery = False
             last = label_end
             following_lines = lines[label_end + 1:] if strict_values else lines[label_end + 1:label_end + 7]
             for last, following_line in enumerate(following_lines, label_end + 1):
@@ -468,7 +473,22 @@ def _extract_chinese_row_pair(
                         following_values.extend(noted)
                         note_recovery = True
                         continue
-                if (recovery_header or strict_values or standalone_notes) and _invalid_numeric_boundary(following_line):
+                if (standalone_note_header and value_column_count == 2
+                    and last == label_end + 1 and not following_values):
+                    # One whole note cell may share a line with its amount.
+                    # A real whitespace boundary is required; do not split or
+                    # invent a number inside an unrecognised note string.
+                    adjacent = re.fullmatch(
+                        r'((?:附注)?[一二三四五六七八九十百]+、[1-9]\d{0,2}'
+                        r'(?:[（(][A-Za-z0-9]+[）)])*)\s+(.+)', following_line)
+                    if adjacent and _standalone_note(adjacent[1]):
+                        noted = _strict_recovery_values(adjacent[2])
+                        if noted is None:
+                            return None
+                        following_values.extend(noted)
+                        note_recovery = True
+                        continue
+                if (recovery_header or strict_values or standalone_notes or note_recovery) and _invalid_numeric_boundary(following_line):
                     return None
                 if following_values:
                     break
@@ -482,6 +502,9 @@ def _extract_chinese_row_pair(
                         standalone_notes += 1
                         if (strict_values or standalone_note_header) and standalone_notes > 1:
                             return None
+                        lettered_note_recovery = bool(re.fullmatch(
+                            r'[一二三四五六七八九十百]+、[1-9]\d{0,2}[（(][1-9]\d?[）)][a-z]',
+                            _compact_chinese_text(following_line)))
                         continue
                 # Any unrecognised text ends this row, including in tables
                 # without an explicit note column. A blank amount must not
@@ -491,6 +514,10 @@ def _extract_chinese_row_pair(
                 return None
             if standalone_notes and len(following_values) != value_column_count:
                 return None
+            if lettered_note_recovery and recoveries is not None:
+                end = last if _is_financial_values_line(lines[last]) else last - 1
+                recoveries.append(dict(kind='lettered_statement_note', label=label,
+                    normalized_lines=lines[row_index:end + 1]))
             if note_recovery or sign_caption_recovery:
                 # A newly recognised note must leave exactly two cells. Never
                 # select the last two from an ambiguous three-cell row.
@@ -644,9 +671,11 @@ def extract_cash_flow_figures(
     original_pages = source_pages or [(page_number, page_text)]
     if source_pages is not None and "\n".join(t for _, t in source_pages) != page_text:
         return None
+    page_recovery = recover_printed_statement_page_numbers(original_pages, "现金流量表")
+    parser_pages = page_recovery[0] if page_recovery else original_pages
     clean_text = "\n".join(re.sub(
         rf'(?:\r?\n[ \t]*){{2,}}{number}[ \t]*(?:\r?\n[ \t]*)*\Z',
-        '\n', text) for number, text in original_pages)
+        '\n', text) for number, text in parser_pages)
     lines = _normalise_lines(_bounded_cash_flow_text(clean_text))
     chinese_value_column_count = _chinese_cash_flow_column_count(lines)
     recoveries = []
@@ -716,6 +745,8 @@ def extract_cash_flow_figures(
 
     if recoveries and not _recovery_original_spans(recoveries, source_pages or [(page_number, page_text)]):
         return None
+    if page_recovery:
+        recoveries.append(page_recovery[1])
     current_weeks, previous_weeks = _extract_period_weeks(lines)
     figures = {
         "rounding_note": ("整数缩放单位勾稽：允许最多1个原始单位差异，仍待人工复核。" if tolerance == 1 else ""),

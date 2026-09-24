@@ -451,5 +451,19 @@
 - [x] Run all 108 originals: 102 candidates, six gaps, 92 issuers, 88 candidate issuers, 106 issuer/year pairs. Prior 88 statuses, statement checks and both-period amounts unchanged.
 - [x] Compare 100 new current amounts: 88 zero differences, two retained TCL differences explained by subsequent official restatement, ten not comparable. No human confirmations.
 - [x] Retain the first full-run regression failures and independent boundary counterexamples; repair compatibility before release.
-- [ ] Complete batch 13 normal deployment and exact-version live official-download acceptance; final task release receipt records the outcome.
+- [x] Complete batch 13 deployment (adac4d0 / 20260924-coverage-13.1 / Render dep-daqaqdlckfvc738hdqpg) and exact-version live official-download acceptance; the final task release receipt records verified_live.
 - [ ] Continue investigating six exact PDF gaps and untested issuers with original-source evidence; do not claim full-market coverage or fill missing cells.
+
+
+## 2026-09-24 — Batch 14: strict native layouts and preserved source gaps
+
+- [x] Add 24 exact 2025 official annual originals; retain initial 14 candidates / 10 gaps and all source fingerprints, native pages and AI visual records.
+- [x] Recover evidenced full-year headers, split pretax notes, bounded cash references and consecutive printed-page layouts without modifying PDFs or borrowing numbers across blank rows.
+- [x] Read SF Express group/company four columns and original company nonapplicability; derive signed-tax treatment from complete original expense-format evidence, never arithmetic trial or company-code constants.
+- [x] Preserve page-number spans, pretax source segments and expense raw values through candidates, snapshots, UI, JSON and HTML; keep independent human-review/export gates.
+- [x] Add TCL dual-source restatement explanations with unchanged original/public values, retained differences and acquisition times; do not count its subsequent interim report as a new annual-report sample.
+- [x] Complete the final frozen-source full-PDF batch: 132 originals, 116 issuers, 130 issuer/year pairs; 122 candidates, 10 gaps, 108 candidate issuers. New 24: 20 candidates / 4 gaps. Old 108 statuses, statement checks and both-period raw/normalized amounts, units and pages unchanged.
+- [x] Keep Huadian and Chongqing Brewery blank exchange rows, Sangfor's blank current minority profit and Spring Airlines image tables unverified; retain all six prior exact-original failures.
+- [x] Exclude the 74.15 MiB SDIC Power original under the unchanged 45 MiB official limit; record Debon's zero-result query without claiming nonpublication. Keep alternative-source investigations outside the batch manifest.
+- [x] Complete 132 frozen-source originals, 3,574 full tests and 120 new current comparisons (100 exact matches / 20 not comparable); bind final catalog to final receipt, retain interrupted audit evidence.
+- [ ] Complete batch 14 normal deployment, exact-release health checks and real online source/UI acceptance; local candidate receipts do not prove deployment.

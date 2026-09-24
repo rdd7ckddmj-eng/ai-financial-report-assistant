@@ -120,6 +120,7 @@ class CandidateReportResult(TypedDict):
     income_reconciliation: dict[str, object] | None
     pdf_text_adjustments: list[dict[str, object]]
     cash_flow_layout_recoveries: list[dict[str, object]]
+    balance_sheet_layout_recoveries: list[dict[str, object]]
     statement_reconciliation: dict[str, object] | None
     unit_check: dict[str, object]
     statement_pages: dict[str, dict[str, int] | None]
@@ -607,8 +608,11 @@ def build_candidate_report_result(
         "income_reconciliation": income_reconciliation,
         "pdf_text_adjustments": text_adjustments,
         "cash_flow_layout_recoveries": (cash_flow or {}).get('layout_recoveries', []),
+        "balance_sheet_layout_recoveries": (balance or {}).get('layout_recoveries', []),
         "income_layout_recoveries": ([(income or {})['attributable_layout_recovery']]
-                                     if (income or {}).get('attributable_layout_recovery') else []),
+                                     if (income or {}).get('attributable_layout_recovery') else []) + (
+            [income_reconciliation['evidence']['profit_before_tax']]
+            if (income_reconciliation or {}).get('evidence', {}).get('profit_before_tax', {}).get('source_segments') else []),
         "statement_reconciliation": (detailed_profile or {}).get('statement_reconciliation'),
         "unit_check": {
             "passed": units_consistent,

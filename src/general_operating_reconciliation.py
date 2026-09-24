@@ -190,8 +190,15 @@ def check_direct_operating_reconciliation(lines, page_numbers, column_count, inc
                 last = number
             if (has_note_header and key not in ('operating_profit', 'profit_before_tax')
                     and len(pieces) == 3 and not notes
-                    and re.fullmatch(r'[1-9]\d{0,2}', pieces[0])):
+                    and re.fullmatch(r'\d+', pieces[0]) and 0 < int(pieces[0]) <= 999):
                 notes.append(pieces.pop(0))
+            elif (has_note_header and key not in ('total_operating_revenue', 'total_operating_cost',
+                    'operating_profit', 'profit_before_tax') and len(pieces) == 2 and not notes
+                    and re.fullmatch(r'\d+', pieces[0]) and 0 < int(pieces[0]) <= 999):
+                # With an explicit note column, “70 / -4,315,871 / blank”
+                # cannot become two period amounts. Without column geometry,
+                # a small first integer here remains ambiguous, not zero.
+                raise ValueError('首格可能为数字附注且仅余一项金额，期间列归属不明确：' + label)
             if len(pieces) != 2:
                 raise ValueError('经营分项不是完整的本期/比较期两列：' + label)
             values = tuple(_value(token) for token in pieces)

@@ -4,8 +4,9 @@ import math
 import re
 from src.pdf_numeric_text import normalize_numeric_parentheses
 from src.statement_evidence_rules import integer_rounding_tolerance, extract_statement_unit, bound_consolidated_statement
+from src.statement_page_layout_recovery import recover_printed_statement_page_numbers
 from collections.abc import Iterable
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 
 class BalanceSheetFigures(TypedDict):
@@ -35,6 +36,7 @@ class BalanceSheetFigures(TypedDict):
     page_number: int
     end_page_number: int
     statement_format: str
+    layout_recoveries: NotRequired[list[dict]]
 
 
 FINANCIAL_VALUE_PATTERN = re.compile(
@@ -490,9 +492,11 @@ def extract_balance_sheet_figures(
     original_pages = source_pages or [(page_number, page_text)]
     if source_pages is not None and "\n".join(t for _, t in source_pages) != page_text:
         return None
+    page_recovery = recover_printed_statement_page_numbers(original_pages, "资产负债表")
+    parser_pages = page_recovery[0] if page_recovery else original_pages
     clean_text = "\n".join(re.sub(
         rf'(?:\r?\n[ \t]*){{2,}}{number}[ \t]*(?:\r?\n[ \t]*)*\Z',
-        '\n', text) for number, text in original_pages)
+        '\n', text) for number, text in parser_pages)
     bounded = bound_consolidated_statement(clean_text, "资产负债表")
     parent = re.search(r'(?m)^[ \t]*(?:(?:[（(][一二三四五六七八九十百0-9]+[）)]'
                        r'|[一二三四五六七八九十百0-9]+[、.．])[ \t]*)?'
@@ -501,12 +505,15 @@ def extract_balance_sheet_figures(
     lines = _normalise_lines(bounded[:parent.start()] if parent else bounded)
     chinese_value_column_count = _chinese_balance_sheet_column_count(lines)
     if chinese_value_column_count is not None:
-        return _extract_chinese_balance_sheet_figures(
+        figures = _extract_chinese_balance_sheet_figures(
             page_number,
             lines,
             value_column_count=chinese_value_column_count,
             strict_values=clean_text != page_text,
         )
+        if figures is not None and page_recovery:
+            figures['layout_recoveries'] = [page_recovery[1]]
+        return figures
     if "Group balance sheet" not in lines:
         return None
 

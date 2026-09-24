@@ -11,7 +11,9 @@ from src.financial_statement_extractor import (
     ORDINARY_SHAREHOLDER_PROFIT_LABEL,
 )
 from src.statement_evidence_rules import extract_statement_unit
-from src.income_row_layout_recovery import recover_cross_page_attributable_profit
+from src.income_row_layout_recovery import recover_cross_page_attributable_profit, recover_cross_page_profit_before_tax
+from src.statement_page_layout_recovery import recover_printed_statement_page_numbers
+from src.signed_expense_presentation import signed_expense_presentation
 
 _AMOUNT = r'(?:\d{1,3}(?:[,，]\d{3})+|\d+)(?:\.\d+)?'
 _NUMBER = re.compile(rf'^(?:[-—–]|[-−－]?{_AMOUNT}|\({_AMOUNT}\)|（{_AMOUNT}）)$')
@@ -56,7 +58,7 @@ def _financial_line(line, *, compact_notes=False, allow_parent_na=False):
     if not parts:return [],False
     numbers=[];has_note=False
     for part in parts:
-        if _NUMBER.fullmatch(part) or (allow_parent_na and part == '/'):numbers.append(part)
+        if _NUMBER.fullmatch(part) or (allow_parent_na and part in ('/', '不适用')):numbers.append(part)
         elif (_NOTE.fullmatch(_compact(part)) or (compact_notes and (
                 _COMPACT_NOTE.fullmatch(_compact(part)) or _STRUCTURED_NOTE.fullmatch(_compact(part))))) and not numbers:has_note=True
         else:return None
@@ -90,7 +92,7 @@ def _rows(lines,page_numbers,column_count):
     for index in range(len(lines)):
         if index in reserved:continue
         for key,labels in _ALIASES.items():
-            parent_na = key == 'minority_profit' and column_count == 4
+            parent_na = key in ('minority_profit', 'attributable_profit') and column_count == 4
             match=None
             for label in labels:
                 if label == ORDINARY_SHAREHOLDER_PROFIT_LABEL and not _ordinary_shareholder_attribution_allowed(lines, index):
@@ -127,9 +129,11 @@ def _rows(lines,page_numbers,column_count):
                             cursor=note_end+1
                             continue
                     token=_compact(line)
-                    if (re.match(r'^[+\-—–(.,\d]',token) and re.search(r'\d',token)
+                    if (re.match(r'^[+\-—–(.,?？\d]',token) and re.search(r'\d',token)
                             and not re.search(r'[\u4e00-\u9fff]',token)) or re.fullmatch(r'(?:不适用|无数据|N/?A|NAN|NULL|NONE)',token,re.IGNORECASE):
                         error='金额行含损坏的数字或未提供数值标记'
+                    if re.fullmatch(r'(?:人民币|￥|¥)?[+\-]?[\d,，.]+(?:百万元|万元|千元|元)', token):
+                        error='金额行含带单位的额外数值格'
                     break
                 numbers,is_note=parsed
                 if is_note:
@@ -144,9 +148,10 @@ def _rows(lines,page_numbers,column_count):
             try:
                 if error:raise ValueError(error)
                 if len(parts)!=column_count:raise ValueError('金额列数不是明确的本期/比较期列数')
-                if '/' in parts:
-                    if not parent_na or parts[2:] != ['/', '/'] or '/' in parts[:2]:
-                        raise ValueError('不适用标记只能同时出现在少数股东行的两个母公司列')
+                if any(p in ('/', '不适用') for p in parts):
+                    allowed_na = [['不适用', '不适用']] + ([['/', '/']] if key == 'minority_profit' else [])
+                    if not parent_na or parts[2:] not in allowed_na or any(p in ('/', '不适用') for p in parts[:2]):
+                        raise ValueError('不适用标记必须成对位于归属行的两个公司列')
                     values=tuple(_value(p) for p in parts[:2]) + (None, None)
                 else:
                     values=tuple(_value(p) for p in parts)
@@ -156,7 +161,8 @@ def _rows(lines,page_numbers,column_count):
                 pages=dict(start=page_numbers[index],end=page_numbers[min(last,len(page_numbers)-1)]),
                 excerpt=' ｜ '.join(lines[index:min(last+1,len(lines))]),notes=notes,
                 _line_span=(index,last)))
-            if values is not None and '/' in parts:
+            if values is not None and (any(p in ('/', '不适用') for p in parts)
+                    or (key == 'income_tax' and all(p.startswith('(') for p in parts))):
                 found[key][-1]['raw_values'] = list(parts)
             break
     return found
@@ -207,13 +213,35 @@ def _other_equity_attribution_context(lines, found, columns):
     return True, complete_section and indices == sorted(indices) and enumerations == [1, 2, 3]
 
 
-def _check_continuation_headers(lines, first_row, periods, relative, columns):
+_PERIOD_QUALIFIER = r'(?:\((?:重述|经重述|已重述|调整后)\))?'
+_RELATIVE_PERIOD = r'(?:本年|上年|本期|上期)发生额|(?:本期|上期)金额'
+
+
+def _relative_period_cells(item):
+    if re.fullmatch(r'(?:(?:' + _RELATIVE_PERIOD + r')' + _PERIOD_QUALIFIER + r')+', item):
+        return re.findall(_RELATIVE_PERIOD, item)
+    return None
+
+
+def _has_open_period_qualifier(item):
+    return (re.match(r'^(?:\d{4}年|' + _RELATIVE_PERIOD + r')', item)
+            and item.count('(') > item.count(')'))
+
+
+def _check_continuation_headers(lines, first_row, periods, relative, columns, resolved_years=None):
     """An explicit repeated column header must agree even on a middle page."""
-    qualifier=r'(?:\((?:重述|经重述|已重述|调整后)\))?'
+    qualifier=_PERIOD_QUALIFIER
     for index in range(first_row + 1, len(lines)):
         item=_compact(lines[index])
-        if not re.fullmatch(r'项目(?:附注)?(?:\d{4}年.*)?', item):
+        if not re.fullmatch(r'项目(?:附注)?(?:(?:\d{4}年|' + _RELATIVE_PERIOD + r').*)?', item):
             continue
+        if relative and resolved_years:
+            for preceding in lines[max(first_row + 1, index - 8):index]:
+                previous = _compact(preceding)
+                if re.fullmatch(r'\d{4}年(?:度|[\d月日—–-]+)', previous):
+                    subtitle = re.fullmatch(r'(\d{4})年(?:度|1[-—–]12月)', previous)
+                    if subtitle is None or int(subtitle[1]) != resolved_years[0]:
+                        raise ValueError('续页相对期间的年度标题与首表不一致')
         repeated=[];repeated_relative=[];roles=[]
         cursor=index
         while cursor < min(index + 16, len(lines)):
@@ -224,15 +252,17 @@ def _check_continuation_headers(lines, first_row, periods, relative, columns):
                 cursor+=1;continue
             if item in ('合并','公司','母公司'):
                 roles.append(item);cursor+=1;continue
-            if re.match(r'^\d{4}年',item) and item.count('(')>item.count(')'):
+            if _has_open_period_qualifier(item):
                 while cursor+1<len(lines) and item.count('(')>item.count(')'):
                     cursor+=1;item+=_compact(lines[cursor])
             if re.fullmatch(r'(?:\d{4}年(?:度)?'+qualifier+r')+',item):
                 repeated.extend(int(y) for y in re.findall(r'(\d{4})年',item))
             elif re.search(r'\d{4}年',item):
                 raise ValueError('续页年份列含未识别的期间或注释')
-            elif re.fullmatch(r'(?:(?:本年|上年|本期|上期)发生额|(?:本期|上期)金额)+',item):
-                repeated_relative.extend(re.findall(r'(?:本年|上年|本期|上期)发生额|(?:本期|上期)金额',item))
+            elif _relative_period_cells(item) is not None:
+                repeated_relative.extend(_relative_period_cells(item))
+            elif re.search(_RELATIVE_PERIOD, item):
+                raise ValueError('续页相对期间列含未识别的期间或注释')
             else:
                 break
             cursor+=1
@@ -252,6 +282,11 @@ def _bounded_lines(pages,figures):
         raise ValueError('利润表页码范围缺失或超出三页窗口')
     selected=[(n,t) for n,t in pages if start<=n<=end]
     if [n for n,_ in selected]!=list(range(start,end+1)):raise ValueError('利润表页面缺失或重复')
+    recovered = recover_printed_statement_page_numbers(selected, '利润表')
+    layout_recoveries = []
+    if recovered:
+        selected, recovery = recovered
+        layout_recoveries.append(recovery)
     stream=[]
     for n,text in selected:
         page_lines=_normalise_lines(text)
@@ -260,7 +295,7 @@ def _bounded_lines(pages,figures):
             # marker. Never discard arbitrary integer tokens inside a table.
             if position in (0,len(page_lines)-1) and line==str(n):continue
             stream.append((n,line))
-    if any('Group income statement'==line for _,line in stream):return [],[],0,None
+    if any('Group income statement'==line for _,line in stream):return [],[],0,None,[]
     enumeration=rf'(?:\d+[、.．]|\([{_CN}]+\)|[{_CN}]+[、.．])?'
     title=re.compile(r'^(?:\d{4}年度)?'+enumeration+r'合并(?P<combined>及公司)?利润表(?:\(续\))?$')
     starts=[i for i,(_,line) in enumerate(stream) if title.fullmatch(_compact(line))]
@@ -269,8 +304,8 @@ def _bounded_lines(pages,figures):
     scoped=[]
     for number,line in stream[first:]:
         c=_compact(line)
-        if re.fullmatch(enumeration+r'(?:母公司|公司)(?:利润表|资产负债表|现金流量表)(?:\(续\))?',c):break
-        if re.fullmatch(enumeration+r'合并(?:资产负债表|现金流量表)(?:\(续\))?',c):break
+        if re.fullmatch(r'(?:\d{4}年度)?'+enumeration+r'(?:母公司|公司)(?:利润表|资产负债表|现金流量表)(?:\(续\))?',c):break
+        if re.fullmatch(r'(?:\d{4}年度)?'+enumeration+r'合并(?:及公司)?(?:资产负债表|现金流量表)(?:\(续\))?',c):break
         scoped.append((number,line))
     lines=[l for _,l in scoped];numbers=[n for n,_ in scoped]
     first_row=next((i for i in range(len(lines)) if any(
@@ -283,27 +318,31 @@ def _bounded_lines(pages,figures):
     # Preserve same-line years after “项目 [附注]”; subtitle years before this
     # column heading are not period columns.
     subtitle_years = [int(m[1]) for item in header[:anchor]
-                      if (m := re.fullmatch(r'(\d{4})年度', item))]
+                      if (m := re.fullmatch(r'(\d{4})年(?:度|1[-—–]12月)', item))]
+    if any(re.fullmatch(r'\d{4}年[\d月日度—–-]+', item)
+           and not re.fullmatch(r'\d{4}年(?:度|1[-—–]12月)', item) for item in header[:anchor]):
+        raise ValueError('利润表年度标题旁存在非完整年度期间')
     header=header[anchor:]
     header[0]=re.sub(r'^(?:项目(?:附注)?|附注['+_CN+r']*)','',header[0])
+    qualified_relative = any(re.search(r'(?:' + _RELATIVE_PERIOD + r')\(', item) for item in header)
     periods=[];relative=[];cursor=0
     while cursor<len(header):
         item=header[cursor]
         # CRRC 2025 wraps its exact comparative qualifier as “2024年度(重 / 述)”.
         # Join only an unfinished year qualifier, never arbitrary header prose.
-        if re.match(r'^\d{4}年',item) and item.count('(')>item.count(')'):
+        if _has_open_period_qualifier(item):
             while cursor+1<len(header) and item.count('(')>item.count(')'):
                 cursor+=1
                 item+=header[cursor]
-        qualifier=r'(?:\((?:重述|经重述|已重述|调整后)\))?'
+        qualifier=_PERIOD_QUALIFIER
         if re.fullmatch(r'(?:\d{4}年(?:度)?'+qualifier+r')+',item):
             periods.extend(int(y) for y in re.findall(r'(\d{4})年',item))
         elif re.search(r'\d{4}年',item):
             raise ValueError('年份列含未识别的期间或注释')
-        elif re.fullmatch(r'(?:(?:本年|上年|本期|上期)发生额)+',item):
-            relative.extend(re.findall(r'(?:本年|上年|本期|上期)发生额',item))
-        elif re.fullmatch(r'(?:(?:本期|上期)金额)+',item):
-            relative.extend(re.findall(r'(?:本期|上期)金额',item))
+        elif _relative_period_cells(item) is not None:
+            relative.extend(_relative_period_cells(item))
+        elif re.search(_RELATIVE_PERIOD, item):
+            raise ValueError('相对期间列含未识别的期间或注释')
         cursor+=1
     if periods:
         expected=[periods[0],periods[0]-1]*(column_count//2)
@@ -314,12 +353,16 @@ def _bounded_lines(pages,figures):
         periods = [subtitle_years[0], subtitle_years[0] - 1]
     elif relative not in (['本年发生额','上年发生额']*(column_count//2),['本期发生额','上期发生额']*(column_count//2)):
         raise ValueError('缺少明确的本期/比较期列头')
+    elif subtitle_years or qualified_relative:
+        if len(subtitle_years) != 1:
+            raise ValueError('相对期间表头存在重复或冲突的年度标题')
+        periods = [subtitle_years[0], subtitle_years[0] - 1]
     if column_count==4:
         roles=[_compact(x) for x in lines[:first_row] if _compact(x) in ('合并','公司','母公司')]
         if roles not in (['合并','合并','公司','公司'], ['合并','合并','母公司','母公司']):
             raise ValueError('合并及公司四列表头顺序不明确')
-    _check_continuation_headers(lines, first_row, periods, relative, column_count)
-    return lines,numbers,column_count,periods[:2] or None
+    _check_continuation_headers(lines, first_row, [] if relative else periods, relative, column_count, periods)
+    return lines,numbers,column_count,periods[:2] or None,layout_recoveries
 
 
 def check_general_income_reconciliation(pages, income, *, report_year=None):
@@ -333,7 +376,9 @@ def check_general_income_reconciliation(pages, income, *, report_year=None):
     if not income:return result
     pages = list(pages)
     try:
-        lines,numbers,columns,header_years=_bounded_lines(pages,income)
+        lines,numbers,columns,header_years,layout_recoveries=_bounded_lines(pages,income)
+        if layout_recoveries:
+            result['layout_recoveries'] = layout_recoveries
         if columns==0:
             result.update(status='not_applicable',note='英文报表沿用原有专用流程，本检查不适用。');return result
         result['pages']=dict(start=numbers[0],end=numbers[-1])
@@ -348,6 +393,13 @@ def check_general_income_reconciliation(pages, income, *, report_year=None):
         if not local and any(re.search(r'单位(?:(?:均)?为[：:]?|[：:])(?:人民币)?(?:百万元|万元|千元|元|美元|港元)|^人民币(?:百万元|万元|千元|元)$|币种[：:]?',_compact(line)) for line in lines):
             raise ValueError('利润表含冲突或不受支持的单位声明')
         found=_rows(lines,numbers,columns)
+        tax = found['profit_before_tax']
+        if not tax or (len(tax) == 1 and tax[0]['values'] is None):
+            selected_pages = [(n, text) for n, text in pages if numbers[0] <= n <= numbers[-1]]
+            recovery = recover_cross_page_profit_before_tax(selected_pages, report_year=report_year)
+            if (recovery and recovery['values'] is not None and columns == 2
+                    and recovery['header_years'] == header_years and recovery['unit'] == unit):
+                found['profit_before_tax'] = [recovery]
         attributable = found['attributable_profit']
         if not attributable or (len(attributable) == 1 and attributable[0]['values'] is None):
             selected_pages = [(n, text) for n, text in pages if numbers[0] <= n <= numbers[-1]]
@@ -371,7 +423,7 @@ def check_general_income_reconciliation(pages, income, *, report_year=None):
                 row=matches[0];rows[key]=row
                 result['evidence'][key]={**{k:v for k,v in row.items() if k != '_line_span'},
                     'values':[str(v) if v is not None else None for v in row['values']]}
-                if key == 'minority_profit' and row['values'][2:] == (None, None):
+                if key in ('attributable_profit', 'minority_profit') and row['values'][2:] == (None, None):
                     result['evidence'][key]['not_applicable_columns'] = ['company_current', 'company_previous']
         required_values=[value for row in rows.values() for value in row['values'] if value is not None]
         integer_scaled=(unit in {'千元','万元','百万元'} and len(rows)==len(found)
@@ -395,14 +447,39 @@ def check_general_income_reconciliation(pages, income, *, report_year=None):
             result['checks'].append(check)
         def value(key,index):return rows[key]['values'][index]
         signed_tax=rows.get('income_tax',{}).get('label')=='减：所得税(费用)/贷项'
+        presentation = signed_expense_presentation(lines, numbers, columns, unit, rows.get('income_tax', {}))
+        if presentation:
+            if not layout_recoveries:
+                raise ValueError('带符号费用版式缺少同一公司、同一年度的连续页码证据')
+            result['signed_expense_presentation'] = presentation
+            signed_tax = True
         result['tax_presentation']='按明确“所得税(费用)/贷项”标签将带符号贷项加至利润总额' if signed_tax else '按所得税费用原有正负号从利润总额扣减'
+        if presentation:
+            result['tax_presentation'] = presentation['note']
         for offset,suffix in ((0,''),)+(((2,'_company'),) if columns==4 else ()):
             scope='母公司：' if offset else '合并：'
             tax_label='利润总额加带符号所得税费用/贷项等于净利润' if signed_tax else '利润总额减所得税费用等于净利润'
             add_check('profit_after_tax'+suffix,scope+tax_label,
                 ('profit_before_tax','income_tax','consolidated_net_profit'),
                 lambda i:(value('profit_before_tax',i)+(1 if signed_tax else -1)*value('income_tax',i),value('consolidated_net_profit',i)),offset)
-            if offset and rows.get('minority_profit',{}).get('values', ())[2:] == (None, None):
+            parent_attribution_na = rows.get('attributable_profit',{}).get('values', ())[2:] == (None, None)
+            parent_minority_na = rows.get('minority_profit',{}).get('values', ())[2:] == (None, None)
+            if offset and parent_attribution_na:
+                if not parent_minority_na:
+                    raise ValueError('公司利润归属行的不适用范围不一致')
+                if any(rows[key].get('raw_values', [])[2:] != ['不适用', '不适用']
+                       for key in ('attributable_profit', 'minority_profit')):
+                    raise ValueError('两行公司归属格必须保留一致的原文“不适用”标记')
+                for key, boundary in (('attributable_profit', '少数股东损益'),
+                                      ('minority_profit', '其他综合收益的税后净额')):
+                    end = rows[key]['_line_span'][1]
+                    if end + 1 >= len(lines) or not re.fullmatch(
+                            rf'(?:[{_CN}]+[、.．]|\d+[、.．])?' + re.escape(boundary), _compact(lines[end + 1])):
+                        raise ValueError('公司不适用归属行后存在未知文字或额外金额')
+                result.setdefault('not_applicable_checks', []).append(dict(
+                    key='profit_attribution_company',
+                    note='公司栏的归母与少数股东损益均明确为“不适用”；公司利润归属关系不执行计算，未补零、未计作通过。'))
+            elif offset and parent_minority_na:
                 add_check('profit_attribution'+suffix,scope+'股东净利润等于净利润（少数股东栏不适用，未作零值计算）',
                     ('attributable_profit','consolidated_net_profit'),
                     lambda i:(value('attributable_profit',i),value('consolidated_net_profit',i)),offset)
@@ -448,6 +525,8 @@ def check_general_income_reconciliation(pages, income, *, report_year=None):
                     '子项未重复加总，仍不代表完整财务审计。')
         else:
             result['note'] += ' ' + operating['note']
+        if result.get('not_applicable_checks'):
+            result['note'] += ' ' + ' '.join(item['note'] for item in result['not_applicable_checks'])
     except (ValueError,InvalidOperation,IndexError,TypeError) as exc:
         result.update(status='missing_evidence',passed=False,note='利润表证据不足：'+str(exc)+'。未判定金额是否一致。')
     return result
