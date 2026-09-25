@@ -1,15 +1,15 @@
 {
-  "release_id": "20260925-coverage-15.2",
-  "source_digest_sha256": "f4d77c051941456abb6c45e16dbbed6ad8490af7e62f710148f99fb18710b01e",
-  "prior_commit": "5c577f94a2024b6fb8f725e8e45f7724deecd480",
-  "verified_python_tests": 3909,
+  "release_id": "20260925-coverage-16.1",
+  "source_digest_sha256": "be99980c36ff2932cecfd9760bf6d72e54f3f66524cd5a4a41262ca5c2581c0b",
+  "prior_commit": "ad6a6bceaf0639a6fd4f2fb811f4405ce76cbfa0",
+  "verified_python_tests": 3971,
   "coverage": {
-    "real_reports_tested": 180,
-    "candidate_reports": 164,
-    "companies": 164,
-    "candidate_companies": 150,
-    "issuer_year_pairs": 178,
+    "real_reports_tested": 204,
+    "candidate_reports": 187,
+    "companies": 188,
+    "candidate_companies": 173,
+    "issuer_year_pairs": 202,
     "human_verified_new": 0
   },
-  "note": "Copy-only follow-up to verified batch 15.1: missing excerpts are described without guessing snapshot age in the review UI, HTML and research-case explanations. Financial calculations, original values, units, page provenance, catalog and human-review gates are unchanged. Coverage inherits the verified 180 exact report originals; this patch does not add coverage or human financial approval."
+  "note": "Twenty-four additional 2025 issuers: 23 candidates and 1 evidence gaps; all 180 prior exact PDF receipts unchanged after complete reparse. An explicitly reviewed cross-page cash label recovery preserves original amounts and source spans. Financial formulas and resource limits are unchanged. New 120 current metric comparisons: 114 amount-close, 1 retained differences, 5 not comparable. Not all-market coverage or human financial approval; missing fields stay missing."
 }

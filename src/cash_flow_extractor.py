@@ -405,6 +405,92 @@ def _recovery_original_spans(recoveries, source_pages):
     return True
 
 
+def _cross_page_exchange_pair(source_pages, lines):
+    """Read a split exchange-effect label only at two proven page edges.
+
+    The two amounts stay in their original order on the preceding page. A
+    repeated report header and consecutive printed/physical pages establish
+    that the next page's exact label suffix belongs to this same row. This
+    does not grant the general interleaved-label recovery a looser header.
+    """
+    if len(source_pages) < 2 or _chinese_cash_flow_column_count(lines) != 2:
+        return None
+    physical = [number for number, _ in source_pages]
+    if (any(type(number) is not int or number < 1 for number in physical)
+            or physical != list(range(physical[0], physical[0] + len(physical)))):
+        return None
+    if not _extract_unit(lines):
+        return None
+    start = next((i for i, line in enumerate(lines)
+                  if _compact_chinese_text(line) == "项目"), None)
+    if start is None:
+        return None
+    header = ""
+    for line in lines[start:start + 6]:
+        compact = _compact_chinese_text(line)
+        if compact == "一、经营活动产生的现金流量：":
+            break
+        header += compact
+    years = re.fullmatch(r"项目(20\d{2})年度(20\d{2})年度", header)
+    if years is None or int(years[1]) != int(years[2]) + 1:
+        return None
+    starts = set()
+    for index, line in enumerate(lines):
+        compact = _compact_chinese_text(line)
+        if any(_chinese_label_span(lines, index, label) is not None
+               or (len(compact) >= 6 and _compact_chinese_text(label).startswith(compact))
+               for label in CHINESE_CASH_FLOW_LABELS["exchange"]):
+            starts.add(index)
+    if len(starts) != 1:
+        return None
+    records = []
+    for number, text in source_pages:
+        raw = text.splitlines(keepends=True)
+        nonempty = [(i, line) for i, line in enumerate(raw) if line.strip()]
+        if len(nonempty) < 4:
+            return None
+        title = _compact_chinese_text(nonempty[0][1])
+        issuer = re.fullmatch(r"([\u4e00-\u9fff（）()A-Za-z0-9·]+股份有限公司)"
+                              + years[1] + r"年(?:年)?度报告全文", title)
+        printed = nonempty[1][1].strip()
+        if issuer is None or not re.fullmatch(r"[1-9]\d{0,3}", printed):
+            return None
+        if int(printed) > number:
+            return None
+        records.append((number, raw, nonempty, issuer[1], number - int(printed)))
+    if len({(record[3], record[4]) for record in records}) != 1:
+        return None
+    bounded = _bounded_cash_flow_text("\n".join(text for _, text in source_pages))
+    prefix = "四、汇率变动对现金及现金等价物的"
+    label = prefix + "影响"
+    matches = []
+    for left, right in zip(records, records[1:]):
+        tail = [" ".join(normalize_numeric_parentheses(raw).split()) for _, raw in left[2][-3:]]
+        head = [" ".join(normalize_numeric_parentheses(raw).split()) for _, raw in right[2][:4]]
+        if (_compact_chinese_text(tail[0]) != prefix
+                or _compact_chinese_text(head[2]) != "影响"
+                or _compact_chinese_text(head[3]) != "五、现金及现金等价物净增加额"):
+            continue
+        # Require two explicit numeric cells, never infer a missing cell or
+        # borrow from the following net-change row.
+        if any(not re.search(r"\d", value) for value in tail[1:]):
+            continue
+        pair = _interleaved_label_pair(tail + head[2:], 0, label)
+        if pair is None:
+            continue
+        left_span = "".join(left[1][left[2][-3][0]:])
+        right_span = "".join(right[1][:right[2][2][0] + 1])
+        if left_span + "\n" + right_span not in bounded:
+            continue
+        matches.append((pair[0], dict(
+            kind="cross_page_exchange_label", label=label,
+            header_years=[int(years[1]), int(years[2])],
+            physical_to_printed_offset=left[4],
+            source_spans=[dict(page_number=left[0], original_text=left_span),
+                          dict(page_number=right[0], original_text=right_span)])))
+    return matches[0] if len(matches) == 1 else None
+
+
 def _extract_chinese_row_pair(
     lines: list[str],
     labels: tuple[str, ...],
@@ -718,6 +804,11 @@ def extract_cash_flow_figures(
     lines = _normalise_lines(_bounded_cash_flow_text(clean_text))
     chinese_value_column_count = _chinese_cash_flow_column_count(lines)
     recoveries = []
+    cross_page_exchange = (_cross_page_exchange_pair(original_pages, lines)
+                           if source_pages is not None else None)
+    split_exchange_label = source_pages is not None and any(
+        _compact_chinese_text(line) == "四、汇率变动对现金及现金等价物的"
+        for line in lines)
     if chinese_value_column_count is not None:
         extracted_rows = {
             name: _extract_chinese_row_pair(
@@ -725,10 +816,15 @@ def extract_cash_flow_figures(
                 labels,
                 value_column_count=chinese_value_column_count,
                 recoveries=recoveries,
-                strict_values=clean_text != page_text,
+                strict_values=clean_text != page_text or split_exchange_label,
             )
             for name, labels in CHINESE_CASH_FLOW_LABELS.items()
         }
+        if cross_page_exchange is not None:
+            # A competing complete row is ambiguous even if amounts match.
+            if extracted_rows["exchange"] is not None:
+                return None
+            extracted_rows["exchange"] = cross_page_exchange[0]
         net_change_includes_exchange = True
         statement_format = "chinese_a_share"
     elif "Group cash flow statement" in lines:
@@ -786,6 +882,8 @@ def extract_cash_flow_figures(
         return None
     if page_recovery:
         recoveries.append(page_recovery[1])
+    if cross_page_exchange is not None:
+        recoveries.append(cross_page_exchange[1])
     current_weeks, previous_weeks = _extract_period_weeks(lines)
     figures = {
         "rounding_note": ("整数缩放单位勾稽：允许最多1个原始单位差异，仍待人工复核。" if tolerance == 1 else ""),
