@@ -1,15 +1,15 @@
 {
-  "release_id": "20260925-coverage-16.1",
-  "source_digest_sha256": "be99980c36ff2932cecfd9760bf6d72e54f3f66524cd5a4a41262ca5c2581c0b",
-  "prior_commit": "ad6a6bceaf0639a6fd4f2fb811f4405ce76cbfa0",
-  "verified_python_tests": 3971,
+  "release_id": "20260925-coverage-17.1",
+  "source_digest_sha256": "ba35ea1739dde3bef811582b383c8b86b5a783a9c75072ff834186bc9d61e87a",
+  "prior_commit": "523a5df968f428e4d16f540d9e29921ad4cbfbfe",
+  "verified_python_tests": 4019,
   "coverage": {
-    "real_reports_tested": 204,
-    "candidate_reports": 187,
-    "companies": 188,
-    "candidate_companies": 173,
-    "issuer_year_pairs": 202,
+    "real_reports_tested": 252,
+    "candidate_reports": 225,
+    "companies": 236,
+    "candidate_companies": 211,
+    "issuer_year_pairs": 250,
     "human_verified_new": 0
   },
-  "note": "Twenty-four additional 2025 issuers: 23 candidates and 1 evidence gaps; all 180 prior exact PDF receipts unchanged after complete reparse. An explicitly reviewed cross-page cash label recovery preserves original amounts and source spans. Financial formulas and resource limits are unchanged. New 120 current metric comparisons: 114 amount-close, 1 retained differences, 5 not comparable. Not all-market coverage or human financial approval; missing fields stay missing."
+  "note": "Forty-eight additional 2025 issuers: 38 candidates and 10 evidence gaps; All 204 prior exact PDF receipts unchanged after complete reparse. Production parser, financial formulas, original source values and resource limits are unchanged. New 240 current metric comparisons: 186 amount-close, 4 retained differences, 50 not comparable. Not all-market coverage or human financial approval; missing fields stay missing."
 }
